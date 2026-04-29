@@ -50,6 +50,47 @@ app.get('/challenges', async (req, res) => {
     res.json({ error: 'Error obteniendo challenges', detalle: error.message });
   }
 });
+// Inscribir usuario a un challenge
+app.post('/challenges/inscribir', async (req, res) => {
+  const { user_id, challenge_id, modalidad } = req.body;
+
+  try {
+    const { data: existente } = await supabase
+      .from('user_challenges')
+      .select('id')
+      .eq('user_id', user_id)
+      .eq('challenge_id', challenge_id)
+      .eq('modalidad', modalidad)
+      .single();
+
+    if (existente) {
+      return res.json({ mensaje: 'Ya estas inscripto en este challenge con esta modalidad' });
+    }
+
+    const { data, error } = await supabase
+      .from('user_challenges')
+      .insert({
+        user_id,
+        challenge_id,
+        modalidad,
+        status: 'active',
+        km_completed: 0,
+        started_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      mensaje: 'Inscripcion exitosa! Ya podes empezar tu reto',
+      id: data.id
+    });
+
+  } catch (error) {
+    res.json({ error: 'Error al inscribirse', detalle: error.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
