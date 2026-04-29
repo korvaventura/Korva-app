@@ -114,4 +114,50 @@ router.get('/actividades/:userId', async (req, res) => {
     res.json({ error: 'Error importando actividades', detalle: error.message });
   }
 });
+// Calcular progreso del usuario en su challenge activo
+router.get('/progreso/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const supabase = getSupabase();
+
+  try {
+    // Buscar el challenge activo del usuario
+    const { data: userChallenge, error: challengeError } = await supabase
+      .from('user_challenges')
+      .select('*, challenges(*)')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .single();
+
+    if (challengeError) throw challengeError;
+
+    // Sumar todos los km de actividades del usuario
+    const { data: actividades, error: actError } = await supabase
+      .from('activities')
+      .select('distance_km')
+      .eq('user_id', userId)
+      .eq('sport_type', userChallenge.challenges.sport_type);
+
+    if (actError) throw actError;
+
+    const totalKm = actividades.reduce((sum, a) => sum + a.distance_km, 0);
+    const porcentaje = Math.min((totalKm / userChallenge.challenges.total_distance_km) * 100, 100).toFixed(1);
+
+    // Actualizar km_completed en la base de datos
+    await supabase
+      .from('user_challenges')
+      .update({ km_completed: totalKm })
+      .eq('id', userChallenge.id);
+
+    res.json({
+      challenge: userChallenge.challenges.title,
+      distancia_total: userChallenge.challenges.total_distance_km,
+      km_completados: totalKm.toFixed(2),
+      porcentaje: `${porcentaje}%`,
+      estado: porcentaje >= 100 ? '🏅 COMPLETADO' : '🏃 En progreso'
+    });
+
+  } catch (error) {
+    res.json({ error: 'Error calculando progreso', detalle: error.message });
+  }
+});
 module.exports = router;
