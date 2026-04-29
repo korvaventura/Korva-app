@@ -2,7 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { useState, useEffect } from 'react';
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 const USER_ID = 'd7a14473-49bb-4afd-bcad-d0b27c15a39d';
 
 export default function HomeScreen() {
