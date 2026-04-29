@@ -1,13 +1,17 @@
 const express = require('express');
 const router = express.Router();
+const { createClient } = require('@supabase/supabase-js');
 
 const REDIRECT_URI = 'http://localhost:3000/strava/callback';
 
+const getSupabase = () => createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SECRET
+);
+
 // Paso 1 — Redirigir al usuario a Strava para autorizar
 router.get('/auth', (req, res) => {
-  const clientId = process.env.STRAVA_CLIENT_ID;
-  const clientSecret = process.env.STRAVA_CLIENT_SECRET;
- const stravaAuthUrl = `https://www.strava.com/oauth/authorize?client_id=232688&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=force&scope=activity:read_all`;
+  const stravaAuthUrl = `https://www.strava.com/oauth/authorize?client_id=232688&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=force&scope=activity:read_all`;
   res.redirect(stravaAuthUrl);
 });
 
@@ -18,6 +22,7 @@ router.get('/callback', async (req, res) => {
   const clientSecret = process.env.STRAVA_CLIENT_SECRET;
 
   try {
+    // Intercambiar codigo por token
     const response = await fetch('https://www.strava.com/oauth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -31,15 +36,82 @@ router.get('/callback', async (req, res) => {
 
     const data = await response.json();
 
+    const stravaAthlete = data.athlete;
+    const accessToken = data.access_token;
+    const refreshToken = data.refresh_token;
+
+    // Guardar usuario en Supabase
+    const supabase = getSupabase();
+    const { data: user, error } = await supabase
+      .from('users')
+      .upsert({
+        email: stravaAthlete?.email || `strava_${stravaAthlete?.id}@korva.app`,
+        name: `${stravaAthlete?.firstname} ${stravaAthlete?.lastname}`,
+        avatar_url: stravaAthlete?.profile,
+        strava_token: accessToken,
+      }, { onConflict: 'email' })
+      .select()
+      .single();
+
+    if (error) throw error;
+
     res.json({
-      mensaje: 'Strava conectado exitosamente 🎉',
-      atleta: data.athlete?.firstname + ' ' + data.athlete?.lastname,
-      token: data.access_token
+      mensaje: 'Strava conectado y usuario guardado en Korva 🎉',
+      usuario: user.name,
+      id: user.id
     });
 
   } catch (error) {
     res.json({ error: 'Error conectando con Strava', detalle: error.message });
   }
 });
+// Importar actividades de Strava del usuario
+router.get('/actividades/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const supabase = getSupabase();
 
+  try {
+    // Buscar el token del usuario en Supabase
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('strava_token, name')
+      .eq('id', userId)
+      .single();
+
+    if (error) throw error;
+
+    // Pedir actividades a Strava
+    const response = await fetch('https://www.strava.com/api/v3/athlete/activities?per_page=10', {
+      headers: { 'Authorization': `Bearer ${user.strava_token}` }
+    });
+
+    const actividades = await response.json();
+
+    // Guardar cada actividad en Supabase
+    for (const actividad of actividades) {
+      await supabase.from('activities').upsert({
+        user_id: userId,
+        source: 'strava',
+        external_id: String(actividad.id),
+        sport_type: actividad.type.toLowerCase(),
+        distance_km: actividad.distance / 1000,
+        duration_seconds: actividad.moving_time,
+        recorded_at: actividad.start_date
+      }, { onConflict: 'external_id' });
+    }
+
+    res.json({
+      mensaje: `${actividades.length} actividades importadas de Strava 🏃`,
+      usuario: user.name,
+      actividades: actividades.map(a => ({
+        nombre: a.name,
+        tipo: a.type,
+        distancia_km: (a.distance / 1000).toFixed(2)
+      }))
+    });
+
+  } catch (error) {
+    res.json({ error: 'Error importando actividades', detalle: error.message });
+  }
+});
 module.exports = router;
