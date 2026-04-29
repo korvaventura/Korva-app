@@ -135,7 +135,8 @@ router.get('/progreso/:userId', async (req, res) => {
       .from('activities')
       .select('distance_km')
       .eq('user_id', userId)
-      .eq('sport_type', userChallenge.challenges.sport_type);
+      .eq('sport_type', userChallenge.challenges.sport_type)
+      .gte('recorded_at', userChallenge.started_at);
 
     if (actError) throw actError;
 
