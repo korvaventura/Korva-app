@@ -1,0 +1,41 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const { createClient } = require('@supabase/supabase-js');
+const stravaRoutes = require('./routes/strava');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Conexion a Supabase
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SECRET
+);
+
+app.use(cors());
+app.use(express.json());
+app.use('/strava', stravaRoutes);
+
+// Ruta de prueba
+app.get('/', (req, res) => {
+  res.json({ 
+    mensaje: 'Bienvenido al backend de Korva 🏅',
+    estado: 'funcionando'
+  });
+});
+
+// Ruta para probar conexion con Supabase
+app.get('/test-db', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('users').select('*').limit(1);
+    if (error) throw error;
+    res.json({ mensaje: 'Conexion a Supabase exitosa 🎉', data });
+  } catch (error) {
+    res.json({ mensaje: 'Supabase conectado, tabla users aun no existe', detalle: error.message });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Servidor Korva corriendo en puerto ${PORT}`);
+});
