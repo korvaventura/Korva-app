@@ -120,15 +120,19 @@ router.get('/progreso/:userId', async (req, res) => {
     if (challengeError) throw challengeError;
 
     const resultados = await Promise.all(userChallenges.map(async (uc) => {
+      const modalidades = uc.challenges.modalidades || [];
+      const modalidadElegida = modalidades.find(m => m.tipo === uc.modalidad) ||
+        { distancia_km: uc.challenges.total_distance_km };
+
       const { data: actividades } = await supabase
         .from('activities')
         .select('distance_km')
         .eq('user_id', userId)
-        .eq('sport_type', uc.challenges.sport_type)
+        .eq('sport_type', uc.modalidad || uc.challenges.sport_type)
         .gte('recorded_at', uc.started_at);
 
       const totalKm = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
-      const porcentaje = Math.min((totalKm / uc.challenges.total_distance_km) * 100, 100).toFixed(1);
+      const porcentaje = Math.min((totalKm / modalidadElegida.distancia_km) * 100, 100).toFixed(1);
 
       await supabase
         .from('user_challenges')
@@ -137,8 +141,9 @@ router.get('/progreso/:userId', async (req, res) => {
 
       return {
         challenge: uc.challenges.title,
-        deporte: uc.challenges.sport_type,
-        distancia_total: uc.challenges.total_distance_km,
+        modalidad: uc.modalidad === 'run' ? 'Running' : uc.modalidad === 'ride' ? 'Ciclismo' : 'General',
+        deporte: uc.modalidad || uc.challenges.sport_type,
+        distancia_total: modalidadElegida.distancia_km,
         km_completados: totalKm.toFixed(2),
         porcentaje: `${porcentaje}%`,
         estado: porcentaje >= 100 ? 'COMPLETADO' : 'En progreso'

@@ -35,7 +35,21 @@ app.get('/test-db', async (req, res) => {
     res.json({ mensaje: 'Supabase conectado, tabla users aun no existe', detalle: error.message });
   }
 });
+// Ruta para obtener todos los challenges disponibles
+app.get('/challenges', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('challenges')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: true });
 
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.json({ error: 'Error obteniendo challenges', detalle: error.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });

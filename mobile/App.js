@@ -13,8 +13,10 @@ export default function App() {
     cargarProgreso();
   }, []);
 
-  const cargarProgreso = async () => {
+const cargarProgreso = async () => {
     try {
+      setCargando(true);
+      await fetch(`${BACKEND_URL}/strava/actividades/${USER_ID}`);
       const res = await fetch(`${BACKEND_URL}/strava/progreso/${USER_ID}`);
       const data = await res.json();
       setChallenges(data);
