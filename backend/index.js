@@ -73,7 +73,7 @@ app.post('/challenges/inscribir', async (req, res) => {
         user_id,
         challenge_id,
         modalidad,
-        status: 'active',
+        status: 'pending',
         km_completed: 0,
         started_at: new Date().toISOString()
       })

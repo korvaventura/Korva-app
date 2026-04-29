@@ -4,11 +4,18 @@ import { useState, useEffect } from 'react';
 const BACKEND_URL = 'http://localhost:3000';
 const USER_ID = 'd7a14473-49bb-4afd-bcad-d0b27c15a39d';
 
+const PAGOS = {
+  argentina: 'https://mercadopago.com.ar/checkout/v1/payment/redirect/?source=link&preference-id=219142022-90f45334-5f3f-4915-9257-8bd9927358f7&router-request-id=598a77b8-fb4f-4a59-a7af-726a549fee84',
+  internacional: 'https://korva.run/checkouts/cn/hWNBaFxYXSDjdVEYt4dknUlo/es-au?_r=AQABySzhco79xS3HYq8eSjDO34Kb_o1URh9NZ-OcTwEZBDI&auto_redirect=false&edge_redirect=true&skip_shop_pay=true',
+};
+
 export default function CatalogoScreen() {
   const [challenges, setChallenges] = useState([]);
   const [cargando, setCargando] = useState(true);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [modalModalidad, setModalModalidad] = useState(false);
+  const [modalPais, setModalPais] = useState(false);
   const [challengeSeleccionado, setChallengeSeleccionado] = useState(null);
+  const [modalidadSeleccionada, setModalidadSeleccionada] = useState(null);
 
   useEffect(() => {
     cargarChallenges();
@@ -28,10 +35,10 @@ export default function CatalogoScreen() {
 
   const abrirModal = (challenge) => {
     setChallengeSeleccionado(challenge);
-    setModalVisible(true);
+    setModalModalidad(true);
   };
 
-  const inscribirse = async (modalidad) => {
+  const elegirModalidad = async (modalidad) => {
     try {
       const res = await fetch(`${BACKEND_URL}/challenges/inscribir`, {
         method: 'POST',
@@ -43,11 +50,24 @@ export default function CatalogoScreen() {
         })
       });
       const data = await res.json();
-      setModalVisible(false);
-      alert(data.mensaje || 'Inscripto exitosamente!');
+      setModalModalidad(false);
+
+      if (data.mensaje === 'Ya estas inscripto en este challenge con esta modalidad') {
+        alert(data.mensaje);
+        return;
+      }
+
+      setModalidadSeleccionada(modalidad);
+      setModalPais(true);
+
     } catch (error) {
       alert('Error al inscribirse');
     }
+  };
+
+  const elegirPais = (pais) => {
+    setModalPais(false);
+    window.open(PAGOS[pais], '_blank');
   };
 
   return (
@@ -85,25 +105,49 @@ export default function CatalogoScreen() {
         ))
       )}
 
-      <Modal visible={modalVisible} transparent animationType="slide">
+      {/* Modal modalidad */}
+      <Modal visible={modalModalidad} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitulo}>Elegí tu modalidad</Text>
+            <Text style={styles.modalTitulo}>Elegi tu modalidad</Text>
             <Text style={styles.modalSubtitulo}>{challengeSeleccionado?.title}</Text>
-
             {challengeSeleccionado?.modalidades?.map((m, i) => (
-              <TouchableOpacity key={i} style={styles.modalButton} onPress={() => inscribirse(m.tipo)}>
+              <TouchableOpacity key={i} style={styles.modalButton} onPress={() => elegirModalidad(m.tipo)}>
                 <Text style={styles.modalButtonTitulo}>{m.label}</Text>
                 <Text style={styles.modalButtonKm}>{m.distancia_km} km</Text>
               </TouchableOpacity>
             ))}
-
-            <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalVisible(false)}>
+            <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalModalidad(false)}>
               <Text style={styles.modalCancelarText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
+
+      {/* Modal pais */}
+      <Modal visible={modalPais} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitulo}>Donde estas?</Text>
+            <Text style={styles.modalSubtitulo}>Elegí tu metodo de pago</Text>
+
+            <TouchableOpacity style={styles.modalButton} onPress={() => elegirPais('argentina')}>
+              <Text style={styles.modalButtonTitulo}>Argentina</Text>
+              <Text style={styles.modalButtonKm}>Mercado Pago</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.modalButton} onPress={() => elegirPais('internacional')}>
+              <Text style={styles.modalButtonTitulo}>Resto del mundo</Text>
+              <Text style={styles.modalButtonKm}>Tarjeta / Shopify</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalPais(false)}>
+              <Text style={styles.modalCancelarText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </ScrollView>
   );
 }
