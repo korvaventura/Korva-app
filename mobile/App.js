@@ -1,7 +1,14 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+
+const BACKEND_URL = 'http://localhost:3000';
 
 export default function App() {
+  const conectarStrava = async () => {
+    await WebBrowser.openBrowserAsync(`${BACKEND_URL}/strava/auth`);
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>KORVA</Text>
@@ -14,7 +21,7 @@ export default function App() {
         </View>
         <Text style={styles.progressText}>72.93 km completados - 70.8%</Text>
       </View>
-      <TouchableOpacity style={styles.button}>
+      <TouchableOpacity style={styles.button} onPress={conectarStrava}>
         <Text style={styles.buttonText}>Conectar con Strava</Text>
       </TouchableOpacity>
       <StatusBar style="light" />
