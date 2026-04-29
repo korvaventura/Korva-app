@@ -1,12 +1,12 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { useState, useEffect } from 'react';
 
 const BACKEND_URL = 'http://localhost:3000';
 const USER_ID = 'd7a14473-49bb-4afd-bcad-d0b27c15a39d';
 
 export default function App() {
-  const [progreso, setProgreso] = useState(null);
+  const [challenges, setChallenges] = useState([]);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
@@ -17,9 +17,9 @@ export default function App() {
     try {
       const res = await fetch(`${BACKEND_URL}/strava/progreso/${USER_ID}`);
       const data = await res.json();
-      setProgreso(data);
+      setChallenges(data);
     } catch (error) {
-      console.error('Error cargando progreso:', error);
+      console.error('Error:', error);
     } finally {
       setCargando(false);
     }
@@ -29,27 +29,32 @@ export default function App() {
     window.open(`${BACKEND_URL}/strava/auth`, '_blank');
   };
 
-  const porcentaje = progreso ? parseFloat(progreso.porcentaje) : 0;
-
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       <Text style={styles.logo}>KORVA</Text>
       <Text style={styles.tagline}>Desafios virtuales. Medallas reales.</Text>
 
       {cargando ? (
         <ActivityIndicator size="large" color="#1E6FD9" />
       ) : (
-        <View style={styles.card}>
-          <Text style={styles.challengeTitle}>{progreso?.challenge}</Text>
-          <Text style={styles.challengeDistance}>{progreso?.distancia_total} km</Text>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${porcentaje}%` }]} />
+        challenges.map((item, index) => (
+          <View key={index} style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.deporte}>
+                {item.deporte === 'run' ? 'RUNNING' : 'CICLISMO'}
+              </Text>
+            </View>
+            <Text style={styles.challengeTitle}>{item.challenge}</Text>
+            <Text style={styles.challengeDistance}>{item.distancia_total} km totales</Text>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${parseFloat(item.porcentaje)}%` }]} />
+            </View>
+            <Text style={styles.progressText}>
+              {item.km_completados} km completados - {item.porcentaje}
+            </Text>
+            <Text style={styles.estado}>{item.estado}</Text>
           </View>
-          <Text style={styles.progressText}>
-            {progreso?.km_completados} km completados - {progreso?.porcentaje}
-          </Text>
-          <Text style={styles.estado}>{progreso?.estado}</Text>
-        </View>
+        ))
       )}
 
       <TouchableOpacity style={styles.button} onPress={conectarStrava}>
@@ -61,17 +66,20 @@ export default function App() {
       </TouchableOpacity>
 
       <StatusBar style="light" />
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scroll: {
     flex: 1,
     backgroundColor: '#0D1B2A',
+  },
+  container: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
+    paddingTop: 60,
   },
   logo: {
     fontSize: 36,
@@ -89,7 +97,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 24,
     width: '100%',
-    marginBottom: 24,
+    marginBottom: 16,
+  },
+  cardHeader: {
+    marginBottom: 8,
+  },
+  deporte: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#1E6FD9',
+    letterSpacing: 1,
   },
   challengeTitle: {
     fontSize: 22,
@@ -116,10 +133,10 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: 13,
     color: '#A8CFFF',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   estado: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#FFFFFF',
     fontWeight: 'bold',
   },
@@ -131,6 +148,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     marginBottom: 12,
+    marginTop: 8,
   },
   buttonText: {
     color: '#FFFFFF',
