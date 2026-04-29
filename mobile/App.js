@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import HomeScreen from './screens/HomeScreen';
 import CatalogoScreen from './screens/CatalogoScreen';
+import PerfilScreen from './screens/PerfilScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -29,6 +30,11 @@ export default function App() {
           name="Catalogo"
           component={CatalogoScreen}
           options={{ tabBarIcon: () => <Text>🏅</Text> }}
+        />
+        <Tab.Screen
+          name="Perfil"
+          component={PerfilScreen}
+          options={{ tabBarIcon: () => <Text>👤</Text> }}
         />
       </Tab.Navigator>
     </NavigationContainer>

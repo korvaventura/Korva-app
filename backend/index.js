@@ -91,6 +91,47 @@ app.post('/challenges/inscribir', async (req, res) => {
     res.json({ error: 'Error al inscribirse', detalle: error.message });
   }
 });
+// Ruta de perfil del usuario
+app.get('/perfil/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const { data: usuario, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error) throw error;
+
+    const { data: actividades } = await supabase
+      .from('activities')
+      .select('distance_km')
+      .eq('user_id', userId);
+
+    const { data: challenges } = await supabase
+      .from('user_challenges')
+      .select('status')
+      .eq('user_id', userId);
+
+    const totalKm = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
+    const activos = challenges?.filter(c => c.status === 'active').length || 0;
+    const completados = challenges?.filter(c => c.status === 'completed').length || 0;
+
+    res.json({
+      usuario,
+      stats: {
+        total_actividades: actividades?.length || 0,
+        total_km: totalKm.toFixed(1),
+        challenges_activos: activos,
+        medallas: completados
+      }
+    });
+
+  } catch (error) {
+    res.json({ error: 'Error cargando perfil', detalle: error.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
