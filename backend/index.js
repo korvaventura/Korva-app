@@ -4,6 +4,8 @@ const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const stravaRoutes = require('./routes/strava');
 const shopifyRoutes = require('./routes/shopify');
+const mercadopagoRoutes = require('./routes/mercadopago');
+app.use('/mercadopago', mercadopagoRoutes);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
