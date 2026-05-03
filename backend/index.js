@@ -5,7 +5,6 @@ const { createClient } = require('@supabase/supabase-js');
 const stravaRoutes = require('./routes/strava');
 const shopifyRoutes = require('./routes/shopify');
 const mercadopagoRoutes = require('./routes/mercadopago');
-app.use('/mercadopago', mercadopagoRoutes);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,6 +18,7 @@ app.use(cors());
 app.use(express.json());
 app.use('/strava', stravaRoutes);
 app.use('/shopify', shopifyRoutes);
+app.use('/mercadopago', mercadopagoRoutes);
 
 app.get('/', (req, res) => {
   res.json({ mensaje: 'Bienvenido al backend de Korva 🏅', estado: 'funcionando' });
