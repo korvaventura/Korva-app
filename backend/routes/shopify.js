@@ -7,16 +7,14 @@ const getSupabase = () => createClient(
   process.env.SUPABASE_SECRET
 );
 
-// Webhook de Shopify — se llama cuando alguien paga
 router.post('/webhook/order', async (req, res) => {
+  console.log('Webhook Shopify recibido!', req.body?.email);
   const order = req.body;
   const supabase = getSupabase();
 
   try {
     const email = order.email;
-    const nombre = `${order.billing_address?.first_name} ${order.billing_address?.last_name}`;
 
-    // Buscar usuario por email
     const { data: user } = await supabase
       .from('users')
       .select('id')
@@ -27,7 +25,6 @@ router.post('/webhook/order', async (req, res) => {
       return res.status(200).json({ mensaje: 'Usuario no encontrado en Korva' });
     }
 
-    // Activar el challenge pendiente mas reciente
     const { data: pendiente } = await supabase
       .from('user_challenges')
       .select('id')
