@@ -6,8 +6,10 @@ const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
 export default function PerfilScreen() {
   const [usuario, setUsuario] = useState(null);
-  const [stats, setStats] = useState(null);
-  const [userId, setUserId] = useState(null);
+const [stats, setStats] = useState(null);
+const [userId, setUserId] = useState(null);
+const [nivel, setNivel] = useState(null);
+const [insignias, setInsignias] = useState([]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -24,7 +26,9 @@ export default function PerfilScreen() {
       const res = await fetch(`${BACKEND_URL}/perfil/${userId}`);
       const data = await res.json();
       setUsuario(data.usuario);
-      setStats(data.stats);
+setStats(data.stats);
+setNivel(data.nivel);
+setInsignias(data.insignias || []);
     } catch (error) {
       console.error('Error:', error);
     }
