@@ -247,6 +247,24 @@ app.post('/usuarios/perfil', async (req, res) => {
     res.json({ error: 'Error creando perfil', detalle: error.message });
   }
 });
+// Guardar direccion de envio del usuario
+app.post('/usuarios/direccion', async (req, res) => {
+  const { user_id, shipping_address } = req.body;
+
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .update({ shipping_address })
+      .eq('id', user_id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ mensaje: 'Direccion guardada exitosamente', usuario: data });
+  } catch (error) {
+    res.json({ error: 'Error guardando direccion', detalle: error.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });

@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import CompletadoScreen from './CompletadoScreen';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -9,12 +10,11 @@ export default function HomeScreen() {
   const [challenges, setChallenges] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [userId, setUserId] = useState(null);
+  const [completado, setCompletado] = useState(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.id) {
-        setUserId(session.user.id);
-      }
+      if (session?.user?.id) setUserId(session.user.id);
     });
   }, []);
 
@@ -28,7 +28,13 @@ export default function HomeScreen() {
       await fetch(`${BACKEND_URL}/strava/actividades/${userId}`);
       const res = await fetch(`${BACKEND_URL}/strava/progreso/${userId}`);
       const data = await res.json();
-      setChallenges(Array.isArray(data) ? data : []);
+      const lista = Array.isArray(data) ? data : [];
+      setChallenges(lista);
+
+      // Verificar si hay alguno completado
+      const reto100 = lista.find(c => parseFloat(c.porcentaje) >= 100);
+      if (reto100) setCompletado(reto100.challenge);
+
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -39,6 +45,17 @@ export default function HomeScreen() {
   const conectarStrava = () => {
     window.open(`${BACKEND_URL}/strava/auth`, '_blank');
   };
+
+  // Si hay un reto completado mostrar pantalla especial
+  if (completado) {
+    return (
+      <CompletadoScreen
+        challenge={completado}
+        userId={userId}
+        onVolver={() => setCompletado(null)}
+      />
+    );
+  }
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
@@ -61,12 +78,14 @@ export default function HomeScreen() {
             <Text style={styles.challengeTitle}>{item.challenge}</Text>
             <Text style={styles.challengeDistance}>{item.distancia_total} km totales</Text>
             <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${parseFloat(item.porcentaje)}%` }]} />
+              <View style={[styles.progressFill, { width: `${Math.min(parseFloat(item.porcentaje), 100)}%` }]} />
             </View>
             <Text style={styles.progressText}>
               {item.km_completados} km completados - {item.porcentaje}
             </Text>
-            <Text style={styles.estado}>{item.estado}</Text>
+            <Text style={[styles.estado, parseFloat(item.porcentaje) >= 100 && styles.estadoCompletado]}>
+              {item.estado}
+            </Text>
           </View>
         ))
       )}
@@ -101,6 +120,7 @@ const styles = StyleSheet.create({
   progressFill: { height: 10, backgroundColor: '#1E6FD9', borderRadius: 5 },
   progressText: { fontSize: 13, color: '#A8CFFF', marginBottom: 4 },
   estado: { fontSize: 13, color: '#FFFFFF', fontWeight: 'bold' },
+  estadoCompletado: { color: '#FC4C02' },
   button: { backgroundColor: '#FC4C02', paddingVertical: 16, paddingHorizontal: 32, borderRadius: 12, width: '100%', alignItems: 'center', marginBottom: 12, marginTop: 8 },
   buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
   buttonSecundario: { borderWidth: 1, borderColor: '#1E6FD9', paddingVertical: 14, paddingHorizontal: 32, borderRadius: 12, width: '100%', alignItems: 'center' },
