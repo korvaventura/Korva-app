@@ -1,8 +1,8 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { useState, useEffect } from 'react';
+import { supabase } from '../supabase';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
-const USER_ID = 'd7a14473-49bb-4afd-bcad-d0b27c15a39d';
 
 const PAGOS = {
   argentina: 'https://mercadopago.com.ar/checkout/v1/payment/redirect/?source=link&preference-id=219142022-90f45334-5f3f-4915-9257-8bd9927358f7&router-request-id=598a77b8-fb4f-4a59-a7af-726a549fee84',
@@ -16,8 +16,12 @@ export default function CatalogoScreen() {
   const [modalPais, setModalPais] = useState(false);
   const [challengeSeleccionado, setChallengeSeleccionado] = useState(null);
   const [modalidadSeleccionada, setModalidadSeleccionada] = useState(null);
+  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.id) setUserId(session.user.id);
+    });
     cargarChallenges();
   }, []);
 
@@ -44,7 +48,7 @@ export default function CatalogoScreen() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: USER_ID,
+          user_id: userId,
           challenge_id: challengeSeleccionado.id,
           modalidad: modalidad
         })
@@ -105,7 +109,6 @@ export default function CatalogoScreen() {
         ))
       )}
 
-      {/* Modal modalidad */}
       <Modal visible={modalModalidad} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -124,30 +127,25 @@ export default function CatalogoScreen() {
         </View>
       </Modal>
 
-      {/* Modal pais */}
       <Modal visible={modalPais} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitulo}>Donde estas?</Text>
-            <Text style={styles.modalSubtitulo}>Elegí tu metodo de pago</Text>
-
+            <Text style={styles.modalSubtitulo}>Elegi tu metodo de pago</Text>
             <TouchableOpacity style={styles.modalButton} onPress={() => elegirPais('argentina')}>
               <Text style={styles.modalButtonTitulo}>Argentina</Text>
               <Text style={styles.modalButtonKm}>Mercado Pago</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.modalButton} onPress={() => elegirPais('internacional')}>
               <Text style={styles.modalButtonTitulo}>Resto del mundo</Text>
               <Text style={styles.modalButtonKm}>Tarjeta / Shopify</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalPais(false)}>
               <Text style={styles.modalCancelarText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-
     </ScrollView>
   );
 }

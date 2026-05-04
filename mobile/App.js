@@ -1,15 +1,38 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
+import { useState, useEffect } from 'react';
+import { supabase } from './supabase';
 import HomeScreen from './screens/HomeScreen';
 import CatalogoScreen from './screens/CatalogoScreen';
 import PerfilScreen from './screens/PerfilScreen';
 import RegistroManualScreen from './screens/RegistroManualScreen';
 import AdminScreen from './screens/AdminScreen';
+import LoginScreen from './screens/LoginScreen';
 
 const Tab = createBottomTabNavigator();
 
 export default function App() {
+  const [usuario, setUsuario] = useState(null);
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUsuario(session?.user ?? null);
+      setCargando(false);
+    });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      setUsuario(session?.user ?? null);
+    });
+  }, []);
+
+  if (cargando) return null;
+
+  if (!usuario) {
+    return <LoginScreen onLogin={(user) => setUsuario(user)} />;
+  }
+
   return (
     <NavigationContainer>
       <Tab.Navigator

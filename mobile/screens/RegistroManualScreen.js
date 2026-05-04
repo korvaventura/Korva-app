@@ -1,18 +1,29 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../supabase';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
-const USER_ID = 'd7a14473-49bb-4afd-bcad-d0b27c15a39d';
 
-export default function RegistroManualScreen({ navigation }) {
+export default function RegistroManualScreen() {
   const [deporte, setDeporte] = useState('run');
   const [distancia, setDistancia] = useState('');
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [userId, setUserId] = useState(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.id) setUserId(session.user.id);
+    });
+  }, []);
 
   const registrar = async () => {
     if (!distancia || parseFloat(distancia) <= 0) {
       setMensaje('Ingresa una distancia valida');
+      return;
+    }
+    if (!userId) {
+      setMensaje('Error de sesion, intenta de nuevo');
       return;
     }
 
@@ -24,7 +35,7 @@ export default function RegistroManualScreen({ navigation }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: USER_ID,
+          user_id: userId,
           sport_type: deporte,
           distance_km: parseFloat(distancia),
           recorded_at: new Date().toISOString()
@@ -114,11 +125,7 @@ const styles = StyleSheet.create({
   deporteBtnActivo: { backgroundColor: '#1E6FD9' },
   deporteBtnText: { color: '#A8CFFF', fontSize: 12, fontWeight: 'bold' },
   deporteBtnTextActivo: { color: '#FFFFFF' },
-  input: {
-    backgroundColor: '#0D1B2A', borderRadius: 10, padding: 14,
-    color: '#FFFFFF', fontSize: 18, fontWeight: 'bold',
-    borderWidth: 1, borderColor: '#1E6FD9', marginBottom: 8
-  },
+  input: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 14, color: '#FFFFFF', fontSize: 18, fontWeight: 'bold', borderWidth: 1, borderColor: '#1E6FD9', marginBottom: 8 },
   fechaBox: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 14 },
   fechaText: { color: '#A8CFFF', fontSize: 14 },
   mensajeBox: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 16, marginBottom: 16 },
