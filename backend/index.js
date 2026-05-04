@@ -275,7 +275,7 @@ app.get('/ranking/:challengeId', async (req, res) => {
       .from('user_challenges')
       .select('*, users(name, avatar_url)')
       .eq('challenge_id', challengeId)
-      .eq('status', 'active')
+      .in('status', ['active', 'completed', 'shipped'])
       .order('km_completed', { ascending: false });
 
     if (error) throw error;
