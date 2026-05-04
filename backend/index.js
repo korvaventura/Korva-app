@@ -5,6 +5,7 @@ const { createClient } = require('@supabase/supabase-js');
 const stravaRoutes = require('./routes/strava');
 const shopifyRoutes = require('./routes/shopify');
 const mercadopagoRoutes = require('./routes/mercadopago');
+const { enviarEmailInscripcion } = require('./routes/emails');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -77,7 +78,31 @@ app.post('/challenges/inscribir', async (req, res) => {
       .single();
 
     if (error) throw error;
-    res.json({ mensaje: 'Inscripcion exitosa! Ya podes empezar tu reto', id: data.id });
+    // Buscar datos del challenge para el email
+const { data: challenge } = await supabase
+  .from('challenges')
+  .select('title')
+  .eq('id', challenge_id)
+  .single();
+
+// Buscar datos del usuario para el email
+const { data: usuario } = await supabase
+  .from('users')
+  .select('email, name')
+  .eq('id', user_id)
+  .single();
+
+// Enviar email de confirmacion
+if (usuario?.email && challenge?.title) {
+  enviarEmailInscripcion(
+    usuario.email,
+    usuario.name,
+    challenge.title,
+    modalidad === 'run' ? 'Running' : 'Ciclismo'
+  );
+}
+
+res.json({ mensaje: 'Inscripcion exitosa! Ya podes empezar tu reto', id: data.id });
   } catch (error) {
     res.json({ error: 'Error al inscribirse', detalle: error.message });
   }
@@ -143,6 +168,7 @@ app.post('/actividades/manual', async (req, res) => {
     res.json({ error: 'Error registrando actividad', detalle: error.message });
   }
 });
+
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
