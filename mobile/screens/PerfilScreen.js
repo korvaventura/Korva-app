@@ -11,9 +11,7 @@ export default function PerfilScreen() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.id) {
-        setUserId(session.user.id);
-      }
+      if (session?.user?.id) setUserId(session.user.id);
     });
   }, []);
 
@@ -35,6 +33,8 @@ export default function PerfilScreen() {
   const cerrarSesion = async () => {
     await supabase.auth.signOut();
   };
+
+  const direccion = usuario?.shipping_address;
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
@@ -79,6 +79,29 @@ export default function PerfilScreen() {
         )}
       </View>
 
+      <View style={styles.seccion}>
+        <Text style={styles.seccionTitulo}>Direccion de envio</Text>
+        {direccion ? (
+          <View style={styles.direccionCard}>
+    <Text style={styles.direccionNombre}>{direccion.nombre}</Text>
+    <Text style={styles.direccionLinea}>{direccion.direccion}</Text>
+    <Text style={styles.direccionLinea}>{direccion.ciudad}, {direccion.codigo_postal}</Text>
+    <Text style={styles.direccionLinea}>{direccion.pais}</Text>
+    {direccion.telefono && (
+      <Text style={styles.direccionTel}>📞 {direccion.telefono}</Text>
+    )}
+    <TouchableOpacity style={styles.editarBtn} onPress={() => alert('Proximamente!')}>
+      <Text style={styles.editarBtnText}>Editar direccion</Text>
+    </TouchableOpacity>
+  </View>
+        ) : (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>Sin direccion guardada</Text>
+            <Text style={styles.emptySubtext}>Se pedira al completar tu primer reto</Text>
+          </View>
+        )}
+      </View>
+
       <TouchableOpacity style={styles.stravaButton}>
         <Text style={styles.stravaButtonText}>Conectar con Strava</Text>
       </TouchableOpacity>
@@ -95,11 +118,7 @@ const styles = StyleSheet.create({
   container: { padding: 24, paddingTop: 60, alignItems: 'center' },
   header: { alignItems: 'center', marginBottom: 32 },
   avatar: { width: 90, height: 90, borderRadius: 45, marginBottom: 12 },
-  avatarPlaceholder: {
-    width: 90, height: 90, borderRadius: 45,
-    backgroundColor: '#1E6FD9', alignItems: 'center',
-    justifyContent: 'center', marginBottom: 12
-  },
+  avatarPlaceholder: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   avatarLetra: { fontSize: 36, fontWeight: 'bold', color: '#FFFFFF' },
   nombre: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   email: { fontSize: 13, color: '#A8CFFF' },
@@ -113,8 +132,13 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, color: '#FFFFFF', marginBottom: 4 },
   emptySubtext: { fontSize: 12, color: '#A8CFFF', textAlign: 'center' },
   medallaCount: { fontSize: 20, color: '#FC4C02', fontWeight: 'bold' },
+  direccionCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 20 },
+  direccionNombre: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 6 },
+  direccionLinea: { fontSize: 13, color: '#A8CFFF', marginBottom: 3 },
+  direccionTel: { fontSize: 13, color: '#1E6FD9', marginTop: 6 },
   stravaButton: { backgroundColor: '#FC4C02', paddingVertical: 14, paddingHorizontal: 32, borderRadius: 12, width: '100%', alignItems: 'center', marginBottom: 12 },
   stravaButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
   cerrarButton: { borderWidth: 1, borderColor: '#555', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center' },
-  cerrarButtonText: { color: '#555', fontWeight: 'bold', fontSize: 15 },
+  cerrarButtonText: { color: '#555', fontWeight: 'bold', fontSize: 15 },editarBtn: { marginTop: 14, borderWidth: 1, borderColor: '#1E6FD9', borderRadius: 8, padding: 10, alignItems: 'center' },
+editarBtnText: { color: '#1E6FD9', fontSize: 13, fontWeight: 'bold' },
 });
