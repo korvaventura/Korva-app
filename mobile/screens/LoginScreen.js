@@ -2,6 +2,8 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator 
 import { useState } from 'react';
 import { supabase } from '../supabase';
 
+const BACKEND_URL = 'https://korva-app-production.up.railway.app';
+
 export default function LoginScreen({ onLogin }) {
   const [modo, setModo] = useState('login');
   const [email, setEmail] = useState('');
@@ -42,7 +44,21 @@ export default function LoginScreen({ onLogin }) {
         options: { data: { name: nombre } }
       });
       if (error) throw error;
-      setMensaje('Cuenta creada! Revisa tu email para confirmar.');
+
+      // Crear perfil en la tabla users
+      await fetch(`${BACKEND_URL}/usuarios/perfil`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: data.user.id,
+          email: email,
+          name: nombre
+        })
+      });
+
+      setMensaje('');
+      onLogin(data.user);
+
     } catch (error) {
       setMensaje(error.message || 'Error al registrarse');
     } finally {
@@ -127,10 +143,7 @@ export default function LoginScreen({ onLogin }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1, backgroundColor: '#0D1B2A',
-    alignItems: 'center', justifyContent: 'center', padding: 24
-  },
+  container: { flex: 1, backgroundColor: '#0D1B2A', alignItems: 'center', justifyContent: 'center', padding: 24 },
   logo: { fontSize: 36, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   tagline: { fontSize: 14, color: '#A8CFFF', marginBottom: 40 },
   card: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 24, width: '100%' },
@@ -139,11 +152,7 @@ const styles = StyleSheet.create({
   modoBtnActivo: { backgroundColor: '#1E6FD9' },
   modoBtnText: { color: '#A8CFFF', fontWeight: 'bold', fontSize: 14 },
   modoBtnTextActivo: { color: '#FFFFFF' },
-  input: {
-    backgroundColor: '#0D1B2A', borderRadius: 10, padding: 14,
-    color: '#FFFFFF', fontSize: 15, borderWidth: 1,
-    borderColor: '#1E6FD9', marginBottom: 12
-  },
+  input: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 14, color: '#FFFFFF', fontSize: 15, borderWidth: 1, borderColor: '#1E6FD9', marginBottom: 12 },
   mensaje: { color: '#FC4C02', fontSize: 13, marginBottom: 12, textAlign: 'center' },
   button: { backgroundColor: '#1E6FD9', paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 4 },
   buttonDisabled: { backgroundColor: '#555' },

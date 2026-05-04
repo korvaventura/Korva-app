@@ -226,6 +226,27 @@ app.get('/admin/challenges-activos', async (req, res) => {
     res.json({ error: 'Error', detalle: error.message });
   }
 });
+// Crear o actualizar perfil de usuario
+app.post('/usuarios/perfil', async (req, res) => {
+  const { user_id, email, name } = req.body;
+
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .upsert({
+        id: user_id,
+        email,
+        name: name || email.split('@')[0],
+      }, { onConflict: 'id' })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ mensaje: 'Perfil creado', usuario: data });
+  } catch (error) {
+    res.json({ error: 'Error creando perfil', detalle: error.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
