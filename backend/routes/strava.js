@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 
-const REDIRECT_URI = 'http://localhost:3000/strava/callback';
+const REDIRECT_URI = 'https://korva-app-production.up.railway.app/strava/callback';
 
 const getSupabase = () => createClient(
   process.env.SUPABASE_URL,
