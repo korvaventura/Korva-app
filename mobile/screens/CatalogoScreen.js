@@ -15,7 +15,6 @@ export default function CatalogoScreen() {
   const [modalModalidad, setModalModalidad] = useState(false);
   const [modalPais, setModalPais] = useState(false);
   const [challengeSeleccionado, setChallengeSeleccionado] = useState(null);
-  const [modalidadSeleccionada, setModalidadSeleccionada] = useState(null);
   const [userId, setUserId] = useState(null);
 
   useEffect(() => {
@@ -47,23 +46,15 @@ export default function CatalogoScreen() {
       const res = await fetch(`${BACKEND_URL}/challenges/inscribir`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userId,
-          challenge_id: challengeSeleccionado.id,
-          modalidad: modalidad
-        })
+        body: JSON.stringify({ user_id: userId, challenge_id: challengeSeleccionado.id, modalidad })
       });
       const data = await res.json();
       setModalModalidad(false);
-
       if (data.mensaje === 'Ya estas inscripto en este challenge con esta modalidad') {
         alert(data.mensaje);
         return;
       }
-
-      setModalidadSeleccionada(modalidad);
       setModalPais(true);
-
     } catch (error) {
       alert('Error al inscribirse');
     }
@@ -76,46 +67,49 @@ export default function CatalogoScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
-      <Text style={styles.titulo}>Challenges disponibles</Text>
-      <Text style={styles.subtitulo}>Elegi tu proximo desafio</Text>
+      <Text style={styles.titulo}>Challenges</Text>
+      <Text style={styles.subtitulo}>Elegi tu proximo desafio 🏆</Text>
 
       {cargando ? (
-        <ActivityIndicator size="large" color="#1E6FD9" />
+        <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
       ) : (
         challenges.map((item, index) => (
           <View key={index} style={styles.card}>
             {item.medal_image_url && (
-              <Image
-                source={{ uri: item.medal_image_url }}
-                style={styles.medallaImage}
-                resizeMode="contain"
-              />
+              <Image source={{ uri: item.medal_image_url }} style={styles.medallaImage} resizeMode="contain" />
             )}
-            <Text style={styles.deporte}>
-              {item.sport_type === 'run' ? 'RUNNING' : item.sport_type === 'ride' ? 'CICLISMO' : 'MULTIDEPORTE'}
-            </Text>
-            <Text style={styles.titulo2}>{item.title}</Text>
-            <Text style={styles.descripcion}>{item.description}</Text>
-            <View style={styles.row}>
-              <Text style={styles.distancia}>{item.total_distance_km} km</Text>
-              <Text style={styles.precio}>USD ${item.price_usd}</Text>
-            </View>
-            {item.modalidades && (
-              <View style={styles.modalidadesContainer}>
-                {item.modalidades.map((m, i) => (
-                  <View key={i} style={styles.modalidadTag}>
-                    <Text style={styles.modalidadText}>{m.label} — {m.distancia_km}km</Text>
-                  </View>
-                ))}
+            <View style={styles.cardBody}>
+              <View style={styles.deporteRow}>
+                <Text style={styles.deporte}>
+                  {item.sport_type === 'run' ? '🏃 RUNNING' : item.sport_type === 'ride' ? '🚴 CICLISMO' : '🌐 MULTIDEPORTE'}
+                </Text>
+                <Text style={styles.precio}>USD ${item.price_usd}</Text>
               </View>
-            )}
-            <TouchableOpacity style={styles.button} onPress={() => abrirModal(item)}>
-              <Text style={styles.buttonText}>Inscribirme</Text>
-            </TouchableOpacity>
+              <Text style={styles.titulo2}>{item.title}</Text>
+              <Text style={styles.descripcion}>{item.description}</Text>
+
+              {item.modalidades && (
+                <View style={styles.modalidadesContainer}>
+                  {item.modalidades.map((m, i) => (
+                    <View key={i} style={styles.modalidadTag}>
+                      <Text style={styles.modalidadEmoji}>
+                        {m.tipo === 'run' ? '🏃' : '🚴'}
+                      </Text>
+                      <Text style={styles.modalidadText}>{m.label} — {m.distancia_km}km</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              <TouchableOpacity style={styles.button} onPress={() => abrirModal(item)}>
+                <Text style={styles.buttonText}>Inscribirme →</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ))
       )}
 
+      {/* Modal modalidad */}
       <Modal visible={modalModalidad} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -123,8 +117,11 @@ export default function CatalogoScreen() {
             <Text style={styles.modalSubtitulo}>{challengeSeleccionado?.title}</Text>
             {challengeSeleccionado?.modalidades?.map((m, i) => (
               <TouchableOpacity key={i} style={styles.modalButton} onPress={() => elegirModalidad(m.tipo)}>
-                <Text style={styles.modalButtonTitulo}>{m.label}</Text>
-                <Text style={styles.modalButtonKm}>{m.distancia_km} km</Text>
+                <View>
+                  <Text style={styles.modalButtonTitulo}>{m.tipo === 'run' ? '🏃' : '🚴'} {m.label}</Text>
+                  <Text style={styles.modalButtonSub}>{m.distancia_km} km totales</Text>
+                </View>
+                <Text style={styles.modalArrow}>→</Text>
               </TouchableOpacity>
             ))}
             <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalModalidad(false)}>
@@ -134,18 +131,25 @@ export default function CatalogoScreen() {
         </View>
       </Modal>
 
+      {/* Modal pais */}
       <Modal visible={modalPais} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitulo}>Donde estas?</Text>
-            <Text style={styles.modalSubtitulo}>Elegi tu metodo de pago</Text>
+            <Text style={styles.modalSubtitulo}>Selecciona tu metodo de pago</Text>
             <TouchableOpacity style={styles.modalButton} onPress={() => elegirPais('argentina')}>
-              <Text style={styles.modalButtonTitulo}>Argentina</Text>
-              <Text style={styles.modalButtonKm}>Mercado Pago</Text>
+              <View>
+                <Text style={styles.modalButtonTitulo}>🇦🇷 Argentina</Text>
+                <Text style={styles.modalButtonSub}>Pagar con Mercado Pago</Text>
+              </View>
+              <Text style={styles.modalArrow}>→</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalButton} onPress={() => elegirPais('internacional')}>
-              <Text style={styles.modalButtonTitulo}>Resto del mundo</Text>
-              <Text style={styles.modalButtonKm}>Tarjeta / Shopify</Text>
+              <View>
+                <Text style={styles.modalButtonTitulo}>🌍 Resto del mundo</Text>
+                <Text style={styles.modalButtonSub}>Pagar con tarjeta</Text>
+              </View>
+              <Text style={styles.modalArrow}>→</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalPais(false)}>
               <Text style={styles.modalCancelarText}>Cancelar</Text>
@@ -159,29 +163,31 @@ export default function CatalogoScreen() {
 
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#0D1B2A' },
-  container: { padding: 24, paddingTop: 60 },
-  titulo: { fontSize: 24, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
+  container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
+  titulo: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   subtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 24 },
-  card: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 24, width: '100%', marginBottom: 16 },
-  medallaImage: { width: '100%', height: 250, borderRadius: 12, marginBottom: 16 },
-  deporte: { fontSize: 11, fontWeight: 'bold', color: '#1E6FD9', letterSpacing: 1, marginBottom: 6 },
-  titulo2: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
+  card: { backgroundColor: '#1E3A5F', borderRadius: 20, marginBottom: 20, overflow: 'hidden' },
+  medallaImage: { width: '100%', height: 280, backgroundColor: '#f5f5f5' },
+  cardBody: { padding: 20 },
+  deporteRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  deporte: { fontSize: 11, fontWeight: 'bold', color: '#1E6FD9', letterSpacing: 1 },
+  precio: { fontSize: 18, fontWeight: 'bold', color: '#FC4C02' },
+  titulo2: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   descripcion: { fontSize: 13, color: '#A8CFFF', marginBottom: 16, lineHeight: 20 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  distancia: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
-  precio: { fontSize: 16, fontWeight: 'bold', color: '#FC4C02' },
-  modalidadesContainer: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  modalidadTag: { backgroundColor: '#0D1B2A', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  modalidadText: { color: '#A8CFFF', fontSize: 12 },
-  button: { backgroundColor: '#1E6FD9', paddingVertical: 12, borderRadius: 10, alignItems: 'center' },
+  modalidadesContainer: { gap: 8, marginBottom: 16 },
+  modalidadTag: { backgroundColor: '#0D1B2A', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  modalidadEmoji: { fontSize: 14 },
+  modalidadText: { color: '#A8CFFF', fontSize: 13 },
+  button: { backgroundColor: '#1E6FD9', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  modalCard: { backgroundColor: '#1E3A5F', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 32 },
-  modalTitulo: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+  modalCard: { backgroundColor: '#1E3A5F', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 32 },
+  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   modalSubtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 24 },
-  modalButton: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 16, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalButtonTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
-  modalButtonKm: { fontSize: 14, color: '#1E6FD9' },
-  modalCancelar: { marginTop: 8, alignItems: 'center' },
+  modalButton: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 18, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  modalButtonTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
+  modalButtonSub: { fontSize: 12, color: '#A8CFFF' },
+  modalArrow: { fontSize: 18, color: '#1E6FD9' },
+  modalCancelar: { marginTop: 8, alignItems: 'center', paddingVertical: 12 },
   modalCancelarText: { color: '#A8CFFF', fontSize: 15 },
 });
