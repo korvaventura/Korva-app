@@ -9,6 +9,7 @@ import PerfilScreen from './screens/PerfilScreen';
 import RegistroManualScreen from './screens/RegistroManualScreen';
 import AdminScreen from './screens/AdminScreen';
 import LoginScreen from './screens/LoginScreen';
+import RankingScreen from './screens/RankingScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -55,6 +56,11 @@ export default function App() {
           name="Catalogo"
           component={CatalogoScreen}
           options={{ tabBarIcon: () => <Text>🏅</Text> }}
+        />
+        <Tab.Screen
+          name="Ranking"
+          component={RankingScreen}
+          options={{ tabBarIcon: () => <Text>🏆</Text> }}
         />
         <Tab.Screen
           name="Registrar"

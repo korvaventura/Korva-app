@@ -266,6 +266,34 @@ app.post('/usuarios/direccion', async (req, res) => {
     res.json({ error: 'Error guardando direccion', detalle: error.message });
   }
 });
+// Ranking por challenge y modalidad
+app.get('/ranking/:challengeId', async (req, res) => {
+  const { challengeId } = req.params;
+
+  try {
+    const { data, error } = await supabase
+      .from('user_challenges')
+      .select('*, users(name, avatar_url)')
+      .eq('challenge_id', challengeId)
+      .eq('status', 'active')
+      .order('km_completed', { ascending: false });
+
+    if (error) throw error;
+
+    const resultado = data.map((uc, index) => ({
+      posicion: index + 1,
+      nombre: uc.users?.name || 'Anonimo',
+      avatar: uc.users?.avatar_url,
+      km_completados: uc.km_completed,
+      modalidad: uc.modalidad,
+      porcentaje: Math.min((uc.km_completed / (uc.modalidad === 'run' ? 103 : 309)) * 100, 100).toFixed(1)
+    }));
+
+    res.json(resultado);
+  } catch (error) {
+    res.json({ error: 'Error obteniendo ranking', detalle: error.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
