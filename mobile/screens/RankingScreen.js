@@ -37,14 +37,16 @@ export default function RankingScreen() {
     }
   };
 
-  const getMedalla = (pos) => {
+  const getMedalla = (pos, porcentaje) => {
+    if (parseFloat(porcentaje) >= 100) return '🏅';
     if (pos === 1) return '🥇';
     if (pos === 2) return '🥈';
     if (pos === 3) return '🥉';
     return `${pos}°`;
   };
 
-  const getCardStyle = (pos) => {
+  const getCardStyle = (pos, porcentaje) => {
+    if (parseFloat(porcentaje) >= 100) return [styles.card, styles.cardCompletado];
     if (pos === 1) return [styles.card, styles.card1];
     if (pos === 2) return [styles.card, styles.card2];
     if (pos === 3) return [styles.card, styles.card3];
@@ -56,7 +58,6 @@ export default function RankingScreen() {
       <Text style={styles.titulo}>🏆 Ranking</Text>
       <Text style={styles.subtitulo}>Fin del Mundo</Text>
 
-      {/* Selector modalidad */}
       <View style={styles.selectorRow}>
         <TouchableOpacity
           style={[styles.selectorBtn, modalidad === 'run' && styles.selectorBtnActivo]}
@@ -86,9 +87,9 @@ export default function RankingScreen() {
         </View>
       ) : (
         ranking.map((item, index) => (
-          <View key={index} style={getCardStyle(item.posicion)}>
+          <View key={index} style={getCardStyle(item.posicion, item.porcentaje)}>
             <View style={styles.posicionContainer}>
-              <Text style={styles.posicion}>{getMedalla(item.posicion)}</Text>
+              <Text style={styles.posicion}>{getMedalla(item.posicion, item.porcentaje)}</Text>
             </View>
 
             <View style={styles.avatarContainer}>
@@ -106,7 +107,8 @@ export default function RankingScreen() {
             <View style={styles.info}>
               <Text style={styles.nombre} numberOfLines={1}>{item.nombre}</Text>
               <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${item.porcentaje}%` }]} />
+                <View style={[styles.progressFill, { width: `${Math.min(parseFloat(item.porcentaje), 100)}%` },
+                  parseFloat(item.porcentaje) >= 100 && styles.progressFillCompletado]} />
               </View>
               <Text style={styles.kmText}>{item.km_completados} km — {item.porcentaje}%</Text>
             </View>
@@ -135,6 +137,7 @@ const styles = StyleSheet.create({
   card1: { backgroundColor: '#2a2a1a', borderWidth: 1, borderColor: '#FFD700' },
   card2: { backgroundColor: '#1a2a2a', borderWidth: 1, borderColor: '#C0C0C0' },
   card3: { backgroundColor: '#2a1a0a', borderWidth: 1, borderColor: '#CD7F32' },
+  cardCompletado: { backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: '#FC4C02' },
   posicionContainer: { width: 40, alignItems: 'center' },
   posicion: { fontSize: 22 },
   avatarContainer: { width: 44, height: 44 },
@@ -145,5 +148,6 @@ const styles = StyleSheet.create({
   nombre: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 6 },
   progressBar: { height: 6, backgroundColor: '#0D1B2A', borderRadius: 3, marginBottom: 4 },
   progressFill: { height: 6, backgroundColor: '#1E6FD9', borderRadius: 3 },
+  progressFillCompletado: { backgroundColor: '#FC4C02' },
   kmText: { fontSize: 12, color: '#A8CFFF' },
 });
