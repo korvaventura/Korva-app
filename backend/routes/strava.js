@@ -124,12 +124,16 @@ router.get('/progreso/:userId', async (req, res) => {
       const modalidadElegida = modalidades.find(m => m.tipo === uc.modalidad) ||
         { distancia_km: uc.challenges.total_distance_km };
 
-      const { data: actividades } = await supabase
-        .from('activities')
-        .select('distance_km')
-        .eq('user_id', userId)
-        .eq('sport_type', uc.modalidad || uc.challenges.sport_type)
-        .gte('recorded_at', uc.started_at);
+     const nuevoStatus = parseFloat(porcentaje) >= 100 ? 'completed' : uc.status;
+
+await supabase
+  .from('user_challenges')
+  .update({ 
+    km_completed: totalKm,
+    status: nuevoStatus,
+    completed_at: parseFloat(porcentaje) >= 100 ? new Date().toISOString() : uc.completed_at
+  })
+  .eq('id', uc.id);
 
       const totalKm = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
       const porcentaje = Math.min((totalKm / modalidadElegida.distancia_km) * 100, 100).toFixed(1);
