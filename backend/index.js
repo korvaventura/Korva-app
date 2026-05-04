@@ -282,7 +282,12 @@ app.get('/ranking/:challengeId', async (req, res) => {
 
     const resultado = data.map((uc, index) => ({
       posicion: index + 1,
-      nombre: uc.users?.name || 'Anonimo',
+      nombre: (() => {
+  const n = uc.users?.name || 'Anonimo';
+  const partes = n.trim().split(' ');
+  if (partes.length === 1) return partes[0];
+  return `${partes[0]} ${partes[1]?.charAt(0)}.`;
+})(),
       avatar: uc.users?.avatar_url,
       km_completados: uc.km_completed,
       modalidad: uc.modalidad,
