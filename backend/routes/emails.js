@@ -55,5 +55,29 @@ const enviarEmailMedallaEnCamino = async (email, nombre, challenge, tracking) =>
     console.error('Error enviando email:', error);
   }
 };
-
-module.exports = { enviarEmailInscripcion, enviarEmailMedallaEnCamino };
+const enviarEmailCompletado = async (email, nombre, challenge) => {
+  try {
+    await getResend().emails.send({
+      from: 'Korva <onboarding@resend.dev>',
+      to: email,
+      subject: `Completaste el reto ${challenge}! Tu medalla esta en camino`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0D1B2A; color: #FFFFFF; padding: 40px; border-radius: 16px;">
+          <h1 style="color: #FFFFFF; font-size: 28px;">🏅 KORVA</h1>
+          <h2 style="color: #FC4C02;">Felicitaciones ${nombre}!</h2>
+          <p style="color: #A8CFFF;">Completaste el reto <strong style="color: #FFFFFF;">${challenge}</strong>.</p>
+          <div style="background: #1E3A5F; border-radius: 12px; padding: 24px; margin: 24px 0;">
+            <p style="color: #FFFFFF; font-size: 18px; font-weight: bold; margin: 0;">Tu medalla esta siendo preparada!</p>
+            <p style="color: #A8CFFF; margin: 8px 0 0 0;">En breve te avisamos cuando este en camino con el numero de seguimiento.</p>
+          </div>
+          <p style="color: #A8CFFF;">Mereces cada gramo de esa medalla.</p>
+          <p style="color: #FC4C02; font-weight: bold;">El equipo Korva</p>
+        </div>
+      `
+    });
+    console.log('Email de completado enviado a:', email);
+  } catch (error) {
+    console.error('Error enviando email de completado:', error);
+  }
+};
+module.exports = { enviarEmailInscripcion, enviarEmailMedallaEnCamino, enviarEmailCompletado };

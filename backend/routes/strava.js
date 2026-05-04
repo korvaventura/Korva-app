@@ -124,7 +124,8 @@ router.get('/progreso/:userId', async (req, res) => {
       const modalidadElegida = modalidades.find(m => m.tipo === uc.modalidad) ||
         { distancia_km: uc.challenges.total_distance_km };
 
-     const nuevoStatus = parseFloat(porcentaje) >= 100 ? 'completed' : uc.status;
+     const yaCompletado = uc.status === 'completed';
+const nuevoStatus = parseFloat(porcentaje) >= 100 ? 'completed' : uc.status;
 
 await supabase
   .from('user_challenges')
@@ -134,6 +135,20 @@ await supabase
     completed_at: parseFloat(porcentaje) >= 100 ? new Date().toISOString() : uc.completed_at
   })
   .eq('id', uc.id);
+
+// Mandar email solo la primera vez que completa
+if (parseFloat(porcentaje) >= 100 && !yaCompletado) {
+  const { data: usuario } = await supabase
+    .from('users')
+    .select('email, name')
+    .eq('id', userId)
+    .single();
+
+  if (usuario?.email) {
+    const { enviarEmailCompletado } = require('../routes/emails');
+    enviarEmailCompletado(usuario.email, usuario.name, uc.challenges.title);
+  }
+}
 
       const totalKm = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
       const porcentaje = Math.min((totalKm / modalidadElegida.distancia_km) * 100, 100).toFixed(1);
