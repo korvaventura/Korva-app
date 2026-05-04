@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Image } from 'react-native';
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 
@@ -84,6 +84,13 @@ export default function CatalogoScreen() {
       ) : (
         challenges.map((item, index) => (
           <View key={index} style={styles.card}>
+            {item.medal_image_url && (
+              <Image
+                source={{ uri: item.medal_image_url }}
+                style={styles.medallaImage}
+                resizeMode="contain"
+              />
+            )}
             <Text style={styles.deporte}>
               {item.sport_type === 'run' ? 'RUNNING' : item.sport_type === 'ride' ? 'CICLISMO' : 'MULTIDEPORTE'}
             </Text>
@@ -156,6 +163,7 @@ const styles = StyleSheet.create({
   titulo: { fontSize: 24, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   subtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 24 },
   card: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 24, width: '100%', marginBottom: 16 },
+  medallaImage: { width: '100%', height: 250, borderRadius: 12, marginBottom: 16 },
   deporte: { fontSize: 11, fontWeight: 'bold', color: '#1E6FD9', letterSpacing: 1, marginBottom: 6 },
   titulo2: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   descripcion: { fontSize: 13, color: '#A8CFFF', marginBottom: 16, lineHeight: 20 },
