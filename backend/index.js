@@ -5,7 +5,7 @@ const { createClient } = require('@supabase/supabase-js');
 const stravaRoutes = require('./routes/strava');
 const shopifyRoutes = require('./routes/shopify');
 const mercadopagoRoutes = require('./routes/mercadopago');
-const { enviarEmailInscripcion } = require('./routes/emails');
+const { enviarEmailInscripcion, enviarEmailMedallaEnCamino } = require('./routes/emails');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -168,7 +168,64 @@ app.post('/actividades/manual', async (req, res) => {
     res.json({ error: 'Error registrando actividad', detalle: error.message });
   }
 });
+// Marcar challenge como completado y enviar email de medalla
+app.post('/admin/medalla-enviada', async (req, res) => {
+  const { user_challenge_id, tracking_number } = req.body;
 
+  try {
+    // Buscar el challenge del usuario
+    const { data: uc, error } = await supabase
+      .from('user_challenges')
+      .update({ 
+        status: 'shipped',
+        tracking_number: tracking_number 
+      })
+      .eq('id', user_challenge_id)
+      .select('*, challenges(*), users(*)')
+      .single();
+
+    if (error) throw error;
+
+    // Enviar email
+    await enviarEmailMedallaEnCamino(
+      uc.users.email,
+      uc.users.name,
+      uc.challenges.title,
+      tracking_number
+    );
+
+    res.json({ mensaje: 'Medalla marcada como enviada y email enviado' });
+
+  } catch (error) {
+    res.json({ error: 'Error', detalle: error.message });
+  }
+});
+// Admin — traer challenges completados pendientes de envio
+app.get('/admin/challenges-activos', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_challenges')
+      .select('*, challenges(*), users(*)')
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false });
+
+    if (error) throw error;
+
+    const resultado = data.map(uc => ({
+      id: uc.id,
+      usuario: uc.users?.name,
+      email: uc.users?.email,
+      challenge: uc.challenges?.title,
+      modalidad: uc.modalidad,
+      km_completados: uc.km_completed,
+      tracking_number: uc.tracking_number
+    }));
+
+    res.json(resultado);
+  } catch (error) {
+    res.json({ error: 'Error', detalle: error.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });

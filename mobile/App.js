@@ -5,6 +5,7 @@ import HomeScreen from './screens/HomeScreen';
 import CatalogoScreen from './screens/CatalogoScreen';
 import PerfilScreen from './screens/PerfilScreen';
 import RegistroManualScreen from './screens/RegistroManualScreen';
+import AdminScreen from './screens/AdminScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -41,6 +42,11 @@ export default function App() {
           name="Perfil"
           component={PerfilScreen}
           options={{ tabBarIcon: () => <Text>👤</Text> }}
+        />
+        <Tab.Screen
+          name="Admin"
+          component={AdminScreen}
+          options={{ tabBarIcon: () => <Text>⚙️</Text> }}
         />
       </Tab.Navigator>
     </NavigationContainer>
