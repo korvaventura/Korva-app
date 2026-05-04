@@ -9,12 +9,12 @@ export default function CompletadoScreen({ challenge, userId, onVolver }) {
   const [nombre, setNombre] = useState('');
   const [direccion, setDireccion] = useState('');
   const [ciudad, setCiudad] = useState('');
+  const [codigoPostal, setCodigoPostal] = useState('');
   const [pais, setPais] = useState('');
   const [cargando, setCargando] = useState(false);
-  const [guardado, setGuardado] = useState(false);
 
   const guardarDireccion = async () => {
-    if (!nombre || !direccion || !ciudad || !pais) {
+    if (!nombre || !direccion || !ciudad || !codigoPostal || !pais) {
       alert('Completa todos los campos');
       return;
     }
@@ -26,10 +26,9 @@ export default function CompletadoScreen({ challenge, userId, onVolver }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: session.user.id,
-          shipping_address: { nombre, direccion, ciudad, pais }
+          shipping_address: { nombre, direccion, ciudad, codigo_postal: codigoPostal, pais }
         })
       });
-      setGuardado(true);
       setPaso(3);
     } catch (error) {
       alert('Error guardando direccion');
@@ -60,24 +59,21 @@ export default function CompletadoScreen({ challenge, userId, onVolver }) {
 
   if (paso === 2) {
     return (
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.containerScroll}>
         <Text style={styles.titulo}>Donde te enviamos la medalla?</Text>
         <Text style={styles.subtitulo}>Completa tu direccion de envio</Text>
-
         <View style={styles.card}>
           <Text style={styles.label}>Nombre completo</Text>
           <TextInput style={styles.input} value={nombre} onChangeText={setNombre} placeholder="Tu nombre" placeholderTextColor="#A8CFFF" />
-
           <Text style={styles.label}>Direccion</Text>
           <TextInput style={styles.input} value={direccion} onChangeText={setDireccion} placeholder="Calle, numero, piso" placeholderTextColor="#A8CFFF" />
-
           <Text style={styles.label}>Ciudad</Text>
           <TextInput style={styles.input} value={ciudad} onChangeText={setCiudad} placeholder="Tu ciudad" placeholderTextColor="#A8CFFF" />
-
+          <Text style={styles.label}>Codigo postal</Text>
+          <TextInput style={styles.input} value={codigoPostal} onChangeText={setCodigoPostal} placeholder="Ej: 1234" placeholderTextColor="#A8CFFF" keyboardType="numeric" />
           <Text style={styles.label}>Pais</Text>
           <TextInput style={styles.input} value={pais} onChangeText={setPais} placeholder="Tu pais" placeholderTextColor="#A8CFFF" />
         </View>
-
         <TouchableOpacity
           style={[styles.button, cargando && styles.buttonDisabled]}
           onPress={guardarDireccion}
@@ -90,5 +86,34 @@ export default function CompletadoScreen({ challenge, userId, onVolver }) {
   }
 
   return (
-    <View
-    
+    <View style={styles.container}>
+      <Text style={styles.emoji}>📦</Text>
+      <Text style={styles.titulo}>Listo!</Text>
+      <Text style={styles.descripcion}>
+        Tu direccion fue guardada. En breve te avisamos cuando tu medalla este en camino.
+      </Text>
+      <TouchableOpacity style={styles.button} onPress={onVolver}>
+        <Text style={styles.buttonText}>Volver a mis retos</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  scroll: { flex: 1, backgroundColor: '#0D1B2A' },
+  container: { flex: 1, backgroundColor: '#0D1B2A', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  containerScroll: { padding: 24, paddingTop: 60 },
+  emoji: { fontSize: 80, marginBottom: 16 },
+  titulo: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8, textAlign: 'center' },
+  subtitulo: { fontSize: 16, color: '#A8CFFF', marginBottom: 8, textAlign: 'center' },
+  challenge: { fontSize: 20, fontWeight: 'bold', color: '#FC4C02', marginBottom: 16, textAlign: 'center' },
+  descripcion: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', marginBottom: 32, lineHeight: 22 },
+  card: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 24, width: '100%', marginBottom: 16 },
+  label: { fontSize: 12, fontWeight: 'bold', color: '#A8CFFF', letterSpacing: 1, marginBottom: 8, marginTop: 8 },
+  input: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 14, color: '#FFFFFF', fontSize: 15, borderWidth: 1, borderColor: '#1E6FD9', marginBottom: 8 },
+  button: { backgroundColor: '#FC4C02', paddingVertical: 16, borderRadius: 12, width: '100%', alignItems: 'center', marginBottom: 12 },
+  buttonDisabled: { backgroundColor: '#555' },
+  buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
+  buttonSecundario: { paddingVertical: 14, width: '100%', alignItems: 'center' },
+  buttonSecundarioText: { color: '#A8CFFF', fontSize: 15 },
+});
