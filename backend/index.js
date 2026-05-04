@@ -122,18 +122,45 @@ app.get('/perfil/:userId', async (req, res) => {
       .from('user_challenges').select('status').eq('user_id', userId);
 
     const totalKm = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
-    const activos = challenges?.filter(c => c.status === 'active').length || 0;
-    const completados = challenges?.filter(c => c.status === 'completed').length || 0;
+  const activos = challenges?.filter(c => c.status === 'active').length || 0;
+const completados = challenges?.filter(c => c.status === 'completed' || c.status === 'shipped').length || 0;
 
-    res.json({
-      usuario,
-      stats: {
-        total_actividades: actividades?.length || 0,
-        total_km: totalKm.toFixed(1),
-        challenges_activos: activos,
-        medallas: completados
-      }
-    });
+// Nivel del usuario
+const getNivel = (retos) => {
+  if (retos >= 7) return { nombre: 'Leyenda Korva', emoji: '🔥', siguiente: null };
+  if (retos >= 4) return { nombre: 'Nomada', emoji: '🧭', siguiente: 7 };
+  if (retos >= 2) return { nombre: 'Expedicionario', emoji: '🗺️', siguiente: 4 };
+  if (retos >= 1) return { nombre: 'Aventurero', emoji: '🥾', siguiente: 2 };
+  return { nombre: 'Explorador', emoji: '🌱', siguiente: 1 };
+};
+
+// Insignias
+const getInsignias = (completados, totalKm, actividades) => {
+  const insignias = [];
+  if (completados >= 1) insignias.push({ id: 'primera_medalla', nombre: 'Primera medalla', emoji: '🏅' });
+  if (totalKm >= 100) insignias.push({ id: 'km_100', nombre: '100 km', emoji: '💯' });
+  if (totalKm >= 250) insignias.push({ id: 'km_250', nombre: '250 km', emoji: '⚡' });
+  if (totalKm >= 500) insignias.push({ id: 'km_500', nombre: '500 km', emoji: '🌍' });
+  if (totalKm >= 1000) insignias.push({ id: 'km_1000', nombre: '1000 km', emoji: '👑' });
+  if (completados >= 2) insignias.push({ id: 'doble', nombre: 'Doble modalidad', emoji: '🚴' });
+  return insignias;
+};
+
+const nivel = getNivel(completados);
+const totalKmNum = parseFloat(totalKm);
+const insignias = getInsignias(completados, totalKmNum, actividades);
+
+  res.json({
+  usuario,
+  stats: {
+    total_actividades: actividades?.length || 0,
+    total_km: totalKm.toFixed(1),
+    challenges_activos: activos,
+    medallas: completados
+  },
+  nivel,
+  insignias
+});
   } catch (error) {
     res.json({ error: 'Error cargando perfil', detalle: error.message });
   }
