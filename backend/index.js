@@ -206,7 +206,7 @@ app.get('/admin/challenges-activos', async (req, res) => {
     const { data, error } = await supabase
       .from('user_challenges')
       .select('*, challenges(*), users(*)')
-      .eq('status', 'completed').in('status', ['completed', 'shipped'])
+      .in('status', ['completed', 'shipped'])
       .order('completed_at', { ascending: false });
 
     if (error) throw error;
