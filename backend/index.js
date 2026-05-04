@@ -206,12 +206,12 @@ app.get('/admin/challenges-activos', async (req, res) => {
     const { data, error } = await supabase
       .from('user_challenges')
       .select('*, challenges(*), users(*)')
-      .eq('status', 'completed')
+      .eq('status', 'completed').in('status', ['completed', 'shipped'])
       .order('completed_at', { ascending: false });
 
     if (error) throw error;
 
-    const resultado = data.map(uc => ({
+   const resultado = data.map(uc => ({
   id: uc.id,
   usuario: uc.users?.name,
   email: uc.users?.email,
@@ -219,9 +219,9 @@ app.get('/admin/challenges-activos', async (req, res) => {
   modalidad: uc.modalidad,
   km_completados: uc.km_completed,
   tracking_number: uc.tracking_number,
-  direccion: uc.users?.shipping_address
+  direccion: uc.users?.shipping_address,
+  status: uc.status
 }));
-
     res.json(resultado);
   } catch (error) {
     res.json({ error: 'Error', detalle: error.message });
