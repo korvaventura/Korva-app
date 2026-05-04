@@ -113,7 +113,36 @@ app.get('/perfil/:userId', async (req, res) => {
     res.json({ error: 'Error cargando perfil', detalle: error.message });
   }
 });
+// Registro manual de actividad
+app.post('/actividades/manual', async (req, res) => {
+  const { user_id, sport_type, distance_km, recorded_at } = req.body;
 
+  try {
+    const { data, error } = await supabase
+      .from('activities')
+      .insert({
+        user_id,
+        source: 'manual',
+        external_id: `manual_${user_id}_${Date.now()}`,
+        sport_type,
+        distance_km: parseFloat(distance_km),
+        duration_seconds: 0,
+        recorded_at: recorded_at || new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      mensaje: 'Actividad registrada exitosamente',
+      actividad: data
+    });
+
+  } catch (error) {
+    res.json({ error: 'Error registrando actividad', detalle: error.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });

@@ -4,6 +4,7 @@ import { Text } from 'react-native';
 import HomeScreen from './screens/HomeScreen';
 import CatalogoScreen from './screens/CatalogoScreen';
 import PerfilScreen from './screens/PerfilScreen';
+import RegistroManualScreen from './screens/RegistroManualScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -30,6 +31,11 @@ export default function App() {
           name="Catalogo"
           component={CatalogoScreen}
           options={{ tabBarIcon: () => <Text>🏅</Text> }}
+        />
+        <Tab.Screen
+          name="Registrar"
+          component={RegistroManualScreen}
+          options={{ tabBarIcon: () => <Text>➕</Text> }}
         />
         <Tab.Screen
           name="Perfil"
