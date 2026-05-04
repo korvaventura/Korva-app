@@ -212,14 +212,15 @@ app.get('/admin/challenges-activos', async (req, res) => {
     if (error) throw error;
 
     const resultado = data.map(uc => ({
-      id: uc.id,
-      usuario: uc.users?.name,
-      email: uc.users?.email,
-      challenge: uc.challenges?.title,
-      modalidad: uc.modalidad,
-      km_completados: uc.km_completed,
-      tracking_number: uc.tracking_number
-    }));
+  id: uc.id,
+  usuario: uc.users?.name,
+  email: uc.users?.email,
+  challenge: uc.challenges?.title,
+  modalidad: uc.modalidad,
+  km_completados: uc.km_completed,
+  tracking_number: uc.tracking_number,
+  direccion: uc.users?.shipping_address
+}));
 
     res.json(resultado);
   } catch (error) {
