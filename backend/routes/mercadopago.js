@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
+const { enviarEmailInscripcion } = require('../routes/emails');
 
 const getSupabase = () => createClient(
   process.env.SUPABASE_URL,
@@ -13,7 +14,6 @@ router.post('/webhook', async (req, res) => {
   const supabase = getSupabase();
 
   try {
-    // Solo procesar pagos aprobados
     if (type !== 'payment') {
       return res.status(200).json({ mensaje: 'Evento ignorado' });
     }
@@ -23,11 +23,8 @@ router.post('/webhook', async (req, res) => {
       return res.status(200).json({ mensaje: 'Sin ID de pago' });
     }
 
-    // Consultar el pago a Mercado Pago API
     const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-      headers: {
-        'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}`
-      }
+      headers: { 'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}` }
     });
 
     const pago = await mpResponse.json();
@@ -39,10 +36,9 @@ router.post('/webhook', async (req, res) => {
 
     const email = pago.payer?.email;
 
-    // Buscar usuario por email
     const { data: user } = await supabase
       .from('users')
-      .select('id')
+      .select('id, email, name')
       .eq('email', email)
       .single();
 
@@ -50,10 +46,9 @@ router.post('/webhook', async (req, res) => {
       return res.status(200).json({ mensaje: 'Usuario no encontrado en Korva' });
     }
 
-    // Activar el challenge pendiente mas reciente
     const { data: pendiente } = await supabase
       .from('user_challenges')
-      .select('id')
+      .select('id, modalidad, challenges(title)')
       .eq('user_id', user.id)
       .eq('status', 'pending')
       .order('started_at', { ascending: false })
@@ -67,6 +62,16 @@ router.post('/webhook', async (req, res) => {
         .eq('id', pendiente.id);
 
       console.log('Challenge activado para:', email);
+
+      // Enviar email de confirmacion
+      if (user.email && pendiente.challenges?.title) {
+        enviarEmailInscripcion(
+          user.email,
+          user.name,
+          pendiente.challenges.title,
+          pendiente.modalidad === 'run' ? 'Running' : 'Ciclismo'
+        );
+      }
     }
 
     res.status(200).json({ mensaje: 'Challenge activado exitosamente' });
