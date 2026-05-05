@@ -10,10 +10,14 @@ export default function RankingScreen() {
   const [ranking, setRanking] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [userId, setUserId] = useState(null);
+  const [miNombre, setMiNombre] = useState('');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.id) setUserId(session.user.id);
+      if (session?.user?.id) {
+        setUserId(session.user.id);
+        setMiNombre(session.user.user_metadata?.name?.split(' ')[0] || '');
+      }
     });
   }, []);
 
@@ -37,20 +41,47 @@ export default function RankingScreen() {
     }
   };
 
-  const getMedalla = (pos, porcentaje) => {
-    if (parseFloat(porcentaje) >= 100) return '🏅';
-    if (pos === 1) return '🥇';
-    if (pos === 2) return '🥈';
-    if (pos === 3) return '🥉';
-    return `${pos}°`;
+  const esPropio = (nombre) => {
+    if (!miNombre) return false;
+    return nombre?.toLowerCase().startsWith(miNombre.toLowerCase());
   };
 
-  const getCardStyle = (pos, porcentaje) => {
-    if (parseFloat(porcentaje) >= 100) return [styles.card, styles.cardCompletado];
-    if (pos === 1) return [styles.card, styles.card1];
-    if (pos === 2) return [styles.card, styles.card2];
-    if (pos === 3) return [styles.card, styles.card3];
-    return [styles.card];
+  const top3 = ranking.slice(0, 3);
+  const resto = ranking.slice(3);
+
+  const AvatarItem = ({ item, size = 44 }) => (
+    item.avatar ? (
+      <Image source={{ uri: item.avatar }} style={{ width: size, height: size, borderRadius: size / 2 }} />
+    ) : (
+      <View style={[styles.avatarPlaceholder, { width: size, height: size, borderRadius: size / 2 }]}>
+        <Text style={[styles.avatarLetra, { fontSize: size * 0.4 }]}>
+          {item.nombre?.charAt(0)?.toUpperCase() || '?'}
+        </Text>
+      </View>
+    )
+  );
+
+  const PodioItem = ({ item, pos }) => {
+    const config = {
+      1: { emoji: '🥇', color: '#FFD700', height: 90, avatarSize: 60 },
+      2: { emoji: '🥈', color: '#C0C0C0', height: 70, avatarSize: 52 },
+      3: { emoji: '🥉', color: '#CD7F32', height: 55, avatarSize: 46 },
+    }[pos];
+
+    const propio = esPropio(item.nombre);
+
+    return (
+      <View style={styles.podioItem}>
+        <AvatarItem item={item} size={config.avatarSize} />
+        {propio && <View style={styles.tuIndicador}><Text style={styles.tuIndicadorText}>Tú</Text></View>}
+        <Text style={styles.podioNombre} numberOfLines={1}>{item.nombre}</Text>
+        <Text style={styles.podioKm}>{item.km_completados}km</Text>
+        <View style={[styles.podioBase, { height: config.height, borderColor: config.color }]}>
+          <Text style={[styles.podioEmoji]}>{config.emoji}</Text>
+          <Text style={[styles.podioPct, { color: config.color }]}>{item.porcentaje}</Text>
+        </View>
+      </View>
+    );
   };
 
   return (
@@ -86,34 +117,44 @@ export default function RankingScreen() {
           <Text style={styles.emptySubtext}>Se el primero en inscribirte!</Text>
         </View>
       ) : (
-        ranking.map((item, index) => (
-          <View key={index} style={getCardStyle(item.posicion, item.porcentaje)}>
-            <View style={styles.posicionContainer}>
-              <Text style={styles.posicion}>{getMedalla(item.posicion, item.porcentaje)}</Text>
+        <>
+          {/* Podio top 3 */}
+          {top3.length > 0 && (
+            <View style={styles.podioWrapper}>
+              {top3.length >= 2 && <PodioItem item={top3[1]} pos={2} />}
+              {top3.length >= 1 && <PodioItem item={top3[0]} pos={1} />}
+              {top3.length >= 3 && <PodioItem item={top3[2]} pos={3} />}
             </View>
+          )}
 
-            <View style={styles.avatarContainer}>
-              {item.avatar ? (
-                <Image source={{ uri: item.avatar }} style={styles.avatar} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Text style={styles.avatarLetra}>
-                    {item.nombre?.charAt(0)?.toUpperCase() || '?'}
-                  </Text>
-                </View>
-              )}
-            </View>
+          {/* Resto del ranking */}
+          {resto.length > 0 && (
+            <View style={styles.restoWrapper}>
+              {resto.map((item, index) => {
+                const propio = esPropio(item.nombre);
+                return (
+                  <View key={index} style={[styles.card, propio && styles.cardPropio]}>
+                    <Text style={styles.posicion}>{item.posicion}°</Text>
 
-            <View style={styles.info}>
-              <Text style={styles.nombre} numberOfLines={1}>{item.nombre}</Text>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${Math.min(parseFloat(item.porcentaje), 100)}%` },
-                  parseFloat(item.porcentaje) >= 100 && styles.progressFillCompletado]} />
-              </View>
-              <Text style={styles.kmText}>{item.km_completados} km — {item.porcentaje}%</Text>
+                    <AvatarItem item={item} size={40} />
+
+                    <View style={styles.info}>
+                      <View style={styles.nombreRow}>
+                        <Text style={styles.nombre} numberOfLines={1}>{item.nombre}</Text>
+                        {propio && <Text style={styles.tuTag}>Tú</Text>}
+                      </View>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: `${Math.min(parseFloat(item.porcentaje), 100)}%` },
+                          parseFloat(item.porcentaje) >= 100 && styles.progressFillCompletado]} />
+                      </View>
+                      <Text style={styles.kmText}>{item.km_completados} km — {item.porcentaje}</Text>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
-          </View>
-        ))
+          )}
+        </>
       )}
     </ScrollView>
   );
@@ -129,25 +170,34 @@ const styles = StyleSheet.create({
   selectorBtnActivo: { borderColor: '#1E6FD9' },
   selectorText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 14 },
   selectorTextActivo: { color: '#FFFFFF' },
+
+  podioWrapper: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', marginBottom: 28, gap: 8 },
+  podioItem: { alignItems: 'center', flex: 1, position: 'relative' },
+  podioNombre: { fontSize: 11, fontWeight: 'bold', color: '#FFFFFF', marginTop: 8, marginBottom: 2, textAlign: 'center' },
+  podioKm: { fontSize: 10, color: '#A8CFFF', marginBottom: 6 },
+  podioBase: { width: '100%', borderTopLeftRadius: 8, borderTopRightRadius: 8, borderWidth: 1, borderBottomWidth: 0, alignItems: 'center', justifyContent: 'center', paddingTop: 8 },
+  podioEmoji: { fontSize: 22 },
+  podioPct: { fontSize: 11, fontWeight: 'bold', marginTop: 4 },
+  tuIndicador: { position: 'absolute', top: -8, right: 8, backgroundColor: '#FC4C02', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  tuIndicadorText: { color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' },
+
+  restoWrapper: { gap: 8 },
+  card: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  cardPropio: { borderWidth: 1, borderColor: '#FC4C02' },
+  posicion: { fontSize: 14, fontWeight: 'bold', color: '#4a6a8a', width: 28, textAlign: 'center' },
+  avatarPlaceholder: { backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center' },
+  avatarLetra: { fontWeight: 'bold', color: '#FFFFFF' },
+  info: { flex: 1 },
+  nombreRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  nombre: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', flex: 1 },
+  tuTag: { backgroundColor: '#FC4C02', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, fontSize: 10, color: '#FFFFFF', fontWeight: 'bold' },
+  progressBar: { height: 6, backgroundColor: '#0D1B2A', borderRadius: 3, marginBottom: 4 },
+  progressFill: { height: 6, backgroundColor: '#1E6FD9', borderRadius: 3 },
+  progressFillCompletado: { backgroundColor: '#FC4C02' },
+  kmText: { fontSize: 11, color: '#A8CFFF' },
+
   emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 40, alignItems: 'center', marginTop: 20 },
   emptyEmoji: { fontSize: 48, marginBottom: 16 },
   emptyText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   emptySubtext: { fontSize: 14, color: '#A8CFFF' },
-  card: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 16, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  card1: { backgroundColor: '#2a2a1a', borderWidth: 1, borderColor: '#FFD700' },
-  card2: { backgroundColor: '#1a2a2a', borderWidth: 1, borderColor: '#C0C0C0' },
-  card3: { backgroundColor: '#2a1a0a', borderWidth: 1, borderColor: '#CD7F32' },
-  cardCompletado: { backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: '#FC4C02' },
-  posicionContainer: { width: 40, alignItems: 'center' },
-  posicion: { fontSize: 22 },
-  avatarContainer: { width: 44, height: 44 },
-  avatar: { width: 44, height: 44, borderRadius: 22 },
-  avatarPlaceholder: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center' },
-  avatarLetra: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
-  info: { flex: 1 },
-  nombre: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 6 },
-  progressBar: { height: 6, backgroundColor: '#0D1B2A', borderRadius: 3, marginBottom: 4 },
-  progressFill: { height: 6, backgroundColor: '#1E6FD9', borderRadius: 3 },
-  progressFillCompletado: { backgroundColor: '#FC4C02' },
-  kmText: { fontSize: 12, color: '#A8CFFF' },
 });
