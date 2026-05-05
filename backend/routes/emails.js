@@ -55,6 +55,7 @@ const enviarEmailMedallaEnCamino = async (email, nombre, challenge, tracking) =>
     console.error('Error enviando email:', error);
   }
 };
+
 const enviarEmailCompletado = async (email, nombre, challenge) => {
   try {
     await getResend().emails.send({
@@ -80,4 +81,28 @@ const enviarEmailCompletado = async (email, nombre, challenge) => {
     console.error('Error enviando email de completado:', error);
   }
 };
-module.exports = { enviarEmailInscripcion, enviarEmailMedallaEnCamino, enviarEmailCompletado };
+
+const enviarEmailAdmin = async (asunto, mensaje) => {
+  try {
+    await getResend().emails.send({
+      from: 'Korva <onboarding@resend.dev>',
+      to: 'korvaventura@gmail.com',
+      subject: `⚠️ Korva Admin — ${asunto}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0D1B2A; color: #FFFFFF; padding: 40px; border-radius: 16px;">
+          <h1 style="color: #FFFFFF; font-size: 28px;">⚠️ KORVA ADMIN</h1>
+          <h2 style="color: #FC4C02;">${asunto}</h2>
+          <div style="background: #1E3A5F; border-radius: 12px; padding: 24px; margin: 24px 0;">
+            <pre style="color: #A8CFFF; white-space: pre-wrap; font-family: monospace;">${mensaje}</pre>
+          </div>
+          <p style="color: #A8CFFF; font-size: 12px;">Este es un email automatico del sistema Korva.</p>
+        </div>
+      `
+    });
+    console.log('Email admin enviado:', asunto);
+  } catch (error) {
+    console.error('Error enviando email admin:', error);
+  }
+};
+
+module.exports = { enviarEmailInscripcion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdmin };

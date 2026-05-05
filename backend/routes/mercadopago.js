@@ -42,9 +42,15 @@ router.post('/webhook', async (req, res) => {
       .eq('email', email)
       .single();
 
-    if (!user) {
-      return res.status(200).json({ mensaje: 'Usuario no encontrado en Korva' });
-    }
+  if (!user) {
+  // Avisar por email que hay un pago sin usuario asociado
+  const { enviarEmailAdmin } = require('../routes/emails');
+  enviarEmailAdmin(
+    `Pago sin usuario - $${pago.transaction_amount}`,
+    `Email del pagador: ${email}\nMonto: $${pago.transaction_amount}\nID pago: ${paymentId}\n\nActivar manualmente en Supabase.`
+  );
+  return res.status(200).json({ mensaje: 'Usuario no encontrado, admin notificado' });
+}
 
     const { data: pendiente } = await supabase
       .from('user_challenges')
