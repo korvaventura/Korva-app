@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking } from 'react-native';
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import CompletadoScreen from './CompletadoScreen';
@@ -26,6 +26,13 @@ export default function HomeScreen() {
     if (userId) cargarProgreso();
   }, [userId]);
 
+  useEffect(() => {
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      if (url.includes('strava-connected')) cargarProgreso();
+    });
+    return () => subscription.remove();
+  }, []);
+
   const cargarProgreso = async () => {
     try {
       setCargando(true);
@@ -43,8 +50,8 @@ export default function HomeScreen() {
     }
   };
 
-  const conectarStrava = () => {
-    window.open(`${BACKEND_URL}/strava/auth`, '_blank');
+  const conectarStrava = async () => {
+    await Linking.openURL(`${BACKEND_URL}/strava/auth`);
   };
 
   if (completado) {

@@ -149,8 +149,13 @@ router.get('/callback', async (req, res) => {
       })
     });
 
-    const data = await response.json();
-    const stravaAthlete = data.athlete;
+  const data = await response.json();
+
+// Traer perfil del atleta por separado
+const athleteRes = await fetch('https://www.strava.com/api/v3/athlete', {
+  headers: { 'Authorization': `Bearer ${data.access_token}` }
+});
+const stravaAthlete = await athleteRes.json();
 
     const supabase = getSupabase();
     const { data: user, error } = await supabase
