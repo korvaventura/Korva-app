@@ -18,6 +18,8 @@ export default function HomeScreen() {
       if (session?.user?.id) {
         setUserId(session.user.id);
         setNombre(session.user.user_metadata?.name?.split(' ')[0] || '');
+      } else {
+        setCargando(false);
       }
     });
   }, []);
@@ -34,6 +36,7 @@ export default function HomeScreen() {
   }, []);
 
   const cargarProgreso = async () => {
+    if (!userId) return;
     try {
       setCargando(true);
       await fetch(`${BACKEND_URL}/strava/actividades/${userId}`);
