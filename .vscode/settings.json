@@ -1,0 +1,11 @@
+{
+  "workbench.colorCustomizations": {
+    "terminal.background": "#1e1e1e",
+    "terminal.foreground": "#d4d4d4",
+    "terminalCursor.background": "#d4d4d4",
+    "terminalCursor.foreground": "#d4d4d4"
+  },
+  "terminal.integrated.fontFamily": "Consolas, 'Courier New', monospace",
+  "terminal.integrated.fontSize": 14,
+  "terminal.integrated.minimumContrastRatio": 4.5
+}

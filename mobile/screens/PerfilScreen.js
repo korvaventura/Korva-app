@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Linking } from 'react-native';
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 
@@ -31,6 +31,13 @@ export default function PerfilScreen() {
     if (userId) cargarPerfil();
   }, [userId]);
 
+  useEffect(() => {
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      if (url.includes('strava-connected')) cargarPerfil();
+    });
+    return () => subscription.remove();
+  }, []);
+
   const cargarPerfil = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/perfil/${userId}`);
@@ -58,7 +65,7 @@ export default function PerfilScreen() {
   };
 
   const guardarDireccion = async () => {
-    const { nombre, direccion, ciudad, codigo_postal, pais } = formDireccion;
+    const { nombre, direccion, ciudad, pais } = formDireccion;
     if (!nombre || !direccion || !ciudad || !pais) {
       Alert.alert('Faltan datos', 'Por favor completá nombre, dirección, ciudad y país.');
       return;
@@ -82,10 +89,15 @@ export default function PerfilScreen() {
     }
   };
 
+  const conectarStrava = async () => {
+    await Linking.openURL(`${BACKEND_URL}/strava/auth`);
+  };
+
   const cerrarSesion = async () => {
     await supabase.auth.signOut();
   };
 
+  const stravaConectado = !!usuario?.strava_token;
   const direccion = usuario?.shipping_address;
   const inicial = usuario?.name?.charAt(0)?.toUpperCase() || 'K';
 
@@ -223,7 +235,6 @@ export default function PerfilScreen() {
               placeholderTextColor="#4a6a8a"
               keyboardType="phone-pad"
             />
-
             <View style={styles.formBotones}>
               <TouchableOpacity
                 style={styles.cancelarBtn}
@@ -267,9 +278,18 @@ export default function PerfilScreen() {
         )}
       </View>
 
-      <TouchableOpacity style={styles.stravaButton}>
-        <Text style={styles.stravaButtonText}>🔗 Conectar con Strava</Text>
-      </TouchableOpacity>
+      {stravaConectado ? (
+        <View style={styles.stravaConectadoCard}>
+          <Text style={styles.stravaConectadoText}>✅ Strava conectado</Text>
+          <TouchableOpacity onPress={conectarStrava}>
+            <Text style={styles.stravaReconectarText}>Reconectar</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity style={styles.stravaButton} onPress={conectarStrava}>
+          <Text style={styles.stravaButtonText}>🔗 Conectar con Strava</Text>
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity style={styles.cerrarButton} onPress={cerrarSesion}>
         <Text style={styles.cerrarButtonText}>Cerrar sesion</Text>
@@ -327,6 +347,9 @@ const styles = StyleSheet.create({
   guardarBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
   stravaButton: { backgroundColor: '#FC4C02', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center', marginBottom: 12, paddingHorizontal: 24 },
   stravaButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
+  stravaConectadoCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1E3A5F', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 20, width: '100%', marginBottom: 12 },
+  stravaConectadoText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
+  stravaReconectarText: { color: '#A8CFFF', fontSize: 13 },
   cerrarButton: { borderWidth: 1, borderColor: '#2a3a4a', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center', paddingHorizontal: 24 },
   cerrarButtonText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 15 },
 });
