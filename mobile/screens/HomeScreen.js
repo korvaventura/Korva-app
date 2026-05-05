@@ -1,8 +1,10 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
 import CompletadoScreen from './CompletadoScreen';
+import ViewShot from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -19,6 +21,7 @@ export default function HomeScreen() {
   const [completado, setCompletado] = useState(null);
   const [nombre, setNombre] = useState('');
   const [bannerVisible, setBannerVisible] = useState(false);
+  const viewShotRefs = useRef([]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -51,11 +54,8 @@ export default function HomeScreen() {
       const data = await res.json();
       const lista = Array.isArray(data) ? data : [];
       setChallenges(lista);
-
-      // Mostrar banner si hay algún challenge activo con 0 km
       const sinKm = lista.some(c => parseFloat(c.km_completados) === 0);
       setBannerVisible(sinKm);
-
       const reto100 = lista.find(c => parseFloat(c.porcentaje) >= 100);
       if (reto100) setCompletado(reto100.challenge);
     } catch (error) {
@@ -67,6 +67,18 @@ export default function HomeScreen() {
 
   const conectarStrava = async () => {
     await Linking.openURL(`${BACKEND_URL}/strava/auth`);
+  };
+
+  const compartirProgreso = async (index) => {
+    try {
+      const uri = await viewShotRefs.current[index].capture();
+      await Sharing.shareAsync(uri, {
+        mimeType: 'image/png',
+        dialogTitle: 'Compartir mi progreso en Korva',
+      });
+    } catch (error) {
+      console.error('Error compartiendo:', error);
+    }
   };
 
   if (completado) {
@@ -92,7 +104,6 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Banner qué hacer después de pagar */}
       {bannerVisible && !cargando && (
         <View style={styles.bannerCard}>
           <View style={styles.bannerHeader}>
@@ -130,30 +141,48 @@ export default function HomeScreen() {
           const pct = Math.min(parseFloat(item.porcentaje), 100);
           const completado = pct >= 100;
           return (
-            <View key={index} style={[styles.card, completado && styles.cardCompletado]}>
-              <View style={styles.cardTop}>
-                <View>
-                  <Text style={styles.deporte}>
-                    {item.modalidad === 'run' ? '🏃 RUNNING' : item.modalidad === 'ride' ? '🚴 CICLISMO' : '🏊 NATACION'}
-                  </Text>
-                  <Text style={styles.challengeTitle}>{item.challenge}</Text>
-                </View>
-                <View style={styles.pctCircle}>
-                  <Text style={styles.pctText}>{pct.toFixed(0)}%</Text>
-                </View>
-              </View>
+            <View key={index}>
+              <ViewShot
+                ref={ref => viewShotRefs.current[index] = ref}
+                options={{ format: 'png', quality: 1 }}
+              >
+                <View style={[styles.card, completado && styles.cardCompletado]}>
+                  <View style={styles.korvaTag}>
+                    <Text style={styles.korvaTagText}>🏅 KORVA</Text>
+                  </View>
+                  <View style={styles.cardTop}>
+                    <View>
+                      <Text style={styles.deporte}>
+                        {item.modalidad === 'run' ? '🏃 RUNNING' : item.modalidad === 'ride' ? '🚴 CICLISMO' : '🏊 NATACION'}
+                      </Text>
+                      <Text style={styles.challengeTitle}>{item.challenge}</Text>
+                    </View>
+                    <View style={styles.pctCircle}>
+                      <Text style={styles.pctText}>{pct.toFixed(0)}%</Text>
+                    </View>
+                  </View>
 
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${pct}%` }, completado && styles.progressFillCompletado]} />
-              </View>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: `${pct}%` }, completado && styles.progressFillCompletado]} />
+                  </View>
 
-              <View style={styles.cardBottom}>
-                <Text style={styles.kmText}>{item.km_completados} km</Text>
-                <Text style={styles.kmTotal}>de {item.distancia_total} km</Text>
-                <Text style={[styles.estado, completado && styles.estadoCompletado]}>
-                  {completado ? '🏅 Completado!' : '⚡ En progreso'}
-                </Text>
-              </View>
+                  <View style={styles.cardBottom}>
+                    <Text style={styles.kmText}>{item.km_completados} km</Text>
+                    <Text style={styles.kmTotal}>de {item.distancia_total} km</Text>
+                    <Text style={[styles.estado, completado && styles.estadoCompletado]}>
+                      {completado ? '🏅 Completado!' : '⚡ En progreso'}
+                    </Text>
+                  </View>
+
+                  {nombre ? (
+                    <Text style={styles.cardNombre}>{nombre} · korva.run</Text>
+                  ) : null}
+                </View>
+              </ViewShot>
+
+              <TouchableOpacity style={styles.compartirBtn} onPress={() => compartirProgreso(index)}>
+                <Text style={styles.compartirBtnText}>📤 Compartir progreso</Text>
+              </TouchableOpacity>
             </View>
           );
         })
@@ -194,8 +223,10 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 48, marginBottom: 16 },
   emptyText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   emptySubtext: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 20 },
-  card: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 20, marginBottom: 16 },
+  card: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 20, marginBottom: 8 },
   cardCompletado: { borderWidth: 1, borderColor: '#FC4C02' },
+  korvaTag: { marginBottom: 10 },
+  korvaTagText: { fontSize: 11, fontWeight: 'bold', color: '#FC4C02', letterSpacing: 1 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
   deporte: { fontSize: 11, fontWeight: 'bold', color: '#1E6FD9', letterSpacing: 1, marginBottom: 4 },
   challengeTitle: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF' },
@@ -209,6 +240,9 @@ const styles = StyleSheet.create({
   kmTotal: { fontSize: 13, color: '#A8CFFF', flex: 1 },
   estado: { fontSize: 12, color: '#A8CFFF', fontWeight: 'bold' },
   estadoCompletado: { color: '#FC4C02' },
+  cardNombre: { fontSize: 11, color: '#4a6a8a', marginTop: 12, textAlign: 'right' },
+  compartirBtn: { backgroundColor: '#0D1B2A', borderWidth: 1, borderColor: '#2a4a6a', paddingVertical: 10, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
+  compartirBtnText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
   actualizarBtn: { marginTop: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center' },
   actualizarBtnText: { color: '#A8CFFF', fontSize: 14 },
 });
