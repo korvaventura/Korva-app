@@ -31,7 +31,9 @@ export default function RankingScreen() {
       const res = await fetch(`${BACKEND_URL}/ranking/${CHALLENGE_ID}`);
       const data = await res.json();
       const filtrado = Array.isArray(data)
-        ? data.filter(r => r.modalidad === modalidad)
+        ? data
+            .filter(r => r.modalidad === modalidad)
+            .map((r, i) => ({ ...r, posicion: i + 1 })) // recalcular posicion por modalidad
         : [];
       setRanking(filtrado);
     } catch (error) {
@@ -45,6 +47,8 @@ export default function RankingScreen() {
     if (!miNombre) return false;
     return nombre?.toLowerCase().startsWith(miNombre.toLowerCase());
   };
+
+  const completado = (porcentaje) => parseFloat(porcentaje) >= 100;
 
   const top3 = ranking.slice(0, 3);
   const resto = ranking.slice(3);
@@ -63,9 +67,9 @@ export default function RankingScreen() {
 
   const PodioItem = ({ item, pos }) => {
     const config = {
-      1: { emoji: '🥇', color: '#FFD700', height: 90, avatarSize: 60 },
-      2: { emoji: '🥈', color: '#C0C0C0', height: 70, avatarSize: 52 },
-      3: { emoji: '🥉', color: '#CD7F32', height: 55, avatarSize: 46 },
+      1: { emoji: completado(item.porcentaje) ? '🏅' : '🥇', color: '#FFD700', height: 90, avatarSize: 60 },
+      2: { emoji: completado(item.porcentaje) ? '🏅' : '🥈', color: '#C0C0C0', height: 70, avatarSize: 52 },
+      3: { emoji: completado(item.porcentaje) ? '🏅' : '🥉', color: '#CD7F32', height: 55, avatarSize: 46 },
     }[pos];
 
     const propio = esPropio(item.nombre);
@@ -77,7 +81,7 @@ export default function RankingScreen() {
         <Text style={styles.podioNombre} numberOfLines={1}>{item.nombre}</Text>
         <Text style={styles.podioKm}>{item.km_completados}km</Text>
         <View style={[styles.podioBase, { height: config.height, borderColor: config.color }]}>
-          <Text style={[styles.podioEmoji]}>{config.emoji}</Text>
+          <Text style={styles.podioEmoji}>{config.emoji}</Text>
           <Text style={[styles.podioPct, { color: config.color }]}>{item.porcentaje}</Text>
         </View>
       </View>
@@ -118,7 +122,6 @@ export default function RankingScreen() {
         </View>
       ) : (
         <>
-          {/* Podio top 3 */}
           {top3.length > 0 && (
             <View style={styles.podioWrapper}>
               {top3.length >= 2 && <PodioItem item={top3[1]} pos={2} />}
@@ -127,14 +130,16 @@ export default function RankingScreen() {
             </View>
           )}
 
-          {/* Resto del ranking */}
           {resto.length > 0 && (
             <View style={styles.restoWrapper}>
               {resto.map((item, index) => {
                 const propio = esPropio(item.nombre);
+                const hizo100 = completado(item.porcentaje);
                 return (
                   <View key={index} style={[styles.card, propio && styles.cardPropio]}>
-                    <Text style={styles.posicion}>{item.posicion}°</Text>
+                    <Text style={styles.posicion}>
+                      {hizo100 ? '🏅' : `${item.posicion}°`}
+                    </Text>
 
                     <AvatarItem item={item} size={40} />
 
@@ -145,7 +150,7 @@ export default function RankingScreen() {
                       </View>
                       <View style={styles.progressBar}>
                         <View style={[styles.progressFill, { width: `${Math.min(parseFloat(item.porcentaje), 100)}%` },
-                          parseFloat(item.porcentaje) >= 100 && styles.progressFillCompletado]} />
+                          hizo100 && styles.progressFillCompletado]} />
                       </View>
                       <Text style={styles.kmText}>{item.km_completados} km — {item.porcentaje}</Text>
                     </View>
