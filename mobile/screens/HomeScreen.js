@@ -17,6 +17,7 @@ const PASOS = [
 export default function HomeScreen() {
   const [challenges, setChallenges] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState(false);
   const [userId, setUserId] = useState(null);
   const [completado, setCompletado] = useState(null);
   const [nombre, setNombre] = useState('');
@@ -49,6 +50,7 @@ export default function HomeScreen() {
     if (!userId) return;
     try {
       setCargando(true);
+      setError(false);
       await fetch(`${BACKEND_URL}/strava/actividades/${userId}`);
       const res = await fetch(`${BACKEND_URL}/strava/progreso/${userId}`);
       const data = await res.json();
@@ -59,8 +61,9 @@ export default function HomeScreen() {
       setBannerVisible(sinKm);
       const reto100 = lista.find(c => parseFloat(c.porcentaje) >= 100 && !c.pending);
       if (reto100) setCompletado(reto100.challenge);
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (err) {
+      console.error('Error:', err);
+      setError(true);
     } finally {
       setCargando(false);
     }
@@ -77,8 +80,8 @@ export default function HomeScreen() {
         mimeType: 'image/png',
         dialogTitle: 'Compartir mi progreso en Korva',
       });
-    } catch (error) {
-      console.error('Error compartiendo:', error);
+    } catch (err) {
+      console.error('Error compartiendo:', err);
     }
   };
 
@@ -108,7 +111,6 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Banner qué hacer después de pagar */}
       {bannerVisible && !cargando && (
         <View style={styles.bannerCard}>
           <View style={styles.bannerHeader}>
@@ -135,9 +137,17 @@ export default function HomeScreen() {
 
       {cargando ? (
         <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
+      ) : error ? (
+        <View style={styles.errorCard}>
+          <Text style={styles.errorEmoji}>📡</Text>
+          <Text style={styles.errorTitulo}>Sin conexión</Text>
+          <Text style={styles.errorSubtitulo}>No pudimos cargar tu progreso. Revisá tu conexión a internet.</Text>
+          <TouchableOpacity style={styles.reintentarBtn} onPress={cargarProgreso}>
+            <Text style={styles.reintentarText}>↻ Reintentar</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <>
-          {/* Cards de challenges pendientes de pago */}
           {challengesPending.map((item, index) => (
             <View key={`pending-${index}`} style={styles.pendingCard}>
               <Text style={styles.pendingEmoji}>⏳</Text>
@@ -149,7 +159,6 @@ export default function HomeScreen() {
             </View>
           ))}
 
-          {/* Challenges activos */}
           {challengesActivos.length === 0 && challengesPending.length === 0 ? (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyEmoji}>🏁</Text>
@@ -210,9 +219,11 @@ export default function HomeScreen() {
         </>
       )}
 
-      <TouchableOpacity style={styles.actualizarBtn} onPress={cargarProgreso}>
-        <Text style={styles.actualizarBtnText}>↻ Actualizar progreso</Text>
-      </TouchableOpacity>
+      {!error && (
+        <TouchableOpacity style={styles.actualizarBtn} onPress={cargarProgreso}>
+          <Text style={styles.actualizarBtnText}>↻ Actualizar progreso</Text>
+        </TouchableOpacity>
+      )}
 
       <StatusBar style="light" />
     </ScrollView>
@@ -240,6 +251,13 @@ const styles = StyleSheet.create({
   pasoDesc: { fontSize: 12, color: '#A8CFFF' },
   bannerBtn: { backgroundColor: '#1E6FD9', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginTop: 8 },
   bannerBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
+
+  errorCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 40, alignItems: 'center', marginTop: 20, borderWidth: 1, borderColor: '#2a3a4a' },
+  errorEmoji: { fontSize: 48, marginBottom: 16 },
+  errorTitulo: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
+  errorSubtitulo: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  reintentarBtn: { backgroundColor: '#1E6FD9', paddingVertical: 12, paddingHorizontal: 32, borderRadius: 12 },
+  reintentarText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
 
   pendingCard: { backgroundColor: '#1E2A1A', borderRadius: 16, padding: 18, marginBottom: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 14, borderWidth: 1, borderColor: '#2a4a2a' },
   pendingEmoji: { fontSize: 28 },
