@@ -11,6 +11,7 @@ export default function PerfilScreen() {
   const [nivel, setNivel] = useState(null);
   const [insignias, setInsignias] = useState([]);
   const [actividades, setActividades] = useState([]);
+  const [mostrarTodasActividades, setMostrarTodasActividades] = useState(false);
   const [editandoDireccion, setEditandoDireccion] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [formDireccion, setFormDireccion] = useState({
@@ -122,6 +123,8 @@ export default function PerfilScreen() {
     return '🏅';
   };
 
+  const actividadesVisibles = mostrarTodasActividades ? actividades : actividades.slice(0, 1);
+
   const stravaConectado = !!usuario?.strava_token;
   const direccion = usuario?.shipping_address;
   const inicial = usuario?.name?.charAt(0)?.toUpperCase() || 'K';
@@ -189,7 +192,6 @@ export default function PerfilScreen() {
         </View>
       )}
 
-      {/* Historial de actividades */}
       <View style={styles.seccion}>
         <Text style={styles.seccionTitulo}>📋 Actividades recientes</Text>
         {actividades.length === 0 ? (
@@ -199,19 +201,34 @@ export default function PerfilScreen() {
             <Text style={styles.emptySubtext}>Conectá Strava o registrá tus km manualmente</Text>
           </View>
         ) : (
-          actividades.map((act, i) => (
-            <View key={i} style={styles.actividadRow}>
-              <Text style={styles.actividadEmoji}>{deporteEmoji(act.sport_type)}</Text>
-              <View style={styles.actividadInfo}>
-                <Text style={styles.actividadFecha}>{formatearFecha(act.recorded_at)}</Text>
-                <Text style={styles.actividadTipo}>
-                  {act.sport_type === 'run' ? 'Running' : act.sport_type === 'ride' ? 'Ciclismo' : act.sport_type}
-                  {act.source === 'manual' ? ' · manual' : ' · Strava'}
-                </Text>
+          <>
+            {actividadesVisibles.map((act, i) => (
+              <View key={i} style={styles.actividadRow}>
+                <Text style={styles.actividadEmoji}>{deporteEmoji(act.sport_type)}</Text>
+                <View style={styles.actividadInfo}>
+                  <Text style={styles.actividadFecha}>{formatearFecha(act.recorded_at)}</Text>
+                  <Text style={styles.actividadTipo}>
+                    {act.sport_type === 'run' ? 'Running' : act.sport_type === 'ride' ? 'Ciclismo' : act.sport_type}
+                    {act.source === 'manual' ? ' · manual' : ' · Strava'}
+                  </Text>
+                </View>
+                <Text style={styles.actividadKm}>{parseFloat(act.distance_km).toFixed(1)} km</Text>
               </View>
-              <Text style={styles.actividadKm}>{parseFloat(act.distance_km).toFixed(1)} km</Text>
-            </View>
-          ))
+            ))}
+
+            {actividades.length > 1 && (
+              <TouchableOpacity
+                style={styles.verTodasBtn}
+                onPress={() => setMostrarTodasActividades(!mostrarTodasActividades)}
+              >
+                <Text style={styles.verTodasText}>
+                  {mostrarTodasActividades
+                    ? '▲ Ocultar historial'
+                    : `▼ Ver historial completo (${actividades.length - 1} más)`}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
         )}
       </View>
 
@@ -365,6 +382,8 @@ const styles = StyleSheet.create({
   actividadFecha: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
   actividadTipo: { fontSize: 11, color: '#A8CFFF' },
   actividadKm: { fontSize: 16, fontWeight: 'bold', color: '#1E6FD9' },
+  verTodasBtn: { paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: '#2a4a6a', borderRadius: 12 },
+  verTodasText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
   emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 24, alignItems: 'center' },
   emptyEmoji: { fontSize: 32, marginBottom: 8 },
   emptyText: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
