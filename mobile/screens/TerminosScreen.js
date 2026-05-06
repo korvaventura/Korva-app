@@ -1,8 +1,14 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
 import { useState } from 'react';
+import PrivacidadScreen from './PrivacidadScreen';
 
 export default function TerminosScreen({ onAceptar }) {
   const [aceptado, setAceptado] = useState(false);
+  const [verPrivacidad, setVerPrivacidad] = useState(false);
+
+  if (verPrivacidad) {
+    return <PrivacidadScreen onVolver={() => setVerPrivacidad(false)} />;
+  }
 
   return (
     <View style={styles.container}>
@@ -40,6 +46,10 @@ export default function TerminosScreen({ onAceptar }) {
         <Text style={styles.seccionTitulo}>📩 CONTACTO</Text>
         <Text style={styles.texto}>Para cualquier consulta o solicitud: korvaventura@gmail.com</Text>
 
+        <TouchableOpacity onPress={() => setVerPrivacidad(true)} style={styles.privacidadLink}>
+          <Text style={styles.privacidadLinkText}>🔒 Ver Política de Privacidad →</Text>
+        </TouchableOpacity>
+
       </ScrollView>
 
       <View style={styles.footer}>
@@ -51,7 +61,7 @@ export default function TerminosScreen({ onAceptar }) {
           <View style={[styles.checkbox, aceptado && styles.checkboxActivo]}>
             {aceptado && <Text style={styles.checkmark}>✓</Text>}
           </View>
-          <Text style={styles.checkLabel}>Leí y acepto los términos y condiciones</Text>
+          <Text style={styles.checkLabel}>Leí y acepto los términos y condiciones y la política de privacidad</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -75,6 +85,8 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 24, paddingBottom: 16 },
   seccionTitulo: { fontSize: 13, fontWeight: 'bold', color: '#1E6FD9', marginTop: 20, marginBottom: 8, letterSpacing: 0.5 },
   texto: { fontSize: 13, color: '#A8CFFF', lineHeight: 22 },
+  privacidadLink: { marginTop: 24, paddingVertical: 14, borderWidth: 1, borderColor: '#1E6FD9', borderRadius: 12, alignItems: 'center' },
+  privacidadLinkText: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 14 },
   footer: { padding: 24, borderTopWidth: 1, borderTopColor: '#1E3A5F', gap: 16 },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: '#2a4a6a', alignItems: 'center', justifyContent: 'center' },
