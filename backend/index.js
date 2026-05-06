@@ -278,26 +278,32 @@ app.get('/ranking/:challengeId', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('user_challenges')
-      .select('*, users(name, avatar_url)')
+      .select('*, users(name, avatar_url), challenges(modalidades, total_distance_km)')
       .eq('challenge_id', challengeId)
       .in('status', ['active', 'completed', 'shipped'])
       .order('km_completed', { ascending: false });
 
     if (error) throw error;
 
-    const resultado = data.map((uc, index) => ({
-      posicion: index + 1,
-      nombre: (() => {
-        const n = uc.users?.name || 'Anonimo';
-        const partes = n.trim().split(' ');
-        if (partes.length === 1) return partes[0];
-        return `${partes[0]} ${partes[1]?.charAt(0)}.`;
-      })(),
-      avatar: uc.users?.avatar_url,
-      km_completados: uc.km_completed,
-      modalidad: uc.modalidad,
-      porcentaje: Math.min((uc.km_completed / (uc.modalidad === 'run' ? 103 : 309)) * 100, 100).toFixed(1)
-    }));
+    const resultado = data.map((uc, index) => {
+      const modalidades = uc.challenges?.modalidades || [];
+      const modalidadData = modalidades.find(m => m.tipo === uc.modalidad);
+      const distancia = modalidadData?.distancia_km || uc.challenges?.total_distance_km || 100;
+
+      return {
+        posicion: index + 1,
+        nombre: (() => {
+          const n = uc.users?.name || 'Anonimo';
+          const partes = n.trim().split(' ');
+          if (partes.length === 1) return partes[0];
+          return `${partes[0]} ${partes[1]?.charAt(0)}.`;
+        })(),
+        avatar: uc.users?.avatar_url,
+        km_completados: uc.km_completed,
+        modalidad: uc.modalidad,
+        porcentaje: Math.min((uc.km_completed / distancia) * 100, 100).toFixed(1)
+      };
+    });
 
     res.json(resultado);
   } catch (error) {
