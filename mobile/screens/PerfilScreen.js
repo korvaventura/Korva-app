@@ -10,6 +10,7 @@ export default function PerfilScreen() {
   const [userId, setUserId] = useState(null);
   const [nivel, setNivel] = useState(null);
   const [insignias, setInsignias] = useState([]);
+  const [actividades, setActividades] = useState([]);
   const [editandoDireccion, setEditandoDireccion] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [formDireccion, setFormDireccion] = useState({
@@ -28,7 +29,10 @@ export default function PerfilScreen() {
   }, []);
 
   useEffect(() => {
-    if (userId) cargarPerfil();
+    if (userId) {
+      cargarPerfil();
+      cargarActividades();
+    }
   }, [userId]);
 
   useEffect(() => {
@@ -48,6 +52,16 @@ export default function PerfilScreen() {
       setInsignias(data.insignias || []);
     } catch (error) {
       console.error('Error:', error);
+    }
+  };
+
+  const cargarActividades = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/actividades/${userId}`);
+      const data = await res.json();
+      setActividades(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error cargando actividades:', error);
     }
   };
 
@@ -97,6 +111,17 @@ export default function PerfilScreen() {
     await supabase.auth.signOut();
   };
 
+  const formatearFecha = (fecha) => {
+    if (!fecha) return '';
+    return new Date(fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  const deporteEmoji = (tipo) => {
+    if (tipo === 'run') return '🏃';
+    if (tipo === 'ride') return '🚴';
+    return '🏅';
+  };
+
   const stravaConectado = !!usuario?.strava_token;
   const direccion = usuario?.shipping_address;
   const inicial = usuario?.name?.charAt(0)?.toUpperCase() || 'K';
@@ -128,8 +153,8 @@ export default function PerfilScreen() {
           <Text style={styles.statLabel}>km totales</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNumero}>{stats?.challenges_activos || 0}</Text>
-          <Text style={styles.statLabel}>Retos activos</Text>
+          <Text style={styles.statNumero}>{stats?.medallas || 0}</Text>
+          <Text style={styles.statLabel}>Medallas</Text>
         </View>
       </View>
 
@@ -164,19 +189,29 @@ export default function PerfilScreen() {
         </View>
       )}
 
+      {/* Historial de actividades */}
       <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>🏅 Medallas ganadas</Text>
-        {!stats?.medallas ? (
+        <Text style={styles.seccionTitulo}>📋 Actividades recientes</Text>
+        {actividades.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyEmoji}>🎯</Text>
-            <Text style={styles.emptyText}>Todavia sin medallas</Text>
-            <Text style={styles.emptySubtext}>Completa tu primer reto para ganar la tuya</Text>
+            <Text style={styles.emptyEmoji}>🏁</Text>
+            <Text style={styles.emptyText}>Sin actividades todavia</Text>
+            <Text style={styles.emptySubtext}>Conectá Strava o registrá tus km manualmente</Text>
           </View>
         ) : (
-          <View style={styles.medallaCard}>
-            <Text style={styles.medallaNumero}>{stats.medallas}</Text>
-            <Text style={styles.medallaLabel}>{stats.medallas === 1 ? 'medalla ganada' : 'medallas ganadas'}</Text>
-          </View>
+          actividades.map((act, i) => (
+            <View key={i} style={styles.actividadRow}>
+              <Text style={styles.actividadEmoji}>{deporteEmoji(act.sport_type)}</Text>
+              <View style={styles.actividadInfo}>
+                <Text style={styles.actividadFecha}>{formatearFecha(act.recorded_at)}</Text>
+                <Text style={styles.actividadTipo}>
+                  {act.sport_type === 'run' ? 'Running' : act.sport_type === 'ride' ? 'Ciclismo' : act.sport_type}
+                  {act.source === 'manual' ? ' · manual' : ' · Strava'}
+                </Text>
+              </View>
+              <Text style={styles.actividadKm}>{parseFloat(act.distance_km).toFixed(1)} km</Text>
+            </View>
+          ))
         )}
       </View>
 
@@ -324,13 +359,16 @@ const styles = StyleSheet.create({
   insigniaCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', minWidth: 90 },
   insigniaEmoji: { fontSize: 28, marginBottom: 6 },
   insigniaNombre: { fontSize: 11, color: '#A8CFFF', textAlign: 'center' },
+  actividadRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, marginBottom: 8, gap: 12 },
+  actividadEmoji: { fontSize: 22 },
+  actividadInfo: { flex: 1 },
+  actividadFecha: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
+  actividadTipo: { fontSize: 11, color: '#A8CFFF' },
+  actividadKm: { fontSize: 16, fontWeight: 'bold', color: '#1E6FD9' },
   emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 24, alignItems: 'center' },
   emptyEmoji: { fontSize: 32, marginBottom: 8 },
   emptyText: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   emptySubtext: { fontSize: 12, color: '#A8CFFF', textAlign: 'center' },
-  medallaCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: '#FC4C02' },
-  medallaNumero: { fontSize: 48, fontWeight: 'bold', color: '#FC4C02', marginBottom: 4 },
-  medallaLabel: { fontSize: 14, color: '#A8CFFF' },
   direccionCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20 },
   direccionNombre: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 10 },
   direccionLinea: { fontSize: 13, color: '#A8CFFF', marginBottom: 5 },
