@@ -4,6 +4,16 @@ import { supabase } from '../supabase';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
+const getFecha = (diasAtras) => {
+  const d = new Date();
+  d.setDate(d.getDate() - diasAtras);
+  return d;
+};
+
+const formatearFecha = (date) => {
+  return date.toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+};
+
 export default function RegistroManualScreen() {
   const [deporte, setDeporte] = useState('run');
   const [distancia, setDistancia] = useState('');
@@ -11,6 +21,7 @@ export default function RegistroManualScreen() {
   const [mensaje, setMensaje] = useState('');
   const [exito, setExito] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [diasAtras, setDiasAtras] = useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -32,6 +43,7 @@ export default function RegistroManualScreen() {
     setMensaje('');
     setExito(false);
     try {
+      const fechaActividad = getFecha(diasAtras);
       const res = await fetch(`${BACKEND_URL}/actividades/manual`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -39,7 +51,7 @@ export default function RegistroManualScreen() {
           user_id: userId,
           sport_type: deporte,
           distance_km: parseFloat(distancia),
-          recorded_at: new Date().toISOString()
+          recorded_at: fechaActividad.toISOString()
         })
       });
       const data = await res.json();
@@ -47,9 +59,10 @@ export default function RegistroManualScreen() {
         setMensaje('Error al registrar. Intenta de nuevo.');
         setExito(false);
       } else {
-        setMensaje(`${distancia} km de ${deporte === 'run' ? 'running' : deporte === 'ride' ? 'ciclismo' : 'natacion'} registrados!`);
+        setMensaje(`${distancia} km de ${deporte === 'run' ? 'running' : 'ciclismo'} registrados!`);
         setExito(true);
         setDistancia('');
+        setDiasAtras(0);
       }
     } catch (error) {
       setMensaje('Error de conexion');
@@ -62,7 +75,17 @@ export default function RegistroManualScreen() {
   const deportes = [
     { id: 'run', label: 'Running', emoji: '🏃' },
     { id: 'ride', label: 'Ciclismo', emoji: '🚴' },
-    { id: 'swim', label: 'Natacion', emoji: '🏊' },
+  ];
+
+  const opciones_fecha = [
+    { label: 'Hoy', dias: 0 },
+    { label: 'Ayer', dias: 1 },
+    { label: 'Hace 2 días', dias: 2 },
+    { label: 'Hace 3 días', dias: 3 },
+    { label: 'Hace 4 días', dias: 4 },
+    { label: 'Hace 5 días', dias: 5 },
+    { label: 'Hace 6 días', dias: 6 },
+    { label: 'Hace 7 días', dias: 7 },
   ];
 
   return (
@@ -102,10 +125,25 @@ export default function RegistroManualScreen() {
         </View>
       </View>
 
-      {/* Fecha */}
-      <View style={styles.fechaCard}>
-        <Text style={styles.fechaLabel}>📅 FECHA</Text>
-        <Text style={styles.fechaText}>Hoy — {new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</Text>
+      {/* Selector de fecha */}
+      <View style={styles.seccion}>
+        <Text style={styles.seccionTitulo}>📅 Fecha de la actividad</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.fechaScroll}>
+          {opciones_fecha.map((op) => (
+            <TouchableOpacity
+              key={op.dias}
+              style={[styles.fechaBtn, diasAtras === op.dias && styles.fechaBtnActivo]}
+              onPress={() => setDiasAtras(op.dias)}
+            >
+              <Text style={[styles.fechaBtnText, diasAtras === op.dias && styles.fechaBtnTextActivo]}>
+                {op.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <Text style={styles.fechaSeleccionada}>
+          {formatearFecha(getFecha(diasAtras))}
+        </Text>
       </View>
 
       {/* Mensaje */}
@@ -145,14 +183,19 @@ const styles = StyleSheet.create({
   deporteEmoji: { fontSize: 28, marginBottom: 6 },
   deporteLabel: { fontSize: 12, fontWeight: 'bold', color: '#4a6a8a' },
   deporteLabelActivo: { color: '#1E6FD9' },
-  distanciaCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 28, marginBottom: 14, alignItems: 'center' },
+  distanciaCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 28, marginBottom: 20, alignItems: 'center' },
   distanciaLabel: { fontSize: 11, fontWeight: 'bold', color: '#4a6a8a', letterSpacing: 2, marginBottom: 16 },
   distanciaRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   distanciaInput: { fontSize: 56, fontWeight: 'bold', color: '#FFFFFF', minWidth: 120, textAlign: 'center' },
   distanciaUnidad: { fontSize: 24, color: '#A8CFFF', fontWeight: 'bold' },
-  fechaCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 16, marginBottom: 20, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  fechaLabel: { fontSize: 11, fontWeight: 'bold', color: '#4a6a8a', letterSpacing: 1 },
-  fechaText: { fontSize: 13, color: '#A8CFFF', flex: 1 },
+  seccion: { marginBottom: 20 },
+  seccionTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 12, letterSpacing: 0.5 },
+  fechaScroll: { marginBottom: 12 },
+  fechaBtn: { backgroundColor: '#1E3A5F', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8, borderWidth: 2, borderColor: 'transparent' },
+  fechaBtnActivo: { borderColor: '#1E6FD9', backgroundColor: '#162d4a' },
+  fechaBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
+  fechaBtnTextActivo: { color: '#1E6FD9' },
+  fechaSeleccionada: { fontSize: 13, color: '#A8CFFF', marginTop: 4 },
   mensajeBox: { backgroundColor: '#2a1a1a', borderRadius: 12, padding: 14, marginBottom: 16 },
   mensajeExito: { backgroundColor: '#0a2a1a' },
   mensajeText: { color: '#FC4C02', fontSize: 14, textAlign: 'center' },
