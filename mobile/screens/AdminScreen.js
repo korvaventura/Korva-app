@@ -9,6 +9,19 @@ export default function AdminScreen() {
   const [tracking, setTracking] = useState({});
   const [mensaje, setMensaje] = useState('');
   const [filtro, setFiltro] = useState('pendientes');
+  const [vista, setVista] = useState('envios'); // 'envios' o 'crear'
+
+  // Form nuevo reto
+  const [nuevoReto, setNuevoReto] = useState({
+    title: '',
+    description: '',
+    price_usd: '',
+    medal_image_url: '',
+    modalidades: [
+      { tipo: 'run', label: 'Running', distancia_km: '' },
+    ],
+  });
+  const [creando, setCreando] = useState(false);
 
   useEffect(() => {
     cargarChallenges();
@@ -71,6 +84,81 @@ export default function AdminScreen() {
     return dias;
   };
 
+  const agregarModalidad = () => {
+    const tipos = nuevoReto.modalidades.map(m => m.tipo);
+    const siguiente = !tipos.includes('run') ? 'run' : !tipos.includes('ride') ? 'ride' : null;
+    if (!siguiente) {
+      Alert.alert('Máximo 2 modalidades', 'Ya tenés Running y Ciclismo.');
+      return;
+    }
+    setNuevoReto(prev => ({
+      ...prev,
+      modalidades: [...prev.modalidades, { tipo: siguiente, label: siguiente === 'run' ? 'Running' : 'Ciclismo', distancia_km: '' }]
+    }));
+  };
+
+  const quitarModalidad = (index) => {
+    if (nuevoReto.modalidades.length === 1) {
+      Alert.alert('Mínimo 1 modalidad');
+      return;
+    }
+    setNuevoReto(prev => ({
+      ...prev,
+      modalidades: prev.modalidades.filter((_, i) => i !== index)
+    }));
+  };
+
+  const actualizarModalidad = (index, campo, valor) => {
+    setNuevoReto(prev => {
+      const mods = [...prev.modalidades];
+      mods[index] = { ...mods[index], [campo]: valor };
+      return { ...prev, modalidades: mods };
+    });
+  };
+
+  const crearReto = async () => {
+    const { title, description, price_usd, medal_image_url, modalidades } = nuevoReto;
+    if (!title || !description || !price_usd || modalidades.some(m => !m.distancia_km)) {
+      Alert.alert('Faltan datos', 'Completá título, descripción, precio y distancias.');
+      return;
+    }
+    setCreando(true);
+    try {
+      const modalidadesFormateadas = modalidades.map(m => ({
+        tipo: m.tipo,
+        label: m.label,
+        distancia_km: parseFloat(m.distancia_km)
+      }));
+      const res = await fetch(`${BACKEND_URL}/admin/challenges`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description,
+          price_usd: parseFloat(price_usd),
+          medal_image_url,
+          modalidades: modalidadesFormateadas,
+          sport_type: modalidades.length > 1 ? 'multi' : modalidades[0].tipo,
+        })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.detalle);
+      Alert.alert('🎉 Reto creado', `"${title}" fue creado exitosamente.`);
+      setNuevoReto({
+        title: '',
+        description: '',
+        price_usd: '',
+        medal_image_url: '',
+        modalidades: [{ tipo: 'run', label: 'Running', distancia_km: '' }],
+      });
+      setVista('envios');
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo crear el reto. Intentá de nuevo.');
+    } finally {
+      setCreando(false);
+    }
+  };
+
   const renderDireccion = (direccion) => {
     if (!direccion) return (
       <View style={styles.sinDireccionBox}>
@@ -96,129 +184,221 @@ export default function AdminScreen() {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>⚙️ Admin</Text>
-      <Text style={styles.subtitulo}>Gestion de medallas</Text>
 
-      {/* Resumen */}
-      <View style={styles.resumenRow}>
-        <View style={[styles.resumenCard, { borderColor: '#FC4C02' }]}>
-          <Text style={[styles.resumenNumero, { color: '#FC4C02' }]}>{pendientes.length}</Text>
-          <Text style={styles.resumenLabel}>Pendientes</Text>
-        </View>
-        <View style={[styles.resumenCard, { borderColor: '#4CAF50' }]}>
-          <Text style={[styles.resumenNumero, { color: '#4CAF50' }]}>{enviados.length}</Text>
-          <Text style={styles.resumenLabel}>Enviadas</Text>
-        </View>
-        <View style={[styles.resumenCard, { borderColor: '#1E6FD9' }]}>
-          <Text style={[styles.resumenNumero, { color: '#1E6FD9' }]}>{challenges.length}</Text>
-          <Text style={styles.resumenLabel}>Total</Text>
-        </View>
-      </View>
-
-      {/* Filtro */}
-      <View style={styles.filtroRow}>
+      {/* Toggle vista */}
+      <View style={styles.vistaRow}>
         <TouchableOpacity
-          style={[styles.filtroBtn, filtro === 'pendientes' && styles.filtroBtnActivo]}
-          onPress={() => setFiltro('pendientes')}
+          style={[styles.vistaBtn, vista === 'envios' && styles.vistaBtnActivo]}
+          onPress={() => setVista('envios')}
         >
-          <Text style={[styles.filtroText, filtro === 'pendientes' && styles.filtroTextActivo]}>
-            🟡 Pendientes ({pendientes.length})
-          </Text>
+          <Text style={[styles.vistaText, vista === 'envios' && styles.vistaTextActivo]}>📬 Envíos</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.filtroBtn, filtro === 'enviadas' && styles.filtroBtnActivo]}
-          onPress={() => setFiltro('enviadas')}
+          style={[styles.vistaBtn, vista === 'crear' && styles.vistaBtnActivo]}
+          onPress={() => setVista('crear')}
         >
-          <Text style={[styles.filtroText, filtro === 'enviadas' && styles.filtroTextActivo]}>
-            ✅ Enviadas ({enviados.length})
-          </Text>
+          <Text style={[styles.vistaText, vista === 'crear' && styles.vistaTextActivo]}>➕ Nuevo reto</Text>
         </TouchableOpacity>
       </View>
 
-      {mensaje ? (
-        <View style={styles.mensajeBox}>
-          <Text style={styles.mensajeText}>{mensaje}</Text>
-        </View>
-      ) : null}
+      {vista === 'envios' ? (
+        <>
+          {/* Resumen */}
+          <View style={styles.resumenRow}>
+            <View style={[styles.resumenCard, { borderColor: '#FC4C02' }]}>
+              <Text style={[styles.resumenNumero, { color: '#FC4C02' }]}>{pendientes.length}</Text>
+              <Text style={styles.resumenLabel}>Pendientes</Text>
+            </View>
+            <View style={[styles.resumenCard, { borderColor: '#4CAF50' }]}>
+              <Text style={[styles.resumenNumero, { color: '#4CAF50' }]}>{enviados.length}</Text>
+              <Text style={styles.resumenLabel}>Enviadas</Text>
+            </View>
+            <View style={[styles.resumenCard, { borderColor: '#1E6FD9' }]}>
+              <Text style={[styles.resumenNumero, { color: '#1E6FD9' }]}>{challenges.length}</Text>
+              <Text style={styles.resumenLabel}>Total</Text>
+            </View>
+          </View>
 
-      {cargando ? (
-        <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
-      ) : lista.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyEmoji}>{filtro === 'pendientes' ? '🎉' : '📭'}</Text>
-          <Text style={styles.emptyText}>{filtro === 'pendientes' ? 'Todo al dia!' : 'Sin envios todavia'}</Text>
-          <Text style={styles.emptySubtext}>{filtro === 'pendientes' ? 'No hay medallas pendientes de envio' : 'Las medallas enviadas aparecen acá'}</Text>
-        </View>
-      ) : (
-        lista.map((item, index) => {
-          const dias = diasDesdeCompletado(item.completed_at);
-          const urgente = dias !== null && dias >= 3 && filtro === 'pendientes';
+          {/* Filtro */}
+          <View style={styles.filtroRow}>
+            <TouchableOpacity
+              style={[styles.filtroBtn, filtro === 'pendientes' && styles.filtroBtnActivo]}
+              onPress={() => setFiltro('pendientes')}
+            >
+              <Text style={[styles.filtroText, filtro === 'pendientes' && styles.filtroTextActivo]}>
+                🟡 Pendientes ({pendientes.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filtroBtn, filtro === 'enviadas' && styles.filtroBtnActivo]}
+              onPress={() => setFiltro('enviadas')}
+            >
+              <Text style={[styles.filtroText, filtro === 'enviadas' && styles.filtroTextActivo]}>
+                ✅ Enviadas ({enviados.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-          return filtro === 'pendientes' ? (
-            <View key={index} style={[styles.card, urgente && styles.cardUrgente]}>
-              <View style={styles.cardHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.deporte}>{item.modalidad === 'run' ? '🏃 RUNNING' : '🚴 CICLISMO'}</Text>
-                  <Text style={styles.nombre}>{item.usuario}</Text>
-                  <Text style={styles.challenge}>{item.challenge}</Text>
-                </View>
-                <View style={styles.rightColumn}>
-                  <View style={styles.kmBadge}>
-                    <Text style={styles.kmNumero}>{item.km_completados}</Text>
-                    <Text style={styles.kmLabel}>km</Text>
-                  </View>
-                  {dias !== null && (
-                    <Text style={[styles.diasText, urgente && styles.diasUrgente]}>
-                      {dias === 0 ? 'hoy' : `hace ${dias}d`}
-                    </Text>
-                  )}
-                </View>
-              </View>
+          {mensaje ? (
+            <View style={styles.mensajeBox}>
+              <Text style={styles.mensajeText}>{mensaje}</Text>
+            </View>
+          ) : null}
 
-              <Text style={styles.email}>{item.email}</Text>
-              {renderDireccion(item.direccion)}
-
-              <TouchableOpacity style={styles.copiarBtn} onPress={() => copiarDireccion(item)}>
-                <Text style={styles.copiarBtnText}>📋 Copiar datos de envío</Text>
-              </TouchableOpacity>
-
-              <Text style={styles.label}>NUMERO DE TRACKING</Text>
-              <TextInput
-                style={styles.input}
-                value={tracking[item.id] || ''}
-                onChangeText={(val) => setTracking({ ...tracking, [item.id]: val })}
-                placeholder="Ej: AR123456789"
-                placeholderTextColor="#4a6a8a"
-              />
-              <TouchableOpacity style={styles.button} onPress={() => enviarMedalla(item.id, item.usuario)}>
-                <Text style={styles.buttonText}>📬 Marcar como enviada y notificar</Text>
-              </TouchableOpacity>
+          {cargando ? (
+            <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
+          ) : lista.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyEmoji}>{filtro === 'pendientes' ? '🎉' : '📭'}</Text>
+              <Text style={styles.emptyText}>{filtro === 'pendientes' ? 'Todo al dia!' : 'Sin envios todavia'}</Text>
+              <Text style={styles.emptySubtext}>{filtro === 'pendientes' ? 'No hay medallas pendientes de envio' : 'Las medallas enviadas aparecen acá'}</Text>
             </View>
           ) : (
-            <View key={index} style={styles.cardShipped}>
-              <View style={styles.cardHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.deporte}>{item.modalidad === 'run' ? '🏃 RUNNING' : '🚴 CICLISMO'}</Text>
-                  <Text style={styles.nombre}>{item.usuario}</Text>
-                  <Text style={styles.challenge}>{item.challenge}</Text>
+            lista.map((item, index) => {
+              const dias = diasDesdeCompletado(item.completed_at);
+              const urgente = dias !== null && dias >= 3 && filtro === 'pendientes';
+
+              return filtro === 'pendientes' ? (
+                <View key={index} style={[styles.card, urgente && styles.cardUrgente]}>
+                  <View style={styles.cardHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.deporte}>{item.modalidad === 'run' ? '🏃 RUNNING' : '🚴 CICLISMO'}</Text>
+                      <Text style={styles.nombre}>{item.usuario}</Text>
+                      <Text style={styles.challenge}>{item.challenge}</Text>
+                    </View>
+                    <View style={styles.rightColumn}>
+                      <View style={styles.kmBadge}>
+                        <Text style={styles.kmNumero}>{item.km_completados}</Text>
+                        <Text style={styles.kmLabel}>km</Text>
+                      </View>
+                      {dias !== null && (
+                        <Text style={[styles.diasText, urgente && styles.diasUrgente]}>
+                          {dias === 0 ? 'hoy' : `hace ${dias}d`}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                  <Text style={styles.email}>{item.email}</Text>
+                  {renderDireccion(item.direccion)}
+                  <TouchableOpacity style={styles.copiarBtn} onPress={() => copiarDireccion(item)}>
+                    <Text style={styles.copiarBtnText}>📋 Copiar datos de envío</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.label}>NUMERO DE TRACKING</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={tracking[item.id] || ''}
+                    onChangeText={(val) => setTracking({ ...tracking, [item.id]: val })}
+                    placeholder="Ej: AR123456789"
+                    placeholderTextColor="#4a6a8a"
+                  />
+                  <TouchableOpacity style={styles.button} onPress={() => enviarMedalla(item.id, item.usuario)}>
+                    <Text style={styles.buttonText}>📬 Marcar como enviada y notificar</Text>
+                  </TouchableOpacity>
                 </View>
-                <View style={styles.shippedBadge}>
-                  <Text style={styles.shippedBadgeText}>✅</Text>
+              ) : (
+                <View key={index} style={styles.cardShipped}>
+                  <View style={styles.cardHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.deporte}>{item.modalidad === 'run' ? '🏃 RUNNING' : '🚴 CICLISMO'}</Text>
+                      <Text style={styles.nombre}>{item.usuario}</Text>
+                      <Text style={styles.challenge}>{item.challenge}</Text>
+                    </View>
+                    <View style={styles.shippedBadge}>
+                      <Text style={styles.shippedBadgeText}>✅</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.email}>{item.email}</Text>
+                  {renderDireccion(item.direccion)}
+                  <TouchableOpacity style={styles.copiarBtn} onPress={() => copiarDireccion(item)}>
+                    <Text style={styles.copiarBtnText}>📋 Copiar datos de envío</Text>
+                  </TouchableOpacity>
+                  {item.tracking_number && (
+                    <View style={styles.trackingBox}>
+                      <Text style={styles.trackingLabel}>TRACKING</Text>
+                      <Text style={styles.trackingNum}>{item.tracking_number}</Text>
+                    </View>
+                  )}
                 </View>
+              );
+            })
+          )}
+        </>
+      ) : (
+        /* Creador de retos */
+        <View style={styles.formCard}>
+          <Text style={styles.formTitulo}>➕ Nuevo reto</Text>
+
+          <Text style={styles.formLabel}>Título *</Text>
+          <TextInput
+            style={styles.input}
+            value={nuevoReto.title}
+            onChangeText={v => setNuevoReto(p => ({ ...p, title: v }))}
+            placeholder="Ej: Fin del Mundo"
+            placeholderTextColor="#4a6a8a"
+          />
+
+          <Text style={styles.formLabel}>Descripción *</Text>
+          <TextInput
+            style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+            value={nuevoReto.description}
+            onChangeText={v => setNuevoReto(p => ({ ...p, description: v }))}
+            placeholder="Descripción del reto..."
+            placeholderTextColor="#4a6a8a"
+            multiline
+          />
+
+          <Text style={styles.formLabel}>Precio USD *</Text>
+          <TextInput
+            style={styles.input}
+            value={nuevoReto.price_usd}
+            onChangeText={v => setNuevoReto(p => ({ ...p, price_usd: v }))}
+            placeholder="Ej: 49"
+            placeholderTextColor="#4a6a8a"
+            keyboardType="numeric"
+          />
+
+          <Text style={styles.formLabel}>URL imagen medalla</Text>
+          <TextInput
+            style={styles.input}
+            value={nuevoReto.medal_image_url}
+            onChangeText={v => setNuevoReto(p => ({ ...p, medal_image_url: v }))}
+            placeholder="https://..."
+            placeholderTextColor="#4a6a8a"
+          />
+
+          <Text style={styles.formLabel}>Modalidades *</Text>
+          {nuevoReto.modalidades.map((m, i) => (
+            <View key={i} style={styles.modalidadRow}>
+              <View style={styles.modalidadTipo}>
+                <Text style={styles.modalidadTipoText}>{m.tipo === 'run' ? '🏃 Running' : '🚴 Ciclismo'}</Text>
               </View>
-              <Text style={styles.email}>{item.email}</Text>
-              {renderDireccion(item.direccion)}
-              <TouchableOpacity style={styles.copiarBtn} onPress={() => copiarDireccion(item)}>
-                <Text style={styles.copiarBtnText}>📋 Copiar datos de envío</Text>
+              <TextInput
+                style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                value={m.distancia_km}
+                onChangeText={v => actualizarModalidad(i, 'distancia_km', v)}
+                placeholder="km"
+                placeholderTextColor="#4a6a8a"
+                keyboardType="numeric"
+              />
+              <TouchableOpacity style={styles.quitarBtn} onPress={() => quitarModalidad(i)}>
+                <Text style={styles.quitarBtnText}>✕</Text>
               </TouchableOpacity>
-              {item.tracking_number && (
-                <View style={styles.trackingBox}>
-                  <Text style={styles.trackingLabel}>TRACKING</Text>
-                  <Text style={styles.trackingNum}>{item.tracking_number}</Text>
-                </View>
-              )}
             </View>
-          );
-        })
+          ))}
+
+          {nuevoReto.modalidades.length < 2 && (
+            <TouchableOpacity style={styles.agregarModalidadBtn} onPress={agregarModalidad}>
+              <Text style={styles.agregarModalidadText}>+ Agregar modalidad</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity style={styles.crearBtn} onPress={crearReto} disabled={creando}>
+            {creando
+              ? <ActivityIndicator color="#FFFFFF" size="small" />
+              : <Text style={styles.crearBtnText}>🎉 Crear reto</Text>
+            }
+          </TouchableOpacity>
+        </View>
       )}
     </ScrollView>
   );
@@ -227,8 +407,12 @@ export default function AdminScreen() {
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#0D1B2A' },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
-  titulo: { fontSize: 26, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  subtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 20 },
+  titulo: { fontSize: 26, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 16 },
+  vistaRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  vistaBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  vistaBtnActivo: { borderColor: '#FC4C02' },
+  vistaText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 14 },
+  vistaTextActivo: { color: '#FFFFFF' },
   resumenRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   resumenCard: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1 },
   resumenNumero: { fontSize: 28, fontWeight: 'bold', marginBottom: 2 },
@@ -275,4 +459,16 @@ const styles = StyleSheet.create({
   trackingBox: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, marginTop: 8 },
   trackingLabel: { fontSize: 10, fontWeight: 'bold', color: '#4CAF50', letterSpacing: 2, marginBottom: 4 },
   trackingNum: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
+  formCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 20 },
+  formTitulo: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 20 },
+  formLabel: { fontSize: 12, color: '#A8CFFF', marginBottom: 6, marginTop: 4, fontWeight: 'bold', letterSpacing: 0.5 },
+  modalidadRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  modalidadTipo: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, minWidth: 110 },
+  modalidadTipoText: { color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' },
+  quitarBtn: { backgroundColor: '#2a1a1a', borderRadius: 10, padding: 12 },
+  quitarBtnText: { color: '#FC4C02', fontWeight: 'bold', fontSize: 14 },
+  agregarModalidadBtn: { borderWidth: 1, borderColor: '#2a4a6a', borderRadius: 10, padding: 12, alignItems: 'center', marginBottom: 16 },
+  agregarModalidadText: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 14 },
+  crearBtn: { backgroundColor: '#FC4C02', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
+  crearBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
 });
