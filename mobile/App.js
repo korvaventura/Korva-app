@@ -13,6 +13,12 @@ import RankingScreen from './screens/RankingScreen';
 
 const Tab = createBottomTabNavigator();
 
+const ADMINS = [
+  'korvaventura@gmail.com',
+  'fabrialejandrogonzalez@gmail.com',
+  'malejo.eche16@gmail.com',
+];
+
 export default function App() {
   const [usuario, setUsuario] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -33,6 +39,8 @@ export default function App() {
   if (!usuario) {
     return <LoginScreen onLogin={(user) => setUsuario(user)} />;
   }
+
+  const esAdmin = ADMINS.includes(usuario.email?.toLowerCase());
 
   return (
     <NavigationContainer>
@@ -72,11 +80,13 @@ export default function App() {
           component={PerfilScreen}
           options={{ tabBarIcon: () => <Text>👤</Text> }}
         />
-        <Tab.Screen
-          name="Admin"
-          component={AdminScreen}
-          options={{ tabBarIcon: () => <Text>⚙️</Text> }}
-        />
+        {esAdmin && (
+          <Tab.Screen
+            name="Admin"
+            component={AdminScreen}
+            options={{ tabBarIcon: () => <Text>⚙️</Text> }}
+          />
+        )}
       </Tab.Navigator>
     </NavigationContainer>
   );
