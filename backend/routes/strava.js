@@ -22,11 +22,10 @@ const getValidStravaToken = async (supabase, userId) => {
 
   const ahoraEnSegundos = Math.floor(Date.now() / 1000);
   const venceEn = user.strava_token_expires_at || 0;
-  const tokenVencido = venceEn - ahoraEnSegundos < 300; // renovar si vence en menos de 5 min
+  const tokenVencido = venceEn - ahoraEnSegundos < 300;
 
   if (!tokenVencido) return user.strava_token;
 
-  // Renovar token
   const response = await fetch('https://www.strava.com/oauth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -58,7 +57,6 @@ const getValidStravaToken = async (supabase, userId) => {
 const procesarActividad = async (supabase, userId, stravaActivityId) => {
   const accessToken = await getValidStravaToken(supabase, userId);
 
-  // Traer detalle de la actividad
   const res = await fetch(`https://www.strava.com/api/v3/activities/${stravaActivityId}`, {
     headers: { 'Authorization': `Bearer ${accessToken}` }
   });
@@ -66,7 +64,6 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
 
   if (!actividad.id) throw new Error('Actividad no encontrada en Strava');
 
-  // Guardar actividad
   await supabase.from('activities').upsert({
     user_id: userId,
     source: 'strava',
@@ -77,7 +74,6 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
     recorded_at: actividad.start_date
   }, { onConflict: 'external_id' });
 
-  // Recalcular progreso de challenges activos
   const { data: userChallenges } = await supabase
     .from('user_challenges')
     .select('*, challenges(*)')
@@ -149,13 +145,12 @@ router.get('/callback', async (req, res) => {
       })
     });
 
-  const data = await response.json();
+    const data = await response.json();
 
-// Traer perfil del atleta por separado
-const athleteRes = await fetch('https://www.strava.com/api/v3/athlete', {
-  headers: { 'Authorization': `Bearer ${data.access_token}` }
-});
-const stravaAthlete = await athleteRes.json();
+    const athleteRes = await fetch('https://www.strava.com/api/v3/athlete', {
+      headers: { 'Authorization': `Bearer ${data.access_token}` }
+    });
+    const stravaAthlete = await athleteRes.json();
 
     const supabase = getSupabase();
     const { data: user, error } = await supabase
@@ -174,11 +169,7 @@ const stravaAthlete = await athleteRes.json();
 
     if (error) throw error;
 
-    res.json({
-      mensaje: 'Strava conectado exitosamente',
-      usuario: user.name,
-      id: user.id
-    });
+    res.redirect(`mobile://strava-connected?userId=${user.id}`);
 
   } catch (error) {
     res.json({ error: 'Error conectando con Strava', detalle: error.message });
@@ -225,7 +216,7 @@ router.get('/actividades/:userId', async (req, res) => {
   }
 });
 
-// Calcular progreso
+// Calcular progreso — incluye pending para mostrar en la app
 router.get('/progreso/:userId', async (req, res) => {
   const { userId } = req.params;
   const supabase = getSupabase();
@@ -235,11 +226,25 @@ router.get('/progreso/:userId', async (req, res) => {
       .from('user_challenges')
       .select('*, challenges(*)')
       .eq('user_id', userId)
-      .eq('status', 'active');
+      .in('status', ['active', 'pending']);
 
     if (challengeError) throw challengeError;
 
     const resultados = await Promise.all(userChallenges.map(async (uc) => {
+
+      // Si está pending no calculamos progreso, solo avisamos
+      if (uc.status === 'pending') {
+        return {
+          challenge: uc.challenges.title,
+          modalidad: uc.modalidad === 'run' ? 'Running' : uc.modalidad === 'ride' ? 'Ciclismo' : 'General',
+          distancia_total: uc.challenges.total_distance_km,
+          km_completados: '0.00',
+          porcentaje: '0.0%',
+          estado: 'PENDIENTE',
+          pending: true
+        };
+      }
+
       const modalidades = uc.challenges.modalidades || [];
       const modalidadElegida = modalidades.find(m => m.tipo === uc.modalidad) ||
         { distancia_km: uc.challenges.total_distance_km };
@@ -284,7 +289,8 @@ router.get('/progreso/:userId', async (req, res) => {
         distancia_total: modalidadElegida.distancia_km,
         km_completados: totalKm.toFixed(2),
         porcentaje: `${porcentaje}%`,
-        estado: parseFloat(porcentaje) >= 100 ? 'COMPLETADO' : 'En progreso'
+        estado: parseFloat(porcentaje) >= 100 ? 'COMPLETADO' : 'En progreso',
+        pending: false
       };
     }));
 
@@ -311,12 +317,11 @@ router.get('/webhook', (req, res) => {
 
 // Webhook — recibir actividades en tiempo real (POST)
 router.post('/webhook', async (req, res) => {
-  res.sendStatus(200); // Strava necesita respuesta inmediata
+  res.sendStatus(200);
 
   const event = req.body;
   console.log('Webhook Strava recibido:', JSON.stringify(event));
 
-  // Solo nos interesan actividades nuevas o actualizadas
   if (event.object_type !== 'activity' || !['create', 'update'].includes(event.aspect_type)) return;
 
   const stravaAthleteId = event.owner_id;
@@ -325,7 +330,6 @@ router.post('/webhook', async (req, res) => {
   try {
     const supabase = getSupabase();
 
-    // Buscar el usuario por su strava_athlete_id
     const { data: user, error } = await supabase
       .from('users')
       .select('id')
