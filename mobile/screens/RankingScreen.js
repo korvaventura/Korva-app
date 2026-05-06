@@ -3,37 +3,52 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
-const CHALLENGE_ID = 'ae54af78-dc6f-4cf5-af31-2c077ba58048';
 
 export default function RankingScreen() {
+  const [challenges, setChallenges] = useState([]);
+  const [challengeId, setChallengeId] = useState(null);
+  const [challengeSeleccionado, setChallengeSeleccionado] = useState(null);
   const [modalidad, setModalidad] = useState('run');
   const [ranking, setRanking] = useState([]);
   const [cargando, setCargando] = useState(true);
-  const [userId, setUserId] = useState(null);
   const [miNombre, setMiNombre] = useState('');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.id) {
-        setUserId(session.user.id);
         setMiNombre(session.user.user_metadata?.name?.split(' ')[0] || '');
       }
     });
+    cargarChallenges();
   }, []);
 
   useEffect(() => {
-    cargarRanking();
-  }, [modalidad]);
+    if (challengeId) cargarRanking();
+  }, [challengeId, modalidad]);
+
+  const cargarChallenges = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/challenges`);
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        setChallenges(data);
+        setChallengeId(data[0].id);
+        setChallengeSeleccionado(data[0]);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
 
   const cargarRanking = async () => {
     setCargando(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/ranking/${CHALLENGE_ID}`);
+      const res = await fetch(`${BACKEND_URL}/ranking/${challengeId}`);
       const data = await res.json();
       const filtrado = Array.isArray(data)
         ? data
             .filter(r => r.modalidad === modalidad)
-            .map((r, i) => ({ ...r, posicion: i + 1 })) // recalcular posicion por modalidad
+            .map((r, i) => ({ ...r, posicion: i + 1 }))
         : [];
       setRanking(filtrado);
     } catch (error) {
@@ -41,6 +56,12 @@ export default function RankingScreen() {
     } finally {
       setCargando(false);
     }
+  };
+
+  const seleccionarChallenge = (challenge) => {
+    setChallengeId(challenge.id);
+    setChallengeSeleccionado(challenge);
+    setModalidad('run');
   };
 
   const esPropio = (nombre) => {
@@ -88,28 +109,44 @@ export default function RankingScreen() {
     );
   };
 
+  const modalidades = challengeSeleccionado?.modalidades || [];
+
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>🏆 Ranking</Text>
-      <Text style={styles.subtitulo}>Fin del Mundo</Text>
 
+      {/* Selector de challenge */}
+      {challenges.length > 1 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.challengeScroll}>
+          {challenges.map((c, i) => (
+            <TouchableOpacity
+              key={i}
+              style={[styles.challengeBtn, c.id === challengeId && styles.challengeBtnActivo]}
+              onPress={() => seleccionarChallenge(c)}
+            >
+              <Text style={[styles.challengeBtnText, c.id === challengeId && styles.challengeBtnTextActivo]}>
+                {c.title}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
+      <Text style={styles.subtitulo}>{challengeSeleccionado?.title}</Text>
+
+      {/* Selector de modalidad dinámico */}
       <View style={styles.selectorRow}>
-        <TouchableOpacity
-          style={[styles.selectorBtn, modalidad === 'run' && styles.selectorBtnActivo]}
-          onPress={() => setModalidad('run')}
-        >
-          <Text style={[styles.selectorText, modalidad === 'run' && styles.selectorTextActivo]}>
-            🏃 Running — 103km
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.selectorBtn, modalidad === 'ride' && styles.selectorBtnActivo]}
-          onPress={() => setModalidad('ride')}
-        >
-          <Text style={[styles.selectorText, modalidad === 'ride' && styles.selectorTextActivo]}>
-            🚴 Ciclismo — 309km
-          </Text>
-        </TouchableOpacity>
+        {modalidades.map((m, i) => (
+          <TouchableOpacity
+            key={i}
+            style={[styles.selectorBtn, modalidad === m.tipo && styles.selectorBtnActivo]}
+            onPress={() => setModalidad(m.tipo)}
+          >
+            <Text style={[styles.selectorText, modalidad === m.tipo && styles.selectorTextActivo]}>
+              {m.tipo === 'run' ? '🏃' : '🚴'} {m.label} — {m.distancia_km}km
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {cargando ? (
@@ -140,9 +177,7 @@ export default function RankingScreen() {
                     <Text style={styles.posicion}>
                       {hizo100 ? '🏅' : `${item.posicion}°`}
                     </Text>
-
                     <AvatarItem item={item} size={40} />
-
                     <View style={styles.info}>
                       <View style={styles.nombreRow}>
                         <Text style={styles.nombre} numberOfLines={1}>{item.nombre}</Text>
@@ -168,14 +203,18 @@ export default function RankingScreen() {
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#0D1B2A' },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
-  titulo: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  subtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 24 },
+  titulo: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 12 },
+  challengeScroll: { marginBottom: 12 },
+  challengeBtn: { backgroundColor: '#1E3A5F', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8, borderWidth: 2, borderColor: 'transparent' },
+  challengeBtnActivo: { borderColor: '#FC4C02' },
+  challengeBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
+  challengeBtnTextActivo: { color: '#FFFFFF' },
+  subtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 20 },
   selectorRow: { gap: 10, marginBottom: 24 },
   selectorBtn: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
   selectorBtnActivo: { borderColor: '#1E6FD9' },
   selectorText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 14 },
   selectorTextActivo: { color: '#FFFFFF' },
-
   podioWrapper: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', marginBottom: 28, gap: 8 },
   podioItem: { alignItems: 'center', flex: 1, position: 'relative' },
   podioNombre: { fontSize: 11, fontWeight: 'bold', color: '#FFFFFF', marginTop: 8, marginBottom: 2, textAlign: 'center' },
@@ -185,7 +224,6 @@ const styles = StyleSheet.create({
   podioPct: { fontSize: 11, fontWeight: 'bold', marginTop: 4 },
   tuIndicador: { position: 'absolute', top: -8, right: 8, backgroundColor: '#FC4C02', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
   tuIndicadorText: { color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' },
-
   restoWrapper: { gap: 8 },
   card: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
   cardPropio: { borderWidth: 1, borderColor: '#FC4C02' },
@@ -200,7 +238,6 @@ const styles = StyleSheet.create({
   progressFill: { height: 6, backgroundColor: '#1E6FD9', borderRadius: 3 },
   progressFillCompletado: { backgroundColor: '#FC4C02' },
   kmText: { fontSize: 11, color: '#A8CFFF' },
-
   emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 40, alignItems: 'center', marginTop: 20 },
   emptyEmoji: { fontSize: 48, marginBottom: 16 },
   emptyText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },

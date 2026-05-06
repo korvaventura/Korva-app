@@ -1,14 +1,9 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Image, Linking } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Image, Linking, Alert } from 'react-native';
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import DetalleScreen from './DetalleScreen';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
-
-const PAGOS = {
-  argentina: 'https://mercadopago.com.ar/checkout/v1/payment/redirect/?source=link&preference-id=219142022-90f45334-5f3f-4915-9257-8bd9927358f7&router-request-id=598a77b8-fb4f-4a59-a7af-726a549fee84',
-  internacional: 'https://korva.run/checkouts/cn/hWNBaFxYXSDjdVEYt4dknUlo/es-au?_r=AQABySzhco79xS3HYq8eSjDO34Kb_o1URh9NZ-OcTwEZBDI&auto_redirect=false&edge_redirect=true&skip_shop_pay=true',
-};
 
 export default function CatalogoScreen() {
   const [challenges, setChallenges] = useState([]);
@@ -58,21 +53,28 @@ export default function CatalogoScreen() {
       const data = await res.json();
       setModalModalidad(false);
       if (data.mensaje === 'Ya estas inscripto en este challenge con esta modalidad') {
-        alert(data.mensaje);
+        Alert.alert('Ya inscripto', data.mensaje);
         return;
       }
       setModalPais(true);
     } catch (error) {
-      alert('Error al inscribirse');
+      Alert.alert('Error', 'No se pudo completar la inscripción.');
     }
   };
 
   const elegirPais = (pais) => {
     setModalPais(false);
-    Linking.openURL(PAGOS[pais]);
+    const link = pais === 'argentina'
+      ? challengeSeleccionado?.link_mercadopago
+      : challengeSeleccionado?.link_shopify;
+
+    if (!link) {
+      Alert.alert('Link no disponible', 'El link de pago para este reto todavía no está configurado. Contactanos a korvaventura@gmail.com');
+      return;
+    }
+    Linking.openURL(link);
   };
 
-  // Si hay detalle visible, mostrar DetalleScreen
   if (detalleVisible && challengeSeleccionado) {
     return (
       <DetalleScreen
