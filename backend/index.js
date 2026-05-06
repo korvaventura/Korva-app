@@ -340,7 +340,22 @@ app.post('/admin/challenges', async (req, res) => {
     res.json({ error: 'Error creando reto', detalle: error.message });
   }
 });
+app.get('/actividades/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from('activities')
+      .select('*')
+      .eq('user_id', userId)
+      .order('recorded_at', { ascending: false })
+      .limit(10);
 
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.json({ error: 'Error obteniendo actividades', detalle: error.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
