@@ -338,6 +338,30 @@ app.post('/usuarios/push-token', async (req, res) => {
     res.json({ error: 'Error guardando token', detalle: error.message });
   }
 });
+app.post('/admin/challenges', async (req, res) => {
+  const { title, description, sport_type, price_usd, medal_image_url, modalidades } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('challenges')
+      .insert({
+        title,
+        description,
+        sport_type: sport_type || 'run',
+        price_usd,
+        medal_image_url,
+        modalidades,
+        is_active: true,
+        total_distance_km: modalidades?.[0]?.distancia_km || 0
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ mensaje: 'Reto creado exitosamente', challenge: data });
+  } catch (error) {
+    res.json({ error: 'Error creando reto', detalle: error.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
