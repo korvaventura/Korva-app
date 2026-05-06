@@ -22,6 +22,16 @@ const ADMINS = [
   'malejo.eche16@gmail.com',
 ];
 
+const chequearPantallas = async (setMostrarTerminos, setMostrarOnboarding) => {
+  const terminosAceptados = await AsyncStorage.getItem('terminos_aceptados');
+  if (!terminosAceptados) {
+    setMostrarTerminos(true);
+  } else {
+    const onboardingVisto = await AsyncStorage.getItem('onboarding_visto');
+    if (!onboardingVisto) setMostrarOnboarding(true);
+  }
+};
+
 export default function App() {
   const [usuario, setUsuario] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -29,22 +39,19 @@ export default function App() {
   const [mostrarOnboarding, setMostrarOnboarding] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUsuario(session?.user ?? null);
       setCargando(false);
+      if (session?.user) {
+        await chequearPantallas(setMostrarTerminos, setMostrarOnboarding);
+      }
     });
 
     supabase.auth.onAuthStateChange(async (_event, session) => {
       const user = session?.user ?? null;
       setUsuario(user);
       if (user) {
-        const terminosAceptados = await AsyncStorage.getItem('terminos_aceptados');
-        if (!terminosAceptados) {
-          setMostrarTerminos(true);
-        } else {
-          const onboardingVisto = await AsyncStorage.getItem('onboarding_visto');
-          if (!onboardingVisto) setMostrarOnboarding(true);
-        }
+        await chequearPantallas(setMostrarTerminos, setMostrarOnboarding);
       }
     });
   }, []);
