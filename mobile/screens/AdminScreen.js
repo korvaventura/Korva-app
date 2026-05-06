@@ -9,12 +9,12 @@ export default function AdminScreen() {
   const [tracking, setTracking] = useState({});
   const [mensaje, setMensaje] = useState('');
   const [filtro, setFiltro] = useState('pendientes');
-  const [vista, setVista] = useState('envios'); // 'envios' o 'crear'
+  const [vista, setVista] = useState('envios');
 
-  // Form nuevo reto
   const [nuevoReto, setNuevoReto] = useState({
     title: '',
     description: '',
+    historia: '',
     price_usd: '',
     medal_image_url: '',
     modalidades: [
@@ -117,7 +117,7 @@ export default function AdminScreen() {
   };
 
   const crearReto = async () => {
-    const { title, description, price_usd, medal_image_url, modalidades } = nuevoReto;
+    const { title, description, historia, price_usd, medal_image_url, modalidades } = nuevoReto;
     if (!title || !description || !price_usd || modalidades.some(m => !m.distancia_km)) {
       Alert.alert('Faltan datos', 'Completá título, descripción, precio y distancias.');
       return;
@@ -135,6 +135,7 @@ export default function AdminScreen() {
         body: JSON.stringify({
           title,
           description,
+          historia,
           price_usd: parseFloat(price_usd),
           medal_image_url,
           modalidades: modalidadesFormateadas,
@@ -147,6 +148,7 @@ export default function AdminScreen() {
       setNuevoReto({
         title: '',
         description: '',
+        historia: '',
         price_usd: '',
         medal_image_url: '',
         modalidades: [{ tipo: 'run', label: 'Running', distancia_km: '' }],
@@ -185,7 +187,6 @@ export default function AdminScreen() {
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>⚙️ Admin</Text>
 
-      {/* Toggle vista */}
       <View style={styles.vistaRow}>
         <TouchableOpacity
           style={[styles.vistaBtn, vista === 'envios' && styles.vistaBtnActivo]}
@@ -203,7 +204,6 @@ export default function AdminScreen() {
 
       {vista === 'envios' ? (
         <>
-          {/* Resumen */}
           <View style={styles.resumenRow}>
             <View style={[styles.resumenCard, { borderColor: '#FC4C02' }]}>
               <Text style={[styles.resumenNumero, { color: '#FC4C02' }]}>{pendientes.length}</Text>
@@ -219,7 +219,6 @@ export default function AdminScreen() {
             </View>
           </View>
 
-          {/* Filtro */}
           <View style={styles.filtroRow}>
             <TouchableOpacity
               style={[styles.filtroBtn, filtro === 'pendientes' && styles.filtroBtnActivo]}
@@ -324,7 +323,6 @@ export default function AdminScreen() {
           )}
         </>
       ) : (
-        /* Creador de retos */
         <View style={styles.formCard}>
           <Text style={styles.formTitulo}>➕ Nuevo reto</Text>
 
@@ -337,12 +335,22 @@ export default function AdminScreen() {
             placeholderTextColor="#4a6a8a"
           />
 
-          <Text style={styles.formLabel}>Descripción *</Text>
+          <Text style={styles.formLabel}>Descripción corta *</Text>
           <TextInput
-            style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+            style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
             value={nuevoReto.description}
             onChangeText={v => setNuevoReto(p => ({ ...p, description: v }))}
-            placeholder="Descripción del reto..."
+            placeholder="Texto corto para la card del catálogo..."
+            placeholderTextColor="#4a6a8a"
+            multiline
+          />
+
+          <Text style={styles.formLabel}>Historia</Text>
+          <TextInput
+            style={[styles.input, { height: 120, textAlignVertical: 'top' }]}
+            value={nuevoReto.historia}
+            onChangeText={v => setNuevoReto(p => ({ ...p, historia: v }))}
+            placeholder="Contá la historia e inspiración del reto, qué lo hace especial..."
             placeholderTextColor="#4a6a8a"
             multiline
           />
