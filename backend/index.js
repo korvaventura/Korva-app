@@ -326,6 +326,18 @@ app.get('/ranking/:challengeId', async (req, res) => {
     res.json({ error: 'Error obteniendo ranking', detalle: error.message });
   }
 });
+app.post('/usuarios/push-token', async (req, res) => {
+  const { user_id, push_token } = req.body;
+  try {
+    await supabase
+      .from('users')
+      .update({ push_token })
+      .eq('id', user_id);
+    res.json({ mensaje: 'Token guardado' });
+  } catch (error) {
+    res.json({ error: 'Error guardando token', detalle: error.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
