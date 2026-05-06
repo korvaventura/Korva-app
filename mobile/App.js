@@ -12,6 +12,7 @@ import AdminScreen from './screens/AdminScreen';
 import LoginScreen from './screens/LoginScreen';
 import RankingScreen from './screens/RankingScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
+import TerminosScreen from './screens/TerminosScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -24,6 +25,7 @@ const ADMINS = [
 export default function App() {
   const [usuario, setUsuario] = useState(null);
   const [cargando, setCargando] = useState(true);
+  const [mostrarTerminos, setMostrarTerminos] = useState(false);
   const [mostrarOnboarding, setMostrarOnboarding] = useState(false);
 
   useEffect(() => {
@@ -36,11 +38,23 @@ export default function App() {
       const user = session?.user ?? null;
       setUsuario(user);
       if (user) {
-        const visto = await AsyncStorage.getItem('onboarding_visto');
-        if (!visto) setMostrarOnboarding(true);
+        const terminosAceptados = await AsyncStorage.getItem('terminos_aceptados');
+        if (!terminosAceptados) {
+          setMostrarTerminos(true);
+        } else {
+          const onboardingVisto = await AsyncStorage.getItem('onboarding_visto');
+          if (!onboardingVisto) setMostrarOnboarding(true);
+        }
       }
     });
   }, []);
+
+  const aceptarTerminos = async () => {
+    await AsyncStorage.setItem('terminos_aceptados', 'true');
+    setMostrarTerminos(false);
+    const onboardingVisto = await AsyncStorage.getItem('onboarding_visto');
+    if (!onboardingVisto) setMostrarOnboarding(true);
+  };
 
   const terminarOnboarding = async () => {
     await AsyncStorage.setItem('onboarding_visto', 'true');
@@ -51,6 +65,10 @@ export default function App() {
 
   if (!usuario) {
     return <LoginScreen onLogin={(user) => setUsuario(user)} />;
+  }
+
+  if (mostrarTerminos) {
+    return <TerminosScreen onAceptar={aceptarTerminos} />;
   }
 
   if (mostrarOnboarding) {
