@@ -17,6 +17,8 @@ export default function AdminScreen() {
     historia: '',
     price_usd: '',
     medal_image_url: '',
+    link_mercadopago: '',
+    link_shopify: '',
     modalidades: [
       { tipo: 'run', label: 'Running', distancia_km: '' },
     ],
@@ -117,7 +119,7 @@ export default function AdminScreen() {
   };
 
   const crearReto = async () => {
-    const { title, description, historia, price_usd, medal_image_url, modalidades } = nuevoReto;
+    const { title, description, historia, price_usd, medal_image_url, link_mercadopago, link_shopify, modalidades } = nuevoReto;
     if (!title || !description || !price_usd || modalidades.some(m => !m.distancia_km)) {
       Alert.alert('Faltan datos', 'Completá título, descripción, precio y distancias.');
       return;
@@ -138,6 +140,8 @@ export default function AdminScreen() {
           historia,
           price_usd: parseFloat(price_usd),
           medal_image_url,
+          link_mercadopago,
+          link_shopify,
           modalidades: modalidadesFormateadas,
           sport_type: modalidades.length > 1 ? 'multi' : modalidades[0].tipo,
         })
@@ -151,6 +155,8 @@ export default function AdminScreen() {
         historia: '',
         price_usd: '',
         medal_image_url: '',
+        link_mercadopago: '',
+        link_shopify: '',
         modalidades: [{ tipo: 'run', label: 'Running', distancia_km: '' }],
       });
       setVista('envios');
@@ -350,7 +356,7 @@ export default function AdminScreen() {
             style={[styles.input, { height: 120, textAlignVertical: 'top' }]}
             value={nuevoReto.historia}
             onChangeText={v => setNuevoReto(p => ({ ...p, historia: v }))}
-            placeholder="Contá la historia e inspiración del reto, qué lo hace especial..."
+            placeholder="Contá la historia e inspiración del reto..."
             placeholderTextColor="#4a6a8a"
             multiline
           />
@@ -371,6 +377,24 @@ export default function AdminScreen() {
             value={nuevoReto.medal_image_url}
             onChangeText={v => setNuevoReto(p => ({ ...p, medal_image_url: v }))}
             placeholder="https://..."
+            placeholderTextColor="#4a6a8a"
+          />
+
+          <Text style={styles.formLabel}>🇦🇷 Link MercadoPago</Text>
+          <TextInput
+            style={styles.input}
+            value={nuevoReto.link_mercadopago}
+            onChangeText={v => setNuevoReto(p => ({ ...p, link_mercadopago: v }))}
+            placeholder="https://mercadopago.com..."
+            placeholderTextColor="#4a6a8a"
+          />
+
+          <Text style={styles.formLabel}>🌍 Link Shopify (internacional)</Text>
+          <TextInput
+            style={styles.input}
+            value={nuevoReto.link_shopify}
+            onChangeText={v => setNuevoReto(p => ({ ...p, link_shopify: v }))}
+            placeholder="https://korva.run/checkouts/..."
             placeholderTextColor="#4a6a8a"
           />
 

@@ -316,7 +316,7 @@ app.post('/usuarios/push-token', async (req, res) => {
 });
 
 app.post('/admin/challenges', async (req, res) => {
-  const { title, description, historia, sport_type, price_usd, medal_image_url, modalidades } = req.body;
+  const { title, description, historia, sport_type, price_usd, medal_image_url, link_mercadopago, link_shopify, modalidades } = req.body;
   try {
     const { data, error } = await supabase
       .from('challenges')
@@ -327,6 +327,8 @@ app.post('/admin/challenges', async (req, res) => {
         sport_type: sport_type || 'run',
         price_usd,
         medal_image_url,
+        link_mercadopago,
+        link_shopify,
         modalidades,
         is_active: true,
         total_distance_km: modalidades?.[0]?.distancia_km || 0
@@ -340,6 +342,7 @@ app.post('/admin/challenges', async (req, res) => {
     res.json({ error: 'Error creando reto', detalle: error.message });
   }
 });
+
 app.get('/actividades/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
@@ -356,6 +359,7 @@ app.get('/actividades/:userId', async (req, res) => {
     res.json({ error: 'Error obteniendo actividades', detalle: error.message });
   }
 });
+
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
