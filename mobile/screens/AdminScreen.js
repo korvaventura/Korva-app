@@ -22,7 +22,7 @@ export default function AdminScreen() {
   const [retoEditando, setRetoEditando] = useState(null);
   const [formEditar, setFormEditar] = useState({
     title: '', description: '', historia: '', price_usd: '',
-    medal_image_url: '', link_mercadopago: '', link_shopify: '',
+    medal_image_url: '', link_mercadopago: '', link_shopify: '', oferta_texto: '',
   });
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
@@ -63,6 +63,7 @@ export default function AdminScreen() {
       medal_image_url: challenge.medal_image_url || '',
       link_mercadopago: challenge.link_mercadopago || '',
       link_shopify: challenge.link_shopify || '',
+      oferta_texto: challenge.oferta_texto || '',
     });
   };
 
@@ -76,10 +77,7 @@ export default function AdminScreen() {
       const res = await fetch(`${BACKEND_URL}/admin/challenges/${retoEditando}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formEditar,
-          price_usd: parseFloat(formEditar.price_usd),
-        }),
+        body: JSON.stringify({ ...formEditar, price_usd: parseFloat(formEditar.price_usd) }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.detalle);
@@ -138,10 +136,7 @@ export default function AdminScreen() {
     const tipos = nuevoReto.modalidades.map(m => m.tipo);
     const siguiente = !tipos.includes('run') ? 'run' : !tipos.includes('ride') ? 'ride' : null;
     if (!siguiente) { Alert.alert('Máximo 2 modalidades', 'Ya tenés Running y Ciclismo.'); return; }
-    setNuevoReto(prev => ({
-      ...prev,
-      modalidades: [...prev.modalidades, { tipo: siguiente, label: siguiente === 'run' ? 'Running' : 'Ciclismo', distancia_km: '' }]
-    }));
+    setNuevoReto(prev => ({ ...prev, modalidades: [...prev.modalidades, { tipo: siguiente, label: siguiente === 'run' ? 'Running' : 'Ciclismo', distancia_km: '' }] }));
   };
 
   const quitarModalidad = (index) => {
@@ -169,12 +164,7 @@ export default function AdminScreen() {
       const res = await fetch(`${BACKEND_URL}/admin/challenges`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title, description, historia, price_usd: parseFloat(price_usd),
-          medal_image_url, link_mercadopago, link_shopify,
-          modalidades: modalidadesFormateadas,
-          sport_type: modalidades.length > 1 ? 'multi' : modalidades[0].tipo,
-        })
+        body: JSON.stringify({ title, description, historia, price_usd: parseFloat(price_usd), medal_image_url, link_mercadopago, link_shopify, modalidades: modalidadesFormateadas, sport_type: modalidades.length > 1 ? 'multi' : modalidades[0].tipo })
       });
       const data = await res.json();
       if (data.error) throw new Error(data.detalle);
@@ -190,9 +180,7 @@ export default function AdminScreen() {
   };
 
   const renderDireccion = (direccion) => {
-    if (!direccion) return (
-      <View style={styles.sinDireccionBox}><Text style={styles.sinDireccion}>📍 Sin direccion guardada</Text></View>
-    );
+    if (!direccion) return <View style={styles.sinDireccionBox}><Text style={styles.sinDireccion}>📍 Sin direccion guardada</Text></View>;
     return (
       <View style={styles.direccionBox}>
         <Text style={styles.direccionTitulo}>📦 ENVIAR A</Text>
@@ -228,18 +216,9 @@ export default function AdminScreen() {
       {vista === 'envios' && (
         <>
           <View style={styles.resumenRow}>
-            <View style={[styles.resumenCard, { borderColor: '#FC4C02' }]}>
-              <Text style={[styles.resumenNumero, { color: '#FC4C02' }]}>{pendientes.length}</Text>
-              <Text style={styles.resumenLabel}>Pendientes</Text>
-            </View>
-            <View style={[styles.resumenCard, { borderColor: '#4CAF50' }]}>
-              <Text style={[styles.resumenNumero, { color: '#4CAF50' }]}>{enviados.length}</Text>
-              <Text style={styles.resumenLabel}>Enviadas</Text>
-            </View>
-            <View style={[styles.resumenCard, { borderColor: '#1E6FD9' }]}>
-              <Text style={[styles.resumenNumero, { color: '#1E6FD9' }]}>{challenges.length}</Text>
-              <Text style={styles.resumenLabel}>Total</Text>
-            </View>
+            <View style={[styles.resumenCard, { borderColor: '#FC4C02' }]}><Text style={[styles.resumenNumero, { color: '#FC4C02' }]}>{pendientes.length}</Text><Text style={styles.resumenLabel}>Pendientes</Text></View>
+            <View style={[styles.resumenCard, { borderColor: '#4CAF50' }]}><Text style={[styles.resumenNumero, { color: '#4CAF50' }]}>{enviados.length}</Text><Text style={styles.resumenLabel}>Enviadas</Text></View>
+            <View style={[styles.resumenCard, { borderColor: '#1E6FD9' }]}><Text style={[styles.resumenNumero, { color: '#1E6FD9' }]}>{challenges.length}</Text><Text style={styles.resumenLabel}>Total</Text></View>
           </View>
 
           <View style={styles.filtroRow}>
@@ -253,16 +232,14 @@ export default function AdminScreen() {
 
           {mensaje ? <View style={styles.mensajeBox}><Text style={styles.mensajeText}>{mensaje}</Text></View> : null}
 
-          {cargando ? (
-            <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
-          ) : lista.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyEmoji}>{filtro === 'pendientes' ? '🎉' : '📭'}</Text>
-              <Text style={styles.emptyText}>{filtro === 'pendientes' ? 'Todo al dia!' : 'Sin envios todavia'}</Text>
-              <Text style={styles.emptySubtext}>{filtro === 'pendientes' ? 'No hay medallas pendientes' : 'Las medallas enviadas aparecen acá'}</Text>
-            </View>
-          ) : (
-            lista.map((item, index) => {
+          {cargando ? <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} /> :
+            lista.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyEmoji}>{filtro === 'pendientes' ? '🎉' : '📭'}</Text>
+                <Text style={styles.emptyText}>{filtro === 'pendientes' ? 'Todo al dia!' : 'Sin envios todavia'}</Text>
+                <Text style={styles.emptySubtext}>{filtro === 'pendientes' ? 'No hay medallas pendientes' : 'Las medallas enviadas aparecen acá'}</Text>
+              </View>
+            ) : lista.map((item, index) => {
               const dias = diasDesdeCompletado(item.completed_at);
               const urgente = dias !== null && dias >= 3 && filtro === 'pendientes';
               return filtro === 'pendientes' ? (
@@ -274,29 +251,16 @@ export default function AdminScreen() {
                       <Text style={styles.challenge}>{item.challenge}</Text>
                     </View>
                     <View style={styles.rightColumn}>
-                      <View style={styles.kmBadge}>
-                        <Text style={styles.kmNumero}>{item.km_completados}</Text>
-                        <Text style={styles.kmLabel}>km</Text>
-                      </View>
+                      <View style={styles.kmBadge}><Text style={styles.kmNumero}>{item.km_completados}</Text><Text style={styles.kmLabel}>km</Text></View>
                       {dias !== null && <Text style={[styles.diasText, urgente && styles.diasUrgente]}>{dias === 0 ? 'hoy' : `hace ${dias}d`}</Text>}
                     </View>
                   </View>
                   <Text style={styles.email}>{item.email}</Text>
                   {renderDireccion(item.direccion)}
-                  <TouchableOpacity style={styles.copiarBtn} onPress={() => copiarDireccion(item)}>
-                    <Text style={styles.copiarBtnText}>📋 Copiar datos de envío</Text>
-                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.copiarBtn} onPress={() => copiarDireccion(item)}><Text style={styles.copiarBtnText}>📋 Copiar datos de envío</Text></TouchableOpacity>
                   <Text style={styles.label}>NUMERO DE TRACKING</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={tracking[item.id] || ''}
-                    onChangeText={(val) => setTracking({ ...tracking, [item.id]: val })}
-                    placeholder="Ej: AR123456789"
-                    placeholderTextColor="#4a6a8a"
-                  />
-                  <TouchableOpacity style={styles.button} onPress={() => enviarMedalla(item.id, item.usuario)}>
-                    <Text style={styles.buttonText}>📬 Marcar como enviada y notificar</Text>
-                  </TouchableOpacity>
+                  <TextInput style={styles.input} value={tracking[item.id] || ''} onChangeText={(val) => setTracking({ ...tracking, [item.id]: val })} placeholder="Ej: AR123456789" placeholderTextColor="#4a6a8a" />
+                  <TouchableOpacity style={styles.button} onPress={() => enviarMedalla(item.id, item.usuario)}><Text style={styles.buttonText}>📬 Marcar como enviada y notificar</Text></TouchableOpacity>
                 </View>
               ) : (
                 <View key={index} style={styles.cardShipped}>
@@ -310,36 +274,24 @@ export default function AdminScreen() {
                   </View>
                   <Text style={styles.email}>{item.email}</Text>
                   {renderDireccion(item.direccion)}
-                  <TouchableOpacity style={styles.copiarBtn} onPress={() => copiarDireccion(item)}>
-                    <Text style={styles.copiarBtnText}>📋 Copiar datos de envío</Text>
-                  </TouchableOpacity>
-                  {item.tracking_number && (
-                    <View style={styles.trackingBox}>
-                      <Text style={styles.trackingLabel}>TRACKING</Text>
-                      <Text style={styles.trackingNum}>{item.tracking_number}</Text>
-                    </View>
-                  )}
+                  <TouchableOpacity style={styles.copiarBtn} onPress={() => copiarDireccion(item)}><Text style={styles.copiarBtnText}>📋 Copiar datos de envío</Text></TouchableOpacity>
+                  {item.tracking_number && <View style={styles.trackingBox}><Text style={styles.trackingLabel}>TRACKING</Text><Text style={styles.trackingNum}>{item.tracking_number}</Text></View>}
                 </View>
               );
             })
-          )}
+          }
         </>
       )}
 
       {vista === 'editar' && (
         <View>
           {challengesActivos.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyEmoji}>📭</Text>
-              <Text style={styles.emptyText}>Sin retos activos</Text>
-            </View>
+            <View style={styles.emptyCard}><Text style={styles.emptyEmoji}>📭</Text><Text style={styles.emptyText}>Sin retos activos</Text></View>
           ) : retoEditando ? (
             <View style={styles.formCard}>
               <View style={styles.editarHeader}>
                 <Text style={styles.formTitulo}>✏️ Editando reto</Text>
-                <TouchableOpacity onPress={() => setRetoEditando(null)}>
-                  <Text style={styles.cancelarEdicionText}>✕ Cancelar</Text>
-                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setRetoEditando(null)}><Text style={styles.cancelarEdicionText}>✕ Cancelar</Text></TouchableOpacity>
               </View>
 
               <Text style={styles.formLabel}>Título *</Text>
@@ -363,6 +315,9 @@ export default function AdminScreen() {
               <Text style={styles.formLabel}>🌍 Link Shopify</Text>
               <TextInput style={styles.input} value={formEditar.link_shopify} onChangeText={v => setFormEditar(p => ({ ...p, link_shopify: v }))} placeholderTextColor="#4a6a8a" />
 
+              <Text style={styles.formLabel}>🔥 Oferta (dejar vacío para quitar)</Text>
+              <TextInput style={styles.input} value={formEditar.oferta_texto} onChangeText={v => setFormEditar(p => ({ ...p, oferta_texto: v }))} placeholder="Ej: 2do reto 50% off" placeholderTextColor="#4a6a8a" />
+
               <TouchableOpacity style={styles.crearBtn} onPress={guardarEdicion} disabled={guardandoEdicion}>
                 {guardandoEdicion ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.crearBtnText}>💾 Guardar cambios</Text>}
               </TouchableOpacity>
@@ -373,6 +328,7 @@ export default function AdminScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.retoTitulo}>{c.title}</Text>
                   <Text style={styles.retoPrecio}>USD ${c.price_usd}</Text>
+                  {c.oferta_texto && <Text style={styles.retoOferta}>🔥 {c.oferta_texto}</Text>}
                 </View>
                 <TouchableOpacity style={styles.editarBtn} onPress={() => abrirEdicion(c)}>
                   <Text style={styles.editarBtnText}>✏️ Editar</Text>
@@ -490,6 +446,7 @@ const styles = StyleSheet.create({
   retoCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 18, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
   retoTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   retoPrecio: { fontSize: 13, color: '#FC4C02', fontWeight: 'bold' },
+  retoOferta: { fontSize: 12, color: '#FFD700', marginTop: 4 },
   editarBtn: { borderWidth: 1, borderColor: '#1E6FD9', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
   editarBtnText: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 13 },
   formCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 20 },

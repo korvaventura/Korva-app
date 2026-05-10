@@ -99,9 +99,16 @@ export default function CatalogoScreen() {
       ) : (
         challenges.map((item, index) => (
           <TouchableOpacity key={index} style={styles.card} onPress={() => abrirDetalle(item)} activeOpacity={0.85}>
-            {item.medal_image_url && (
-              <Image source={{ uri: item.medal_image_url }} style={styles.medallaImage} resizeMode="contain" />
-            )}
+            <View style={styles.imageWrapper}>
+              {item.medal_image_url && (
+                <Image source={{ uri: item.medal_image_url }} style={styles.medallaImage} resizeMode="contain" />
+              )}
+              {item.oferta_texto && (
+                <View style={styles.ofertaBadge}>
+                  <Text style={styles.ofertaTexto}>🔥 {item.oferta_texto}</Text>
+                </View>
+              )}
+            </View>
             <View style={styles.cardBody}>
               <View style={styles.deporteRow}>
                 <Text style={styles.deporte}>
@@ -116,9 +123,7 @@ export default function CatalogoScreen() {
                 <View style={styles.modalidadesContainer}>
                   {item.modalidades.map((m, i) => (
                     <View key={i} style={styles.modalidadTag}>
-                      <Text style={styles.modalidadEmoji}>
-                        {m.tipo === 'run' ? '🏃' : '🚴'}
-                      </Text>
+                      <Text style={styles.modalidadEmoji}>{m.tipo === 'run' ? '🏃' : '🚴'}</Text>
                       <Text style={styles.modalidadText}>{m.label} — {m.distancia_km}km</Text>
                     </View>
                   ))}
@@ -138,7 +143,6 @@ export default function CatalogoScreen() {
         ))
       )}
 
-      {/* Modal modalidad */}
       <Modal visible={modalModalidad} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -160,7 +164,6 @@ export default function CatalogoScreen() {
         </View>
       </Modal>
 
-      {/* Modal pais */}
       <Modal visible={modalPais} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -196,7 +199,10 @@ const styles = StyleSheet.create({
   titulo: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   subtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 24 },
   card: { backgroundColor: '#1E3A5F', borderRadius: 20, marginBottom: 20, overflow: 'hidden' },
+  imageWrapper: { position: 'relative' },
   medallaImage: { width: '100%', height: 280, backgroundColor: '#f5f5f5' },
+  ofertaBadge: { position: 'absolute', top: 12, left: 12, backgroundColor: '#FC4C02', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  ofertaTexto: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
   cardBody: { padding: 20 },
   deporteRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   deporte: { fontSize: 11, fontWeight: 'bold', color: '#1E6FD9', letterSpacing: 1 },
