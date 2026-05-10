@@ -2,55 +2,80 @@ const { Resend } = require('resend');
 
 const getResend = () => new Resend(process.env.RESEND_API_KEY);
 
+const header = `
+  <div style="background: #0D1B2A; padding: 32px 40px 24px; border-bottom: 3px solid #FC4C02;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td>
+          <span style="font-size: 32px; font-weight: 900; color: #FFFFFF; letter-spacing: 4px;">🏅 KORVA</span>
+        </td>
+        <td align="right">
+          <span style="font-size: 12px; color: #4a6a8a; letter-spacing: 2px;">AVENTURAS</span>
+        </td>
+      </tr>
+    </table>
+  </div>
+`;
+
+const footer = `
+  <div style="background: #060d14; padding: 28px 40px; text-align: center;">
+    <p style="color: #4a6a8a; font-size: 13px; margin: 0 0 8px;">Korva Aventuras · korva.run</p>
+    <p style="color: #4a6a8a; font-size: 12px; margin: 0;">Desafíos virtuales. Medallas reales.</p>
+    <div style="margin-top: 16px;">
+      <a href="mailto:korvaventura@gmail.com" style="color: #1E6FD9; font-size: 12px; text-decoration: none;">korvaventura@gmail.com</a>
+    </div>
+  </div>
+`;
+
+const wrapper = (contenido) => `
+  <!DOCTYPE html>
+  <html>
+  <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+  <body style="margin: 0; padding: 0; background: #060d14; font-family: Arial, sans-serif;">
+    <div style="max-width: 600px; margin: 20px auto; background: #0D1B2A; border-radius: 16px; overflow: hidden;">
+      ${header}
+      <div style="padding: 40px;">
+        ${contenido}
+      </div>
+      ${footer}
+    </div>
+  </body>
+  </html>
+`;
+
+const badge = (texto, color = '#FC4C02') => `
+  <span style="background: ${color}; color: #FFFFFF; font-size: 11px; font-weight: bold; padding: 4px 12px; border-radius: 20px; letter-spacing: 1px;">${texto}</span>
+`;
+
+const card = (contenido, borderColor = '#1E3A5F') => `
+  <div style="background: #1E3A5F; border-radius: 14px; padding: 24px; margin: 24px 0; border-left: 4px solid ${borderColor};">
+    ${contenido}
+  </div>
+`;
+
 const enviarEmailInscripcion = async (email, nombre, challenge, modalidad) => {
   try {
     await getResend().emails.send({
       from: 'Korva <onboarding@resend.dev>',
       to: email,
-      subject: `Inscripcion confirmada — ${challenge}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0D1B2A; color: #FFFFFF; padding: 40px; border-radius: 16px;">
-          <h1 style="color: #FFFFFF; font-size: 28px;">🏅 KORVA</h1>
-          <h2 style="color: #1E6FD9;">Inscripcion confirmada!</h2>
-          <p style="color: #A8CFFF;">Hola ${nombre},</p>
-          <p style="color: #A8CFFF;">Tu inscripcion al reto <strong style="color: #FFFFFF;">${challenge}</strong> en modalidad <strong style="color: #FFFFFF;">${modalidad}</strong> fue confirmada.</p>
-          <div style="background: #1E3A5F; border-radius: 12px; padding: 24px; margin: 24px 0;">
-            <p style="color: #FFFFFF; font-size: 18px; font-weight: bold; margin: 0;">Que empiece el desafio!</p>
-            <p style="color: #A8CFFF; margin: 8px 0 0 0;">Conecta tu Strava o carga tus km manualmente y empeza a acumular distancia.</p>
-          </div>
-          <p style="color: #A8CFFF;">Cuando completes el reto, tu medalla viajara hasta tu puerta.</p>
-          <p style="color: #FC4C02; font-weight: bold;">El equipo Korva</p>
-        </div>
-      `
+      subject: `🏅 Inscripción confirmada — ${challenge}`,
+      html: wrapper(`
+        ${badge('INSCRIPCIÓN CONFIRMADA')}
+        <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
+        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tu inscripción al reto <strong style="color: #FFFFFF;">${challenge}</strong> en modalidad <strong style="color: #FC4C02;">${modalidad}</strong> fue confirmada.</p>
+
+        ${card(`
+          <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">TUS PRÓXIMOS PASOS</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">1️⃣ &nbsp; Conectá tu Strava para sincronizar automáticamente</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">2️⃣ &nbsp; O cargá tus km manualmente desde la app</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">3️⃣ &nbsp; Al llegar al 100%, tu medalla viaja a tu puerta 📦</p>
+        `, '#1E6FD9')}
+
+        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6;">Cada kilómetro cuenta. Cada salida te acerca a tu medalla. ¡A correr!</p>
+        <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 24px;">El equipo Korva 🏅</p>
+      `)
     });
     console.log('Email de inscripcion enviado a:', email);
-  } catch (error) {
-    console.error('Error enviando email:', error);
-  }
-};
-
-const enviarEmailMedallaEnCamino = async (email, nombre, challenge, tracking) => {
-  try {
-    await getResend().emails.send({
-      from: 'Korva <onboarding@resend.dev>',
-      to: email,
-      subject: `Tu medalla esta en camino — ${challenge}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0D1B2A; color: #FFFFFF; padding: 40px; border-radius: 16px;">
-          <h1 style="color: #FFFFFF; font-size: 28px;">🏅 KORVA</h1>
-          <h2 style="color: #FC4C02;">Tu medalla esta en camino!</h2>
-          <p style="color: #A8CFFF;">Hola ${nombre},</p>
-          <p style="color: #A8CFFF;">Completaste el reto <strong style="color: #FFFFFF;">${challenge}</strong>. Tu medalla real esta en camino!</p>
-          <div style="background: #1E3A5F; border-radius: 12px; padding: 24px; margin: 24px 0;">
-            <p style="color: #FFFFFF; font-size: 18px; font-weight: bold; margin: 0;">Numero de seguimiento</p>
-            <p style="color: #FC4C02; font-size: 24px; font-weight: bold; margin: 8px 0 0 0;">${tracking || 'En preparacion'}</p>
-          </div>
-          <p style="color: #A8CFFF;">Felicitaciones por completar el desafio. Mereces cada gramo de esa medalla.</p>
-          <p style="color: #FC4C02; font-weight: bold;">El equipo Korva</p>
-        </div>
-      `
-    });
-    console.log('Email de medalla enviado a:', email);
   } catch (error) {
     console.error('Error enviando email:', error);
   }
@@ -61,24 +86,52 @@ const enviarEmailCompletado = async (email, nombre, challenge) => {
     await getResend().emails.send({
       from: 'Korva <onboarding@resend.dev>',
       to: email,
-      subject: `Completaste el reto ${challenge}! Tu medalla esta en camino`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0D1B2A; color: #FFFFFF; padding: 40px; border-radius: 16px;">
-          <h1 style="color: #FFFFFF; font-size: 28px;">🏅 KORVA</h1>
-          <h2 style="color: #FC4C02;">Felicitaciones ${nombre}!</h2>
-          <p style="color: #A8CFFF;">Completaste el reto <strong style="color: #FFFFFF;">${challenge}</strong>.</p>
-          <div style="background: #1E3A5F; border-radius: 12px; padding: 24px; margin: 24px 0;">
-            <p style="color: #FFFFFF; font-size: 18px; font-weight: bold; margin: 0;">Tu medalla esta siendo preparada!</p>
-            <p style="color: #A8CFFF; margin: 8px 0 0 0;">En breve te avisamos cuando este en camino con el numero de seguimiento.</p>
-          </div>
-          <p style="color: #A8CFFF;">Mereces cada gramo de esa medalla.</p>
-          <p style="color: #FC4C02; font-weight: bold;">El equipo Korva</p>
-        </div>
-      `
+      subject: `🎉 ¡Completaste ${challenge}! Tu medalla está siendo preparada`,
+      html: wrapper(`
+        ${badge('🎉 RETO COMPLETADO', '#1E6FD9')}
+        <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Lo lograste, ${nombre}!</h2>
+        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Completaste el reto <strong style="color: #FFFFFF;">${challenge}</strong>. Eso requiere compromiso, constancia y mucho esfuerzo. Mereces cada gramo de tu medalla.</p>
+
+        ${card(`
+          <p style="color: #FC4C02; font-size: 36px; text-align: center; margin: 0 0 12px;">🏅</p>
+          <p style="color: #FFFFFF; font-size: 18px; font-weight: bold; text-align: center; margin: 0 0 8px;">Tu medalla está siendo preparada</p>
+          <p style="color: #A8CFFF; font-size: 14px; text-align: center; margin: 0;">En breve te avisamos cuando esté en camino con el número de seguimiento.</p>
+        `, '#FC4C02')}
+
+        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6;">Asegurate de tener tu dirección de envío actualizada en la app. Si necesitás cambiarla, hacelo antes de que te avisemos del envío.</p>
+        <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 24px;">El equipo Korva 🏅</p>
+      `)
     });
     console.log('Email de completado enviado a:', email);
   } catch (error) {
     console.error('Error enviando email de completado:', error);
+  }
+};
+
+const enviarEmailMedallaEnCamino = async (email, nombre, challenge, tracking) => {
+  try {
+    await getResend().emails.send({
+      from: 'Korva <onboarding@resend.dev>',
+      to: email,
+      subject: `📦 Tu medalla está en camino — ${challenge}`,
+      html: wrapper(`
+        ${badge('📦 MEDALLA EN CAMINO', '#4CAF50')}
+        <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Tu medalla está en camino, ${nombre}!</h2>
+        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tu medalla del reto <strong style="color: #FFFFFF;">${challenge}</strong> ya fue despachada y está en camino a tu puerta.</p>
+
+        ${card(`
+          <p style="color: #4CAF50; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 8px;">NÚMERO DE SEGUIMIENTO</p>
+          <p style="color: #FFFFFF; font-size: 28px; font-weight: bold; margin: 0; letter-spacing: 2px;">${tracking || 'En preparación'}</p>
+        `, '#4CAF50')}
+
+        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6;">Los tiempos de entrega pueden variar según tu ubicación. Si tenés alguna consulta sobre el envío, escribinos a <a href="mailto:korvaventura@gmail.com" style="color: #1E6FD9;">korvaventura@gmail.com</a></p>
+        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6;">¡Mereces cada gramo de esa medalla!</p>
+        <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 24px;">El equipo Korva 🏅</p>
+      `)
+    });
+    console.log('Email de medalla enviado a:', email);
+  } catch (error) {
+    console.error('Error enviando email:', error);
   }
 };
 
@@ -88,16 +141,16 @@ const enviarEmailAdmin = async (asunto, mensaje) => {
       from: 'Korva <onboarding@resend.dev>',
       to: 'korvaventura@gmail.com',
       subject: `⚠️ Korva Admin — ${asunto}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0D1B2A; color: #FFFFFF; padding: 40px; border-radius: 16px;">
-          <h1 style="color: #FFFFFF; font-size: 28px;">⚠️ KORVA ADMIN</h1>
-          <h2 style="color: #FC4C02;">${asunto}</h2>
-          <div style="background: #1E3A5F; border-radius: 12px; padding: 24px; margin: 24px 0;">
-            <pre style="color: #A8CFFF; white-space: pre-wrap; font-family: monospace;">${mensaje}</pre>
-          </div>
-          <p style="color: #A8CFFF; font-size: 12px;">Este es un email automatico del sistema Korva.</p>
-        </div>
-      `
+      html: wrapper(`
+        ${badge('⚠️ ALERTA ADMIN', '#FC4C02')}
+        <h2 style="color: #FFFFFF; font-size: 22px; margin: 20px 0 8px;">${asunto}</h2>
+
+        ${card(`
+          <pre style="color: #A8CFFF; white-space: pre-wrap; font-family: monospace; font-size: 13px; margin: 0;">${mensaje}</pre>
+        `, '#FC4C02')}
+
+        <p style="color: #4a6a8a; font-size: 12px;">Este es un email automático del sistema Korva.</p>
+      `)
     });
     console.log('Email admin enviado:', asunto);
   } catch (error) {
