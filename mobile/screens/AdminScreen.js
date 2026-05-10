@@ -5,6 +5,7 @@ const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
 export default function AdminScreen() {
   const [challenges, setChallenges] = useState([]);
+  const [challengesActivos, setChallengesActivos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [tracking, setTracking] = useState({});
   const [mensaje, setMensaje] = useState('');
@@ -12,21 +13,22 @@ export default function AdminScreen() {
   const [vista, setVista] = useState('envios');
 
   const [nuevoReto, setNuevoReto] = useState({
-    title: '',
-    description: '',
-    historia: '',
-    price_usd: '',
-    medal_image_url: '',
-    link_mercadopago: '',
-    link_shopify: '',
-    modalidades: [
-      { tipo: 'run', label: 'Running', distancia_km: '' },
-    ],
+    title: '', description: '', historia: '', price_usd: '',
+    medal_image_url: '', link_mercadopago: '', link_shopify: '',
+    modalidades: [{ tipo: 'run', label: 'Running', distancia_km: '' }],
   });
   const [creando, setCreando] = useState(false);
 
+  const [retoEditando, setRetoEditando] = useState(null);
+  const [formEditar, setFormEditar] = useState({
+    title: '', description: '', historia: '', price_usd: '',
+    medal_image_url: '', link_mercadopago: '', link_shopify: '',
+  });
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+
   useEffect(() => {
     cargarChallenges();
+    cargarChallengesActivos();
   }, []);
 
   const cargarChallenges = async () => {
@@ -38,6 +40,56 @@ export default function AdminScreen() {
       console.error('Error:', error);
     } finally {
       setCargando(false);
+    }
+  };
+
+  const cargarChallengesActivos = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/challenges`);
+      const data = await res.json();
+      setChallengesActivos(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const abrirEdicion = (challenge) => {
+    setRetoEditando(challenge.id);
+    setFormEditar({
+      title: challenge.title || '',
+      description: challenge.description || '',
+      historia: challenge.historia || '',
+      price_usd: challenge.price_usd?.toString() || '',
+      medal_image_url: challenge.medal_image_url || '',
+      link_mercadopago: challenge.link_mercadopago || '',
+      link_shopify: challenge.link_shopify || '',
+    });
+  };
+
+  const guardarEdicion = async () => {
+    if (!formEditar.title || !formEditar.price_usd) {
+      Alert.alert('Faltan datos', 'Completá al menos título y precio.');
+      return;
+    }
+    setGuardandoEdicion(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/admin/challenges/${retoEditando}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formEditar,
+          price_usd: parseFloat(formEditar.price_usd),
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.detalle);
+      Alert.alert('✅ Reto actualizado', 'Los cambios fueron guardados.');
+      setRetoEditando(null);
+      cargarChallengesActivos();
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo guardar. Intentá de nuevo.');
+    } finally {
+      setGuardandoEdicion(false);
     }
   };
 
@@ -60,10 +112,7 @@ export default function AdminScreen() {
 
   const copiarDireccion = (item) => {
     const d = item.direccion;
-    if (!d) {
-      Alert.alert('Sin dirección', 'Este usuario no tiene dirección guardada.');
-      return;
-    }
+    if (!d) { Alert.alert('Sin dirección', 'Este usuario no tiene dirección guardada.'); return; }
     const texto = [
       `Destinatario: ${d.nombre}`,
       `Dirección: ${d.direccion}`,
@@ -82,17 +131,13 @@ export default function AdminScreen() {
 
   const diasDesdeCompletado = (completedAt) => {
     if (!completedAt) return null;
-    const dias = Math.floor((Date.now() - new Date(completedAt).getTime()) / (1000 * 60 * 60 * 24));
-    return dias;
+    return Math.floor((Date.now() - new Date(completedAt).getTime()) / (1000 * 60 * 60 * 24));
   };
 
   const agregarModalidad = () => {
     const tipos = nuevoReto.modalidades.map(m => m.tipo);
     const siguiente = !tipos.includes('run') ? 'run' : !tipos.includes('ride') ? 'ride' : null;
-    if (!siguiente) {
-      Alert.alert('Máximo 2 modalidades', 'Ya tenés Running y Ciclismo.');
-      return;
-    }
+    if (!siguiente) { Alert.alert('Máximo 2 modalidades', 'Ya tenés Running y Ciclismo.'); return; }
     setNuevoReto(prev => ({
       ...prev,
       modalidades: [...prev.modalidades, { tipo: siguiente, label: siguiente === 'run' ? 'Running' : 'Ciclismo', distancia_km: '' }]
@@ -100,14 +145,8 @@ export default function AdminScreen() {
   };
 
   const quitarModalidad = (index) => {
-    if (nuevoReto.modalidades.length === 1) {
-      Alert.alert('Mínimo 1 modalidad');
-      return;
-    }
-    setNuevoReto(prev => ({
-      ...prev,
-      modalidades: prev.modalidades.filter((_, i) => i !== index)
-    }));
+    if (nuevoReto.modalidades.length === 1) { Alert.alert('Mínimo 1 modalidad'); return; }
+    setNuevoReto(prev => ({ ...prev, modalidades: prev.modalidades.filter((_, i) => i !== index) }));
   };
 
   const actualizarModalidad = (index, campo, valor) => {
@@ -126,22 +165,13 @@ export default function AdminScreen() {
     }
     setCreando(true);
     try {
-      const modalidadesFormateadas = modalidades.map(m => ({
-        tipo: m.tipo,
-        label: m.label,
-        distancia_km: parseFloat(m.distancia_km)
-      }));
+      const modalidadesFormateadas = modalidades.map(m => ({ tipo: m.tipo, label: m.label, distancia_km: parseFloat(m.distancia_km) }));
       const res = await fetch(`${BACKEND_URL}/admin/challenges`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title,
-          description,
-          historia,
-          price_usd: parseFloat(price_usd),
-          medal_image_url,
-          link_mercadopago,
-          link_shopify,
+          title, description, historia, price_usd: parseFloat(price_usd),
+          medal_image_url, link_mercadopago, link_shopify,
           modalidades: modalidadesFormateadas,
           sport_type: modalidades.length > 1 ? 'multi' : modalidades[0].tipo,
         })
@@ -149,17 +179,9 @@ export default function AdminScreen() {
       const data = await res.json();
       if (data.error) throw new Error(data.detalle);
       Alert.alert('🎉 Reto creado', `"${title}" fue creado exitosamente.`);
-      setNuevoReto({
-        title: '',
-        description: '',
-        historia: '',
-        price_usd: '',
-        medal_image_url: '',
-        link_mercadopago: '',
-        link_shopify: '',
-        modalidades: [{ tipo: 'run', label: 'Running', distancia_km: '' }],
-      });
+      setNuevoReto({ title: '', description: '', historia: '', price_usd: '', medal_image_url: '', link_mercadopago: '', link_shopify: '', modalidades: [{ tipo: 'run', label: 'Running', distancia_km: '' }] });
       setVista('envios');
+      cargarChallengesActivos();
     } catch (error) {
       Alert.alert('Error', 'No se pudo crear el reto. Intentá de nuevo.');
     } finally {
@@ -169,9 +191,7 @@ export default function AdminScreen() {
 
   const renderDireccion = (direccion) => {
     if (!direccion) return (
-      <View style={styles.sinDireccionBox}>
-        <Text style={styles.sinDireccion}>📍 Sin direccion guardada</Text>
-      </View>
+      <View style={styles.sinDireccionBox}><Text style={styles.sinDireccion}>📍 Sin direccion guardada</Text></View>
     );
     return (
       <View style={styles.direccionBox}>
@@ -194,21 +214,18 @@ export default function AdminScreen() {
       <Text style={styles.titulo}>⚙️ Admin</Text>
 
       <View style={styles.vistaRow}>
-        <TouchableOpacity
-          style={[styles.vistaBtn, vista === 'envios' && styles.vistaBtnActivo]}
-          onPress={() => setVista('envios')}
-        >
+        <TouchableOpacity style={[styles.vistaBtn, vista === 'envios' && styles.vistaBtnActivo]} onPress={() => setVista('envios')}>
           <Text style={[styles.vistaText, vista === 'envios' && styles.vistaTextActivo]}>📬 Envíos</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.vistaBtn, vista === 'crear' && styles.vistaBtnActivo]}
-          onPress={() => setVista('crear')}
-        >
-          <Text style={[styles.vistaText, vista === 'crear' && styles.vistaTextActivo]}>➕ Nuevo reto</Text>
+        <TouchableOpacity style={[styles.vistaBtn, vista === 'editar' && styles.vistaBtnActivo]} onPress={() => setVista('editar')}>
+          <Text style={[styles.vistaText, vista === 'editar' && styles.vistaTextActivo]}>✏️ Editar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.vistaBtn, vista === 'crear' && styles.vistaBtnActivo]} onPress={() => setVista('crear')}>
+          <Text style={[styles.vistaText, vista === 'crear' && styles.vistaTextActivo]}>➕ Nuevo</Text>
         </TouchableOpacity>
       </View>
 
-      {vista === 'envios' ? (
+      {vista === 'envios' && (
         <>
           <View style={styles.resumenRow}>
             <View style={[styles.resumenCard, { borderColor: '#FC4C02' }]}>
@@ -226,29 +243,15 @@ export default function AdminScreen() {
           </View>
 
           <View style={styles.filtroRow}>
-            <TouchableOpacity
-              style={[styles.filtroBtn, filtro === 'pendientes' && styles.filtroBtnActivo]}
-              onPress={() => setFiltro('pendientes')}
-            >
-              <Text style={[styles.filtroText, filtro === 'pendientes' && styles.filtroTextActivo]}>
-                🟡 Pendientes ({pendientes.length})
-              </Text>
+            <TouchableOpacity style={[styles.filtroBtn, filtro === 'pendientes' && styles.filtroBtnActivo]} onPress={() => setFiltro('pendientes')}>
+              <Text style={[styles.filtroText, filtro === 'pendientes' && styles.filtroTextActivo]}>🟡 Pendientes ({pendientes.length})</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filtroBtn, filtro === 'enviadas' && styles.filtroBtnActivo]}
-              onPress={() => setFiltro('enviadas')}
-            >
-              <Text style={[styles.filtroText, filtro === 'enviadas' && styles.filtroTextActivo]}>
-                ✅ Enviadas ({enviados.length})
-              </Text>
+            <TouchableOpacity style={[styles.filtroBtn, filtro === 'enviadas' && styles.filtroBtnActivo]} onPress={() => setFiltro('enviadas')}>
+              <Text style={[styles.filtroText, filtro === 'enviadas' && styles.filtroTextActivo]}>✅ Enviadas ({enviados.length})</Text>
             </TouchableOpacity>
           </View>
 
-          {mensaje ? (
-            <View style={styles.mensajeBox}>
-              <Text style={styles.mensajeText}>{mensaje}</Text>
-            </View>
-          ) : null}
+          {mensaje ? <View style={styles.mensajeBox}><Text style={styles.mensajeText}>{mensaje}</Text></View> : null}
 
           {cargando ? (
             <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
@@ -256,13 +259,12 @@ export default function AdminScreen() {
             <View style={styles.emptyCard}>
               <Text style={styles.emptyEmoji}>{filtro === 'pendientes' ? '🎉' : '📭'}</Text>
               <Text style={styles.emptyText}>{filtro === 'pendientes' ? 'Todo al dia!' : 'Sin envios todavia'}</Text>
-              <Text style={styles.emptySubtext}>{filtro === 'pendientes' ? 'No hay medallas pendientes de envio' : 'Las medallas enviadas aparecen acá'}</Text>
+              <Text style={styles.emptySubtext}>{filtro === 'pendientes' ? 'No hay medallas pendientes' : 'Las medallas enviadas aparecen acá'}</Text>
             </View>
           ) : (
             lista.map((item, index) => {
               const dias = diasDesdeCompletado(item.completed_at);
               const urgente = dias !== null && dias >= 3 && filtro === 'pendientes';
-
               return filtro === 'pendientes' ? (
                 <View key={index} style={[styles.card, urgente && styles.cardUrgente]}>
                   <View style={styles.cardHeader}>
@@ -276,11 +278,7 @@ export default function AdminScreen() {
                         <Text style={styles.kmNumero}>{item.km_completados}</Text>
                         <Text style={styles.kmLabel}>km</Text>
                       </View>
-                      {dias !== null && (
-                        <Text style={[styles.diasText, urgente && styles.diasUrgente]}>
-                          {dias === 0 ? 'hoy' : `hace ${dias}d`}
-                        </Text>
-                      )}
+                      {dias !== null && <Text style={[styles.diasText, urgente && styles.diasUrgente]}>{dias === 0 ? 'hoy' : `hace ${dias}d`}</Text>}
                     </View>
                   </View>
                   <Text style={styles.email}>{item.email}</Text>
@@ -308,9 +306,7 @@ export default function AdminScreen() {
                       <Text style={styles.nombre}>{item.usuario}</Text>
                       <Text style={styles.challenge}>{item.challenge}</Text>
                     </View>
-                    <View style={styles.shippedBadge}>
-                      <Text style={styles.shippedBadgeText}>✅</Text>
-                    </View>
+                    <View style={styles.shippedBadge}><Text style={styles.shippedBadgeText}>✅</Text></View>
                   </View>
                   <Text style={styles.email}>{item.email}</Text>
                   {renderDireccion(item.direccion)}
@@ -328,93 +324,96 @@ export default function AdminScreen() {
             })
           )}
         </>
-      ) : (
+      )}
+
+      {vista === 'editar' && (
+        <View>
+          {challengesActivos.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyEmoji}>📭</Text>
+              <Text style={styles.emptyText}>Sin retos activos</Text>
+            </View>
+          ) : retoEditando ? (
+            <View style={styles.formCard}>
+              <View style={styles.editarHeader}>
+                <Text style={styles.formTitulo}>✏️ Editando reto</Text>
+                <TouchableOpacity onPress={() => setRetoEditando(null)}>
+                  <Text style={styles.cancelarEdicionText}>✕ Cancelar</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.formLabel}>Título *</Text>
+              <TextInput style={styles.input} value={formEditar.title} onChangeText={v => setFormEditar(p => ({ ...p, title: v }))} placeholderTextColor="#4a6a8a" />
+
+              <Text style={styles.formLabel}>Descripción corta *</Text>
+              <TextInput style={[styles.input, { height: 70, textAlignVertical: 'top' }]} value={formEditar.description} onChangeText={v => setFormEditar(p => ({ ...p, description: v }))} placeholderTextColor="#4a6a8a" multiline />
+
+              <Text style={styles.formLabel}>Historia</Text>
+              <TextInput style={[styles.input, { height: 100, textAlignVertical: 'top' }]} value={formEditar.historia} onChangeText={v => setFormEditar(p => ({ ...p, historia: v }))} placeholderTextColor="#4a6a8a" multiline />
+
+              <Text style={styles.formLabel}>Precio USD *</Text>
+              <TextInput style={styles.input} value={formEditar.price_usd} onChangeText={v => setFormEditar(p => ({ ...p, price_usd: v }))} placeholderTextColor="#4a6a8a" keyboardType="numeric" />
+
+              <Text style={styles.formLabel}>URL imagen medalla</Text>
+              <TextInput style={styles.input} value={formEditar.medal_image_url} onChangeText={v => setFormEditar(p => ({ ...p, medal_image_url: v }))} placeholderTextColor="#4a6a8a" />
+
+              <Text style={styles.formLabel}>🇦🇷 Link MercadoPago</Text>
+              <TextInput style={styles.input} value={formEditar.link_mercadopago} onChangeText={v => setFormEditar(p => ({ ...p, link_mercadopago: v }))} placeholderTextColor="#4a6a8a" />
+
+              <Text style={styles.formLabel}>🌍 Link Shopify</Text>
+              <TextInput style={styles.input} value={formEditar.link_shopify} onChangeText={v => setFormEditar(p => ({ ...p, link_shopify: v }))} placeholderTextColor="#4a6a8a" />
+
+              <TouchableOpacity style={styles.crearBtn} onPress={guardarEdicion} disabled={guardandoEdicion}>
+                {guardandoEdicion ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.crearBtnText}>💾 Guardar cambios</Text>}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            challengesActivos.map((c, i) => (
+              <View key={i} style={styles.retoCard}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.retoTitulo}>{c.title}</Text>
+                  <Text style={styles.retoPrecio}>USD ${c.price_usd}</Text>
+                </View>
+                <TouchableOpacity style={styles.editarBtn} onPress={() => abrirEdicion(c)}>
+                  <Text style={styles.editarBtnText}>✏️ Editar</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+        </View>
+      )}
+
+      {vista === 'crear' && (
         <View style={styles.formCard}>
           <Text style={styles.formTitulo}>➕ Nuevo reto</Text>
 
           <Text style={styles.formLabel}>Título *</Text>
-          <TextInput
-            style={styles.input}
-            value={nuevoReto.title}
-            onChangeText={v => setNuevoReto(p => ({ ...p, title: v }))}
-            placeholder="Ej: Fin del Mundo"
-            placeholderTextColor="#4a6a8a"
-          />
+          <TextInput style={styles.input} value={nuevoReto.title} onChangeText={v => setNuevoReto(p => ({ ...p, title: v }))} placeholder="Ej: Fin del Mundo" placeholderTextColor="#4a6a8a" />
 
           <Text style={styles.formLabel}>Descripción corta *</Text>
-          <TextInput
-            style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
-            value={nuevoReto.description}
-            onChangeText={v => setNuevoReto(p => ({ ...p, description: v }))}
-            placeholder="Texto corto para la card del catálogo..."
-            placeholderTextColor="#4a6a8a"
-            multiline
-          />
+          <TextInput style={[styles.input, { height: 70, textAlignVertical: 'top' }]} value={nuevoReto.description} onChangeText={v => setNuevoReto(p => ({ ...p, description: v }))} placeholder="Texto corto..." placeholderTextColor="#4a6a8a" multiline />
 
           <Text style={styles.formLabel}>Historia</Text>
-          <TextInput
-            style={[styles.input, { height: 120, textAlignVertical: 'top' }]}
-            value={nuevoReto.historia}
-            onChangeText={v => setNuevoReto(p => ({ ...p, historia: v }))}
-            placeholder="Contá la historia e inspiración del reto..."
-            placeholderTextColor="#4a6a8a"
-            multiline
-          />
+          <TextInput style={[styles.input, { height: 120, textAlignVertical: 'top' }]} value={nuevoReto.historia} onChangeText={v => setNuevoReto(p => ({ ...p, historia: v }))} placeholder="La historia del reto..." placeholderTextColor="#4a6a8a" multiline />
 
           <Text style={styles.formLabel}>Precio USD *</Text>
-          <TextInput
-            style={styles.input}
-            value={nuevoReto.price_usd}
-            onChangeText={v => setNuevoReto(p => ({ ...p, price_usd: v }))}
-            placeholder="Ej: 49"
-            placeholderTextColor="#4a6a8a"
-            keyboardType="numeric"
-          />
+          <TextInput style={styles.input} value={nuevoReto.price_usd} onChangeText={v => setNuevoReto(p => ({ ...p, price_usd: v }))} placeholder="Ej: 49" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
 
           <Text style={styles.formLabel}>URL imagen medalla</Text>
-          <TextInput
-            style={styles.input}
-            value={nuevoReto.medal_image_url}
-            onChangeText={v => setNuevoReto(p => ({ ...p, medal_image_url: v }))}
-            placeholder="https://..."
-            placeholderTextColor="#4a6a8a"
-          />
+          <TextInput style={styles.input} value={nuevoReto.medal_image_url} onChangeText={v => setNuevoReto(p => ({ ...p, medal_image_url: v }))} placeholder="https://..." placeholderTextColor="#4a6a8a" />
 
           <Text style={styles.formLabel}>🇦🇷 Link MercadoPago</Text>
-          <TextInput
-            style={styles.input}
-            value={nuevoReto.link_mercadopago}
-            onChangeText={v => setNuevoReto(p => ({ ...p, link_mercadopago: v }))}
-            placeholder="https://mercadopago.com..."
-            placeholderTextColor="#4a6a8a"
-          />
+          <TextInput style={styles.input} value={nuevoReto.link_mercadopago} onChangeText={v => setNuevoReto(p => ({ ...p, link_mercadopago: v }))} placeholder="https://mercadopago.com..." placeholderTextColor="#4a6a8a" />
 
           <Text style={styles.formLabel}>🌍 Link Shopify (internacional)</Text>
-          <TextInput
-            style={styles.input}
-            value={nuevoReto.link_shopify}
-            onChangeText={v => setNuevoReto(p => ({ ...p, link_shopify: v }))}
-            placeholder="https://korva.run/checkouts/..."
-            placeholderTextColor="#4a6a8a"
-          />
+          <TextInput style={styles.input} value={nuevoReto.link_shopify} onChangeText={v => setNuevoReto(p => ({ ...p, link_shopify: v }))} placeholder="https://korva.run/checkouts/..." placeholderTextColor="#4a6a8a" />
 
           <Text style={styles.formLabel}>Modalidades *</Text>
           {nuevoReto.modalidades.map((m, i) => (
             <View key={i} style={styles.modalidadRow}>
-              <View style={styles.modalidadTipo}>
-                <Text style={styles.modalidadTipoText}>{m.tipo === 'run' ? '🏃 Running' : '🚴 Ciclismo'}</Text>
-              </View>
-              <TextInput
-                style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                value={m.distancia_km}
-                onChangeText={v => actualizarModalidad(i, 'distancia_km', v)}
-                placeholder="km"
-                placeholderTextColor="#4a6a8a"
-                keyboardType="numeric"
-              />
-              <TouchableOpacity style={styles.quitarBtn} onPress={() => quitarModalidad(i)}>
-                <Text style={styles.quitarBtnText}>✕</Text>
-              </TouchableOpacity>
+              <View style={styles.modalidadTipo}><Text style={styles.modalidadTipoText}>{m.tipo === 'run' ? '🏃 Running' : '🚴 Ciclismo'}</Text></View>
+              <TextInput style={[styles.input, { flex: 1, marginBottom: 0 }]} value={m.distancia_km} onChangeText={v => actualizarModalidad(i, 'distancia_km', v)} placeholder="km" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
+              <TouchableOpacity style={styles.quitarBtn} onPress={() => quitarModalidad(i)}><Text style={styles.quitarBtnText}>✕</Text></TouchableOpacity>
             </View>
           ))}
 
@@ -425,10 +424,7 @@ export default function AdminScreen() {
           )}
 
           <TouchableOpacity style={styles.crearBtn} onPress={crearReto} disabled={creando}>
-            {creando
-              ? <ActivityIndicator color="#FFFFFF" size="small" />
-              : <Text style={styles.crearBtnText}>🎉 Crear reto</Text>
-            }
+            {creando ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.crearBtnText}>🎉 Crear reto</Text>}
           </TouchableOpacity>
         </View>
       )}
@@ -440,10 +436,10 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#0D1B2A' },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
   titulo: { fontSize: 26, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 16 },
-  vistaRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  vistaBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  vistaRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+  vistaBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
   vistaBtnActivo: { borderColor: '#FC4C02' },
-  vistaText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 14 },
+  vistaText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
   vistaTextActivo: { color: '#FFFFFF' },
   resumenRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   resumenCard: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1 },
@@ -491,9 +487,16 @@ const styles = StyleSheet.create({
   trackingBox: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, marginTop: 8 },
   trackingLabel: { fontSize: 10, fontWeight: 'bold', color: '#4CAF50', letterSpacing: 2, marginBottom: 4 },
   trackingNum: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
+  retoCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 18, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  retoTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
+  retoPrecio: { fontSize: 13, color: '#FC4C02', fontWeight: 'bold' },
+  editarBtn: { borderWidth: 1, borderColor: '#1E6FD9', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
+  editarBtnText: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 13 },
   formCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 20 },
   formTitulo: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 20 },
   formLabel: { fontSize: 12, color: '#A8CFFF', marginBottom: 6, marginTop: 4, fontWeight: 'bold', letterSpacing: 0.5 },
+  editarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  cancelarEdicionText: { color: '#4a6a8a', fontSize: 13, fontWeight: 'bold' },
   modalidadRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   modalidadTipo: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, minWidth: 110 },
   modalidadTipoText: { color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' },

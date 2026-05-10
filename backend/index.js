@@ -365,7 +365,22 @@ app.get('/actividades/:userId', async (req, res) => {
     res.json({ error: 'Error obteniendo actividades', detalle: error.message });
   }
 });
-
+app.put('/admin/challenges/:id', async (req, res) => {
+  const { id } = req.params;
+  const { title, description, historia, price_usd, medal_image_url, link_mercadopago, link_shopify } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('challenges')
+      .update({ title, description, historia, price_usd, medal_image_url, link_mercadopago, link_shopify })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    res.json({ mensaje: 'Reto actualizado', challenge: data });
+  } catch (error) {
+    res.json({ error: 'Error actualizando reto', detalle: error.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
