@@ -21,14 +21,19 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.korva.mobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-web-browser"
-    ]
-  
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f433761f-30a0-4bfc-8260-a18e898d2688"
+      }
+    }
   }
 }
