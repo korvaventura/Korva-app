@@ -14,6 +14,8 @@ export default function PerfilScreen() {
   const [mostrarTodasActividades, setMostrarTodasActividades] = useState(false);
   const [editandoDireccion, setEditandoDireccion] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const [inscripcionActiva, setInscripcionActiva] = useState(null);
+  const [cambiandoModalidad, setCambiandoModalidad] = useState(false);
   const [formDireccion, setFormDireccion] = useState({
     nombre: '',
     direccion: '',
@@ -33,6 +35,7 @@ export default function PerfilScreen() {
     if (userId) {
       cargarPerfil();
       cargarActividades();
+      cargarInscripcionActiva();
     }
   }, [userId]);
 
@@ -64,6 +67,50 @@ export default function PerfilScreen() {
     } catch (error) {
       console.error('Error cargando actividades:', error);
     }
+  };
+
+  const cargarInscripcionActiva = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_challenges')
+        .select('id, modalidad, challenge_id, challenges(title)')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .single();
+      if (!error) setInscripcionActiva(data);
+    } catch (error) {}
+  };
+
+  const cambiarModalidad = async (nuevaModalidad) => {
+    if (nuevaModalidad === inscripcionActiva?.modalidad) return;
+    Alert.alert(
+      'Cambiar modalidad',
+      `¿Querés cambiar a ${nuevaModalidad === 'run' ? 'Running 🏃' : 'Ciclismo 🚴'}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            setCambiandoModalidad(true);
+            try {
+              await fetch(`${BACKEND_URL}/usuarios/modalidad`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  user_id: userId,
+                  challenge_id: inscripcionActiva.challenge_id,
+                  modalidad: nuevaModalidad
+                })
+              });
+              setInscripcionActiva(prev => ({ ...prev, modalidad: nuevaModalidad }));
+              Alert.alert('✅ Modalidad actualizada');
+            } catch (error) {
+              Alert.alert('Error', 'No se pudo cambiar la modalidad');
+            } finally { setCambiandoModalidad(false); }
+          }
+        }
+      ]
+    );
   };
 
   const abrirEdicion = () => {
@@ -124,7 +171,6 @@ export default function PerfilScreen() {
   };
 
   const actividadesVisibles = mostrarTodasActividades ? actividades : actividades.slice(0, 1);
-
   const stravaConectado = !!usuario?.strava_token;
   const direccion = usuario?.shipping_address;
   const inicial = usuario?.name?.charAt(0)?.toUpperCase() || 'K';
@@ -215,7 +261,6 @@ export default function PerfilScreen() {
                 <Text style={styles.actividadKm}>{parseFloat(act.distance_km).toFixed(1)} km</Text>
               </View>
             ))}
-
             {actividades.length > 1 && (
               <TouchableOpacity
                 style={styles.verTodasBtn}
@@ -232,9 +277,38 @@ export default function PerfilScreen() {
         )}
       </View>
 
+      {inscripcionActiva && (
+        <View style={styles.seccion}>
+          <Text style={styles.seccionTitulo}>🏅 Mi reto activo</Text>
+          <View style={styles.modalidadCard}>
+            <Text style={styles.modalidadTitulo}>{inscripcionActiva.challenges?.title}</Text>
+            <Text style={styles.modalidadLabel}>Modalidad actual</Text>
+            <View style={styles.modalidadBtns}>
+              <TouchableOpacity
+                style={[styles.modalidadBtn, inscripcionActiva.modalidad === 'run' && styles.modalidadBtnActivo]}
+                onPress={() => cambiarModalidad('run')}
+                disabled={cambiandoModalidad}
+              >
+                <Text style={[styles.modalidadBtnText, inscripcionActiva.modalidad === 'run' && styles.modalidadBtnTextActivo]}>
+                  🏃 Running
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalidadBtn, inscripcionActiva.modalidad === 'ride' && styles.modalidadBtnActivo]}
+                onPress={() => cambiarModalidad('ride')}
+                disabled={cambiandoModalidad}
+              >
+                <Text style={[styles.modalidadBtnText, inscripcionActiva.modalidad === 'ride' && styles.modalidadBtnTextActivo]}>
+                  🚴 Ciclismo
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
       <View style={styles.seccion}>
         <Text style={styles.seccionTitulo}>📦 Direccion de envio</Text>
-
         {editandoDireccion ? (
           <View style={styles.formCard}>
             <Text style={styles.formLabel}>Nombre completo *</Text>
@@ -388,6 +462,14 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 32, marginBottom: 8 },
   emptyText: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   emptySubtext: { fontSize: 12, color: '#A8CFFF', textAlign: 'center' },
+  modalidadCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20 },
+  modalidadTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
+  modalidadLabel: { fontSize: 12, color: '#A8CFFF', marginBottom: 12 },
+  modalidadBtns: { flexDirection: 'row', gap: 10 },
+  modalidadBtn: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  modalidadBtnActivo: { borderColor: '#FC4C02' },
+  modalidadBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 14 },
+  modalidadBtnTextActivo: { color: '#FFFFFF' },
   direccionCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20 },
   direccionNombre: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 10 },
   direccionLinea: { fontSize: 13, color: '#A8CFFF', marginBottom: 5 },

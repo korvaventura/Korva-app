@@ -381,6 +381,24 @@ app.put('/admin/challenges/:id', async (req, res) => {
   }
   
 });
+app.put('/usuarios/modalidad', async (req, res) => {
+  const { user_id, challenge_id, modalidad } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('user_challenges')
+      .update({ modalidad })
+      .eq('user_id', user_id)
+      .eq('challenge_id', challenge_id)
+      .eq('status', 'active')
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ mensaje: 'Modalidad actualizada', data });
+  } catch (error) {
+    res.json({ error: 'Error actualizando modalidad', detalle: error.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
