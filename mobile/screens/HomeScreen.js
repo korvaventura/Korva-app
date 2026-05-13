@@ -5,6 +5,7 @@ import { supabase } from '../supabase';
 import CompletadoScreen from './CompletadoScreen';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
+import MapaRecorrido from './MapaRecorrido';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -100,7 +101,7 @@ export default function HomeScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
-      
+
       <View style={styles.header}>
         <View>
           <Text style={styles.saludo}>Hola{nombre ? `, ${nombre}` : ''}! 👋</Text>
@@ -163,19 +164,19 @@ export default function HomeScreen() {
             <View style={styles.emptyCard}>
               <Text style={styles.emptyEmoji}>🏁</Text>
               <Text style={styles.emptyText}>Sin retos activos</Text>
-              <Text style={styles.emptySubtext}>Inscribite en un challenge desde el Catalogo y empeza a correr</Text>
+              <Text style={styles.emptySubtext}>Inscribite en un challenge desde el Catálogo y empezá a correr</Text>
             </View>
           ) : (
             challengesActivos.map((item, index) => {
               const pct = Math.min(parseFloat(item.porcentaje), 100);
-              const completado = pct >= 100;
+              const estaCompletado = pct >= 100;
               return (
                 <View key={`activo-${index}`}>
                   <ViewShot
                     ref={ref => viewShotRefs.current[index] = ref}
                     options={{ format: 'png', quality: 1 }}
                   >
-                    <View style={[styles.card, completado && styles.cardCompletado]}>
+                    <View style={[styles.card, estaCompletado && styles.cardCompletado]}>
                       <View style={styles.korvaTag}>
                         <Text style={styles.korvaTagText}>🏅 KORVA</Text>
                       </View>
@@ -192,14 +193,14 @@ export default function HomeScreen() {
                       </View>
 
                       <View style={styles.progressBar}>
-                        <View style={[styles.progressFill, { width: `${pct}%` }, completado && styles.progressFillCompletado]} />
+                        <View style={[styles.progressFill, { width: `${pct}%` }, estaCompletado && styles.progressFillCompletado]} />
                       </View>
 
                       <View style={styles.cardBottom}>
                         <Text style={styles.kmText}>{item.km_completados} km</Text>
                         <Text style={styles.kmTotal}>de {item.distancia_total} km</Text>
-                        <Text style={[styles.estado, completado && styles.estadoCompletado]}>
-                          {completado ? '🏅 Completado!' : '⚡ En progreso'}
+                        <Text style={[styles.estado, estaCompletado && styles.estadoCompletado]}>
+                          {estaCompletado ? '🏅 Completado!' : '⚡ En progreso'}
                         </Text>
                       </View>
 
@@ -208,6 +209,12 @@ export default function HomeScreen() {
                       ) : null}
                     </View>
                   </ViewShot>
+
+                  <MapaRecorrido
+                    kmCompletados={item.km_completados}
+                    distanciaTotal={item.distancia_total}
+                    porcentaje={item.porcentaje}
+                  />
 
                   <TouchableOpacity style={styles.compartirBtn} onPress={() => compartirProgreso(index)}>
                     <Text style={styles.compartirBtnText}>📤 Compartir progreso</Text>
@@ -238,7 +245,6 @@ const styles = StyleSheet.create({
   subtitulo: { fontSize: 13, color: '#A8CFFF' },
   stravaBtn: { backgroundColor: '#FC4C02', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
   stravaBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
-
   bannerCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#1E6FD9' },
   bannerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   bannerTitulo: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
@@ -251,21 +257,18 @@ const styles = StyleSheet.create({
   pasoDesc: { fontSize: 12, color: '#A8CFFF' },
   bannerBtn: { backgroundColor: '#1E6FD9', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginTop: 8 },
   bannerBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
-
   errorCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 40, alignItems: 'center', marginTop: 20, borderWidth: 1, borderColor: '#2a3a4a' },
   errorEmoji: { fontSize: 48, marginBottom: 16 },
   errorTitulo: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   errorSubtitulo: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 20, marginBottom: 24 },
   reintentarBtn: { backgroundColor: '#1E6FD9', paddingVertical: 12, paddingHorizontal: 32, borderRadius: 12 },
   reintentarText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
-
   pendingCard: { backgroundColor: '#1E2A1A', borderRadius: 16, padding: 18, marginBottom: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 14, borderWidth: 1, borderColor: '#2a4a2a' },
   pendingEmoji: { fontSize: 28 },
   pendingInfo: { flex: 1 },
   pendingTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
   pendingModalidad: { fontSize: 12, color: '#A8CFFF', marginBottom: 6 },
   pendingTexto: { fontSize: 12, color: '#6a8a6a', lineHeight: 18 },
-
   emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 40, alignItems: 'center', marginTop: 20 },
   emptyEmoji: { fontSize: 48, marginBottom: 16 },
   emptyText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
