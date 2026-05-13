@@ -13,6 +13,7 @@ export default function LoginScreen({ onLogin }) {
   const [mensaje, setMensaje] = useState('');
   const [resetMode, setResetMode] = useState(false);
   const [resetEnviado, setResetEnviado] = useState(false);
+  const [verPassword, setVerPassword] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -60,7 +61,9 @@ export default function LoginScreen({ onLogin }) {
     if (!email) { setMensaje('Ingresá tu email primero'); return; }
     setCargando(true); setMensaje('');
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'korva://reset-password',
+      });
       if (error) throw error;
       setResetEnviado(true);
     } catch (error) {
@@ -152,14 +155,22 @@ export default function LoginScreen({ onLogin }) {
 
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>CONTRASEÑA</Text>
-              <TextInput
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••••"
-                placeholderTextColor="#4a6a8a"
-                secureTextEntry
-              />
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={[styles.input, { flex: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0 }]}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="••••••••"
+                  placeholderTextColor="#4a6a8a"
+                  secureTextEntry={!verPassword}
+                />
+                <TouchableOpacity
+                  style={styles.ojito}
+                  onPress={() => setVerPassword(!verPassword)}
+                >
+                  <Text style={{ fontSize: 18 }}>{verPassword ? '🙈' : '👁️'}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {mensaje ? (
@@ -259,6 +270,8 @@ const styles = StyleSheet.create({
   inputContainer: { marginBottom: 16 },
   inputLabel: { fontSize: 10, fontWeight: 'bold', color: '#4a6a8a', letterSpacing: 2, marginBottom: 6 },
   input: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, color: '#FFFFFF', fontSize: 15, borderWidth: 1, borderColor: '#2a4a6a' },
+  inputRow: { flexDirection: 'row', alignItems: 'center' },
+  ojito: { backgroundColor: '#0D1B2A', padding: 14, borderTopRightRadius: 12, borderBottomRightRadius: 12, borderWidth: 1, borderColor: '#2a4a6a', borderLeftWidth: 0 },
   mensajeBox: { backgroundColor: '#2a1a1a', borderRadius: 10, padding: 12, marginBottom: 12 },
   mensaje: { color: '#FC4C02', fontSize: 13, textAlign: 'center' },
   button: { backgroundColor: '#FC4C02', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 4, marginBottom: 16 },
