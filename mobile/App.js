@@ -2,6 +2,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import { useState, useEffect } from 'react';
+import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import HomeScreen from './screens/HomeScreen';
@@ -13,6 +14,7 @@ import LoginScreen from './screens/LoginScreen';
 import RankingScreen from './screens/RankingScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import TerminosScreen from './screens/TerminosScreen';
+import ResetPasswordScreen from './screens/ResetPasswordScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -37,8 +39,24 @@ export default function App() {
   const [cargando, setCargando] = useState(true);
   const [mostrarTerminos, setMostrarTerminos] = useState(false);
   const [mostrarOnboarding, setMostrarOnboarding] = useState(false);
+  const [mostrarReset, setMostrarReset] = useState(false);
 
   useEffect(() => {
+    // Manejar deep link de reset password
+    const handleDeepLink = async (url) => {
+      if (!url) return;
+      if (url.includes('reset-password') || url.includes('type=recovery')) {
+        // Supabase maneja el token automáticamente via onAuthStateChange
+        setMostrarReset(true);
+      }
+    };
+
+    // Deep link inicial si la app se abrió desde el link
+    Linking.getInitialURL().then(handleDeepLink);
+
+    // Deep link si la app ya estaba abierta
+    const subscription = Linking.addEventListener('url', ({ url }) => handleDeepLink(url));
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUsuario(session?.user ?? null);
       setCargando(false);
@@ -47,13 +65,17 @@ export default function App() {
       }
     });
 
-    supabase.auth.onAuthStateChange(async (_event, session) => {
+    supabase.auth.onAuthStateChange(async (event, session) => {
       const user = session?.user ?? null;
       setUsuario(user);
-      if (user) {
+      if (event === 'PASSWORD_RECOVERY') {
+        setMostrarReset(true);
+      } else if (user) {
         await chequearPantallas(setMostrarTerminos, setMostrarOnboarding);
       }
     });
+
+    return () => subscription.remove();
   }, []);
 
   const aceptarTerminos = async () => {
@@ -69,6 +91,10 @@ export default function App() {
   };
 
   if (cargando) return null;
+
+  if (mostrarReset) {
+    return <ResetPasswordScreen onVolver={() => { setMostrarReset(false); setUsuario(null); }} />;
+  }
 
   if (!usuario) {
     return <LoginScreen onLogin={(user) => setUsuario(user)} />;
@@ -97,37 +123,13 @@ export default function App() {
           tabBarInactiveTintColor: '#A8CFFF',
         }}
       >
-        <Tab.Screen
-          name="Mis Retos"
-          component={HomeScreen}
-          options={{ tabBarIcon: () => <Text>🏃</Text> }}
-        />
-        <Tab.Screen
-          name="Catalogo"
-          component={CatalogoScreen}
-          options={{ tabBarIcon: () => <Text>🏅</Text> }}
-        />
-        <Tab.Screen
-          name="Ranking"
-          component={RankingScreen}
-          options={{ tabBarIcon: () => <Text>🏆</Text> }}
-        />
-        <Tab.Screen
-          name="Registrar"
-          component={RegistroManualScreen}
-          options={{ tabBarIcon: () => <Text>➕</Text> }}
-        />
-        <Tab.Screen
-          name="Perfil"
-          component={PerfilScreen}
-          options={{ tabBarIcon: () => <Text>👤</Text> }}
-        />
+        <Tab.Screen name="Mis Retos" component={HomeScreen} options={{ tabBarIcon: () => <Text>🏃</Text> }} />
+        <Tab.Screen name="Catalogo" component={CatalogoScreen} options={{ tabBarIcon: () => <Text>🏅</Text> }} />
+        <Tab.Screen name="Ranking" component={RankingScreen} options={{ tabBarIcon: () => <Text>🏆</Text> }} />
+        <Tab.Screen name="Registrar" component={RegistroManualScreen} options={{ tabBarIcon: () => <Text>➕</Text> }} />
+        <Tab.Screen name="Perfil" component={PerfilScreen} options={{ tabBarIcon: () => <Text>👤</Text> }} />
         {esAdmin && (
-          <Tab.Screen
-            name="Admin"
-            component={AdminScreen}
-            options={{ tabBarIcon: () => <Text>⚙️</Text> }}
-          />
+          <Tab.Screen name="Admin" component={AdminScreen} options={{ tabBarIcon: () => <Text>⚙️</Text> }} />
         )}
       </Tab.Navigator>
     </NavigationContainer>
