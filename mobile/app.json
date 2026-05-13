@@ -2,7 +2,7 @@
   "expo": {
     "name": "Korva",
     "slug": "mobile",
-    "scheme": "mobile",
+    "scheme": "korva",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
