@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
-const { enviarEmailInscripcion } = require('../routes/emails');
+const { enviarEmailInscripcion, enviarEmailAdmin } = require('../routes/emails');
 
 const getSupabase = () => createClient(
   process.env.SUPABASE_URL,
@@ -42,15 +42,13 @@ router.post('/webhook', async (req, res) => {
       .eq('email', email)
       .single();
 
-  if (!user) {
-  // Avisar por email que hay un pago sin usuario asociado
-  const { enviarEmailAdmin } = require('../routes/emails');
-  enviarEmailAdmin(
-    `Pago sin usuario - $${pago.transaction_amount}`,
-    `Email del pagador: ${email}\nMonto: $${pago.transaction_amount}\nID pago: ${paymentId}\n\nActivar manualmente en Supabase.`
-  );
-  return res.status(200).json({ mensaje: 'Usuario no encontrado, admin notificado' });
-}
+    if (!user) {
+      enviarEmailAdmin(
+        `Pago sin usuario - $${pago.transaction_amount}`,
+        `Email del pagador: ${email}\nMonto: $${pago.transaction_amount}\nID pago: ${paymentId}\n\nActivar manualmente en Supabase.`
+      );
+      return res.status(200).json({ mensaje: 'Usuario no encontrado, admin notificado' });
+    }
 
     const { data: pendiente } = await supabase
       .from('user_challenges')
@@ -69,7 +67,6 @@ router.post('/webhook', async (req, res) => {
 
       console.log('Challenge activado para:', email);
 
-      // Enviar email de confirmacion
       if (user.email && pendiente.challenges?.title) {
         enviarEmailInscripcion(
           user.email,
