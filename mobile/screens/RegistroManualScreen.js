@@ -59,10 +59,11 @@ export default function RegistroManualScreen() {
         setMensaje('Error al registrar. Intenta de nuevo.');
         setExito(false);
       } else {
-        setMensaje(`${distancia} km de ${deporte === 'run' ? 'running' : 'ciclismo'} registrados!`);
+      setMensaje(`${distancia} km de ${deporte === 'run' ? 'running' : 'ciclismo'} registrados!`);
         setExito(true);
         setDistancia('');
         setDiasAtras(0);
+        setTimeout(() => { setMensaje(''); setExito(false); }, 3000);
       }
     } catch (error) {
       setMensaje('Error de conexion');

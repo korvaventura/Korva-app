@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking } from 'react-native';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../supabase';
 import CompletadoScreen from './CompletadoScreen';
 import ViewShot from 'react-native-view-shot';
@@ -47,6 +48,12 @@ export default function HomeScreen() {
   useEffect(() => {
     if (userId) cargarProgreso();
   }, [userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (userId) cargarProgreso();
+    }, [userId])
+  );
 
   useEffect(() => {
     const subscription = Linking.addEventListener('url', ({ url }) => {
@@ -186,54 +193,39 @@ export default function HomeScreen() {
                     options={{ format: 'png', quality: 1 }}
                   >
                     <View style={[styles.shareCard, estaCompletado && styles.shareCardCompletado]}>
-                      
-                      {/* Header */}
                       <View style={styles.shareHeader}>
                         <Text style={styles.shareKorvaLogo}>🏅 KORVA</Text>
                         <Text style={styles.shareDeporte}>
                           {item.modalidad === 'Running' ? '🏃 RUNNING' : item.modalidad === 'Ciclismo' ? '🚴 CICLISMO' : '🏊 NATACIÓN'}
                         </Text>
                       </View>
-
-                      {/* Porcentaje grande */}
                       <View style={styles.sharePctWrapper}>
                         <Text style={styles.sharePctNumero}>{pct.toFixed(0)}</Text>
                         <Text style={styles.sharePctSymbol}>%</Text>
                       </View>
-
-                      {/* Nombre del challenge */}
                       <Text style={styles.shareChallengeName}>{item.challenge}</Text>
-
-                      {/* Frase motivacional */}
                       <Text style={styles.shareFrase}>{frase}</Text>
-
-                      {/* Barra de progreso */}
                       <View style={styles.shareProgressBar}>
                         <View style={[styles.shareProgressFill, { width: `${pct}%` }, estaCompletado && styles.shareProgressFillCompletado]} />
                       </View>
-
-                      {/* Km */}
                       <View style={styles.shareKmRow}>
                         <Text style={styles.shareKmText}>{item.km_completados} km</Text>
                         <Text style={styles.shareKmTotal}>de {item.distancia_total} km</Text>
                         {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅 Completado!</Text>}
                       </View>
-
-                      {/* Footer */}
                       <View style={styles.shareFooter}>
                         <Text style={styles.shareNombre}>{nombre}</Text>
                         <Text style={styles.shareUrl}>korva.run</Text>
                       </View>
-
                     </View>
                   </ViewShot>
 
-                 <MapaRecorrido
-  kmCompletados={item.km_completados}
-  distanciaTotal={item.distancia_total}
-  porcentaje={item.porcentaje}
-  checkpointsData={item.checkpoints}
-/>
+                  <MapaRecorrido
+                    kmCompletados={item.km_completados}
+                    distanciaTotal={item.distancia_total}
+                    porcentaje={item.porcentaje}
+                    checkpointsData={item.checkpoints}
+                  />
 
                   <TouchableOpacity style={styles.compartirBtn} onPress={() => compartirProgreso(index)}>
                     <Text style={styles.compartirBtnText}>📤 Compartir progreso</Text>
@@ -292,8 +284,6 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 48, marginBottom: 16 },
   emptyText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   emptySubtext: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 20 },
-
-  // Share card
   shareCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 24, marginBottom: 8, borderWidth: 2, borderColor: '#1E3A5F' },
   shareCardCompletado: { borderColor: '#FC4C02' },
   shareHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
@@ -314,7 +304,6 @@ const styles = StyleSheet.create({
   shareFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#0D1B2A', paddingTop: 12 },
   shareNombre: { fontSize: 12, color: '#4a6a8a', fontWeight: 'bold' },
   shareUrl: { fontSize: 12, color: '#4a6a8a' },
-
   compartirBtn: { backgroundColor: '#0D1B2A', borderWidth: 1, borderColor: '#2a4a6a', paddingVertical: 10, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
   compartirBtnText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
   actualizarBtn: { marginTop: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center' },
