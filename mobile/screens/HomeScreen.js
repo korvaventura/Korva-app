@@ -15,6 +15,14 @@ const PASOS = [
   { emoji: '📦', titulo: 'Recibí tu medalla', desc: 'Al llegar al 100% te la enviamos a casa.' },
 ];
 
+const getFrase = (pct, modalidad) => {
+  if (pct >= 100) return '¡Llegué al fin del mundo! 🏁';
+  if (pct >= 75) return 'Ya casi llego... 💪';
+  if (pct >= 50) return 'Mitad del camino recorrido 🔥';
+  if (pct >= 25) return 'Arrancando fuerte ⚡';
+  return 'El camino empieza con el primer paso 🌱';
+};
+
 export default function HomeScreen() {
   const [challenges, setChallenges] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -170,43 +178,53 @@ export default function HomeScreen() {
             challengesActivos.map((item, index) => {
               const pct = Math.min(parseFloat(item.porcentaje), 100);
               const estaCompletado = pct >= 100;
+              const frase = getFrase(pct, item.modalidad);
               return (
                 <View key={`activo-${index}`}>
                   <ViewShot
                     ref={ref => viewShotRefs.current[index] = ref}
                     options={{ format: 'png', quality: 1 }}
                   >
-                    <View style={[styles.card, estaCompletado && styles.cardCompletado]}>
-                      <View style={styles.korvaTag}>
-                        <Text style={styles.korvaTagText}>🏅 KORVA</Text>
-                      </View>
-                      <View style={styles.cardTop}>
-                        <View>
-                          <Text style={styles.deporte}>
-                            {item.modalidad === 'Running' ? '🏃 RUNNING' : item.modalidad === 'Ciclismo' ? '🚴 CICLISMO' : '🏊 NATACION'}
-                          </Text>
-                          <Text style={styles.challengeTitle}>{item.challenge}</Text>
-                        </View>
-                        <View style={styles.pctCircle}>
-                          <Text style={styles.pctText}>{pct.toFixed(0)}%</Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.progressBar}>
-                        <View style={[styles.progressFill, { width: `${pct}%` }, estaCompletado && styles.progressFillCompletado]} />
-                      </View>
-
-                      <View style={styles.cardBottom}>
-                        <Text style={styles.kmText}>{item.km_completados} km</Text>
-                        <Text style={styles.kmTotal}>de {item.distancia_total} km</Text>
-                        <Text style={[styles.estado, estaCompletado && styles.estadoCompletado]}>
-                          {estaCompletado ? '🏅 Completado!' : '⚡ En progreso'}
+                    <View style={[styles.shareCard, estaCompletado && styles.shareCardCompletado]}>
+                      
+                      {/* Header */}
+                      <View style={styles.shareHeader}>
+                        <Text style={styles.shareKorvaLogo}>🏅 KORVA</Text>
+                        <Text style={styles.shareDeporte}>
+                          {item.modalidad === 'Running' ? '🏃 RUNNING' : item.modalidad === 'Ciclismo' ? '🚴 CICLISMO' : '🏊 NATACIÓN'}
                         </Text>
                       </View>
 
-                      {nombre ? (
-                        <Text style={styles.cardNombre}>{nombre} · korva.run</Text>
-                      ) : null}
+                      {/* Porcentaje grande */}
+                      <View style={styles.sharePctWrapper}>
+                        <Text style={styles.sharePctNumero}>{pct.toFixed(0)}</Text>
+                        <Text style={styles.sharePctSymbol}>%</Text>
+                      </View>
+
+                      {/* Nombre del challenge */}
+                      <Text style={styles.shareChallengeName}>{item.challenge}</Text>
+
+                      {/* Frase motivacional */}
+                      <Text style={styles.shareFrase}>{frase}</Text>
+
+                      {/* Barra de progreso */}
+                      <View style={styles.shareProgressBar}>
+                        <View style={[styles.shareProgressFill, { width: `${pct}%` }, estaCompletado && styles.shareProgressFillCompletado]} />
+                      </View>
+
+                      {/* Km */}
+                      <View style={styles.shareKmRow}>
+                        <Text style={styles.shareKmText}>{item.km_completados} km</Text>
+                        <Text style={styles.shareKmTotal}>de {item.distancia_total} km</Text>
+                        {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅 Completado!</Text>}
+                      </View>
+
+                      {/* Footer */}
+                      <View style={styles.shareFooter}>
+                        <Text style={styles.shareNombre}>{nombre}</Text>
+                        <Text style={styles.shareUrl}>korva.run</Text>
+                      </View>
+
                     </View>
                   </ViewShot>
 
@@ -273,24 +291,29 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 48, marginBottom: 16 },
   emptyText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   emptySubtext: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 20 },
-  card: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 20, marginBottom: 8 },
-  cardCompletado: { borderWidth: 1, borderColor: '#FC4C02' },
-  korvaTag: { marginBottom: 10 },
-  korvaTagText: { fontSize: 11, fontWeight: 'bold', color: '#FC4C02', letterSpacing: 1 },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
-  deporte: { fontSize: 11, fontWeight: 'bold', color: '#1E6FD9', letterSpacing: 1, marginBottom: 4 },
-  challengeTitle: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF' },
-  pctCircle: { backgroundColor: '#0D1B2A', borderRadius: 30, width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
-  pctText: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF' },
-  progressBar: { height: 8, backgroundColor: '#0D1B2A', borderRadius: 4, marginBottom: 14 },
-  progressFill: { height: 8, backgroundColor: '#1E6FD9', borderRadius: 4 },
-  progressFillCompletado: { backgroundColor: '#FC4C02' },
-  cardBottom: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  kmText: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
-  kmTotal: { fontSize: 13, color: '#A8CFFF', flex: 1 },
-  estado: { fontSize: 12, color: '#A8CFFF', fontWeight: 'bold' },
-  estadoCompletado: { color: '#FC4C02' },
-  cardNombre: { fontSize: 11, color: '#4a6a8a', marginTop: 12, textAlign: 'right' },
+
+  // Share card
+  shareCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 24, marginBottom: 8, borderWidth: 2, borderColor: '#1E3A5F' },
+  shareCardCompletado: { borderColor: '#FC4C02' },
+  shareHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  shareKorvaLogo: { fontSize: 13, fontWeight: 'bold', color: '#FC4C02', letterSpacing: 2 },
+  shareDeporte: { fontSize: 11, fontWeight: 'bold', color: '#1E6FD9', letterSpacing: 1 },
+  sharePctWrapper: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 4 },
+  sharePctNumero: { fontSize: 72, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 80 },
+  sharePctSymbol: { fontSize: 32, fontWeight: 'bold', color: '#FC4C02', marginBottom: 12, marginLeft: 4 },
+  shareChallengeName: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
+  shareFrase: { fontSize: 13, color: '#A8CFFF', marginBottom: 20, fontStyle: 'italic' },
+  shareProgressBar: { height: 6, backgroundColor: '#0D1B2A', borderRadius: 3, marginBottom: 12 },
+  shareProgressFill: { height: 6, backgroundColor: '#1E6FD9', borderRadius: 3 },
+  shareProgressFillCompletado: { backgroundColor: '#FC4C02' },
+  shareKmRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20 },
+  shareKmText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
+  shareKmTotal: { fontSize: 13, color: '#A8CFFF', flex: 1 },
+  shareCompletadoBadge: { fontSize: 13, color: '#FC4C02', fontWeight: 'bold' },
+  shareFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#0D1B2A', paddingTop: 12 },
+  shareNombre: { fontSize: 12, color: '#4a6a8a', fontWeight: 'bold' },
+  shareUrl: { fontSize: 12, color: '#4a6a8a' },
+
   compartirBtn: { backgroundColor: '#0D1B2A', borderWidth: 1, borderColor: '#2a4a6a', paddingVertical: 10, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
   compartirBtnText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
   actualizarBtn: { marginTop: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center' },
