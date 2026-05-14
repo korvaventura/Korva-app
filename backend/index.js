@@ -365,13 +365,15 @@ app.get('/actividades/:userId', async (req, res) => {
     res.json({ error: 'Error obteniendo actividades', detalle: error.message });
   }
 });
+
 app.put('/admin/challenges/:id', async (req, res) => {
-    const { id } = req.params;
-  const { title, description, historia, price_usd, medal_image_url, link_mercadopago, link_shopify, oferta_texto } = req.body;
+  const { id } = req.params;
+  const { title, description, historia, price_usd, medal_image_url, link_mercadopago, link_shopify, oferta_texto, checkpoints } = req.body;
   try {
     const { data, error } = await supabase
       .from('challenges')
-      .update({ title, description, historia, price_usd, medal_image_url, link_mercadopago, link_shopify, oferta_texto })
+      .update({ title, description, historia, price_usd, medal_image_url, link_mercadopago, link_shopify, oferta_texto, checkpoints })
+      .eq('id', id)
       .select()
       .single();
     if (error) throw error;
@@ -379,8 +381,8 @@ app.put('/admin/challenges/:id', async (req, res) => {
   } catch (error) {
     res.json({ error: 'Error actualizando reto', detalle: error.message });
   }
-  
 });
+
 app.put('/usuarios/modalidad', async (req, res) => {
   const { user_id, challenge_id, modalidad } = req.body;
   try {
@@ -399,6 +401,7 @@ app.put('/usuarios/modalidad', async (req, res) => {
     res.json({ error: 'Error actualizando modalidad', detalle: error.message });
   }
 });
+
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
