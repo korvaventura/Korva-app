@@ -3,6 +3,14 @@ import { useState, useEffect } from 'react';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
+const CHECKPOINTS_DEFAULT = [
+  { id: 'tolhuin', nombre: 'Tolhuin', kmFisico: 0, emoji: '🏘️', desc: 'El corazón de Tierra del Fuego. Su nombre en lengua Selk\'nam significa exactamente eso: "corazón". Fundada en 1972 con solo 20 casas, hoy tiene el autódromo más austral del mundo.', datoRaro: '🧭 Km 0 de tu aventura. Desde acá hasta Ushuaia, la Ruta Nacional 3 llega a su fin.' },
+  { id: 'lago_fagnano', nombre: 'Lago Fagnano', kmFisico: 20, emoji: '💧', desc: 'Este lago está literalmente partido en dos por la Falla de Magallanes: la orilla norte pertenece a la placa Sudamericana y la sur a la placa de Scotia. En 1949 un terremoto de 7.8 grados generó olas sísmicas que crearon nuevas lagunas.', datoRaro: '⚡ Las placas que lo rodean se mueven 5.4mm por año. Estás corriendo sobre una falla activa.' },
+  { id: 'paso_garibaldi', nombre: 'Paso Garibaldi', kmFisico: 45, emoji: '⛰️', desc: 'Descubierto en 1935 por Luis Garibaldi Honte, un descendiente Selk\'nam que de niño escuchó a su abuela hablar de un paso secreto que usaban los haush para cruzar la cordillera.', datoRaro: '🚙 El primer vehículo en cruzarlo tardó 10 horas. Vos llegás antes.' },
+  { id: 'monte_olivia', nombre: 'Monte Olivia', kmFisico: 80, emoji: '🗻', desc: 'En lengua yamana se llama "Uliwai" — punta de arpón. La cima fue conquistada por primera vez en 1913 por el cura salesiano Alberto María de Agostini, sin clavos de escalada.', datoRaro: '🏔️ 1.326 metros. 35 años después de la primera cumbre, encontraron intacta la bandera argentina.' },
+  { id: 'ushuaia', nombre: 'Ushuaia', kmFisico: 103, emoji: '🏁', desc: 'La ciudad más austral del mundo. Fue una colonia penal hasta 1947. El Canal Beagle lleva el nombre del barco en que viajó Charles Darwin cuando desarrolló su teoría de la evolución.', datoRaro: '🌍 Desde acá, el próximo punto habitado hacia el sur es la Antártida.' },
+];
+
 export default function AdminScreen() {
   const [challenges, setChallenges] = useState([]);
   const [challengesActivos, setChallengesActivos] = useState([]);
@@ -25,6 +33,10 @@ export default function AdminScreen() {
     medal_image_url: '', link_mercadopago: '', link_shopify: '', oferta_texto: '',
   });
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+
+  const [challengeMapa, setChallengeMapa] = useState(null);
+  const [checkpoints, setCheckpoints] = useState([]);
+  const [guardandoMapa, setGuardandoMapa] = useState(false);
 
   useEffect(() => {
     cargarChallenges();
@@ -89,6 +101,57 @@ export default function AdminScreen() {
     } finally {
       setGuardandoEdicion(false);
     }
+  };
+
+  const abrirMapa = (challenge) => {
+    setChallengeMapa(challenge);
+    const cps = challenge.checkpoints || CHECKPOINTS_DEFAULT;
+    setCheckpoints(JSON.parse(JSON.stringify(cps)));
+  };
+
+  const actualizarCheckpoint = (index, campo, valor) => {
+    setCheckpoints(prev => {
+      const nuevo = [...prev];
+      nuevo[index] = { ...nuevo[index], [campo]: campo === 'kmFisico' ? parseInt(valor) || 0 : valor };
+      return nuevo;
+    });
+  };
+
+  const guardarMapa = async () => {
+    setGuardandoMapa(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/admin/challenges/${challengeMapa.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: challengeMapa.title,
+          description: challengeMapa.description,
+          historia: challengeMapa.historia,
+          price_usd: challengeMapa.price_usd,
+          medal_image_url: challengeMapa.medal_image_url,
+          link_mercadopago: challengeMapa.link_mercadopago,
+          link_shopify: challengeMapa.link_shopify,
+          oferta_texto: challengeMapa.oferta_texto,
+          checkpoints,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.detalle);
+      Alert.alert('✅ Mapa guardado', 'Los checkpoints fueron actualizados.');
+      setChallengeMapa(null);
+      cargarChallengesActivos();
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo guardar el mapa.');
+    } finally {
+      setGuardandoMapa(false);
+    }
+  };
+
+  const resetearCheckpoints = () => {
+    Alert.alert('Resetear checkpoints', '¿Volvés a los checkpoints por defecto?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Resetear', onPress: () => setCheckpoints(JSON.parse(JSON.stringify(CHECKPOINTS_DEFAULT))) }
+    ]);
   };
 
   const enviarMedalla = async (ucId, nombre) => {
@@ -196,7 +259,6 @@ export default function AdminScreen() {
   const pendientes = challenges.filter(c => c.status === 'completed');
   const enviados = challenges.filter(c => c.status === 'shipped');
   const lista = filtro === 'pendientes' ? pendientes : enviados;
-
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>⚙️ Admin</Text>
@@ -207,6 +269,9 @@ export default function AdminScreen() {
         </TouchableOpacity>
         <TouchableOpacity style={[styles.vistaBtn, vista === 'editar' && styles.vistaBtnActivo]} onPress={() => setVista('editar')}>
           <Text style={[styles.vistaText, vista === 'editar' && styles.vistaTextActivo]}>✏️ Editar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.vistaBtn, vista === 'mapa' && styles.vistaBtnActivo]} onPress={() => setVista('mapa')}>
+          <Text style={[styles.vistaText, vista === 'mapa' && styles.vistaTextActivo]}>🗺️ Mapa</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.vistaBtn, vista === 'crear' && styles.vistaBtnActivo]} onPress={() => setVista('crear')}>
           <Text style={[styles.vistaText, vista === 'crear' && styles.vistaTextActivo]}>➕ Nuevo</Text>
@@ -293,31 +358,22 @@ export default function AdminScreen() {
                 <Text style={styles.formTitulo}>✏️ Editando reto</Text>
                 <TouchableOpacity onPress={() => setRetoEditando(null)}><Text style={styles.cancelarEdicionText}>✕ Cancelar</Text></TouchableOpacity>
               </View>
-
               <Text style={styles.formLabel}>Título *</Text>
               <TextInput style={styles.input} value={formEditar.title} onChangeText={v => setFormEditar(p => ({ ...p, title: v }))} placeholderTextColor="#4a6a8a" />
-
               <Text style={styles.formLabel}>Descripción corta *</Text>
               <TextInput style={[styles.input, { height: 70, textAlignVertical: 'top' }]} value={formEditar.description} onChangeText={v => setFormEditar(p => ({ ...p, description: v }))} placeholderTextColor="#4a6a8a" multiline />
-
               <Text style={styles.formLabel}>Historia</Text>
               <TextInput style={[styles.input, { height: 100, textAlignVertical: 'top' }]} value={formEditar.historia} onChangeText={v => setFormEditar(p => ({ ...p, historia: v }))} placeholderTextColor="#4a6a8a" multiline />
-
               <Text style={styles.formLabel}>Precio USD *</Text>
               <TextInput style={styles.input} value={formEditar.price_usd} onChangeText={v => setFormEditar(p => ({ ...p, price_usd: v }))} placeholderTextColor="#4a6a8a" keyboardType="numeric" />
-
               <Text style={styles.formLabel}>URL imagen medalla</Text>
               <TextInput style={styles.input} value={formEditar.medal_image_url} onChangeText={v => setFormEditar(p => ({ ...p, medal_image_url: v }))} placeholderTextColor="#4a6a8a" />
-
               <Text style={styles.formLabel}>🇦🇷 Link MercadoPago</Text>
               <TextInput style={styles.input} value={formEditar.link_mercadopago} onChangeText={v => setFormEditar(p => ({ ...p, link_mercadopago: v }))} placeholderTextColor="#4a6a8a" />
-
               <Text style={styles.formLabel}>🌍 Link Shopify</Text>
               <TextInput style={styles.input} value={formEditar.link_shopify} onChangeText={v => setFormEditar(p => ({ ...p, link_shopify: v }))} placeholderTextColor="#4a6a8a" />
-
               <Text style={styles.formLabel}>🔥 Oferta (dejar vacío para quitar)</Text>
               <TextInput style={styles.input} value={formEditar.oferta_texto} onChangeText={v => setFormEditar(p => ({ ...p, oferta_texto: v }))} placeholder="Ej: 2do reto 50% off" placeholderTextColor="#4a6a8a" />
-
               <TouchableOpacity style={styles.crearBtn} onPress={guardarEdicion} disabled={guardandoEdicion}>
                 {guardandoEdicion ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.crearBtnText}>💾 Guardar cambios</Text>}
               </TouchableOpacity>
@@ -339,31 +395,120 @@ export default function AdminScreen() {
         </View>
       )}
 
+      {vista === 'mapa' && (
+        <View>
+          {challengesActivos.length === 0 ? (
+            <View style={styles.emptyCard}><Text style={styles.emptyEmoji}>📭</Text><Text style={styles.emptyText}>Sin retos activos</Text></View>
+          ) : challengeMapa ? (
+            <View style={styles.formCard}>
+              <View style={styles.editarHeader}>
+                <Text style={styles.formTitulo}>🗺️ {challengeMapa.title}</Text>
+                <TouchableOpacity onPress={() => setChallengeMapa(null)}><Text style={styles.cancelarEdicionText}>✕ Cancelar</Text></TouchableOpacity>
+              </View>
+
+              <TouchableOpacity style={styles.resetBtn} onPress={resetearCheckpoints}>
+                <Text style={styles.resetBtnText}>↻ Resetear a valores por defecto</Text>
+              </TouchableOpacity>
+
+              {checkpoints.map((cp, index) => (
+                <View key={cp.id} style={styles.checkpointCard}>
+                  <View style={styles.checkpointHeader}>
+                    <Text style={styles.checkpointEmoji}>{cp.emoji}</Text>
+                    <Text style={styles.checkpointNombre}>{cp.nombre}</Text>
+                    <View style={styles.kmBadgeSmall}>
+                      <TextInput
+                        style={styles.kmInput}
+                        value={cp.kmFisico?.toString()}
+                        onChangeText={v => actualizarCheckpoint(index, 'kmFisico', v)}
+                        keyboardType="numeric"
+                        placeholderTextColor="#4a6a8a"
+                      />
+                      <Text style={styles.kmInputLabel}>km</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.formLabel}>Emoji</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={cp.emoji}
+                    onChangeText={v => actualizarCheckpoint(index, 'emoji', v)}
+                    placeholderTextColor="#4a6a8a"
+                  />
+
+                  <Text style={styles.formLabel}>Nombre</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={cp.nombre}
+                    onChangeText={v => actualizarCheckpoint(index, 'nombre', v)}
+                    placeholderTextColor="#4a6a8a"
+                  />
+
+                  <Text style={styles.formLabel}>Descripción</Text>
+                  <TextInput
+                    style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                    value={cp.desc}
+                    onChangeText={v => actualizarCheckpoint(index, 'desc', v)}
+                    placeholderTextColor="#4a6a8a"
+                    multiline
+                  />
+
+                  <Text style={styles.formLabel}>Dato curioso</Text>
+                  <TextInput
+                    style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
+                    value={cp.datoRaro}
+                    onChangeText={v => actualizarCheckpoint(index, 'datoRaro', v)}
+                    placeholderTextColor="#4a6a8a"
+                    multiline
+                  />
+
+                  <Text style={styles.formLabel}>URL foto (opcional)</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={cp.fotoUrl || ''}
+                    onChangeText={v => actualizarCheckpoint(index, 'fotoUrl', v)}
+                    placeholder="https://..."
+                    placeholderTextColor="#4a6a8a"
+                  />
+                </View>
+              ))}
+
+              <TouchableOpacity style={styles.crearBtn} onPress={guardarMapa} disabled={guardandoMapa}>
+                {guardandoMapa ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.crearBtnText}>💾 Guardar mapa</Text>}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            challengesActivos.map((c, i) => (
+              <View key={i} style={styles.retoCard}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.retoTitulo}>{c.title}</Text>
+                  <Text style={styles.retoPrecio}>{c.checkpoints ? '✅ Mapa configurado' : '⚠️ Usando defaults'}</Text>
+                </View>
+                <TouchableOpacity style={styles.editarBtn} onPress={() => abrirMapa(c)}>
+                  <Text style={styles.editarBtnText}>🗺️ Editar</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+        </View>
+      )}
+
       {vista === 'crear' && (
         <View style={styles.formCard}>
           <Text style={styles.formTitulo}>➕ Nuevo reto</Text>
-
           <Text style={styles.formLabel}>Título *</Text>
           <TextInput style={styles.input} value={nuevoReto.title} onChangeText={v => setNuevoReto(p => ({ ...p, title: v }))} placeholder="Ej: Fin del Mundo" placeholderTextColor="#4a6a8a" />
-
           <Text style={styles.formLabel}>Descripción corta *</Text>
           <TextInput style={[styles.input, { height: 70, textAlignVertical: 'top' }]} value={nuevoReto.description} onChangeText={v => setNuevoReto(p => ({ ...p, description: v }))} placeholder="Texto corto..." placeholderTextColor="#4a6a8a" multiline />
-
           <Text style={styles.formLabel}>Historia</Text>
           <TextInput style={[styles.input, { height: 120, textAlignVertical: 'top' }]} value={nuevoReto.historia} onChangeText={v => setNuevoReto(p => ({ ...p, historia: v }))} placeholder="La historia del reto..." placeholderTextColor="#4a6a8a" multiline />
-
           <Text style={styles.formLabel}>Precio USD *</Text>
           <TextInput style={styles.input} value={nuevoReto.price_usd} onChangeText={v => setNuevoReto(p => ({ ...p, price_usd: v }))} placeholder="Ej: 49" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
-
           <Text style={styles.formLabel}>URL imagen medalla</Text>
           <TextInput style={styles.input} value={nuevoReto.medal_image_url} onChangeText={v => setNuevoReto(p => ({ ...p, medal_image_url: v }))} placeholder="https://..." placeholderTextColor="#4a6a8a" />
-
           <Text style={styles.formLabel}>🇦🇷 Link MercadoPago</Text>
           <TextInput style={styles.input} value={nuevoReto.link_mercadopago} onChangeText={v => setNuevoReto(p => ({ ...p, link_mercadopago: v }))} placeholder="https://mercadopago.com..." placeholderTextColor="#4a6a8a" />
-
           <Text style={styles.formLabel}>🌍 Link Shopify (internacional)</Text>
           <TextInput style={styles.input} value={nuevoReto.link_shopify} onChangeText={v => setNuevoReto(p => ({ ...p, link_shopify: v }))} placeholder="https://korva.run/checkouts/..." placeholderTextColor="#4a6a8a" />
-
           <Text style={styles.formLabel}>Modalidades *</Text>
           {nuevoReto.modalidades.map((m, i) => (
             <View key={i} style={styles.modalidadRow}>
@@ -372,13 +517,11 @@ export default function AdminScreen() {
               <TouchableOpacity style={styles.quitarBtn} onPress={() => quitarModalidad(i)}><Text style={styles.quitarBtnText}>✕</Text></TouchableOpacity>
             </View>
           ))}
-
           {nuevoReto.modalidades.length < 2 && (
             <TouchableOpacity style={styles.agregarModalidadBtn} onPress={agregarModalidad}>
               <Text style={styles.agregarModalidadText}>+ Agregar modalidad</Text>
             </TouchableOpacity>
           )}
-
           <TouchableOpacity style={styles.crearBtn} onPress={crearReto} disabled={creando}>
             {creando ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.crearBtnText}>🎉 Crear reto</Text>}
           </TouchableOpacity>
@@ -395,7 +538,7 @@ const styles = StyleSheet.create({
   vistaRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
   vistaBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
   vistaBtnActivo: { borderColor: '#FC4C02' },
-  vistaText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
+  vistaText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 11 },
   vistaTextActivo: { color: '#FFFFFF' },
   resumenRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   resumenCard: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1 },
@@ -463,4 +606,13 @@ const styles = StyleSheet.create({
   agregarModalidadText: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 14 },
   crearBtn: { backgroundColor: '#FC4C02', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
   crearBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
+  resetBtn: { borderWidth: 1, borderColor: '#2a4a6a', borderRadius: 10, padding: 12, alignItems: 'center', marginBottom: 16 },
+  resetBtnText: { color: '#4a6a8a', fontSize: 13, fontWeight: 'bold' },
+  checkpointCard: { backgroundColor: '#0D1B2A', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#2a4a6a' },
+  checkpointHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  checkpointEmoji: { fontSize: 24 },
+  checkpointNombre: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', flex: 1 },
+  kmBadgeSmall: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E3A5F', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  kmInput: { color: '#FC4C02', fontWeight: 'bold', fontSize: 14, width: 40, textAlign: 'center' },
+  kmInputLabel: { color: '#4a6a8a', fontSize: 12, marginLeft: 2 },
 });
