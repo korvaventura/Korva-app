@@ -228,11 +228,12 @@ export default function HomeScreen() {
                     </View>
                   </ViewShot>
 
-                  <MapaRecorrido
-                    kmCompletados={item.km_completados}
-                    distanciaTotal={item.distancia_total}
-                    porcentaje={item.porcentaje}
-                  />
+                 <MapaRecorrido
+  kmCompletados={item.km_completados}
+  distanciaTotal={item.distancia_total}
+  porcentaje={item.porcentaje}
+  checkpointsData={item.checkpoints}
+/>
 
                   <TouchableOpacity style={styles.compartirBtn} onPress={() => compartirProgreso(index)}>
                     <Text style={styles.compartirBtnText}>📤 Compartir progreso</Text>

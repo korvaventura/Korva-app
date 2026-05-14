@@ -4,7 +4,7 @@ import Svg, { Path, Circle, Rect, Text as SvgText } from 'react-native-svg';
 
 const DISTANCIA_FISICA = 103;
 
-const CHECKPOINTS = [
+const CHECKPOINTS_DEFAULT = [
   {
     id: 'tolhuin',
     nombre: 'Tolhuin',
@@ -12,8 +12,7 @@ const CHECKPOINTS = [
     emoji: '🏘️',
     desc: 'El corazón de Tierra del Fuego. Su nombre en lengua Selk\'nam significa exactamente eso: "corazón". Fundada en 1972 con solo 20 casas, hoy tiene el autódromo más austral del mundo. Sus calles fueron diseñadas con manzanas redondas para que los niños jugaran protegidos del viento patagónico.',
     datoRaro: '🧭 Km 0 de tu aventura. Desde acá hasta Ushuaia, la Ruta Nacional 3 — la misma que arranca en Buenos Aires — llega a su fin.',
-    x: 280,
-    y: 40,
+    x: 280, y: 40,
   },
   {
     id: 'lago_fagnano',
@@ -22,8 +21,7 @@ const CHECKPOINTS = [
     emoji: '💧',
     desc: 'Este lago está literalmente partido en dos por la Falla de Magallanes: la orilla norte pertenece a la placa Sudamericana y la sur a la placa de Scotia. Dos placas tectónicas, dos países (Argentina y Chile), un solo lago. En 1949 un terremoto de 7.8 grados generó olas sísmicas que crearon nuevas lagunas.',
     datoRaro: '⚡ Las placas que lo rodean se mueven 5.4mm por año. Estás corriendo sobre una falla activa.',
-    x: 210,
-    y: 75,
+    x: 210, y: 75,
   },
   {
     id: 'paso_garibaldi',
@@ -32,8 +30,7 @@ const CHECKPOINTS = [
     emoji: '⛰️',
     desc: 'Este paso fue descubierto en 1935 por Luis Garibaldi Honte, un descendiente Selk\'nam que de niño escuchó a su abuela hablar de un paso secreto que usaban los haush para cruzar la cordillera. El nombre "Garibaldi" no viene del prócer italiano: viene de una frase en dialecto que le gritaban de niño para que fuera a buscar agua.',
     datoRaro: '🚙 El primer vehículo en cruzarlo tardó 10 horas. Vos llegás antes.',
-    x: 150,
-    y: 115,
+    x: 150, y: 115,
   },
   {
     id: 'monte_olivia',
@@ -42,8 +39,7 @@ const CHECKPOINTS = [
     emoji: '🗻',
     desc: 'En lengua yamana se llama "Uliwai" — punta de arpón. La cima fue conquistada por primera vez en 1913 por el cura salesiano Alberto María de Agostini, sin clavos de escalada. 35 años después, el segundo escalador en llegar encontró todavía intacta la bandera argentina que de Agostini había plantado en la cumbre.',
     datoRaro: '🏔️ 1.326 metros. El guardián silencioso de Ushuaia. Solo expertos llegan a su cima.',
-    x: 80,
-    y: 150,
+    x: 80, y: 150,
   },
   {
     id: 'ushuaia',
@@ -52,8 +48,7 @@ const CHECKPOINTS = [
     emoji: '🏁',
     desc: '¡Lo lograste! La ciudad más austral del mundo te recibe. Fue una colonia penal hasta 1947. El Canal Beagle lleva el nombre del barco en que viajó Charles Darwin cuando desarrolló su teoría de la evolución. Desde acá, el próximo punto habitado hacia el sur es la Antártida.',
     datoRaro: '🌍 Estás en el fin del mundo. Y tu medalla está en camino.',
-    x: 30,
-    y: 180,
+    x: 30, y: 180,
   },
 ];
 
@@ -66,7 +61,7 @@ const getPuntoEnRuta = (kmFisicos) => {
   return { x, y };
 };
 
-export default function MapaRecorrido({ kmCompletados, distanciaTotal }) {
+export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpointsData }) {
   const [modalVisible, setModalVisible] = useState(null);
 
   const factor = (distanciaTotal || DISTANCIA_FISICA) / DISTANCIA_FISICA;
@@ -74,8 +69,12 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal }) {
   const pctFisico = (kmFisicos / DISTANCIA_FISICA) * 100;
   const pinPos = getPuntoEnRuta(kmFisicos);
 
-  const desbloqueado = (cp) => kmFisicos >= cp.kmFisico;
+  // Usar checkpoints de Supabase si existen, sino los hardcodeados
+  const checkpoints = (checkpointsData && checkpointsData.length > 0)
+    ? checkpointsData.map((cp, i) => ({ ...CHECKPOINTS_DEFAULT[i], ...cp }))
+    : CHECKPOINTS_DEFAULT;
 
+  const desbloqueado = (cp) => kmFisicos >= cp.kmFisico;
   const esInicio = modalVisible?.id === 'tolhuin';
   const esFin = modalVisible?.id === 'ushuaia';
 
@@ -88,7 +87,6 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal }) {
 
           <Rect x="0" y="0" width="320" height="220" fill="#0D1B2A" rx="16" />
 
-          {/* Lago Fagnano */}
           <Path
             d="M165,58 C182,52 222,54 238,63 C248,69 243,82 226,84 C204,87 172,81 162,73 C155,67 157,61 165,58"
             fill="#1E3A5F"
@@ -96,12 +94,10 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal }) {
           />
           <SvgText x="200" y="73" fill="#4a6a8a" fontSize="7" textAnchor="middle">Lago Fagnano</SvgText>
 
-          {/* Montañas decorativas */}
           <Path d="M95,165 L115,135 L135,165" fill="none" stroke="#1E3A5F" strokeWidth="1.5" />
           <Path d="M110,165 L138,122 L166,165" fill="none" stroke="#1E3A5F" strokeWidth="1.5" />
           <Path d="M55,190 L75,162 L95,190" fill="none" stroke="#1E3A5F" strokeWidth="1.5" />
 
-          {/* Canal Beagle */}
           <Path
             d="M0,205 C50,200 100,203 160,205 C220,207 270,204 320,205 L320,220 L0,220"
             fill="#1E3A5F"
@@ -109,17 +105,8 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal }) {
           />
           <SvgText x="160" y="215" fill="#4a6a8a" fontSize="7" textAnchor="middle">Canal Beagle</SvgText>
 
-          {/* Ruta fondo */}
-          <Path
-            d={RUTA}
-            fill="none"
-            stroke="#2a4a6a"
-            strokeWidth="4"
-            strokeLinecap="round"
-            strokeDasharray="6,4"
-          />
+          <Path d={RUTA} fill="none" stroke="#2a4a6a" strokeWidth="4" strokeLinecap="round" strokeDasharray="6,4" />
 
-          {/* Ruta recorrida */}
           {pctFisico > 0 && (
             <Path
               d={RUTA}
@@ -131,8 +118,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal }) {
             />
           )}
 
-          {/* Checkpoints */}
-          {CHECKPOINTS.map((cp) => {
+          {checkpoints.map((cp) => {
             const bloqueado = !desbloqueado(cp);
             return (
               <React.Fragment key={cp.id}>
@@ -146,14 +132,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal }) {
                   onPress={() => setModalVisible(cp)}
                 />
                 {!bloqueado && (
-                  <SvgText
-                    x={cp.x}
-                    y={cp.y - 12}
-                    fill="#FFFFFF"
-                    fontSize="8"
-                    textAnchor="middle"
-                    fontWeight="bold"
-                  >
+                  <SvgText x={cp.x} y={cp.y - 12} fill="#FFFFFF" fontSize="8" textAnchor="middle" fontWeight="bold">
                     {cp.nombre}
                   </SvgText>
                 )}
@@ -161,7 +140,6 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal }) {
             );
           })}
 
-          {/* Pin usuario */}
           {kmFisicos > 0 && (
             <>
               <Circle cx={pinPos.x} cy={pinPos.y} r={11} fill="#FC4C02" opacity="0.25" />
@@ -178,9 +156,8 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal }) {
         </Svg>
       </View>
 
-      {/* Leyenda */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
-        {CHECKPOINTS.map((cp) => {
+        {checkpoints.map((cp) => {
           const bloqueado = !desbloqueado(cp);
           return (
             <TouchableOpacity
@@ -196,7 +173,6 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal }) {
         })}
       </ScrollView>
 
-      {/* Modal */}
       <Modal
         visible={!!modalVisible}
         transparent
@@ -204,11 +180,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal }) {
         onRequestClose={() => setModalVisible(null)}
       >
         <TouchableOpacity style={styles.modalOverlay} onPress={() => setModalVisible(null)}>
-          <View style={[
-            styles.modalCard,
-            esInicio && styles.modalCardInicio,
-            esFin && styles.modalCardFin,
-          ]}>
+          <View style={[styles.modalCard, esInicio && styles.modalCardInicio, esFin && styles.modalCardFin]}>
             <Text style={styles.modalEmoji}>{modalVisible?.emoji}</Text>
             <Text style={styles.modalNombre}>{modalVisible?.nombre}</Text>
             <Text style={styles.modalKm}>Km {modalVisible?.kmFisico} del recorrido</Text>
