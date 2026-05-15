@@ -75,7 +75,6 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
   const [modalVisible, setModalVisible] = useState(null);
   const scrollViewRef = useRef(null);
   
-  // 1. Inicializamos en 0 para el efecto radar (y spotlight de la niebla)
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
   const factor = (distanciaTotal || DISTANCIA_FISICA) / DISTANCIA_FISICA;
@@ -87,36 +86,33 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
     ? checkpointsData.map((cp, i) => ({ ...CHECKPOINTS_DEFAULT[i], ...cp }))
     : CHECKPOINTS_DEFAULT;
 
-  // 2. Animación de radar (se usa para el latido Y para perforar la niebla)
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { 
           toValue: 1, 
           duration: 1500, 
-          useNativeDriver: false // Crucial para animar SVG
+          useNativeDriver: false 
         })
       ])
     ).start();
   }, []);
 
-  // 3. Interpolaciones para el radar y el spotlight dinámico
   const animatedRadiusRadar = pulseAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [12, 28] // Radar externo
+    outputRange: [12, 28]
   });
 
   const animatedRadiusSpotlight = pulseAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [18, 32] // Spotlight dinámico en la niebla
+    outputRange: [18, 32]
   });
   
   const animatedOpacity = pulseAnim.interpolate({
     inputRange: [0, 0.7, 1],
-    outputRange: [0.6, 0.1, 0] // Desvanecimiento del radar
+    outputRange: [0.6, 0.1, 0]
   });
 
-  // Auto-enfoque en el mapa al cargar
   useEffect(() => {
     if (scrollViewRef.current) {
       const scrollToX = Math.max(0, pinPos.x - (SCREEN_WIDTH / 2));
@@ -149,29 +145,29 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
                 <Stop offset="1" stopColor="#1E293B" stopOpacity="1" />
               </LinearGradient>
               
-              {/* MEJORA 1: La Máscara de "Fog of War" */}
               <Mask id="fogMask">
-                {/* 1. Base blanca: Todo cubierto de niebla */}
                 <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="white" />
                 
-                {/* 2. Ruta Completada (Negro): Perfora la niebla permanentemente */}
                 {pathCompletado !== "" && (
                   <Path d={pathCompletado} fill="none" stroke="black" strokeWidth="22" strokeLinecap="round" strokeLinejoin="round" />
                 )}
                 
-                {/* 3. Checkpoints Desbloqueados (Negro): Perforan permanentemente */}
                 {checkpoints.filter(desbloqueado).map(cp => (
                   <Circle key={cp.id} cx={cp.x} cy={cp.y} r="20" fill="black" />
                 ))}
 
-                {/* 4. Spotlight Dinámico (Negro): Sigue al pin y palpita para perforar */}
                 {kmFisicos > 0 && (
-                  <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={animatedRadiusSpotlight} fill="black" />
+                  <AnimatedCircle 
+                    key={`spot-${kmFisicos}`} // <- REPARACIÓN DEL LATIDO
+                    cx={pinPos.x} 
+                    cy={pinPos.y} 
+                    r={animatedRadiusSpotlight} 
+                    fill="black" 
+                  />
                 )}
               </Mask>
             </Defs>
 
-            {/* A. MAPA BASE (Colorido completo) */}
             <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="url(#gradBg)" />
             <Path d={`M0,140 Q${MAPA_WIDTH_VIRTUAL/4},90 ${MAPA_WIDTH_VIRTUAL/2},150 T${MAPA_WIDTH_VIRTUAL},100 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#334155" opacity="0.3" />
             
@@ -197,8 +193,6 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
               );
             })}
 
-            {/* B. LA CAPA DE NIEBLA (Modo Oscuro Semitransparente) */}
-            {/* Aplicamos la máscara aquí. Donde la máscara es Blanca, la niebla es sólida. Donde es Negra, la niebla se vuelve transparente. */}
             <Rect 
               x="0" y="0" 
               width={MAPA_WIDTH_VIRTUAL} height="260" 
@@ -207,18 +201,42 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
               mask="url(#fogMask)"
             />
 
-            {/* C. ELEMENTOS DE PROGRESO (Van por encima de la niebla) */}
             {kmFisicos > 0 && (
-              // Latido de radar (palpita)
-              <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={animatedRadiusRadar} fill="#EA580C" opacity={animatedOpacity} />
+              <AnimatedCircle 
+                key={`radar-${kmFisicos}`} // <- REPARACIÓN DEL LATIDO
+                cx={pinPos.x} 
+                cy={pinPos.y} 
+                r={animatedRadiusRadar} 
+                fill="#EA580C" 
+                opacity={animatedOpacity} 
+              />
             )}
             
             {kmFisicos > 0 && (
               <>
                 <Circle cx={pinPos.x} cy={pinPos.y} r={8} fill="#FFFFFF" stroke="#EA580C" strokeWidth="4" />
-                <Rect x={pinPos.x - 22} y={pinPos.y + 16} width="44" height="20" rx="6" fill="#1E293B" />
-                <SvgText x={pinPos.x} y={pinPos.y + 30} fill="#F97316" fontSize="11" textAnchor="middle" fontWeight="900">
-                  {(kmFisicos * factor).toFixed(0)}km
+                
+                {/* FONDO DEL KM CENTRADO */}
+                <Rect 
+                  x={pinPos.x - 24} 
+                  y={pinPos.y + 16} 
+                  width="48" 
+                  height="20" 
+                  rx="10" 
+                  fill="#1E293B" 
+                />
+                
+                {/* TEXTO DEL KM CENTRADO */}
+                <SvgText 
+                  x={pinPos.x} 
+                  y={pinPos.y + 26} 
+                  fill="#F97316" 
+                  fontSize="11" 
+                  textAnchor="middle" 
+                  alignmentBaseline="middle" 
+                  fontWeight="900"
+                >
+                  {(kmFisicos * factor).toFixed(0)} km
                 </SvgText>
               </>
             )}
@@ -227,7 +245,6 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
       </View>
       <Text style={styles.scrollHint}>👈 Desliza para explorar la ruta 👉</Text>
 
-      {/* Mantienes todo tu código original de Leyendas y Modal */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
         {checkpoints.map((cp) => {
           const bloqueado = !desbloqueado(cp);
@@ -293,7 +310,6 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
   );
 }
 
-// Componente animado para el latido (y perforar niebla)
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const styles = StyleSheet.create({
