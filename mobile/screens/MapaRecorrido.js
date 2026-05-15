@@ -4,27 +4,26 @@ import Svg, { Path, Circle, Rect, Text as SvgText, Defs, LinearGradient, Stop } 
 
 const DISTANCIA_FISICA = 103;
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const MAPA_WIDTH_VIRTUAL = 800; // El ancho real del mapa para hacer scroll
+const MAPA_WIDTH_VIRTUAL = 800;
 
-// Segmentos estirados para el mapa de 800px de ancho
 const ROUTE_SEGMENTS = [
-  { km: 0,   x: 720, y: 35 },   // Tolhuin 
+  { km: 0,   x: 720, y: 35 },
   { km: 5,   x: 680, y: 42 },
   { km: 10,  x: 630, y: 48 },
   { km: 15,  x: 580, y: 55 },
-  { km: 20,  x: 520, y: 62 },   // Lago Fagnano
+  { km: 20,  x: 520, y: 62 },
   { km: 25,  x: 480, y: 65 },
   { km: 30,  x: 440, y: 68 },
   { km: 35,  x: 400, y: 75 },
   { km: 40,  x: 370, y: 88 },
-  { km: 45,  x: 350, y: 105 },  // Paso Garibaldi
+  { km: 45,  x: 350, y: 105 },
   { km: 48,  x: 390, y: 115 },  
   { km: 52,  x: 340, y: 125 },  
   { km: 60,  x: 300, y: 135 },
   { km: 70,  x: 240, y: 142 },
-  { km: 80,  x: 180, y: 148 },  // Monte Olivia
+  { km: 80,  x: 180, y: 148 },
   { km: 90,  x: 120, y: 160 },
-  { km: 103, x: 60,  y: 175 },  // Ushuaia
+  { km: 103, x: 60,  y: 175 },
 ];
 
 const RUTA_BASE_PATH = ROUTE_SEGMENTS.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
@@ -74,8 +73,6 @@ const getCompletedPathString = (kmFisicos) => {
 export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpointsData }) {
   const [modalVisible, setModalVisible] = useState(null);
   const scrollViewRef = useRef(null);
-  
-  // 1. Inicializamos en 0 para el efecto radar
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
   const factor = (distanciaTotal || DISTANCIA_FISICA) / DISTANCIA_FISICA;
@@ -87,36 +84,29 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
     ? checkpointsData.map((cp, i) => ({ ...CHECKPOINTS_DEFAULT[i], ...cp }))
     : CHECKPOINTS_DEFAULT;
 
-  // 2. Animación de radar (crece y se difumina)
+  // Lógica para el "Próximo Objetivo"
+  const proximoCheckpoint = checkpoints.find(cp => cp.kmFisico > kmFisicos);
+  const kmParaProximo = proximoCheckpoint ? ((proximoCheckpoint.kmFisico - kmFisicos) * factor).toFixed(1) : 0;
+
   useEffect(() => {
     Animated.loop(
-      Animated.timing(pulseAnim, { 
-        toValue: 1, 
-        duration: 1500, 
-        useNativeDriver: false // Crucial para animar SVG
-      })
+      Animated.timing(pulseAnim, { toValue: 1, duration: 1500, useNativeDriver: false })
     ).start();
   }, []);
 
-  // 3. Interpolaciones para el SVG
-  const animatedRadius = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [12, 28]
-  });
-  
-  const animatedOpacity = pulseAnim.interpolate({
-    inputRange: [0, 0.7, 1],
-    outputRange: [0.6, 0.1, 0]
-  });
+  const animatedRadius = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 28] });
+  const animatedOpacity = pulseAnim.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.6, 0.1, 0] });
 
-  // Auto-enfoque en el mapa al cargar
-  useEffect(() => {
+  // Función para centrar el mapa (se usa al inicio y en el botón flotante)
+  const centrarMapa = () => {
     if (scrollViewRef.current) {
       const scrollToX = Math.max(0, pinPos.x - (SCREEN_WIDTH / 2));
-      setTimeout(() => {
-        scrollViewRef.current.scrollTo({ x: scrollToX, y: 0, animated: true });
-      }, 500);
+      scrollViewRef.current.scrollTo({ x: scrollToX, y: 0, animated: true });
     }
+  };
+
+  useEffect(() => {
+    setTimeout(centrarMapa, 500);
   }, [kmFisicos]);
 
   const desbloqueado = (cp) => kmFisicos >= cp.kmFisico;
@@ -126,7 +116,17 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
 
   return (
     <View style={styles.container}>
-      <Text style={styles.titulo}>🗺️ Tu Recorrido Interactivo</Text>
+      <View style={styles.headerContainer}>
+        <Text style={styles.titulo}>🗺️ Tu Recorrido Interactivo</Text>
+        {/* MEJORA 3: Mini-Banner del próximo objetivo */}
+        {proximoCheckpoint && (
+          <View style={styles.nextTargetBadge}>
+            <Text style={styles.nextTargetText}>
+              A {kmParaProximo}km de {proximoCheckpoint.nombre}
+            </Text>
+          </View>
+        )}
+      </View>
 
       <View style={styles.mapaWrapper}>
         <ScrollView 
@@ -145,14 +145,15 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
             <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="url(#gradBg)" />
             
             <Path d={`M0,140 Q${MAPA_WIDTH_VIRTUAL/4},90 ${MAPA_WIDTH_VIRTUAL/2},150 T${MAPA_WIDTH_VIRTUAL},100 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#334155" opacity="0.3" />
-            
             <Path d="M400,40 Q550,20 700,50 T800,45 L800,0 L400,0 Z" fill="#0284C7" opacity="0.15" />
             <SvgText x="550" y="25" fill="#7DD3FC" fontSize="12" textAnchor="middle" opacity="0.7">Lago Fagnano</SvgText>
-
             <Path d={`M0,240 Q${MAPA_WIDTH_VIRTUAL/2},220 ${MAPA_WIDTH_VIRTUAL},245 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#0284C7" opacity="0.15" />
             <SvgText x="300" y="250" fill="#7DD3FC" fontSize="12" textAnchor="middle" opacity="0.7">Canal Beagle</SvgText>
 
-            <Path d={RUTA_BASE_PATH} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+            {/* MEJORA 1: Ruta faltante punteada */}
+            <Path d={RUTA_BASE_PATH} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="8, 8" />
+            
+            {/* Ruta Completada sólida y brillante */}
             {pathCompletado !== "" && (
               <Path d={pathCompletado} fill="none" stroke="#EA580C" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
             )}
@@ -169,14 +170,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
             })}
 
             {kmFisicos > 0 && (
-              // 4. Usamos las propiedades animadas aquí
-              <AnimatedCircle 
-                cx={pinPos.x} 
-                cy={pinPos.y} 
-                r={animatedRadius} 
-                fill="#EA580C" 
-                opacity={animatedOpacity} 
-              />
+              <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={animatedRadius} fill="#EA580C" opacity={animatedOpacity} />
             )}
             
             {kmFisicos > 0 && (
@@ -190,6 +184,12 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
             )}
           </Svg>
         </ScrollView>
+
+        {/* MEJORA 2: Botón flotante para centrar la ubicación */}
+        <TouchableOpacity style={styles.btnCentrar} onPress={centrarMapa}>
+          <Text style={styles.btnCentrarEmoji}>📍</Text>
+        </TouchableOpacity>
+
       </View>
       <Text style={styles.scrollHint}>👈 Desliza para explorar la ruta 👉</Text>
 
@@ -197,11 +197,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
         {checkpoints.map((cp) => {
           const bloqueado = !desbloqueado(cp);
           return (
-            <TouchableOpacity 
-              key={cp.id} 
-              style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo]} 
-              onPress={() => setModalVisible(cp)}
-            >
+            <TouchableOpacity key={cp.id} style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo]} onPress={() => setModalVisible(cp)}>
               <Text style={styles.leyendaEmoji}>{bloqueado ? '🔒' : cp.emoji}</Text>
               <View style={styles.leyendaTextos}>
                 <Text style={[styles.leyendaNombre, !bloqueado && styles.leyendaNombreActivo]}>{cp.nombre}</Text>
@@ -262,50 +258,39 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
   );
 }
 
-// Componente animado para el latido
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const styles = StyleSheet.create({
   container: { marginBottom: 16 },
-  titulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 12 },
-  mapaWrapper: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#334155', backgroundColor: '#0F172A' },
+  headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  titulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC' },
+  nextTargetBadge: { backgroundColor: '#1E293B', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#EA580C' },
+  nextTargetText: { color: '#F97316', fontSize: 10, fontWeight: 'bold' },
+  mapaWrapper: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#334155', backgroundColor: '#0F172A', position: 'relative' },
+  btnCentrar: { position: 'absolute', bottom: 12, right: 12, backgroundColor: '#1E293B', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#475569', elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3 },
+  btnCentrarEmoji: { fontSize: 16 },
   scrollHint: { textAlign: 'center', color: '#64748B', fontSize: 11, marginTop: 8, marginBottom: 12, fontStyle: 'italic' },
-  
   leyendaScroll: { marginBottom: 8 },
-  leyendaItem: { 
-    flexDirection: 'row',
-    backgroundColor: '#1E293B', 
-    borderRadius: 12, 
-    padding: 12, 
-    marginRight: 10, 
-    alignItems: 'center', 
-    borderWidth: 1, 
-    borderColor: '#334155' 
-  },
+  leyendaItem: { flexDirection: 'row', backgroundColor: '#1E293B', borderRadius: 12, padding: 12, marginRight: 10, alignItems: 'center', borderWidth: 1, borderColor: '#334155' },
   leyendaItemActivo: { borderColor: '#EA580C', backgroundColor: '#0F172A' },
   leyendaEmoji: { fontSize: 20, marginRight: 8 },
   leyendaTextos: { justifyContent: 'center' },
   leyendaNombre: { fontSize: 12, color: '#64748B', fontWeight: 'bold' },
   leyendaNombreActivo: { color: '#F8FAFC' },
   leyendaKm: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
-  
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalCard: { backgroundColor: '#1E293B', borderRadius: 24, padding: 28, alignItems: 'center', width: '100%', borderColor: '#334155', borderWidth: 1 },
   modalCardInicio: { borderColor: '#3B82F6' },
   modalCardFin: { borderColor: '#EA580C' },
   modalCardBloqueado: { borderColor: '#334155' },
-  
   modalEmoji: { fontSize: 48, marginBottom: 12 },
   modalNombre: { fontSize: 24, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 4 },
   modalKm: { fontSize: 14, color: '#94A3B8', marginBottom: 20 },
-  
   mensajeEspecialBox: { backgroundColor: '#0F172A', borderRadius: 12, padding: 14, marginBottom: 16, width: '100%' },
   mensajeEspecial: { fontSize: 14, color: '#EA580C', textAlign: 'center', fontWeight: 'bold', lineHeight: 22 },
   modalDesc: { fontSize: 14, color: '#E2E8F0', textAlign: 'center', lineHeight: 24, marginBottom: 16 },
-  
   datoRaroBox: { backgroundColor: '#0F172A', borderRadius: 10, padding: 12, marginBottom: 20, width: '100%', borderLeftWidth: 3, borderLeftColor: '#3B82F6' },
   datoRaroTexto: { fontSize: 13, color: '#3B82F6', textAlign: 'center', fontStyle: 'italic' },
-  
   pistaBox: { backgroundColor: '#0F172A', borderRadius: 12, padding: 14, marginBottom: 16, width: '100%', borderWidth: 1, borderColor: '#334155' },
   pistaTexto: { fontSize: 14, color: '#CBD5E1', textAlign: 'center', fontStyle: 'italic', lineHeight: 22 },
   difuminadoWrapper: { width: '100%', marginBottom: 16, overflow: 'hidden', borderRadius: 10, maxHeight: 40 },
@@ -313,7 +298,6 @@ const styles = StyleSheet.create({
   difuminadoOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: '#1E293B', opacity: 0.85 },
   desbloqueoBox: { backgroundColor: '#0F172A', borderRadius: 12, padding: 14, marginBottom: 20, width: '100%', borderWidth: 1, borderColor: '#EA580C' },
   desbloqueoTexto: { fontSize: 13, color: '#EA580C', textAlign: 'center', fontWeight: 'bold' },
-  
   modalBtn: { backgroundColor: '#EA580C', paddingVertical: 14, paddingHorizontal: 36, borderRadius: 12, width: '100%', alignItems: 'center' },
   modalBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
 });
