@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, Animated, Dimensions } from 'react-native';
-import Svg, { Path, Circle, Rect, Text as SvgText, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Text as SvgText, Defs, LinearGradient, Stop, G, Mask } from 'react-native-svg';
 
 const DISTANCIA_FISICA = 103;
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const MAPA_WIDTH_VIRTUAL = 800;
+const MAPA_WIDTH_VIRTUAL = 800; // El ancho real del mapa para hacer scroll
 
+// Segmentos estirados para el mapa panorámico
 const ROUTE_SEGMENTS = [
   { km: 0,   x: 720, y: 35 },
   { km: 5,   x: 680, y: 42 },
@@ -29,11 +30,11 @@ const ROUTE_SEGMENTS = [
 const RUTA_BASE_PATH = ROUTE_SEGMENTS.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
 
 const CHECKPOINTS_DEFAULT = [
-  { id: 'tolhuin', nombre: 'Tolhuin', kmFisico: 0, emoji: '🏘️', x: 720, y: 35, pista: 'El punto de partida...', desc: 'El corazón de Tierra del Fuego. Su nombre en lengua Selk\'nam significa "corazón". Fundada en 1972, tiene el autódromo más austral del mundo. Sus calles fueron diseñadas con manzanas redondas para proteger a los niños del viento.', datoRaro: '🧭 Km 0 de tu aventura. Acá empieza el fin de la Ruta Nacional 3.' },
-  { id: 'lago_fagnano', nombre: 'Lago Fagnano', kmFisico: 20, emoji: '💧', x: 520, y: 62, pista: 'Un lago que guarda dos mundos...', desc: 'El Lago Fagnano es el más grande de Tierra del Fuego. La Falla de Magallanes lo atraviesa en profundidad. Sus aguas tocan suelo argentino y chileno.', datoRaro: '⚡ Estás corriendo sobre una falla tectónica activa.' },
-  { id: 'paso_garibaldi', nombre: 'Paso Garibaldi', kmFisico: 45, emoji: '⛰️', x: 350, y: 105, pista: 'Un secreto guardado...', desc: 'Descubierto en 1935 por Luis Garibaldi Honte, descendiente Selk\'nam. El nombre no viene del prócer, sino de una frase en dialecto que le gritaban de niño.', datoRaro: '🚙 El primer vehículo en cruzarlo tardó 10 horas. Vos llegás antes.' },
-  { id: 'monte_olivia', nombre: 'Monte Olivia', kmFisico: 80, emoji: '🗻', x: 180, y: 148, pista: 'Los yamanas le daban un nombre...', desc: 'En lengua yamana se llama "Uliwai" (punta de arpón). La cima fue conquistada en 1913 por el cura Alberto de Agostini, sin clavos de escalada.', datoRaro: '🏔️ 1.326 metros. El guardián silencioso de Ushuaia.' },
-  { id: 'ushuaia', nombre: 'Ushuaia', kmFisico: 103, emoji: '🏁', x: 60, y: 175, pista: 'El fin del mundo...', desc: '¡Lo lograste! La ciudad más austral del mundo te recibe. Fue una colonia penal hasta 1947. Desde acá, el próximo punto habitado hacia el sur es la Antártida.', datoRaro: '🌍 Estás en el fin del mundo. Y tu medalla está en camino.' },
+  { id: 'tolhuin', nombre: 'Tolhuin', kmFisico: 0, emoji: '🏘️', x: 720, y: 35, pista: 'El punto de partida...', desc: 'El corazón de Tierra del Fuego. Su nombre en lengua Selk\'nam significa "corazón"...', datoRaro: '🧭 Km 0 de tu aventura.' },
+  { id: 'lago_fagnano', nombre: 'Lago Fagnano', kmFisico: 20, emoji: '💧', x: 520, y: 62, pista: 'Un lago que guarda...', desc: 'El más grande de Tierra del Fuego. La Falla de Magallanes lo atraviesa...', datoRaro: '⚡ Estás corriendo sobre una falla tectónica activa.' },
+  { id: 'paso_garibaldi', nombre: 'Paso Garibaldi', kmFisico: 45, emoji: '⛰️', x: 350, y: 105, pista: 'Un secreto guardado...', desc: 'Descubierto en 1935 por Luis Garibaldi Honte...', datoRaro: '🚙 El primer vehículo en cruzarlo tardó 10 horas.' },
+  { id: 'monte_olivia', nombre: 'Monte Olivia', kmFisico: 80, emoji: '🗻', x: 180, y: 148, pista: 'Los yamanas le daban...', desc: 'En lengua yamana se llama "Uliwai"...', datoRaro: '🏔️ 1.326 metros. El guardián silencioso.' },
+  { id: 'ushuaia', nombre: 'Ushuaia', kmFisico: 103, emoji: '🏁', x: 60, y: 175, pista: 'El fin del mundo...', desc: '¡Lo lograste! La ciudad más austral...', datoRaro: '🌍 Estás en el fin del mundo.' },
 ];
 
 const getPuntoEnRuta = (kmFisicos) => {
@@ -73,6 +74,8 @@ const getCompletedPathString = (kmFisicos) => {
 export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpointsData }) {
   const [modalVisible, setModalVisible] = useState(null);
   const scrollViewRef = useRef(null);
+  
+  // 1. Inicializamos en 0 para el efecto radar (y spotlight de la niebla)
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
   const factor = (distanciaTotal || DISTANCIA_FISICA) / DISTANCIA_FISICA;
@@ -84,29 +87,43 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
     ? checkpointsData.map((cp, i) => ({ ...CHECKPOINTS_DEFAULT[i], ...cp }))
     : CHECKPOINTS_DEFAULT;
 
-  // Lógica para el "Próximo Objetivo"
-  const proximoCheckpoint = checkpoints.find(cp => cp.kmFisico > kmFisicos);
-  const kmParaProximo = proximoCheckpoint ? ((proximoCheckpoint.kmFisico - kmFisicos) * factor).toFixed(1) : 0;
-
+  // 2. Animación de radar (se usa para el latido Y para perforar la niebla)
   useEffect(() => {
     Animated.loop(
-      Animated.timing(pulseAnim, { toValue: 1, duration: 1500, useNativeDriver: false })
+      Animated.sequence([
+        Animated.timing(pulseAnim, { 
+          toValue: 1, 
+          duration: 1500, 
+          useNativeDriver: false // Crucial para animar SVG
+        })
+      ])
     ).start();
   }, []);
 
-  const animatedRadius = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 28] });
-  const animatedOpacity = pulseAnim.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.6, 0.1, 0] });
+  // 3. Interpolaciones para el radar y el spotlight dinámico
+  const animatedRadiusRadar = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [12, 28] // Radar externo
+  });
 
-  // Función para centrar el mapa (se usa al inicio y en el botón flotante)
-  const centrarMapa = () => {
+  const animatedRadiusSpotlight = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [18, 32] // Spotlight dinámico en la niebla
+  });
+  
+  const animatedOpacity = pulseAnim.interpolate({
+    inputRange: [0, 0.7, 1],
+    outputRange: [0.6, 0.1, 0] // Desvanecimiento del radar
+  });
+
+  // Auto-enfoque en el mapa al cargar
+  useEffect(() => {
     if (scrollViewRef.current) {
       const scrollToX = Math.max(0, pinPos.x - (SCREEN_WIDTH / 2));
-      scrollViewRef.current.scrollTo({ x: scrollToX, y: 0, animated: true });
+      setTimeout(() => {
+        scrollViewRef.current.scrollTo({ x: scrollToX, y: 0, animated: true });
+      }, 500);
     }
-  };
-
-  useEffect(() => {
-    setTimeout(centrarMapa, 500);
   }, [kmFisicos]);
 
   const desbloqueado = (cp) => kmFisicos >= cp.kmFisico;
@@ -116,17 +133,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerContainer}>
-        <Text style={styles.titulo}>🗺️ Tu Recorrido Interactivo</Text>
-        {/* MEJORA 3: Mini-Banner del próximo objetivo */}
-        {proximoCheckpoint && (
-          <View style={styles.nextTargetBadge}>
-            <Text style={styles.nextTargetText}>
-              A {kmParaProximo}km de {proximoCheckpoint.nombre}
-            </Text>
-          </View>
-        )}
-      </View>
+      <Text style={styles.titulo}>🗺️ Explora el Fin del Mundo</Text>
 
       <View style={styles.mapaWrapper}>
         <ScrollView 
@@ -141,19 +148,40 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
                 <Stop offset="0" stopColor="#0F172A" stopOpacity="1" />
                 <Stop offset="1" stopColor="#1E293B" stopOpacity="1" />
               </LinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="url(#gradBg)" />
-            
-            <Path d={`M0,140 Q${MAPA_WIDTH_VIRTUAL/4},90 ${MAPA_WIDTH_VIRTUAL/2},150 T${MAPA_WIDTH_VIRTUAL},100 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#334155" opacity="0.3" />
-            <Path d="M400,40 Q550,20 700,50 T800,45 L800,0 L400,0 Z" fill="#0284C7" opacity="0.15" />
-            <SvgText x="550" y="25" fill="#7DD3FC" fontSize="12" textAnchor="middle" opacity="0.7">Lago Fagnano</SvgText>
-            <Path d={`M0,240 Q${MAPA_WIDTH_VIRTUAL/2},220 ${MAPA_WIDTH_VIRTUAL},245 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#0284C7" opacity="0.15" />
-            <SvgText x="300" y="250" fill="#7DD3FC" fontSize="12" textAnchor="middle" opacity="0.7">Canal Beagle</SvgText>
+              
+              {/* MEJORA 1: La Máscara de "Fog of War" */}
+              <Mask id="fogMask">
+                {/* 1. Base blanca: Todo cubierto de niebla */}
+                <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="white" />
+                
+                {/* 2. Ruta Completada (Negro): Perfora la niebla permanentemente */}
+                {pathCompletado !== "" && (
+                  <Path d={pathCompletado} fill="none" stroke="black" strokeWidth="22" strokeLinecap="round" strokeLinejoin="round" />
+                )}
+                
+                {/* 3. Checkpoints Desbloqueados (Negro): Perforan permanentemente */}
+                {checkpoints.filter(desbloqueado).map(cp => (
+                  <Circle key={cp.id} cx={cp.x} cy={cp.y} r="20" fill="black" />
+                ))}
 
-            {/* MEJORA 1: Ruta faltante punteada */}
-            <Path d={RUTA_BASE_PATH} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="8, 8" />
+                {/* 4. Spotlight Dinámico (Negro): Sigue al pin y palpita para perforar */}
+                {kmFisicos > 0 && (
+                  <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={animatedRadiusSpotlight} fill="black" />
+                )}
+              </Mask>
+            </Defs>
+
+            {/* A. MAPA BASE (Colorido completo) */}
+            <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="url(#gradBg)" />
+            <Path d={`M0,140 Q${MAPA_WIDTH_VIRTUAL/4},90 ${MAPA_WIDTH_VIRTUAL/2},150 T${MAPA_WIDTH_VIRTUAL},100 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#334155" opacity="0.3" />
             
-            {/* Ruta Completada sólida y brillante */}
+            <Path d="M400,40 Q550,20 700,50 T800,45 L800,0 L400,0 Z" fill="#0284C7" opacity="0.35" />
+            <SvgText x="550" y="25" fill="#7DD3FC" fontSize="12" textAnchor="middle">Lago Fagnano</SvgText>
+
+            <Path d={`M0,240 Q${MAPA_WIDTH_VIRTUAL/2},220 ${MAPA_WIDTH_VIRTUAL},245 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#0284C7" opacity="0.35" />
+            <SvgText x="300" y="250" fill="#7DD3FC" fontSize="12" textAnchor="middle">Canal Beagle</SvgText>
+
+            <Path d={RUTA_BASE_PATH} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
             {pathCompletado !== "" && (
               <Path d={pathCompletado} fill="none" stroke="#EA580C" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
             )}
@@ -169,8 +197,20 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
               );
             })}
 
+            {/* B. LA CAPA DE NIEBLA (Modo Oscuro Semitransparente) */}
+            {/* Aplicamos la máscara aquí. Donde la máscara es Blanca, la niebla es sólida. Donde es Negra, la niebla se vuelve transparente. */}
+            <Rect 
+              x="0" y="0" 
+              width={MAPA_WIDTH_VIRTUAL} height="260" 
+              fill="#0D1B2A" 
+              opacity="0.85" 
+              mask="url(#fogMask)"
+            />
+
+            {/* C. ELEMENTOS DE PROGRESO (Van por encima de la niebla) */}
             {kmFisicos > 0 && (
-              <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={animatedRadius} fill="#EA580C" opacity={animatedOpacity} />
+              // Latido de radar (palpita)
+              <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={animatedRadiusRadar} fill="#EA580C" opacity={animatedOpacity} />
             )}
             
             {kmFisicos > 0 && (
@@ -184,15 +224,10 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
             )}
           </Svg>
         </ScrollView>
-
-        {/* MEJORA 2: Botón flotante para centrar la ubicación */}
-        <TouchableOpacity style={styles.btnCentrar} onPress={centrarMapa}>
-          <Text style={styles.btnCentrarEmoji}>📍</Text>
-        </TouchableOpacity>
-
       </View>
       <Text style={styles.scrollHint}>👈 Desliza para explorar la ruta 👉</Text>
 
+      {/* Mantienes todo tu código original de Leyendas y Modal */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
         {checkpoints.map((cp) => {
           const bloqueado = !desbloqueado(cp);
@@ -258,17 +293,13 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
   );
 }
 
+// Componente animado para el latido (y perforar niebla)
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const styles = StyleSheet.create({
   container: { marginBottom: 16 },
-  headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  titulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC' },
-  nextTargetBadge: { backgroundColor: '#1E293B', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#EA580C' },
-  nextTargetText: { color: '#F97316', fontSize: 10, fontWeight: 'bold' },
-  mapaWrapper: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#334155', backgroundColor: '#0F172A', position: 'relative' },
-  btnCentrar: { position: 'absolute', bottom: 12, right: 12, backgroundColor: '#1E293B', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#475569', elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3 },
-  btnCentrarEmoji: { fontSize: 16 },
+  titulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 12 },
+  mapaWrapper: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#334155', backgroundColor: '#0F172A' },
   scrollHint: { textAlign: 'center', color: '#64748B', fontSize: 11, marginTop: 8, marginBottom: 12, fontStyle: 'italic' },
   leyendaScroll: { marginBottom: 8 },
   leyendaItem: { flexDirection: 'row', backgroundColor: '#1E293B', borderRadius: 12, padding: 12, marginRight: 10, alignItems: 'center', borderWidth: 1, borderColor: '#334155' },
