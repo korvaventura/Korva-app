@@ -368,5 +368,6 @@ const styles = StyleSheet.create({
   timelineEmoji: { fontSize: 16 },
   timelineKm: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
   timelineTipo: { fontSize: 11, color: '#A8CFFF' },
-  timelineAcumulado: { fontSize: 11, color: '#4a6a8a', marginTop: 4 }, backBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  timelineAcumulado: { fontSize: 11, color: '#4a6a8a', marginTop: 4 },
+  backBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 });

@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
 const COMO_FUNCIONA = [
   { emoji: '1️⃣', titulo: 'Inscribite', desc: 'Elegí tu modalidad y completá el pago.' },
   { emoji: '2️⃣', titulo: 'Conectá Strava', desc: 'Tus actividades se sincronizan automáticamente.' },
@@ -17,13 +18,14 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
   if (!challenge) return null;
 
   const modalidades = challenge.modalidades || [];
+  const galeria = Array.isArray(challenge.galeria) ? challenge.galeria : [];
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
 
       <View style={styles.heroWrapper}>
-        {challenge.medal_image_url ? (
-          <Image source={{ uri: challenge.medal_image_url }} style={styles.heroImage} resizeMode="cover" />
+        {challenge.imagen_portada || challenge.medal_image_url ? (
+          <Image source={{ uri: challenge.imagen_portada || challenge.medal_image_url }} style={styles.heroImage} resizeMode="cover" />
         ) : (
           <View style={styles.heroPlaceholder}>
             <Text style={styles.heroPlaceholderText}>🏅</Text>
@@ -92,15 +94,25 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
         </View>
       </View>
 
+      {/* Galería */}
       <View style={styles.seccion}>
         <Text style={styles.seccionTitulo}>📸 Galería</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {[1, 2, 3].map((_, i) => (
-            <View key={i} style={styles.galeriaItem}>
-              <Text style={styles.galeriaEmoji}>🏅</Text>
-            </View>
-          ))}
-        </ScrollView>
+        {galeria.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {galeria.map((url, i) => (
+              <Image
+                key={i}
+                source={{ uri: url }}
+                style={styles.galeriaImg}
+                resizeMode="cover"
+              />
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={styles.galeriaSinFotos}>
+            <Text style={styles.galeriaSinFotosText}>📷 Fotos próximamente</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.seccion}>
@@ -115,7 +127,7 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
 
       <View style={styles.ctaWrapper}>
         <Text style={styles.ctaPrecio}>USD ${challenge.price_usd} — medalla incluida 🏅</Text>
-{challenge.price_ars && <Text style={styles.ctaPrecioArs}>$ {challenge.price_ars.toLocaleString('es-AR')} ARS</Text>}
+        {challenge.price_ars && <Text style={styles.ctaPrecioArs}>$ {challenge.price_ars.toLocaleString('es-AR')} ARS</Text>}
         <TouchableOpacity style={styles.ctaBtn} onPress={onInscribir}>
           <View style={styles.btnRow}>
             <Text style={styles.ctaBtnText}>Quiero este reto</Text>
@@ -137,6 +149,7 @@ const styles = StyleSheet.create({
   heroPlaceholder: { width: '100%', height: 320, backgroundColor: '#1E3A5F', alignItems: 'center', justifyContent: 'center' },
   heroPlaceholderText: { fontSize: 80 },
   backBtn: { position: 'absolute', top: 52, left: 20, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  backBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   backBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
   heroBadge: { position: 'absolute', bottom: 16, right: 16, backgroundColor: '#FC4C02', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20 },
   heroBadgeText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
@@ -161,15 +174,17 @@ const styles = StyleSheet.create({
   mapaEmoji: { fontSize: 36, marginBottom: 10 },
   mapaTexto: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   mapaSubtexto: { fontSize: 12, color: '#A8CFFF', textAlign: 'center', paddingHorizontal: 20 },
-  galeriaItem: { width: 120, height: 120, backgroundColor: '#1E3A5F', borderRadius: 14, marginRight: 10, alignItems: 'center', justifyContent: 'center' },
-  galeriaEmoji: { fontSize: 40 },
+  galeriaImg: { width: 200, height: 140, borderRadius: 14, marginRight: 10 },
+  galeriaSinFotos: { backgroundColor: '#1E3A5F', borderRadius: 14, height: 100, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2a4a6a' },
+  galeriaSinFotosText: { color: '#4a6a8a', fontSize: 14 },
   testimonioCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 18, marginBottom: 12 },
   testimonioTexto: { fontSize: 13, color: '#A8CFFF', lineHeight: 20, marginBottom: 10, fontStyle: 'italic' },
   testimonioNombre: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' },
   ctaWrapper: { marginTop: 32, paddingHorizontal: 24, alignItems: 'center' },
-  ctaPrecio: { fontSize: 14, color: '#A8CFFF', marginBottom: 14 },
+  ctaPrecio: { fontSize: 14, color: '#A8CFFF', marginBottom: 4 },
+  ctaPrecioArs: { fontSize: 13, color: '#FC4C02', marginBottom: 14, fontWeight: 'bold' },
   ctaBtn: { backgroundColor: '#FC4C02', paddingVertical: 16, borderRadius: 14, width: '100%', alignItems: 'center', marginBottom: 12 },
   ctaBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 17 },
-  ctaSubtexto: { fontSize: 12, color: '#4a6a8a', textAlign: 'center' }, backBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 }, ctaPrecioArs: { fontSize: 13, color: '#FC4C02', marginBottom: 14, fontWeight: 'bold' },
+  btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  ctaSubtexto: { fontSize: 12, color: '#4a6a8a', textAlign: 'center' },
 });
