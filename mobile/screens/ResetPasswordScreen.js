@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useState } from 'react';
 import { supabase } from '../supabase';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ResetPasswordScreen({ onVolver }) {
   const [password, setPassword] = useState('');
@@ -31,7 +32,10 @@ export default function ResetPasswordScreen({ onVolver }) {
           <Text style={styles.titulo}>¡Contraseña actualizada!</Text>
           <Text style={styles.subtitulo}>Ya podés iniciar sesión con tu nueva contraseña.</Text>
           <TouchableOpacity style={styles.button} onPress={onVolver}>
-            <Text style={styles.buttonText}>Ir al login →</Text>
+            <View style={styles.btnRow}>
+              <Text style={styles.buttonText}>Ir al login</Text>
+              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -83,12 +87,18 @@ export default function ResetPasswordScreen({ onVolver }) {
           {cargando ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.buttonText}>Guardar contraseña →</Text>
+            <View style={styles.btnRow}>
+              <Text style={styles.buttonText}>Guardar contraseña</Text>
+              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+            </View>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={onVolver} style={styles.volverContainer}>
-          <Text style={styles.volverText}>← Volver al login</Text>
+          <View style={styles.btnRowBack}>
+            <Ionicons name="arrow-back" size={14} color="#4a6a8a" />
+            <Text style={styles.volverText}>Volver al login</Text>
+          </View>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -109,6 +119,8 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#FC4C02', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 4, marginBottom: 16, width: '100%' },
   buttonDisabled: { backgroundColor: '#2a3a4a' },
   buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
+  btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  btnRowBack: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   volverContainer: { alignItems: 'center' },
   volverText: { color: '#4a6a8a', fontSize: 13 },
 });

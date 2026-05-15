@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View, TouchableOpacity, Dimensions } from 'react-native';
 import { useState } from 'react';
-
+import { Ionicons } from '@expo/vector-icons';
 const { width } = Dimensions.get('window');
 
 const SLIDES = [
@@ -66,7 +66,10 @@ export default function OnboardingScreen({ onTerminar }) {
               <Text style={styles.skipText}>Saltar</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.siguienteBtn, { backgroundColor: current.color }]} onPress={siguiente}>
-              <Text style={styles.siguienteText}>Siguiente →</Text>
+             <View style={styles.btnRow}>
+                <Text style={styles.siguienteText}>Siguiente</Text>
+                <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+              </View>
             </TouchableOpacity>
           </>
         ) : (
@@ -94,5 +97,5 @@ const styles = StyleSheet.create({
   siguienteBtn: { flex: 2, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
   siguienteText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
   empezarBtn: { flex: 1, paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
-  empezarText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
+  empezarText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }, btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 });

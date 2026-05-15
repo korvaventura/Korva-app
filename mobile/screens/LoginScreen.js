@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Animated } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
+import { Ionicons } from '@expo/vector-icons';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -86,7 +87,10 @@ export default function LoginScreen({ onLogin }) {
           <Text style={styles.resetTitulo}>Email enviado</Text>
           <Text style={styles.resetTexto}>Revisá tu bandeja de entrada y seguí las instrucciones para restablecer tu contraseña.</Text>
           <TouchableOpacity style={styles.button} onPress={() => { setResetMode(false); setResetEnviado(false); }}>
-            <Text style={styles.buttonText}>Volver al login →</Text>
+            <View style={styles.btnRow}>
+              <Text style={styles.buttonText}>Volver al login</Text>
+              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -164,10 +168,7 @@ export default function LoginScreen({ onLogin }) {
                   placeholderTextColor="#4a6a8a"
                   secureTextEntry={!verPassword}
                 />
-                <TouchableOpacity
-                  style={styles.ojito}
-                  onPress={() => setVerPassword(!verPassword)}
-                >
+                <TouchableOpacity style={styles.ojito} onPress={() => setVerPassword(!verPassword)}>
                   <Text style={{ fontSize: 18 }}>{verPassword ? '🙈' : '👁️'}</Text>
                 </TouchableOpacity>
               </View>
@@ -187,9 +188,12 @@ export default function LoginScreen({ onLogin }) {
               {cargando ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.buttonText}>
-                  {modo === 'login' ? 'Iniciar sesión →' : 'Crear cuenta →'}
-                </Text>
+                <View style={styles.btnRow}>
+                  <Text style={styles.buttonText}>
+                    {modo === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+                  </Text>
+                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                </View>
               )}
             </TouchableOpacity>
 
@@ -240,12 +244,18 @@ export default function LoginScreen({ onLogin }) {
               {cargando ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.buttonText}>Enviar link →</Text>
+                <View style={styles.btnRow}>
+                  <Text style={styles.buttonText}>Enviar link</Text>
+                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                </View>
               )}
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => setResetMode(false)} style={styles.olvideBtnContainer}>
-              <Text style={styles.olvideBtnText}>← Volver al login</Text>
+              <View style={styles.btnRowBack}>
+                <Ionicons name="arrow-back" size={14} color="#4a6a8a" />
+                <Text style={styles.olvideBtnText}>Volver al login</Text>
+              </View>
             </TouchableOpacity>
           </>
         )}
@@ -277,6 +287,8 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#FC4C02', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 4, marginBottom: 16 },
   buttonDisabled: { backgroundColor: '#2a3a4a' },
   buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
+  btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  btnRowBack: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   olvideBtnContainer: { alignItems: 'center', marginBottom: 12 },
   olvideBtnText: { color: '#4a6a8a', fontSize: 13 },
   switchText: { color: '#4a6a8a', fontSize: 13, textAlign: 'center' },

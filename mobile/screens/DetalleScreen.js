@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image } from 'react-native';
-
+import { Ionicons } from '@expo/vector-icons';
 const COMO_FUNCIONA = [
   { emoji: '1️⃣', titulo: 'Inscribite', desc: 'Elegí tu modalidad y completá el pago.' },
   { emoji: '2️⃣', titulo: 'Conectá Strava', desc: 'Tus actividades se sincronizan automáticamente.' },
@@ -30,7 +30,10 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
           </View>
         )}
         <TouchableOpacity style={styles.backBtn} onPress={onVolver}>
-          <Text style={styles.backBtnText}>← Volver</Text>
+          <View style={styles.backBtnRow}>
+            <Ionicons name="arrow-back" size={14} color="#FFFFFF" />
+            <Text style={styles.backBtnText}>Volver</Text>
+          </View>
         </TouchableOpacity>
         <View style={styles.heroBadge}>
           <Text style={styles.heroBadgeText}>USD ${challenge.price_usd}</Text>

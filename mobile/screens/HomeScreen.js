@@ -7,6 +7,7 @@ import CompletadoScreen from './CompletadoScreen';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import MapaRecorrido from './MapaRecorrido';
+import { Ionicons } from '@expo/vector-icons';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -146,7 +147,10 @@ export default function HomeScreen({ navigation }) {
             </View>
           ))}
           <TouchableOpacity style={styles.bannerBtn} onPress={conectarStrava}>
-            <Text style={styles.bannerBtnText}>Conectar Strava ahora →</Text>
+            <View style={styles.btnRow}>
+              <Text style={styles.bannerBtnText}>Conectar Strava ahora</Text>
+              <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+            </View>
           </TouchableOpacity>
         </View>
       )}
@@ -226,12 +230,17 @@ export default function HomeScreen({ navigation }) {
                     porcentaje={item.porcentaje}
                     checkpointsData={item.checkpoints}
                   />
+
                   <TouchableOpacity
                     style={styles.detalleBtn}
                     onPress={() => navigation.navigate('DetalleReto', { item, userId })}
                   >
-                    <Text style={styles.detalleBtnText}>📖 Ver mi historia completa →</Text>
+                    <View style={styles.btnRow}>
+                      <Text style={styles.detalleBtnText}>📖 Ver mi historia completa</Text>
+                      <Ionicons name="arrow-forward" size={14} color="#1E6FD9" />
+                    </View>
                   </TouchableOpacity>
+
                   <TouchableOpacity style={styles.compartirBtn} onPress={() => compartirProgreso(index)}>
                     <Text style={styles.compartirBtnText}>📤 Compartir progreso</Text>
                   </TouchableOpacity>
@@ -273,6 +282,7 @@ const styles = StyleSheet.create({
   pasoDesc: { fontSize: 12, color: '#A8CFFF' },
   bannerBtn: { backgroundColor: '#1E6FD9', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginTop: 8 },
   bannerBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
+  btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   errorCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 40, alignItems: 'center', marginTop: 20, borderWidth: 1, borderColor: '#2a3a4a' },
   errorEmoji: { fontSize: 48, marginBottom: 16 },
   errorTitulo: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
@@ -309,9 +319,10 @@ const styles = StyleSheet.create({
   shareFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#0D1B2A', paddingTop: 12 },
   shareNombre: { fontSize: 12, color: '#4a6a8a', fontWeight: 'bold' },
   shareUrl: { fontSize: 12, color: '#4a6a8a' },
+  detalleBtn: { backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#1E6FD9', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
+  detalleBtnText: { color: '#1E6FD9', fontSize: 13, fontWeight: 'bold' },
   compartirBtn: { backgroundColor: '#0D1B2A', borderWidth: 1, borderColor: '#2a4a6a', paddingVertical: 10, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
   compartirBtnText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
   actualizarBtn: { marginTop: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center' },
-  actualizarBtnText: { color: '#A8CFFF', fontSize: 14 },detalleBtn: { backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#1E6FD9', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
-  detalleBtnText: { color: '#1E6FD9', fontSize: 13, fontWeight: 'bold' },
+  actualizarBtnText: { color: '#A8CFFF', fontSize: 14 },
 });

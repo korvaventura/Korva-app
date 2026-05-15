@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-
+import { Ionicons } from '@expo/vector-icons';
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
 const LIMITE_KM_DIA_RUN = 15;
@@ -152,7 +152,10 @@ export default function DetalleRetoScreen({ route, navigation }) {
 
       {/* Header */}
       <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-        <Text style={styles.backBtnText}>← Volver</Text>
+        <View style={styles.backBtnRow}>
+          <Ionicons name="arrow-back" size={16} color="#1E6FD9" />
+          <Text style={styles.backBtnText}>Volver</Text>
+        </View>
       </TouchableOpacity>
 
       <Text style={styles.titulo}>{item.challenge}</Text>
@@ -365,5 +368,5 @@ const styles = StyleSheet.create({
   timelineEmoji: { fontSize: 16 },
   timelineKm: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
   timelineTipo: { fontSize: 11, color: '#A8CFFF' },
-  timelineAcumulado: { fontSize: 11, color: '#4a6a8a', marginTop: 4 },
+  timelineAcumulado: { fontSize: 11, color: '#4a6a8a', marginTop: 4 }, backBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 });

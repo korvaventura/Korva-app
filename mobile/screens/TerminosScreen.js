@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
 import { useState } from 'react';
 import PrivacidadScreen from './PrivacidadScreen';
-
+import { Ionicons } from '@expo/vector-icons';
 export default function TerminosScreen({ onAceptar }) {
   const [aceptado, setAceptado] = useState(false);
   const [verPrivacidad, setVerPrivacidad] = useState(false);
@@ -47,7 +47,10 @@ export default function TerminosScreen({ onAceptar }) {
         <Text style={styles.texto}>Para cualquier consulta o solicitud: korvaventura@gmail.com</Text>
 
         <TouchableOpacity onPress={() => setVerPrivacidad(true)} style={styles.privacidadLink}>
-          <Text style={styles.privacidadLinkText}>🔒 Ver Política de Privacidad →</Text>
+          <View style={styles.btnRow}>
+            <Text style={styles.privacidadLinkText}>🔒 Ver Política de Privacidad</Text>
+            <Ionicons name="arrow-forward" size={14} color="#1E6FD9" />
+          </View>
         </TouchableOpacity>
 
       </ScrollView>
@@ -69,7 +72,10 @@ export default function TerminosScreen({ onAceptar }) {
           onPress={aceptado ? onAceptar : null}
           activeOpacity={aceptado ? 0.8 : 1}
         >
-          <Text style={styles.continueBtnText}>Continuar →</Text>
+          <View style={styles.btnRow}>
+            <Text style={styles.continueBtnText}>Continuar</Text>
+            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+          </View>
         </TouchableOpacity>
       </View>
     </View>
@@ -95,5 +101,5 @@ const styles = StyleSheet.create({
   checkLabel: { flex: 1, fontSize: 13, color: '#A8CFFF', lineHeight: 20 },
   continueBtn: { backgroundColor: '#FC4C02', paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
   continueBtnDisabled: { backgroundColor: '#2a3a4a' },
-  continueBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
+  continueBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }, btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 });

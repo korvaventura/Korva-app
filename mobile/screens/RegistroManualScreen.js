@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 
@@ -165,7 +166,10 @@ export default function RegistroManualScreen() {
         {cargando ? (
           <ActivityIndicator color="#FFFFFF" />
         ) : (
-          <Text style={styles.buttonText}>Registrar actividad →</Text>
+          <View style={styles.btnRow}>
+            <Text style={styles.buttonText}>Registrar actividad</Text>
+            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+          </View>
         )}
       </TouchableOpacity>
 
@@ -203,5 +207,5 @@ const styles = StyleSheet.create({
   mensajeTextoExito: { color: '#4CAF50' },
   button: { backgroundColor: '#1E6FD9', paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
   buttonDisabled: { backgroundColor: '#2a3a4a' },
-  buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
+  buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 });

@@ -2,6 +2,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import DetalleScreen from './DetalleScreen';
+import { Ionicons } from '@expo/vector-icons';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -135,7 +136,10 @@ export default function CatalogoScreen() {
                   <Text style={styles.detalleBtnText}>Ver detalle</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.button} onPress={(e) => { e.stopPropagation?.(); abrirModal(item); }}>
-                  <Text style={styles.buttonText}>Inscribirme →</Text>
+                  <View style={styles.btnRow}>
+                    <Text style={styles.buttonText}>Inscribirme</Text>
+                    <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+                  </View>
                 </TouchableOpacity>
               </View>
             </View>
@@ -154,7 +158,7 @@ export default function CatalogoScreen() {
                   <Text style={styles.modalButtonTitulo}>{m.tipo === 'run' ? '🏃' : '🚴'} {m.label}</Text>
                   <Text style={styles.modalButtonSub}>{m.distancia_km} km totales</Text>
                 </View>
-                <Text style={styles.modalArrow}>→</Text>
+                <Ionicons name="arrow-forward" size={18} color="#1E6FD9" />
               </TouchableOpacity>
             ))}
             <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalModalidad(false)}>
@@ -174,14 +178,14 @@ export default function CatalogoScreen() {
                 <Text style={styles.modalButtonTitulo}>🇦🇷 Argentina</Text>
                 <Text style={styles.modalButtonSub}>Pagar con Mercado Pago</Text>
               </View>
-              <Text style={styles.modalArrow}>→</Text>
+              <Ionicons name="arrow-forward" size={18} color="#1E6FD9" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalButton} onPress={() => elegirPais('internacional')}>
               <View>
                 <Text style={styles.modalButtonTitulo}>🌍 Resto del mundo</Text>
                 <Text style={styles.modalButtonSub}>Pagar con tarjeta</Text>
               </View>
-              <Text style={styles.modalArrow}>→</Text>
+              <Ionicons name="arrow-forward" size={18} color="#1E6FD9" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalPais(false)}>
               <Text style={styles.modalCancelarText}>Cancelar</Text>
@@ -218,6 +222,7 @@ const styles = StyleSheet.create({
   detalleBtnText: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 14 },
   button: { flex: 1, backgroundColor: '#1E6FD9', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
+  btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
   modalCard: { backgroundColor: '#1E3A5F', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 32 },
   modalTitulo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
@@ -225,7 +230,6 @@ const styles = StyleSheet.create({
   modalButton: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 18, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   modalButtonTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
   modalButtonSub: { fontSize: 12, color: '#A8CFFF' },
-  modalArrow: { fontSize: 18, color: '#1E6FD9' },
   modalCancelar: { marginTop: 8, alignItems: 'center', paddingVertical: 12 },
   modalCancelarText: { color: '#A8CFFF', fontSize: 15 },
 });
