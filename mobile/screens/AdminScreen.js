@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { createClient } from '@supabase/supabase-js';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
+
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 const SUPABASE_URL = 'https://yvlpnshfqwkpcftotltb.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2bHBuc2hmcXdrcGNmdG90bHRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU4NTM5NjAsImV4cCI6MjA2MTQyOTk2MH0.HMsNKoJJHLuBtJVoaGGy4bfnPHsW2fSiGPMHHuU0PXk';
@@ -26,6 +27,7 @@ export default function AdminScreen() {
   const [filtro, setFiltro] = useState('pendientes');
   const [vista, setVista] = useState('envios');
   const [subiendoFoto, setSubiendoFoto] = useState(null);
+  const [subiendoGaleria, setSubiendoGaleria] = useState(false);
 
   const [nuevoReto, setNuevoReto] = useState({
     title: '', description: '', historia: '', price_usd: '', price_ars: '',
@@ -37,7 +39,8 @@ export default function AdminScreen() {
   const [retoEditando, setRetoEditando] = useState(null);
   const [formEditar, setFormEditar] = useState({
     title: '', description: '', historia: '', price_usd: '', price_ars: '',
-    medal_image_url: '', link_mercadopago: '', link_shopify: '', oferta_texto: '',
+    medal_image_url: '', imagen_portada: '', galeria: [],
+    link_mercadopago: '', link_shopify: '', oferta_texto: '',
   });
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
@@ -49,12 +52,14 @@ export default function AdminScreen() {
     cargarChallenges();
     cargarChallengesActivos();
   }, []);
+
   useFocusEffect(
-  useCallback(() => {
-    cargarChallenges();
-    cargarChallengesActivos();
-  }, [])
-  );  
+    useCallback(() => {
+      cargarChallenges();
+      cargarChallengesActivos();
+    }, [])
+  );
+
   const cargarChallenges = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/admin/challenges-activos`);
@@ -77,53 +82,62 @@ export default function AdminScreen() {
     }
   };
 
-  const subirFotoCheckpoint = async (index) => {
+  const subirFoto = async (carpeta, onSuccess) => {
     try {
       const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permiso.granted) {
         Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería para subir fotos.');
         return;
       }
-
       const resultado = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [16, 9],
         quality: 0.8,
       });
-
       if (resultado.canceled) return;
-
-      setSubiendoFoto(index);
-
       const uri = resultado.assets[0].uri;
-      const fileName = `checkpoint_${Date.now()}_${index}.jpg`;
-
+      const fileName = `${carpeta}_${Date.now()}.jpg`;
       const response = await fetch(uri);
       const blob = await response.blob();
-
-      const { data, error } = await supabaseClient.storage
+      const { error } = await supabaseClient.storage
         .from('korva-images')
-        .upload(`checkpoints/${fileName}`, blob, {
-          contentType: 'image/jpeg',
-          upsert: true,
-        });
-
+        .upload(`${carpeta}/${fileName}`, blob, { contentType: 'image/jpeg', upsert: true });
       if (error) throw error;
-
       const { data: urlData } = supabaseClient.storage
         .from('korva-images')
-        .getPublicUrl(`checkpoints/${fileName}`);
-
-      actualizarCheckpoint(index, 'fotoUrl', urlData.publicUrl);
+        .getPublicUrl(`${carpeta}/${fileName}`);
+      onSuccess(urlData.publicUrl);
       Alert.alert('✅ Foto subida', 'La imagen fue cargada correctamente.');
-
     } catch (error) {
       Alert.alert('Error', 'No se pudo subir la foto. Intentá de nuevo.');
       console.error(error);
-    } finally {
-      setSubiendoFoto(null);
     }
+  };
+
+  const subirFotoCheckpoint = async (index) => {
+    setSubiendoFoto(index);
+    await subirFoto('checkpoints', (url) => actualizarCheckpoint(index, 'fotoUrl', url));
+    setSubiendoFoto(null);
+  };
+
+  const subirImagenMedalla = async () => {
+    await subirFoto('medallas', (url) => setFormEditar(p => ({ ...p, medal_image_url: url })));
+  };
+
+  const subirImagenPortada = async () => {
+    await subirFoto('portadas', (url) => setFormEditar(p => ({ ...p, imagen_portada: url })));
+  };
+
+  const subirFotoGaleria = async () => {
+    setSubiendoGaleria(true);
+    await subirFoto('galeria', (url) => {
+      setFormEditar(p => ({ ...p, galeria: [...(p.galeria || []), url] }));
+    });
+    setSubiendoGaleria(false);
+  };
+
+  const eliminarFotoGaleria = (index) => {
+    setFormEditar(p => ({ ...p, galeria: p.galeria.filter((_, i) => i !== index) }));
   };
 
   const abrirEdicion = (challenge) => {
@@ -135,6 +149,8 @@ export default function AdminScreen() {
       price_usd: challenge.price_usd?.toString() || '',
       price_ars: challenge.price_ars?.toString() || '',
       medal_image_url: challenge.medal_image_url || '',
+      imagen_portada: challenge.imagen_portada || '',
+      galeria: challenge.galeria || [],
       link_mercadopago: challenge.link_mercadopago || '',
       link_shopify: challenge.link_shopify || '',
       oferta_texto: challenge.oferta_texto || '',
@@ -151,7 +167,11 @@ export default function AdminScreen() {
       const res = await fetch(`${BACKEND_URL}/admin/challenges/${retoEditando}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formEditar, price_usd: parseFloat(formEditar.price_usd) }),
+        body: JSON.stringify({
+          ...formEditar,
+          price_usd: parseFloat(formEditar.price_usd),
+          price_ars: formEditar.price_ars ? parseInt(formEditar.price_ars) : null,
+        }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.detalle);
@@ -278,7 +298,7 @@ export default function AdminScreen() {
   };
 
   const crearReto = async () => {
-const { title, description, historia, price_usd, price_ars, medal_image_url, link_mercadopago, link_shopify, modalidades } = nuevoReto;
+    const { title, description, historia, price_usd, price_ars, medal_image_url, link_mercadopago, link_shopify, modalidades } = nuevoReto;
     if (!title || !description || !price_usd || modalidades.some(m => !m.distancia_km)) {
       Alert.alert('Faltan datos', 'Completá título, descripción, precio y distancias.');
       return;
@@ -294,7 +314,7 @@ const { title, description, historia, price_usd, price_ars, medal_image_url, lin
       const data = await res.json();
       if (data.error) throw new Error(data.detalle);
       Alert.alert('🎉 Reto creado', `"${title}" fue creado exitosamente.`);
-      setNuevoReto({ title: '', description: '', historia: '', price_usd: '', medal_image_url: '', link_mercadopago: '', link_shopify: '', modalidades: [{ tipo: 'run', label: 'Running', distancia_km: '' }] });
+      setNuevoReto({ title: '', description: '', historia: '', price_usd: '', price_ars: '', medal_image_url: '', link_mercadopago: '', link_shopify: '', modalidades: [{ tipo: 'run', label: 'Running', distancia_km: '' }] });
       setVista('envios');
       cargarChallengesActivos();
     } catch (error) {
@@ -421,23 +441,76 @@ const { title, description, historia, price_usd, price_ars, medal_image_url, lin
                 <Text style={styles.formTitulo}>✏️ Editando reto</Text>
                 <TouchableOpacity onPress={() => setRetoEditando(null)}><Text style={styles.cancelarEdicionText}>✕ Cancelar</Text></TouchableOpacity>
               </View>
+
               <Text style={styles.formLabel}>Título *</Text>
               <TextInput style={styles.input} value={formEditar.title} onChangeText={v => setFormEditar(p => ({ ...p, title: v }))} placeholderTextColor="#4a6a8a" />
+
               <Text style={styles.formLabel}>Descripción corta *</Text>
               <TextInput style={[styles.input, { height: 70, textAlignVertical: 'top' }]} value={formEditar.description} onChangeText={v => setFormEditar(p => ({ ...p, description: v }))} placeholderTextColor="#4a6a8a" multiline />
+
               <Text style={styles.formLabel}>Historia</Text>
               <TextInput style={[styles.input, { height: 100, textAlignVertical: 'top' }]} value={formEditar.historia} onChangeText={v => setFormEditar(p => ({ ...p, historia: v }))} placeholderTextColor="#4a6a8a" multiline />
+
               <Text style={styles.formLabel}>Precio USD *</Text>
               <TextInput style={styles.input} value={formEditar.price_usd} onChangeText={v => setFormEditar(p => ({ ...p, price_usd: v }))} placeholderTextColor="#4a6a8a" keyboardType="numeric" />
+
               <Text style={styles.formLabel}>Precio ARS (pesos argentinos)</Text>
               <TextInput style={styles.input} value={formEditar.price_ars} onChangeText={v => setFormEditar(p => ({ ...p, price_ars: v }))} placeholder="Ej: 49990" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
-              <Text style={styles.formLabel}>URL imagen medalla</Text>
-              <TextInput style={styles.input} value={formEditar.medal_image_url} onChangeText={v => setFormEditar(p => ({ ...p, medal_image_url: v }))} placeholderTextColor="#4a6a8a" />
+
+              <Text style={styles.formLabel}>🏅 Imagen medalla</Text>
+              {formEditar.medal_image_url ? (
+                <View style={styles.fotoPreviewWrapper}>
+                  <Image source={{ uri: formEditar.medal_image_url }} style={styles.fotoPreview} resizeMode="cover" />
+                  <TouchableOpacity style={styles.fotoChangeBtn} onPress={subirImagenMedalla}>
+                    <Text style={styles.fotoChangeBtnText}>🖼️ Cambiar imagen</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity style={styles.fotoUploadBtn} onPress={subirImagenMedalla}>
+                  <Text style={styles.fotoUploadBtnText}>📷 Subir imagen medalla</Text>
+                </TouchableOpacity>
+              )}
+              <TextInput style={[styles.input, { marginTop: 8 }]} value={formEditar.medal_image_url} onChangeText={v => setFormEditar(p => ({ ...p, medal_image_url: v }))} placeholder="O pegá una URL..." placeholderTextColor="#4a6a8a" />
+
+              <Text style={styles.formLabel}>🖼️ Imagen portada</Text>
+              {formEditar.imagen_portada ? (
+                <View style={styles.fotoPreviewWrapper}>
+                  <Image source={{ uri: formEditar.imagen_portada }} style={styles.fotoPreview} resizeMode="cover" />
+                  <TouchableOpacity style={styles.fotoChangeBtn} onPress={subirImagenPortada}>
+                    <Text style={styles.fotoChangeBtnText}>🖼️ Cambiar portada</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity style={styles.fotoUploadBtn} onPress={subirImagenPortada}>
+                  <Text style={styles.fotoUploadBtnText}>📷 Subir imagen portada</Text>
+                </TouchableOpacity>
+              )}
+              <TextInput style={[styles.input, { marginTop: 8 }]} value={formEditar.imagen_portada} onChangeText={v => setFormEditar(p => ({ ...p, imagen_portada: v }))} placeholder="O pegá una URL..." placeholderTextColor="#4a6a8a" />
+
+              <Text style={styles.formLabel}>📸 Galería de fotos</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+                {(formEditar.galeria || []).map((url, i) => (
+                  <View key={i} style={styles.galeriaAdminItem}>
+                    <Image source={{ uri: url }} style={styles.galeriaAdminImg} resizeMode="cover" />
+                    <TouchableOpacity style={styles.galeriaEliminarBtn} onPress={() => eliminarFotoGaleria(i)}>
+                      <Text style={styles.galeriaEliminarText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                <TouchableOpacity style={styles.galeriaAgregarBtn} onPress={subirFotoGaleria} disabled={subiendoGaleria}>
+                  {subiendoGaleria ? <ActivityIndicator color="#1E6FD9" size="small" /> : <Text style={styles.galeriaAgregarText}>+ Agregar</Text>}
+                </TouchableOpacity>
+              </ScrollView>
+
               <Text style={styles.formLabel}>🇦🇷 Link MercadoPago</Text>
               <TextInput style={styles.input} value={formEditar.link_mercadopago} onChangeText={v => setFormEditar(p => ({ ...p, link_mercadopago: v }))} placeholderTextColor="#4a6a8a" />
+
+              <Text style={styles.formLabel}>🌍 Link Shopify</Text>
               <TextInput style={styles.input} value={formEditar.link_shopify} onChangeText={v => setFormEditar(p => ({ ...p, link_shopify: v }))} placeholderTextColor="#4a6a8a" />
+
               <Text style={styles.formLabel}>🔥 Oferta (dejar vacío para quitar)</Text>
               <TextInput style={styles.input} value={formEditar.oferta_texto} onChangeText={v => setFormEditar(p => ({ ...p, oferta_texto: v }))} placeholder="Ej: 2do reto 50% off" placeholderTextColor="#4a6a8a" />
+
               <TouchableOpacity style={styles.crearBtn} onPress={guardarEdicion} disabled={guardandoEdicion}>
                 {guardandoEdicion ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.crearBtnText}>💾 Guardar cambios</Text>}
               </TouchableOpacity>
@@ -469,40 +542,27 @@ const { title, description, historia, price_usd, price_ars, medal_image_url, lin
                 <Text style={styles.formTitulo}>🗺️ {challengeMapa.title}</Text>
                 <TouchableOpacity onPress={() => setChallengeMapa(null)}><Text style={styles.cancelarEdicionText}>✕ Cancelar</Text></TouchableOpacity>
               </View>
-
               <TouchableOpacity style={styles.resetBtn} onPress={resetearCheckpoints}>
                 <Text style={styles.resetBtnText}>↻ Resetear a valores por defecto</Text>
               </TouchableOpacity>
-
               {checkpoints.map((cp, index) => (
                 <View key={cp.id} style={styles.checkpointCard}>
                   <View style={styles.checkpointHeader}>
                     <Text style={styles.checkpointEmoji}>{cp.emoji}</Text>
                     <Text style={styles.checkpointNombre}>{cp.nombre}</Text>
                     <View style={styles.kmBadgeSmall}>
-                      <TextInput
-                        style={styles.kmInput}
-                        value={cp.kmFisico?.toString()}
-                        onChangeText={v => actualizarCheckpoint(index, 'kmFisico', v)}
-                        keyboardType="numeric"
-                        placeholderTextColor="#4a6a8a"
-                      />
+                      <TextInput style={styles.kmInput} value={cp.kmFisico?.toString()} onChangeText={v => actualizarCheckpoint(index, 'kmFisico', v)} keyboardType="numeric" placeholderTextColor="#4a6a8a" />
                       <Text style={styles.kmInputLabel}>km</Text>
                     </View>
                   </View>
-
                   <Text style={styles.formLabel}>Emoji</Text>
                   <TextInput style={styles.input} value={cp.emoji} onChangeText={v => actualizarCheckpoint(index, 'emoji', v)} placeholderTextColor="#4a6a8a" />
-
                   <Text style={styles.formLabel}>Nombre</Text>
                   <TextInput style={styles.input} value={cp.nombre} onChangeText={v => actualizarCheckpoint(index, 'nombre', v)} placeholderTextColor="#4a6a8a" />
-
                   <Text style={styles.formLabel}>Descripción</Text>
                   <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]} value={cp.desc} onChangeText={v => actualizarCheckpoint(index, 'desc', v)} placeholderTextColor="#4a6a8a" multiline />
-
                   <Text style={styles.formLabel}>Dato curioso</Text>
                   <TextInput style={[styles.input, { height: 60, textAlignVertical: 'top' }]} value={cp.datoRaro} onChangeText={v => actualizarCheckpoint(index, 'datoRaro', v)} placeholderTextColor="#4a6a8a" multiline />
-
                   <Text style={styles.formLabel}>Foto del lugar</Text>
                   {cp.fotoUrl ? (
                     <View style={styles.fotoPreviewWrapper}>
@@ -512,28 +572,13 @@ const { title, description, historia, price_usd, price_ars, medal_image_url, lin
                       </TouchableOpacity>
                     </View>
                   ) : (
-                    <TouchableOpacity
-                      style={styles.fotoUploadBtn}
-                      onPress={() => subirFotoCheckpoint(index)}
-                      disabled={subiendoFoto === index}
-                    >
-                      {subiendoFoto === index ? (
-                        <ActivityIndicator color="#1E6FD9" size="small" />
-                      ) : (
-                        <Text style={styles.fotoUploadBtnText}>📷 Subir foto desde galería</Text>
-                      )}
+                    <TouchableOpacity style={styles.fotoUploadBtn} onPress={() => subirFotoCheckpoint(index)} disabled={subiendoFoto === index}>
+                      {subiendoFoto === index ? <ActivityIndicator color="#1E6FD9" size="small" /> : <Text style={styles.fotoUploadBtnText}>📷 Subir foto desde galería</Text>}
                     </TouchableOpacity>
                   )}
-                  <TextInput
-                    style={[styles.input, { marginTop: 8 }]}
-                    value={cp.fotoUrl || ''}
-                    onChangeText={v => actualizarCheckpoint(index, 'fotoUrl', v)}
-                    placeholder="O pegá una URL directamente..."
-                    placeholderTextColor="#4a6a8a"
-                  />
+                  <TextInput style={[styles.input, { marginTop: 8 }]} value={cp.fotoUrl || ''} onChangeText={v => actualizarCheckpoint(index, 'fotoUrl', v)} placeholder="O pegá una URL directamente..." placeholderTextColor="#4a6a8a" />
                 </View>
               ))}
-
               <TouchableOpacity style={styles.crearBtn} onPress={guardarMapa} disabled={guardandoMapa}>
                 {guardandoMapa ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.crearBtnText}>💾 Guardar mapa</Text>}
               </TouchableOpacity>
@@ -563,7 +608,7 @@ const { title, description, historia, price_usd, price_ars, medal_image_url, lin
           <TextInput style={[styles.input, { height: 70, textAlignVertical: 'top' }]} value={nuevoReto.description} onChangeText={v => setNuevoReto(p => ({ ...p, description: v }))} placeholder="Texto corto..." placeholderTextColor="#4a6a8a" multiline />
           <Text style={styles.formLabel}>Historia</Text>
           <TextInput style={[styles.input, { height: 120, textAlignVertical: 'top' }]} value={nuevoReto.historia} onChangeText={v => setNuevoReto(p => ({ ...p, historia: v }))} placeholder="La historia del reto..." placeholderTextColor="#4a6a8a" multiline />
-           <Text style={styles.formLabel}>Precio USD *</Text>
+          <Text style={styles.formLabel}>Precio USD *</Text>
           <TextInput style={styles.input} value={nuevoReto.price_usd} onChangeText={v => setNuevoReto(p => ({ ...p, price_usd: v }))} placeholder="Ej: 49" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
           <Text style={styles.formLabel}>Precio ARS (pesos argentinos)</Text>
           <TextInput style={styles.input} value={nuevoReto.price_ars} onChangeText={v => setNuevoReto(p => ({ ...p, price_ars: v }))} placeholder="Ej: 49990" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
@@ -685,4 +730,10 @@ const styles = StyleSheet.create({
   fotoChangeBtnText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
   fotoUploadBtn: { backgroundColor: '#0D1B2A', borderWidth: 1, borderColor: '#1E6FD9', borderRadius: 10, padding: 14, alignItems: 'center', marginBottom: 0 },
   fotoUploadBtnText: { color: '#1E6FD9', fontSize: 13, fontWeight: 'bold' },
+  galeriaAdminItem: { width: 100, height: 100, borderRadius: 12, marginRight: 8, position: 'relative' },
+  galeriaAdminImg: { width: 100, height: 100, borderRadius: 12 },
+  galeriaEliminarBtn: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
+  galeriaEliminarText: { color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' },
+  galeriaAgregarBtn: { width: 100, height: 100, borderRadius: 12, borderWidth: 2, borderColor: '#1E6FD9', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
+  galeriaAgregarText: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 13 },
 });
