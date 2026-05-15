@@ -2,7 +2,8 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Activi
 import { useState, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { createClient } from '@supabase/supabase-js';
-
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 const SUPABASE_URL = 'https://yvlpnshfqwkpcftotltb.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2bHBuc2hmcXdrcGNmdG90bHRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU4NTM5NjAsImV4cCI6MjA2MTQyOTk2MH0.HMsNKoJJHLuBtJVoaGGy4bfnPHsW2fSiGPMHHuU0PXk';
@@ -48,7 +49,12 @@ export default function AdminScreen() {
     cargarChallenges();
     cargarChallengesActivos();
   }, []);
-
+  useFocusEffect(
+  useCallback(() => {
+    cargarChallenges();
+    cargarChallengesActivos();
+  }, [])
+  );  
   const cargarChallenges = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/admin/challenges-activos`);

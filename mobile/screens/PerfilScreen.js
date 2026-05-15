@@ -69,6 +69,32 @@ export default function PerfilScreen() {
     }
   };
 
+  const eliminarActividad = async (actividadId) => {
+    Alert.alert(
+      'Eliminar actividad',
+      '¿Estás seguro que querés eliminar esta actividad? Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await fetch(`${BACKEND_URL}/actividades/${actividadId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId })
+              });
+              setActividades(prev => prev.filter(a => a.id !== actividadId));
+            } catch (error) {
+              Alert.alert('Error', 'No se pudo eliminar la actividad.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const cargarInscripcionActiva = async () => {
     try {
       const { data, error } = await supabase
@@ -259,6 +285,9 @@ export default function PerfilScreen() {
                   </Text>
                 </View>
                 <Text style={styles.actividadKm}>{parseFloat(act.distance_km).toFixed(1)} km</Text>
+                <TouchableOpacity onPress={() => eliminarActividad(act.id)} style={styles.eliminarBtn}>
+                  <Text style={styles.eliminarBtnText}>✕</Text>
+                </TouchableOpacity>
               </View>
             ))}
             {actividades.length > 1 && (
@@ -312,72 +341,23 @@ export default function PerfilScreen() {
         {editandoDireccion ? (
           <View style={styles.formCard}>
             <Text style={styles.formLabel}>Nombre completo *</Text>
-            <TextInput
-              style={styles.input}
-              value={formDireccion.nombre}
-              onChangeText={v => setFormDireccion(p => ({ ...p, nombre: v }))}
-              placeholder="Juan Pérez"
-              placeholderTextColor="#4a6a8a"
-            />
+            <TextInput style={styles.input} value={formDireccion.nombre} onChangeText={v => setFormDireccion(p => ({ ...p, nombre: v }))} placeholder="Juan Pérez" placeholderTextColor="#4a6a8a" />
             <Text style={styles.formLabel}>Dirección *</Text>
-            <TextInput
-              style={styles.input}
-              value={formDireccion.direccion}
-              onChangeText={v => setFormDireccion(p => ({ ...p, direccion: v }))}
-              placeholder="Calle 123, Piso 4"
-              placeholderTextColor="#4a6a8a"
-            />
+            <TextInput style={styles.input} value={formDireccion.direccion} onChangeText={v => setFormDireccion(p => ({ ...p, direccion: v }))} placeholder="Calle 123, Piso 4" placeholderTextColor="#4a6a8a" />
             <Text style={styles.formLabel}>Ciudad *</Text>
-            <TextInput
-              style={styles.input}
-              value={formDireccion.ciudad}
-              onChangeText={v => setFormDireccion(p => ({ ...p, ciudad: v }))}
-              placeholder="Buenos Aires"
-              placeholderTextColor="#4a6a8a"
-            />
+            <TextInput style={styles.input} value={formDireccion.ciudad} onChangeText={v => setFormDireccion(p => ({ ...p, ciudad: v }))} placeholder="Buenos Aires" placeholderTextColor="#4a6a8a" />
             <Text style={styles.formLabel}>Código postal</Text>
-            <TextInput
-              style={styles.input}
-              value={formDireccion.codigo_postal}
-              onChangeText={v => setFormDireccion(p => ({ ...p, codigo_postal: v }))}
-              placeholder="1425"
-              placeholderTextColor="#4a6a8a"
-              keyboardType="numeric"
-            />
+            <TextInput style={styles.input} value={formDireccion.codigo_postal} onChangeText={v => setFormDireccion(p => ({ ...p, codigo_postal: v }))} placeholder="1425" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
             <Text style={styles.formLabel}>País *</Text>
-            <TextInput
-              style={styles.input}
-              value={formDireccion.pais}
-              onChangeText={v => setFormDireccion(p => ({ ...p, pais: v }))}
-              placeholder="Argentina"
-              placeholderTextColor="#4a6a8a"
-            />
+            <TextInput style={styles.input} value={formDireccion.pais} onChangeText={v => setFormDireccion(p => ({ ...p, pais: v }))} placeholder="Argentina" placeholderTextColor="#4a6a8a" />
             <Text style={styles.formLabel}>Teléfono (con código de país)</Text>
-            <TextInput
-              style={styles.input}
-              value={formDireccion.telefono}
-              onChangeText={v => setFormDireccion(p => ({ ...p, telefono: v }))}
-              placeholder="+54 11 1234 5678"
-              placeholderTextColor="#4a6a8a"
-              keyboardType="phone-pad"
-            />
+            <TextInput style={styles.input} value={formDireccion.telefono} onChangeText={v => setFormDireccion(p => ({ ...p, telefono: v }))} placeholder="+54 11 1234 5678" placeholderTextColor="#4a6a8a" keyboardType="phone-pad" />
             <View style={styles.formBotones}>
-              <TouchableOpacity
-                style={styles.cancelarBtn}
-                onPress={() => setEditandoDireccion(false)}
-                disabled={guardando}
-              >
+              <TouchableOpacity style={styles.cancelarBtn} onPress={() => setEditandoDireccion(false)} disabled={guardando}>
                 <Text style={styles.cancelarBtnText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.guardarBtn}
-                onPress={guardarDireccion}
-                disabled={guardando}
-              >
-                {guardando
-                  ? <ActivityIndicator color="#FFFFFF" size="small" />
-                  : <Text style={styles.guardarBtnText}>Guardar</Text>
-                }
+              <TouchableOpacity style={styles.guardarBtn} onPress={guardarDireccion} disabled={guardando}>
+                {guardando ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.guardarBtnText}>Guardar</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -430,9 +410,9 @@ const styles = StyleSheet.create({
   container: { paddingBottom: 40, alignItems: 'center' },
   heroBg: { width: '100%', backgroundColor: '#1E3A5F', alignItems: 'center', paddingTop: 60, paddingBottom: 28, marginBottom: 24 },
   avatarWrapper: { marginBottom: 12 },
- avatar: { width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: '#1E6FD9' },
-avatarPlaceholder: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FC4C02' },
-avatarLetra: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF' },
+  avatar: { width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: '#1E6FD9' },
+  avatarPlaceholder: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FC4C02' },
+  avatarLetra: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF' },
   nombre: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   email: { fontSize: 13, color: '#A8CFFF' },
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 24, width: '100%', paddingHorizontal: 24 },
@@ -456,6 +436,8 @@ avatarLetra: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF' },
   actividadFecha: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
   actividadTipo: { fontSize: 11, color: '#A8CFFF' },
   actividadKm: { fontSize: 16, fontWeight: 'bold', color: '#1E6FD9' },
+  eliminarBtn: { padding: 6, backgroundColor: '#2a1a1a', borderRadius: 8 },
+  eliminarBtnText: { color: '#FC4C02', fontWeight: 'bold', fontSize: 12 },
   verTodasBtn: { paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: '#2a4a6a', borderRadius: 12 },
   verTodasText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
   emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 24, alignItems: 'center' },
