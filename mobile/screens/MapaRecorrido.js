@@ -20,8 +20,8 @@ const CHECKPOINTS_DEFAULT = [
     nombre: 'Lago Fagnano',
     kmFisico: 20,
     emoji: '💧',
-    pista: 'Dos países, dos placas tectónicas, un solo lago...',
-    desc: 'Este lago está literalmente partido en dos por la Falla de Magallanes: la orilla norte pertenece a la placa Sudamericana y la sur a la placa de Scotia. Dos placas tectónicas, dos países (Argentina y Chile), un solo lago. En 1949 un terremoto de 7.8 grados generó olas sísmicas que crearon nuevas lagunas.',
+    pista: 'Un lago que guarda dos mundos en sus orillas... ¿cuáles son?',
+    desc: 'El Lago Fagnano es el más grande de Tierra del Fuego. La Falla de Magallanes lo atraviesa en profundidad, separando dos placas tectónicas. Sus aguas tocan suelo argentino y chileno. En 1949 un terremoto de 7.8 grados generó olas sísmicas que transformaron su costa para siempre.',
     datoRaro: '⚡ Las placas que lo rodean se mueven 5.4mm por año. Estás corriendo sobre una falla activa.',
     x: 210, y: 75,
   },
@@ -119,7 +119,6 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
               <SvgText x={pinPos.x} y={pinPos.y - 14} fill="#FC4C02" fontSize="8" textAnchor="middle" fontWeight="bold">{(kmFisicos * factor).toFixed(0)}km</SvgText>
             </>
           )}
-          <SvgText x="280" y="32" fill="#A8CFFF" fontSize="8" textAnchor="middle">INICIO</SvgText>
           <SvgText x="30" y="195" fill="#FC4C02" fontSize="8" textAnchor="middle">META</SvgText>
         </Svg>
       </View>
@@ -163,18 +162,15 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
               </>
             ) : (
               <>
-                {/* Pista */}
                 <View style={styles.pistaBox}>
                   <Text style={styles.pistaTexto}>💭 {modalVisible?.pista}</Text>
                 </View>
 
-                {/* Descripcion difuminada */}
                 <View style={styles.difuminadoWrapper}>
                   <Text style={styles.difuminadoTexto}>{modalVisible?.desc}</Text>
                   <View style={styles.difuminadoOverlay} />
                 </View>
 
-                {/* Mensaje de desbloqueo */}
                 <View style={styles.desbloqueoBox}>
                   <Text style={styles.desbloqueoTexto}>
                     🔒 Llegá a {((modalVisible?.kmFisico || 0) * factor).toFixed(0)}km para descubrir la historia completa
@@ -219,11 +215,9 @@ const styles = StyleSheet.create({
   datoRaroTexto: { fontSize: 12, color: '#1E6FD9', textAlign: 'center', fontStyle: 'italic' },
   pistaBox: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 16, width: '100%', borderWidth: 1, borderColor: '#2a4a6a' },
   pistaTexto: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', fontStyle: 'italic', lineHeight: 22 },
-  difuminadoWrapper: { width: '100%', marginBottom: 12, overflow: 'hidden', borderRadius: 10 },
-  difuminadoTexto: { fontSize: 13, color: '#4a6a8a', textAlign: 'center', lineHeight: 22 },
-  difuminadoOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, backgroundColor: 'transparent', borderRadius: 10,
-    shadowColor: '#1E3A5F', shadowOffset: { width: 0, height: -20 }, shadowOpacity: 1, shadowRadius: 20,
-  },
+  difuminadoWrapper: { width: '100%', marginBottom: 12, overflow: 'hidden', borderRadius: 10, maxHeight: 40 },
+  difuminadoTexto: { fontSize: 13, color: '#1E3A5F', textAlign: 'center', lineHeight: 22, opacity: 0.3 },
+  difuminadoOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: '#1E3A5F', opacity: 0.85, borderRadius: 10 },
   desbloqueoBox: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 16, width: '100%', borderWidth: 1, borderColor: '#FC4C02' },
   desbloqueoTexto: { fontSize: 13, color: '#FC4C02', textAlign: 'center', fontWeight: 'bold' },
   modalBtn: { backgroundColor: '#FC4C02', paddingVertical: 12, paddingHorizontal: 32, borderRadius: 12 },
