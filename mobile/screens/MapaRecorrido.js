@@ -69,7 +69,6 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
   const pctFisico = (kmFisicos / DISTANCIA_FISICA) * 100;
   const pinPos = getPuntoEnRuta(kmFisicos);
 
-  // Usar checkpoints de Supabase si existen, sino los hardcodeados
   const checkpoints = (checkpointsData && checkpointsData.length > 0)
     ? checkpointsData.map((cp, i) => ({ ...CHECKPOINTS_DEFAULT[i], ...cp }))
     : CHECKPOINTS_DEFAULT;
@@ -145,7 +144,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
               <Circle cx={pinPos.x} cy={pinPos.y} r={11} fill="#FC4C02" opacity="0.25" />
               <Circle cx={pinPos.x} cy={pinPos.y} r={6} fill="#FC4C02" stroke="#FFFFFF" strokeWidth="2" />
               <SvgText x={pinPos.x} y={pinPos.y - 14} fill="#FC4C02" fontSize="8" textAnchor="middle" fontWeight="bold">
-                {kmFisicos.toFixed(0)}km
+                {(kmFisicos * factor).toFixed(0)}km
               </SvgText>
             </>
           )}
@@ -167,7 +166,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
             >
               <Text style={styles.leyendaEmoji}>{bloqueado ? '🔒' : cp.emoji}</Text>
               <Text style={[styles.leyendaNombre, !bloqueado && styles.leyendaNombreActivo]}>{cp.nombre}</Text>
-              <Text style={styles.leyendaKm}>{cp.kmFisico}km</Text>
+              <Text style={styles.leyendaKm}>{(cp.kmFisico * factor).toFixed(0)}km</Text>
             </TouchableOpacity>
           );
         })}
@@ -183,7 +182,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
           <View style={[styles.modalCard, esInicio && styles.modalCardInicio, esFin && styles.modalCardFin]}>
             <Text style={styles.modalEmoji}>{modalVisible?.emoji}</Text>
             <Text style={styles.modalNombre}>{modalVisible?.nombre}</Text>
-            <Text style={styles.modalKm}>Km {modalVisible?.kmFisico} del recorrido</Text>
+            <Text style={styles.modalKm}>Km {((modalVisible?.kmFisico || 0) * factor).toFixed(0)} de {distanciaTotal}km</Text>
 
             {(esInicio || esFin) && (
               <View style={styles.mensajeEspecialBox}>
@@ -204,7 +203,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
             {!desbloqueado(modalVisible || {}) && (
               <View style={styles.modalBloqueadoBox}>
                 <Text style={styles.modalBloqueado}>
-                  🔒 Desbloqueás este punto al llegar a {(modalVisible?.kmFisico * factor).toFixed(0)}km
+                  🔒 Desbloqueás este punto al llegar a {((modalVisible?.kmFisico || 0) * factor).toFixed(0)}km
                 </Text>
               </View>
             )}
