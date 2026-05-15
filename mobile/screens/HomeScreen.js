@@ -1,7 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking, TextInput, Alert } from 'react-native';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../supabase';
 import CompletadoScreen from './CompletadoScreen';
 import ViewShot from 'react-native-view-shot';
@@ -10,6 +11,9 @@ import MapaRecorrido from './MapaRecorrido';
 import { Ionicons } from '@expo/vector-icons';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
+
+const CHECKPOINTS_NOMBRES = ['Tolhuin', 'Lago Fagnano', 'Paso Garibaldi', 'Monte Olivia', 'Ushuaia'];
+const CHECKPOINTS_KM = [0, 20, 45, 80, 103];
 
 const PASOS = [
   { emoji: '🔗', titulo: 'Conectá Strava', desc: 'Sincronizá tus actividades automáticamente.' },
@@ -25,6 +29,30 @@ const getFrase = (pct, modalidad) => {
   return 'El camino empieza con el primer paso 🌱';
 };
 
+const diasEntre = (fecha1, fecha2) => {
+  const d1 = new Date(fecha1);
+  const d2 = new Date(fecha2);
+  return Math.max(1, Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24)));
+};
+
+const getCheckpointDesbloqueado = (kmCompletados, distanciaTotal) => {
+  const DISTANCIA_FISICA = 103;
+  const factor = distanciaTotal / DISTANCIA_FISICA;
+  const kmFisicos = parseFloat(kmCompletados) / factor;
+  let ultimoDesbloqueado = null;
+  for (let i = 0; i < CHECKPOINTS_KM.length; i++) {
+    if (kmFisicos >= CHECKPOINTS_KM[i]) {
+      ultimoDesbloqueado = CHECKPOINTS_NOMBRES[i];
+    }
+  }
+  return ultimoDesbloqueado;
+};
+
+const formatearFechaMeta = (fecha) => {
+  if (!fecha) return null;
+  return new Date(fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+};
+
 export default function HomeScreen({ navigation }) {
   const [challenges, setChallenges] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -33,6 +61,9 @@ export default function HomeScreen({ navigation }) {
   const [completado, setCompletado] = useState(null);
   const [nombre, setNombre] = useState('');
   const [bannerVisible, setBannerVisible] = useState(false);
+  const [metaInputs, setMetaInputs] = useState({});
+  const [metaVisibles, setMetaVisibles] = useState({});
+  const [guardandoMeta, setGuardandoMeta] = useState({});
   const viewShotRefs = useRef([]);
 
   useEffect(() => {
@@ -78,11 +109,48 @@ export default function HomeScreen({ navigation }) {
       setBannerVisible(sinKm);
       const reto100 = lista.find(c => parseFloat(c.porcentaje) >= 100 && !c.pending);
       if (reto100) setCompletado(reto100.challenge);
+
+      const visibles = {};
+      for (const c of activos) {
+        if (parseFloat(c.km_completados) === 0 && !c.meta_fecha) {
+          const yaVisto = await AsyncStorage.getItem(`meta_preguntada_${c.challenge_id}`);
+          if (!yaVisto) visibles[c.challenge_id] = true;
+        }
+      }
+      setMetaVisibles(visibles);
     } catch (err) {
       console.error('Error:', err);
       setError(true);
     } finally {
       setCargando(false);
+    }
+  };
+
+  const saltarMeta = async (challengeId) => {
+    await AsyncStorage.setItem(`meta_preguntada_${challengeId}`, 'true');
+    setMetaVisibles(prev => ({ ...prev, [challengeId]: false }));
+  };
+
+  const guardarMeta = async (item) => {
+    const input = metaInputs[item.challenge_id] || '';
+    if (!input) { saltarMeta(item.challenge_id); return; }
+    const partes = input.split('/');
+    if (partes.length !== 3) { Alert.alert('Formato inválido', 'Usá DD/MM/AAAA'); return; }
+    const fecha = new Date(`${partes[2]}-${partes[1]}-${partes[0]}`);
+    if (isNaN(fecha.getTime())) { Alert.alert('Fecha inválida'); return; }
+    if (fecha <= new Date()) { Alert.alert('La fecha debe ser futura'); return; }
+
+    setGuardandoMeta(prev => ({ ...prev, [item.challenge_id]: true }));
+    try {
+      await supabase.from('user_challenges').update({ meta_fecha: fecha.toISOString() })
+        .eq('user_id', userId).eq('challenge_id', item.challenge_id);
+      await AsyncStorage.setItem(`meta_preguntada_${item.challenge_id}`, 'true');
+      setMetaVisibles(prev => ({ ...prev, [item.challenge_id]: false }));
+      Alert.alert('✅ Meta guardada', `Tu objetivo es el ${input}.`);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo guardar la meta.');
+    } finally {
+      setGuardandoMeta(prev => ({ ...prev, [item.challenge_id]: false }));
     }
   };
 
@@ -190,33 +258,53 @@ export default function HomeScreen({ navigation }) {
               const pct = Math.min(parseFloat(item.porcentaje), 100);
               const estaCompletado = pct >= 100;
               const frase = getFrase(pct, item.modalidad);
+              const mostrarCardMeta = metaVisibles[item.challenge_id];
+              const checkpointActual = getCheckpointDesbloqueado(item.km_completados, item.distancia_total);
+              const metaFormateada = formatearFechaMeta(item.meta_fecha);
+              const bordeCard = estaCompletado ? '#FC4C02' : pct >= 75 ? '#FC4C02' : '#1E3A5F';
+
               return (
                 <View key={`activo-${index}`}>
                   <ViewShot
                     ref={ref => viewShotRefs.current[index] = ref}
                     options={{ format: 'png', quality: 1 }}
                   >
-                    <View style={[styles.shareCard, estaCompletado && styles.shareCardCompletado]}>
+                    <View style={[styles.shareCard, { borderColor: bordeCard }]}>
                       <View style={styles.shareHeader}>
                         <Text style={styles.shareKorvaLogo}>🏅 KORVA</Text>
                         <Text style={styles.shareDeporte}>
                           {item.modalidad === 'Running' ? '🏃 RUNNING' : item.modalidad === 'Ciclismo' ? '🚴 CICLISMO' : '🏊 NATACIÓN'}
                         </Text>
                       </View>
+
                       <View style={styles.sharePctWrapper}>
                         <Text style={styles.sharePctNumero}>{pct.toFixed(0)}</Text>
                         <Text style={styles.sharePctSymbol}>%</Text>
                       </View>
+
                       <Text style={styles.shareChallengeName}>{item.challenge}</Text>
                       <Text style={styles.shareFrase}>{frase}</Text>
+
+                      {checkpointActual && checkpointActual !== 'Tolhuin' && (
+                        <View style={styles.shareCheckpoint}>
+                          <Text style={styles.shareCheckpointText}>📍 {checkpointActual}</Text>
+                        </View>
+                      )}
+
                       <View style={styles.shareProgressBar}>
                         <View style={[styles.shareProgressFill, { width: `${pct}%` }, estaCompletado && styles.shareProgressFillCompletado]} />
                       </View>
+
                       <View style={styles.shareKmRow}>
                         <Text style={styles.shareKmText}>{item.km_completados} km</Text>
-                        <Text style={styles.shareKmTotal}>de {item.distancia_total} km</Text>
-                        {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅 Completado!</Text>}
+                        <Text style={styles.shareKmTotal}>· Tolhuin → Ushuaia</Text>
+                        {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅</Text>}
                       </View>
+
+                      {metaFormateada && (
+                        <Text style={styles.shareMetaText}>🎯 Meta: {metaFormateada}</Text>
+                      )}
+
                       <View style={styles.shareFooter}>
                         <Text style={styles.shareNombre}>{nombre}</Text>
                         <Text style={styles.shareUrl}>korva.run</Text>
@@ -230,6 +318,36 @@ export default function HomeScreen({ navigation }) {
                     porcentaje={item.porcentaje}
                     checkpointsData={item.checkpoints}
                   />
+
+                  {mostrarCardMeta && (
+                    <View style={styles.metaCard}>
+                      <Text style={styles.metaCardTitulo}>🎯 ¿Cuándo querés terminar?</Text>
+                      <Text style={styles.metaCardSubtitulo}>Opcional — te ayuda a planificar tu entrenamiento</Text>
+                      <View style={styles.metaInputRow}>
+                        <TextInput
+                          style={styles.metaInput}
+                          value={metaInputs[item.challenge_id] || ''}
+                          onChangeText={v => setMetaInputs(prev => ({ ...prev, [item.challenge_id]: v }))}
+                          placeholder="DD/MM/AAAA"
+                          placeholderTextColor="#4a6a8a"
+                          keyboardType="numeric"
+                        />
+                        <TouchableOpacity
+                          style={styles.metaGuardarBtn}
+                          onPress={() => guardarMeta(item)}
+                          disabled={guardandoMeta[item.challenge_id]}
+                        >
+                          {guardandoMeta[item.challenge_id]
+                            ? <ActivityIndicator color="#FFFFFF" size="small" />
+                            : <Text style={styles.metaGuardarBtnText}>Guardar</Text>
+                          }
+                        </TouchableOpacity>
+                      </View>
+                      <TouchableOpacity onPress={() => saltarMeta(item.challenge_id)} style={styles.metaSaltarBtn}>
+                        <Text style={styles.metaSaltarText}>Saltar por ahora</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
 
                   <TouchableOpacity
                     style={styles.detalleBtn}
@@ -299,8 +417,7 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 48, marginBottom: 16 },
   emptyText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   emptySubtext: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 20 },
-  shareCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 24, marginBottom: 8, borderWidth: 2, borderColor: '#1E3A5F' },
-  shareCardCompletado: { borderColor: '#FC4C02' },
+  shareCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 24, marginBottom: 8, borderWidth: 2 },
   shareHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   shareKorvaLogo: { fontSize: 13, fontWeight: 'bold', color: '#FC4C02', letterSpacing: 2 },
   shareDeporte: { fontSize: 11, fontWeight: 'bold', color: '#1E6FD9', letterSpacing: 1 },
@@ -308,14 +425,17 @@ const styles = StyleSheet.create({
   sharePctNumero: { fontSize: 72, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 80 },
   sharePctSymbol: { fontSize: 32, fontWeight: 'bold', color: '#FC4C02', marginBottom: 12, marginLeft: 4 },
   shareChallengeName: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
-  shareFrase: { fontSize: 13, color: '#A8CFFF', marginBottom: 20, fontStyle: 'italic' },
+  shareFrase: { fontSize: 13, color: '#A8CFFF', marginBottom: 12, fontStyle: 'italic' },
+  shareCheckpoint: { backgroundColor: '#0D1B2A', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start', marginBottom: 14 },
+  shareCheckpointText: { fontSize: 12, color: '#FC4C02', fontWeight: 'bold' },
   shareProgressBar: { height: 6, backgroundColor: '#0D1B2A', borderRadius: 3, marginBottom: 12 },
   shareProgressFill: { height: 6, backgroundColor: '#1E6FD9', borderRadius: 3 },
   shareProgressFillCompletado: { backgroundColor: '#FC4C02' },
-  shareKmRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20 },
+  shareKmRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   shareKmText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
-  shareKmTotal: { fontSize: 13, color: '#A8CFFF', flex: 1 },
-  shareCompletadoBadge: { fontSize: 13, color: '#FC4C02', fontWeight: 'bold' },
+  shareKmTotal: { fontSize: 12, color: '#4a6a8a', flex: 1 },
+  shareCompletadoBadge: { fontSize: 16 },
+  shareMetaText: { fontSize: 12, color: '#A8CFFF', marginBottom: 16 },
   shareFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#0D1B2A', paddingTop: 12 },
   shareNombre: { fontSize: 12, color: '#4a6a8a', fontWeight: 'bold' },
   shareUrl: { fontSize: 12, color: '#4a6a8a' },
@@ -325,4 +445,13 @@ const styles = StyleSheet.create({
   compartirBtnText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
   actualizarBtn: { marginTop: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center' },
   actualizarBtnText: { color: '#A8CFFF', fontSize: 14 },
+  metaCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 18, marginBottom: 8, borderWidth: 1, borderColor: '#FC4C02' },
+  metaCardTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
+  metaCardSubtitulo: { fontSize: 12, color: '#A8CFFF', marginBottom: 14 },
+  metaInputRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  metaInput: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, color: '#FFFFFF', fontSize: 14, borderWidth: 1, borderColor: '#2a4a6a' },
+  metaGuardarBtn: { backgroundColor: '#FC4C02', borderRadius: 10, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  metaGuardarBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
+  metaSaltarBtn: { alignItems: 'center', paddingVertical: 4 },
+  metaSaltarText: { color: '#4a6a8a', fontSize: 12 },
 });

@@ -239,6 +239,22 @@ export default function PerfilScreen() {
         <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.total_km || 0}</Text><Text style={styles.statLabel}>km totales</Text></View>
         <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.medallas || 0}</Text><Text style={styles.statLabel}>Medallas</Text></View>
       </View>
+
+      {stats && (
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}><Text style={styles.statNumero}>🔥 {stats.racha_actual || 0}</Text><Text style={styles.statLabel}>Racha días</Text></View>
+          <View style={styles.statCard}><Text style={styles.statNumero}>{stats.mejor_semana_km || 0}</Text><Text style={styles.statLabel}>Mejor semana</Text></View>
+          <View style={styles.statCard}><Text style={styles.statNumero}>{stats.promedio_semanal_km || 0}</Text><Text style={styles.statLabel}>km/semana</Text></View>
+        </View>
+      )}
+
+      {stats?.perfil_deporte && (
+        <View style={styles.seccion}>
+          <View style={styles.perfilDeporteCard}>
+            <Text style={styles.perfilDeporteTexto}>{stats.perfil_deporte}</Text>
+          </View>
+        </View>
+      )}
   {inscripcionActiva && (
         <View style={styles.seccion}>
           <Text style={styles.seccionTitulo}>🏅 Mi reto activo</Text>
@@ -517,5 +533,6 @@ const styles = StyleSheet.create({
   stravaConectadoText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
   stravaReconectarText: { color: '#A8CFFF', fontSize: 13 },
   cerrarButton: { borderWidth: 1, borderColor: '#2a3a4a', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center', paddingHorizontal: 24 },
-  cerrarButtonText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 15 },
+  cerrarButtonText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 15 }, perfilDeporteCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#1E6FD9' },
+perfilDeporteTexto: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF' },
 });
