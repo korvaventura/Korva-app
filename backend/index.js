@@ -368,11 +368,11 @@ app.get('/actividades/:userId', async (req, res) => {
 
 app.put('/admin/challenges/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, description, historia, price_usd, medal_image_url, imagen_portada, galeria, link_mercadopago, link_shopify, oferta_texto, checkpoints } = req.body;
+ const { title, description, historia, price_usd, price_ars, medal_image_url, imagen_portada, galeria, link_mercadopago, link_shopify, oferta_texto, checkpoints } = req.body;
   try {
     const { data, error } = await supabase
       .from('challenges')
-      .update({ title, description, historia, price_usd, medal_image_url, imagen_portada, galeria, link_mercadopago, link_shopify, oferta_texto, checkpoints })
+      .update({ title, description, historia, price_usd, price_ars, medal_image_url, imagen_portada, galeria, link_mercadopago, link_shopify, oferta_texto, checkpoints })
       .eq('id', id)
       .select()
       .single();
