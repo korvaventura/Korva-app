@@ -103,8 +103,8 @@ export default function PerfilScreen() {
   const cargarInscripcionActiva = async () => {
     try {
       const { data, error } = await supabase
-        .from('user_challenges')
-        .select('id, modalidad, challenge_id, meta_fecha, challenges(title)')
+  .from('user_challenges')
+  .select('id, modalidad, challenge_id, meta_fecha, km_completed, challenges(title, modalidades)')
         .eq('user_id', userId)
         .eq('status', 'active')
         .single();
@@ -355,7 +355,10 @@ export default function PerfilScreen() {
                   {(() => {
                     const diasRestantes = diasEntre(new Date(), new Date(metaFecha));
                     const sesionesRestantes = Math.floor(diasRestantes * factorDescanso);
-                    const kmPorSesion = sesionesRestantes > 0 ? (0 / sesionesRestantes).toFixed(1) : '—';
+                   const modalidadData = inscripcionActiva?.challenges?.modalidades?.find(m => m.tipo === inscripcionActiva.modalidad);
+                  const distanciaTotal = modalidadData?.distancia_km || 0;
+                  const kmRestantes = Math.max(0, distanciaTotal - (inscripcionActiva?.km_completed || 0));
+                  const kmPorSesion = sesionesRestantes > 0 ? (kmRestantes / sesionesRestantes).toFixed(1) : '—';
                     return `${kmPorSesion}km por sesión · ${sesionesporSemana} veces/semana`;
                   })()}
                 </Text>
