@@ -89,12 +89,12 @@ export default function RankingScreen() {
   const irAMiPosicion = () => {
     setMostrarTodos(true);
     setTimeout(() => {
-      miPosicionRef.current?.measureLayout(
-        scrollRef.current?.getScrollableNode?.(),
-        (x, y) => scrollRef.current?.scrollTo({ y: y - 100, animated: true }),
-        () => {}
-      );
-    }, 300);
+      if (miPosicionRef.current) {
+        miPosicionRef.current.measure((x, y, width, height, pageX, pageY) => {
+          scrollRef.current?.scrollTo({ y: pageY - 150, animated: true });
+        });
+      }
+    }, 400);
   };
 
   const AvatarItem = ({ item, size = 40 }) => (
