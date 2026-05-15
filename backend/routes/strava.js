@@ -239,15 +239,19 @@ router.get('/progreso/:userId', async (req, res) => {
 
       // Si está pending no calculamos progreso, solo avisamos
       if (uc.status === 'pending') {
-        return {
-          challenge: uc.challenges.title,
-          modalidad: uc.modalidad === 'run' ? 'Running' : uc.modalidad === 'ride' ? 'Ciclismo' : 'General',
-          distancia_total: uc.challenges.total_distance_km,
-          km_completados: '0.00',
-          porcentaje: '0.0%',
-          estado: 'PENDIENTE',
-          pending: true
-        };
+       return {
+      challenge: uc.challenges.title,
+      challenge_id: uc.challenge_id,
+      modalidad: uc.modalidad === 'run' ? 'Running' : uc.modalidad === 'ride' ? 'Ciclismo' : 'General',
+      distancia_total: modalidadElegida.distancia_km,
+      km_completados: totalKm.toFixed(2),
+      porcentaje: porcentaje,
+      checkpoints: uc.challenges.checkpoints || null,
+      estado: parseFloat(porcentaje) >= 100 ? 'COMPLETADO' : 'En progreso',
+      started_at: uc.started_at,
+      meta_fecha: uc.meta_fecha,
+      pending: false
+      };
       }
 
       const modalidades = uc.challenges.modalidades || [];
