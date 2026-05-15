@@ -23,10 +23,20 @@ export default function RegistroManualScreen() {
   const [exito, setExito] = useState(false);
   const [userId, setUserId] = useState(null);
   const [diasAtras, setDiasAtras] = useState(0);
+  const [challengeId, setChallengeId] = useState(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.id) setUserId(session.user.id);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user?.id) {
+        setUserId(session.user.id);
+        const { data } = await supabase
+          .from('user_challenges')
+          .select('challenge_id')
+          .eq('user_id', session.user.id)
+          .eq('status', 'active')
+          .single();
+        if (data?.challenge_id) setChallengeId(data.challenge_id);
+      }
     });
   }, []);
 
@@ -50,6 +60,7 @@ export default function RegistroManualScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId,
+          challenge_id: challengeId,
           sport_type: deporte,
           distance_km: parseFloat(distancia),
           recorded_at: fechaActividad.toISOString()
@@ -60,7 +71,7 @@ export default function RegistroManualScreen() {
         setMensaje('Error al registrar. Intenta de nuevo.');
         setExito(false);
       } else {
-      setMensaje(`${distancia} km de ${deporte === 'run' ? 'running' : 'ciclismo'} registrados!`);
+        setMensaje(`${distancia} km de ${deporte === 'run' ? 'running' : 'ciclismo'} registrados!`);
         setExito(true);
         setDistancia('');
         setDiasAtras(0);
@@ -95,7 +106,6 @@ export default function RegistroManualScreen() {
       <Text style={styles.titulo}>Registrar km</Text>
       <Text style={styles.subtitulo}>Carga tus actividades manualmente</Text>
 
-      {/* Selector deporte */}
       <View style={styles.deporteContainer}>
         {deportes.map((d) => (
           <TouchableOpacity
@@ -111,7 +121,6 @@ export default function RegistroManualScreen() {
         ))}
       </View>
 
-      {/* Input distancia */}
       <View style={styles.distanciaCard}>
         <Text style={styles.distanciaLabel}>DISTANCIA</Text>
         <View style={styles.distanciaRow}>
@@ -127,7 +136,6 @@ export default function RegistroManualScreen() {
         </View>
       </View>
 
-      {/* Selector de fecha */}
       <View style={styles.seccion}>
         <Text style={styles.seccionTitulo}>📅 Fecha de la actividad</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.fechaScroll}>
@@ -148,7 +156,6 @@ export default function RegistroManualScreen() {
         </Text>
       </View>
 
-      {/* Mensaje */}
       {mensaje ? (
         <View style={[styles.mensajeBox, exito && styles.mensajeExito]}>
           <Text style={[styles.mensajeText, exito && styles.mensajeTextoExito]}>
@@ -157,7 +164,6 @@ export default function RegistroManualScreen() {
         </View>
       ) : null}
 
-      {/* Boton */}
       <TouchableOpacity
         style={[styles.button, cargando && styles.buttonDisabled]}
         onPress={registrar}
@@ -207,5 +213,6 @@ const styles = StyleSheet.create({
   mensajeTextoExito: { color: '#4CAF50' },
   button: { backgroundColor: '#1E6FD9', paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
   buttonDisabled: { backgroundColor: '#2a3a4a' },
-  buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
+  btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 });
