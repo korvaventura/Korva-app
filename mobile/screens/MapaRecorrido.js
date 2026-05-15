@@ -74,7 +74,9 @@ const getCompletedPathString = (kmFisicos) => {
 export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpointsData }) {
   const [modalVisible, setModalVisible] = useState(null);
   const scrollViewRef = useRef(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  
+  // 1. Inicializamos en 0 para el efecto radar
+  const pulseAnim = useRef(new Animated.Value(0)).current;
 
   const factor = (distanciaTotal || DISTANCIA_FISICA) / DISTANCIA_FISICA;
   const kmFisicos = Math.min(parseFloat(kmCompletados || 0) / factor, DISTANCIA_FISICA);
@@ -85,15 +87,27 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
     ? checkpointsData.map((cp, i) => ({ ...CHECKPOINTS_DEFAULT[i], ...cp }))
     : CHECKPOINTS_DEFAULT;
 
-  // Animación de latido para el pin actual
+  // 2. Animación de radar (crece y se difumina)
   useEffect(() => {
     Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.5, duration: 1000, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true })
-      ])
+      Animated.timing(pulseAnim, { 
+        toValue: 1, 
+        duration: 1500, 
+        useNativeDriver: false // Crucial para animar SVG
+      })
     ).start();
   }, []);
+
+  // 3. Interpolaciones para el SVG
+  const animatedRadius = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [12, 28]
+  });
+  
+  const animatedOpacity = pulseAnim.interpolate({
+    inputRange: [0, 0.7, 1],
+    outputRange: [0.6, 0.1, 0]
+  });
 
   // Auto-enfoque en el mapa al cargar
   useEffect(() => {
@@ -155,13 +169,19 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
             })}
 
             {kmFisicos > 0 && (
-              <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={18} fill="#EA580C" opacity="0.3" style={{ transform: [{ scale: pulseAnim }] }} />
+              // 4. Usamos las propiedades animadas aquí
+              <AnimatedCircle 
+                cx={pinPos.x} 
+                cy={pinPos.y} 
+                r={animatedRadius} 
+                fill="#EA580C" 
+                opacity={animatedOpacity} 
+              />
             )}
             
             {kmFisicos > 0 && (
               <>
                 <Circle cx={pinPos.x} cy={pinPos.y} r={8} fill="#FFFFFF" stroke="#EA580C" strokeWidth="4" />
-                {/* Los kilómetros ahora están POR DEBAJO del pin */}
                 <Rect x={pinPos.x - 22} y={pinPos.y + 16} width="44" height="20" rx="6" fill="#1E293B" />
                 <SvgText x={pinPos.x} y={pinPos.y + 30} fill="#F97316" fontSize="11" textAnchor="middle" fontWeight="900">
                   {(kmFisicos * factor).toFixed(0)}km
