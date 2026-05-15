@@ -36,7 +36,7 @@ export default function AdminScreen() {
 
   const [retoEditando, setRetoEditando] = useState(null);
   const [formEditar, setFormEditar] = useState({
-    title: '', description: '', historia: '', price_usd: '',
+    title: '', description: '', historia: '', price_usd: '', price_ars: '',
     medal_image_url: '', link_mercadopago: '', link_shopify: '', oferta_texto: '',
   });
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
@@ -133,6 +133,7 @@ export default function AdminScreen() {
       description: challenge.description || '',
       historia: challenge.historia || '',
       price_usd: challenge.price_usd?.toString() || '',
+      price_ars: challenge.price_ars?.toString() || '',
       medal_image_url: challenge.medal_image_url || '',
       link_mercadopago: challenge.link_mercadopago || '',
       link_shopify: challenge.link_shopify || '',
@@ -427,7 +428,9 @@ export default function AdminScreen() {
               <Text style={styles.formLabel}>Historia</Text>
               <TextInput style={[styles.input, { height: 100, textAlignVertical: 'top' }]} value={formEditar.historia} onChangeText={v => setFormEditar(p => ({ ...p, historia: v }))} placeholderTextColor="#4a6a8a" multiline />
               <Text style={styles.formLabel}>Precio USD *</Text>
-              <TextInput style={styles.input} value={formEditar.price_usd} onChangeText={v => setFormEditar(p => ({ ...p, price_usd: v }))} placeholderTextColor="#4a6a8a" keyboardType="numeric" />
+<TextInput style={styles.input} value={formEditar.price_usd} onChangeText={v => setFormEditar(p => ({ ...p, price_usd: v }))} placeholderTextColor="#4a6a8a" keyboardType="numeric" />
+<Text style={styles.formLabel}>Precio ARS (pesos argentinos)</Text>
+<TextInput style={styles.input} value={formEditar.price_ars} onChangeText={v => setFormEditar(p => ({ ...p, price_ars: v }))} placeholder="Ej: 49990" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
               <Text style={styles.formLabel}>URL imagen medalla</Text>
               <TextInput style={styles.input} value={formEditar.medal_image_url} onChangeText={v => setFormEditar(p => ({ ...p, medal_image_url: v }))} placeholderTextColor="#4a6a8a" />
               <Text style={styles.formLabel}>🇦🇷 Link MercadoPago</Text>

@@ -115,8 +115,12 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
 
       <View style={styles.ctaWrapper}>
         <Text style={styles.ctaPrecio}>USD ${challenge.price_usd} — medalla incluida 🏅</Text>
+{challenge.price_ars && <Text style={styles.ctaPrecioArs}>$ {challenge.price_ars.toLocaleString('es-AR')} ARS</Text>}
         <TouchableOpacity style={styles.ctaBtn} onPress={onInscribir}>
-          <Text style={styles.ctaBtnText}>Quiero este reto →</Text>
+          <View style={styles.btnRow}>
+            <Text style={styles.ctaBtnText}>Quiero este reto</Text>
+            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+          </View>
         </TouchableOpacity>
         <Text style={styles.ctaSubtexto}>Completá el reto a tu ritmo · Envío a todo el mundo</Text>
       </View>
@@ -166,5 +170,6 @@ const styles = StyleSheet.create({
   ctaPrecio: { fontSize: 14, color: '#A8CFFF', marginBottom: 14 },
   ctaBtn: { backgroundColor: '#FC4C02', paddingVertical: 16, borderRadius: 14, width: '100%', alignItems: 'center', marginBottom: 12 },
   ctaBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 17 },
-  ctaSubtexto: { fontSize: 12, color: '#4a6a8a', textAlign: 'center' },
+  ctaSubtexto: { fontSize: 12, color: '#4a6a8a', textAlign: 'center' }, backBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 }, ctaPrecioArs: { fontSize: 13, color: '#FC4C02', marginBottom: 14, fontWeight: 'bold' },
 });

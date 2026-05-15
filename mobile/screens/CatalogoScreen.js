@@ -115,7 +115,10 @@ export default function CatalogoScreen() {
                 <Text style={styles.deporte}>
                   {item.sport_type === 'run' ? '🏃 RUNNING' : item.sport_type === 'ride' ? '🚴 CICLISMO' : '🌐 MULTIDEPORTE'}
                 </Text>
-                <Text style={styles.precio}>USD ${item.price_usd}</Text>
+                <View>
+  <Text style={styles.precio}>USD ${item.price_usd}</Text>
+  {item.price_ars && <Text style={styles.precioArs}>$ {item.price_ars.toLocaleString('es-AR')} ARS</Text>}
+</View>
               </View>
               <Text style={styles.titulo2}>{item.title}</Text>
               <Text style={styles.descripcion} numberOfLines={2}>{item.description}</Text>
@@ -231,5 +234,5 @@ const styles = StyleSheet.create({
   modalButtonTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
   modalButtonSub: { fontSize: 12, color: '#A8CFFF' },
   modalCancelar: { marginTop: 8, alignItems: 'center', paddingVertical: 12 },
-  modalCancelarText: { color: '#A8CFFF', fontSize: 15 },
+  modalCancelarText: { color: '#A8CFFF', fontSize: 15 }, precioArs: { fontSize: 12, color: '#A8CFFF', textAlign: 'right', marginTop: 2 },
 });
