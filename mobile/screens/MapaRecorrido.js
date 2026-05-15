@@ -59,18 +59,34 @@ const CHECKPOINTS_DEFAULT = [
 
 const RUTA = "M280,40 C260,52 240,62 210,75 C185,88 170,100 150,115 C125,132 100,143 80,150 C60,158 45,168 30,180";
 
+// CORRECCIÓN: Cálculo de la posición interpolando entre checkpoints para seguir la curva
 const getPuntoEnRuta = (kmFisicos) => {
-  const pct = Math.min(kmFisicos / DISTANCIA_FISICA, 1);
-  const x = 280 + (30 - 280) * pct;
-  const y = 40 + (180 - 40) * pct;
-  return { x, y };
+  if (kmFisicos <= 0) return { x: CHECKPOINTS_DEFAULT[0].x, y: CHECKPOINTS_DEFAULT[0].y };
+  if (kmFisicos >= DISTANCIA_FISICA) return { x: CHECKPOINTS_DEFAULT[CHECKPOINTS_DEFAULT.length - 1].x, y: CHECKPOINTS_DEFAULT[CHECKPOINTS_DEFAULT.length - 1].y };
+
+  // Encontrar en qué tramo estamos
+  for (let i = 0; i < CHECKPOINTS_DEFAULT.length - 1; i++) {
+    const cpActual = CHECKPOINTS_DEFAULT[i];
+    const cpSiguiente = CHECKPOINTS_DEFAULT[i + 1];
+
+    if (kmFisicos >= cpActual.kmFisico && kmFisicos <= cpSiguiente.kmFisico) {
+      const kmTramo = cpSiguiente.kmFisico - cpActual.kmFisico;
+      const progresoTramo = (kmFisicos - cpActual.kmFisico) / kmTramo;
+      
+      const x = cpActual.x + (cpSiguiente.x - cpActual.x) * progresoTramo;
+      const y = cpActual.y + (cpSiguiente.y - cpActual.y) * progresoTramo;
+      return { x, y };
+    }
+  }
+  return { x: 30, y: 180 }; // Fallback final
 };
 
 export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpointsData }) {
   const [modalVisible, setModalVisible] = useState(null);
 
   const factor = (distanciaTotal || DISTANCIA_FISICA) / DISTANCIA_FISICA;
-  const kmFisicos = Math.min(parseFloat(kmCompletados) / factor, DISTANCIA_FISICA);
+  // CORRECCIÓN: Prevención de NaN si kmCompletados viene vacío
+  const kmFisicos = Math.min(parseFloat(kmCompletados || 0) / factor, DISTANCIA_FISICA);
   const pctFisico = (kmFisicos / DISTANCIA_FISICA) * 100;
   const pinPos = getPuntoEnRuta(kmFisicos);
 
@@ -149,7 +165,8 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
                 {(esInicio || esFin) && (
                   <View style={styles.mensajeEspecialBox}>
                     <Text style={styles.mensajeEspecial}>
-                      {esInicio ? '🚀 ¡Bienvenido al desafío! Cada paso que des desde acá te acerca al fin del mundo.' : '🏅 ¡Lo lograste! Llegaste al fin del mundo. Tu medalla está en camino.'}
+                      {/* CORRECCIÓN: Se integró el lema "Cada Paso Cuenta" en la bienvenida */}
+                      {esInicio ? '🚀 ¡Bienvenido al desafío! Cada Paso Cuenta y te acerca al fin del mundo.' : '🏅 ¡Lo lograste! Llegaste al fin del mundo. Tu medalla está en camino.'}
                     </Text>
                   </View>
                 )}
