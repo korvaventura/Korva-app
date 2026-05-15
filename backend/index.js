@@ -392,7 +392,7 @@ app.get('/actividades/:userId', async (req, res) => {
       .select('*')
       .eq('user_id', userId)
       .order('recorded_at', { ascending: false })
-      .limit(10);
+      .limit(100);
 
     if (error) throw error;
     res.json(data);
