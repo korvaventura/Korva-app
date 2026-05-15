@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, Animated, Dimensions } from 'react-native';
-import Svg, { Path, Circle, Rect, Text as SvgText, Defs, LinearGradient, Stop, G, Mask } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Text as SvgText, Defs, LinearGradient, Stop, Mask } from 'react-native-svg';
 
 const DISTANCIA_FISICA = 103;
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -71,6 +71,67 @@ const getCompletedPathString = (kmFisicos) => {
   return d;
 };
 
+// --- COMPONENTE DE CLIMA DINÁMICO (NIEVE) ---
+const CopoNieve = ({ delay, startX, size, duration }) => {
+  const translateY = useRef(new Animated.Value(-20)).current;
+  const translateX = useRef(new Animated.Value(startX)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.parallel([
+        Animated.timing(translateY, {
+          toValue: 280,
+          duration: duration,
+          delay: delay,
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.timing(translateX, { toValue: startX + 15, duration: duration / 2, useNativeDriver: true }),
+          Animated.timing(translateX, { toValue: startX - 15, duration: duration / 2, useNativeDriver: true }),
+        ])
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        top: 0,
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: '#F8FAFC',
+        opacity: 0.7,
+        shadowColor: '#FFF',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 4,
+        transform: [{ translateY }, { translateX }]
+      }}
+    />
+  );
+};
+
+const EfectoNieve = () => {
+  const copos = useRef(
+    Array.from({ length: 35 }).map((_, i) => ({
+      id: i,
+      startX: Math.random() * SCREEN_WIDTH,
+      delay: Math.random() * 3000,
+      size: Math.random() * 3 + 2,
+      duration: Math.random() * 2500 + 2000,
+    }))
+  ).current;
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]} pointerEvents="none">
+      {copos.map(c => <CopoNieve key={c.id} {...c} />)}
+    </View>
+  );
+};
+// --- FIN DEL COMPONENTE DE CLIMA ---
+
 export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpointsData }) {
   const [modalVisible, setModalVisible] = useState(null);
   const scrollViewRef = useRef(null);
@@ -98,20 +159,9 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
     ).start();
   }, []);
 
-  const animatedRadiusRadar = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [12, 28]
-  });
-
-  const animatedRadiusSpotlight = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [18, 32]
-  });
-  
-  const animatedOpacity = pulseAnim.interpolate({
-    inputRange: [0, 0.7, 1],
-    outputRange: [0.6, 0.1, 0]
-  });
+  const animatedRadiusRadar = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 28] });
+  const animatedRadiusSpotlight = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 32] });
+  const animatedOpacity = pulseAnim.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.6, 0.1, 0] });
 
   useEffect(() => {
     if (scrollViewRef.current) {
@@ -145,6 +195,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
                 <Stop offset="1" stopColor="#1E293B" stopOpacity="1" />
               </LinearGradient>
               
+              {/* Máscara de Niebla (Fog of War) */}
               <Mask id="fogMask">
                 <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="white" />
                 
@@ -158,7 +209,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
 
                 {kmFisicos > 0 && (
                   <AnimatedCircle 
-                    key={`spot-${kmFisicos}`} // <- REPARACIÓN DEL LATIDO
+                    key={`spot-${kmFisicos}`} 
                     cx={pinPos.x} 
                     cy={pinPos.y} 
                     r={animatedRadiusSpotlight} 
@@ -193,6 +244,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
               );
             })}
 
+            {/* Capa oscura que genera la niebla */}
             <Rect 
               x="0" y="0" 
               width={MAPA_WIDTH_VIRTUAL} height="260" 
@@ -201,9 +253,10 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
               mask="url(#fogMask)"
             />
 
+            {/* Elementos de Progreso Activos (Por encima de la niebla) */}
             {kmFisicos > 0 && (
               <AnimatedCircle 
-                key={`radar-${kmFisicos}`} // <- REPARACIÓN DEL LATIDO
+                key={`radar-${kmFisicos}`}
                 cx={pinPos.x} 
                 cy={pinPos.y} 
                 r={animatedRadiusRadar} 
@@ -216,7 +269,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
               <>
                 <Circle cx={pinPos.x} cy={pinPos.y} r={8} fill="#FFFFFF" stroke="#EA580C" strokeWidth="4" />
                 
-                {/* FONDO DEL KM CENTRADO */}
+                {/* Fondo Oscuro del Kilometraje Centrado */}
                 <Rect 
                   x={pinPos.x - 24} 
                   y={pinPos.y + 16} 
@@ -226,7 +279,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
                   fill="#1E293B" 
                 />
                 
-                {/* TEXTO DEL KM CENTRADO */}
+                {/* Texto del Kilometraje Centrado */}
                 <SvgText 
                   x={pinPos.x} 
                   y={pinPos.y + 26} 
@@ -242,7 +295,13 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
             )}
           </Svg>
         </ScrollView>
+
+        {/* 🏔️ CLIMA DINÁMICO: Nieva en la alta montaña (Km 40 al 85) */}
+        {kmFisicos >= 40 && kmFisicos <= 85 && (
+          <EfectoNieve />
+        )}
       </View>
+      
       <Text style={styles.scrollHint}>👈 Desliza para explorar la ruta 👉</Text>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
@@ -315,7 +374,7 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const styles = StyleSheet.create({
   container: { marginBottom: 16 },
   titulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 12 },
-  mapaWrapper: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#334155', backgroundColor: '#0F172A' },
+  mapaWrapper: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#334155', backgroundColor: '#0F172A', position: 'relative' },
   scrollHint: { textAlign: 'center', color: '#64748B', fontSize: 11, marginTop: 8, marginBottom: 12, fontStyle: 'italic' },
   leyendaScroll: { marginBottom: 8 },
   leyendaItem: { flexDirection: 'row', backgroundColor: '#1E293B', borderRadius: 12, padding: 12, marginRight: 10, alignItems: 'center', borderWidth: 1, borderColor: '#334155' },
