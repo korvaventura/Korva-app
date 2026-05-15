@@ -1,9 +1,10 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Ionicons } from '@expo/vector-icons';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
+const TOP_VISIBLE = 10;
 
 export default function RankingScreen() {
   const [challenges, setChallenges] = useState([]);
@@ -13,6 +14,9 @@ export default function RankingScreen() {
   const [ranking, setRanking] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [miNombre, setMiNombre] = useState('');
+  const [mostrarTodos, setMostrarTodos] = useState(false);
+  const scrollRef = useRef(null);
+  const miPosicionRef = useRef(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -43,25 +47,21 @@ export default function RankingScreen() {
 
   const cargarRanking = async () => {
     setCargando(true);
+    setMostrarTodos(false);
     try {
       const res = await fetch(`${BACKEND_URL}/ranking/${challengeId}`);
       const data = await res.json();
-     const filtrado = Array.isArray(data)
-  ? data.filter(r => r.modalidad === modalidad)
-  : [];
-
-const reordenado = filtrado.sort((a, b) => {
-  const aEsPropio = a.nombre?.toLowerCase().startsWith(miNombre.toLowerCase());
-  const bEsPropio = b.nombre?.toLowerCase().startsWith(miNombre.toLowerCase());
-  const aCompletado = parseFloat(a.porcentaje) >= 100;
-  const bCompletado = parseFloat(b.porcentaje) >= 100;
-
-  if (aEsPropio && aCompletado) return -1;
-  if (bEsPropio && bCompletado) return 1;
-  return b.km_completados - a.km_completados;
-}).map((r, i) => ({ ...r, posicion: i + 1 }));
-
-setRanking(reordenado);
+      const filtrado = Array.isArray(data) ? data.filter(r => r.modalidad === modalidad) : [];
+      const reordenado = filtrado.sort((a, b) => {
+        const aEsPropio = a.nombre?.toLowerCase().startsWith(miNombre.toLowerCase());
+        const bEsPropio = b.nombre?.toLowerCase().startsWith(miNombre.toLowerCase());
+        const aCompletado = parseFloat(a.porcentaje) >= 100;
+        const bCompletado = parseFloat(b.porcentaje) >= 100;
+        if (aEsPropio && aCompletado) return -1;
+        if (bEsPropio && bCompletado) return 1;
+        return b.km_completados - a.km_completados;
+      }).map((r, i) => ({ ...r, posicion: i + 1 }));
+      setRanking(reordenado);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -81,6 +81,21 @@ setRanking(reordenado);
   };
 
   const completado = (porcentaje) => parseFloat(porcentaje) >= 100;
+
+  const miPosicion = ranking.findIndex(r => esPropio(r.nombre));
+  const miPosicionNumero = miPosicion >= 0 ? ranking[miPosicion].posicion : null;
+  const miPosicionEnTop = miPosicion >= 0 && miPosicion < TOP_VISIBLE;
+
+  const irAMiPosicion = () => {
+    setMostrarTodos(true);
+    setTimeout(() => {
+      miPosicionRef.current?.measureLayout(
+        scrollRef.current?.getScrollableNode?.(),
+        (x, y) => scrollRef.current?.scrollTo({ y: y - 100, animated: true }),
+        () => {}
+      );
+    }, 300);
+  };
 
   const AvatarItem = ({ item, size = 40 }) => (
     item.avatar ? (
@@ -102,9 +117,48 @@ setRanking(reordenado);
   };
 
   const modalidades = challengeSeleccionado?.modalidades || [];
+  const rankingVisible = mostrarTodos ? ranking : ranking.slice(0, TOP_VISIBLE);
+
+  const RankingItem = ({ item, index, refProp }) => {
+    const propio = esPropio(item.nombre);
+    const hizo100 = completado(item.porcentaje);
+    const pct = Math.min(parseFloat(item.porcentaje), 100);
+    return (
+      <View
+        key={index}
+        ref={refProp}
+        style={[styles.card, propio && styles.cardPropio]}
+      >
+        <View style={styles.posicionWrapper}>
+          {hizo100 ? (
+            <Ionicons name="medal" size={22} color="#FC4C02" />
+          ) : item.posicion <= 3 ? (
+            <Ionicons name="trophy" size={22} color={medallaColor(item.posicion)} />
+          ) : (
+            <Text style={styles.posicionText}>{item.posicion}°</Text>
+          )}
+        </View>
+        <AvatarItem item={item} size={40} />
+        <View style={styles.info}>
+          <View style={styles.nombreRow}>
+            <Text style={styles.nombre} numberOfLines={1}>{item.nombre}</Text>
+            {propio && (
+              <View style={styles.tuTag}>
+                <Text style={styles.tuTagText}>Tú</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: `${pct}%` }, hizo100 && styles.progressFillCompletado]} />
+          </View>
+          <Text style={styles.kmText}>{item.km_completados} km · {item.porcentaje}%</Text>
+        </View>
+      </View>
+    );
+  };
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+    <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>🏆 Ranking</Text>
 
       {challenges.length > 1 && (
@@ -154,52 +208,49 @@ setRanking(reordenado);
           <Text style={styles.emptySubtext}>¡Sé el primero en inscribirte!</Text>
         </View>
       ) : (
-        <View style={styles.listaWrapper}>
-          {ranking.map((item, index) => {
-            const propio = esPropio(item.nombre);
-            const hizo100 = completado(item.porcentaje);
-            const pct = Math.min(parseFloat(item.porcentaje), 100);
-            return (
-              <View key={index} style={[styles.card, propio && styles.cardPropio]}>
+        <>
+          {/* Botón mi posición — solo si no está en el top 10 */}
+          {miPosicionNumero && !miPosicionEnTop && (
+            <TouchableOpacity style={styles.miPosicionBtn} onPress={irAMiPosicion}>
+              <Text style={styles.miPosicionBtnText}>📍 Ver mi posición (#{miPosicionNumero})</Text>
+            </TouchableOpacity>
+          )}
 
-                {/* Posición */}
-                <View style={styles.posicionWrapper}>
-                  {hizo100 ? (
-                    <Ionicons name="medal" size={22} color="#FC4C02" />
-                  ) : item.posicion <= 3 ? (
-                    <Ionicons name="trophy" size={22} color={medallaColor(item.posicion)} />
-                  ) : (
-                    <Text style={styles.posicionText}>{item.posicion}°</Text>
-                  )}
-                </View>
+          <View style={styles.listaWrapper}>
+            {rankingVisible.map((item, index) => {
+              const propio = esPropio(item.nombre);
+              const esRefItem = propio && index === miPosicion;
+              return (
+                <RankingItem
+                  key={index}
+                  item={item}
+                  index={index}
+                  refProp={esRefItem ? miPosicionRef : null}
+                />
+              );
+            })}
+          </View>
 
-                {/* Avatar */}
-                <AvatarItem item={item} size={40} />
+          {/* Separador y botón ver más */}
+          {!mostrarTodos && ranking.length > TOP_VISIBLE && (
+            <View style={styles.verMasWrapper}>
+              {miPosicionNumero && !miPosicionEnTop && (
+                <TouchableOpacity style={styles.miPosicionBtnSecundario} onPress={irAMiPosicion}>
+                  <Text style={styles.miPosicionBtnSecundarioText}>📍 Ir a mi posición (#{miPosicionNumero})</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={styles.verMasBtn} onPress={() => setMostrarTodos(true)}>
+                <Text style={styles.verMasBtnText}>Ver los {ranking.length - TOP_VISIBLE} restantes ↓</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
-                {/* Info */}
-                <View style={styles.info}>
-                  <View style={styles.nombreRow}>
-                    <Text style={styles.nombre} numberOfLines={1}>{item.nombre}</Text>
-                    {propio && (
-                      <View style={styles.tuTag}>
-                        <Text style={styles.tuTagText}>Tú</Text>
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.progressBar}>
-                    <View style={[
-                      styles.progressFill,
-                      { width: `${pct}%` },
-                      hizo100 && styles.progressFillCompletado
-                    ]} />
-                  </View>
-                  <Text style={styles.kmText}>{item.km_completados} km · {item.porcentaje}%</Text>
-                </View>
-
-              </View>
-            );
-          })}
-        </View>
+          {mostrarTodos && (
+            <TouchableOpacity style={styles.verMasBtn} onPress={() => { setMostrarTodos(false); scrollRef.current?.scrollTo({ y: 0, animated: true }); }}>
+              <Text style={styles.verMasBtnText}>↑ Volver al top</Text>
+            </TouchableOpacity>
+          )}
+        </>
       )}
     </ScrollView>
   );
@@ -222,7 +273,7 @@ const styles = StyleSheet.create({
   selectorTextActivo: { color: '#FFFFFF' },
   listaWrapper: { gap: 8 },
   card: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  cardPropio: { borderWidth: 1, borderColor: '#FC4C02' },
+  cardPropio: { borderWidth: 2, borderColor: '#FC4C02' },
   posicionWrapper: { width: 32, alignItems: 'center' },
   posicionText: { fontSize: 14, fontWeight: 'bold', color: '#4a6a8a' },
   avatarPlaceholder: { backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center' },
@@ -239,4 +290,11 @@ const styles = StyleSheet.create({
   emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 40, alignItems: 'center', marginTop: 20 },
   emptyText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   emptySubtext: { fontSize: 14, color: '#A8CFFF' },
+  miPosicionBtn: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#FC4C02' },
+  miPosicionBtnText: { color: '#FC4C02', fontWeight: 'bold', fontSize: 14 },
+  verMasWrapper: { marginTop: 8, gap: 8 },
+  miPosicionBtnSecundario: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#FC4C02' },
+  miPosicionBtnSecundarioText: { color: '#FC4C02', fontWeight: 'bold', fontSize: 13 },
+  verMasBtn: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#2a4a6a', marginTop: 4 },
+  verMasBtnText: { color: '#A8CFFF', fontWeight: 'bold', fontSize: 13 },
 });
