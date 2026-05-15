@@ -33,6 +33,49 @@ const enviarPushNotification = async (pushToken, title, body) => {
   }
 };
 
+const verificarYEnviarNotificacionRacha = async (userId) => {
+  try {
+    const { data: actividades } = await supabase
+      .from('activities')
+      .select('recorded_at')
+      .eq('user_id', userId)
+      .order('recorded_at', { ascending: false });
+
+    const diasUnicos = [...new Set(
+      actividades?.map(a => a.recorded_at?.split('T')[0]) || []
+    )].sort().reverse();
+
+    let racha = 0;
+    for (let i = 0; i < diasUnicos.length; i++) {
+      const esperado = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+      if (diasUnicos[i] === esperado) racha++;
+      else break;
+    }
+
+    const mensajes = {
+      3: { title: '🔥 ¡3 días en racha!', body: 'Estás en llamas. Seguí así 💪' },
+      7: { title: '⚡ ¡Una semana completa!', body: 'Siete días seguidos entrenando. Sos una máquina.' },
+      14: { title: '👑 ¡14 días en racha!', body: 'Dos semanas sin parar. Leyenda.' },
+      21: { title: '🏅 ¡21 días seguidos!', body: 'Ya es un hábito. Nada te para.' },
+      30: { title: '🌍 ¡Un mes de racha!', body: '30 días consecutivos. Estás en otro nivel.' },
+    };
+
+    if (mensajes[racha]) {
+      const { data: usuario } = await supabase
+        .from('users')
+        .select('push_token')
+        .eq('id', userId)
+        .single();
+
+      if (usuario?.push_token) {
+        await enviarPushNotification(usuario.push_token, mensajes[racha].title, mensajes[racha].body);
+      }
+    }
+  } catch (error) {
+    console.error('Error verificando racha:', error);
+  }
+};
+
 app.get('/', (req, res) => {
   res.json({ mensaje: 'Bienvenido al backend de Korva 🏅', estado: 'funcionando' });
 });
@@ -158,7 +201,6 @@ app.get('/perfil/:userId', async (req, res) => {
     const totalKmNum = parseFloat(totalKm);
     const insignias = getInsignias(completados, totalKmNum, actividades);
 
-    // Calcular racha actual
     const actividadesFechas = await supabase
       .from('activities')
       .select('recorded_at')
@@ -170,22 +212,11 @@ app.get('/perfil/:userId', async (req, res) => {
     )].sort().reverse();
 
     let racha = 0;
-    const hoy = new Date().toISOString().split('T')[0];
     for (let i = 0; i < diasUnicos.length; i++) {
       const esperado = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
       if (diasUnicos[i] === esperado) racha++;
       else break;
     }
-
-    // Mejor semana
-    const kmPorSemana = {};
-    actividadesFechas.data?.forEach(a => {
-      const fecha = new Date(a.recorded_at);
-      const inicio = new Date(fecha);
-      inicio.setDate(fecha.getDate() - fecha.getDay());
-      const semana = inicio.toISOString().split('T')[0];
-      kmPorSemana[semana] = (kmPorSemana[semana] || 0);
-    });
 
     const actividadesConKm = await supabase
       .from('activities')
@@ -268,6 +299,8 @@ app.post('/actividades/manual', async (req, res) => {
       const nuevosKm = (parseFloat(reto.km_completed) || 0) + distanciaFloat;
       await supabase.from('user_challenges').update({ km_completed: nuevosKm }).eq('id', reto.id);
     }
+
+    await verificarYEnviarNotificacionRacha(user_id);
 
     res.json({ mensaje: 'Actividad registrada y kilómetros sumados', actividad: nuevaActividad });
   } catch (error) {
