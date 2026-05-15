@@ -1,5 +1,6 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text } from 'react-native';
 import { useState, useEffect } from 'react';
 import * as Linking from 'expo-linking';
@@ -15,8 +16,10 @@ import RankingScreen from './screens/RankingScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import TerminosScreen from './screens/TerminosScreen';
 import ResetPasswordScreen from './screens/ResetPasswordScreen';
+import DetalleRetoScreen from './screens/DetalleRetoScreen';
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
 
 const ADMINS = [
   'korvaventura@gmail.com',
@@ -34,6 +37,31 @@ const chequearPantallas = async (setMostrarTerminos, setMostrarOnboarding) => {
   }
 };
 
+function HomeTabs({ esAdmin }) {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: '#0D1B2A',
+          borderTopColor: '#1E3A5F',
+        },
+        tabBarActiveTintColor: '#1E6FD9',
+        tabBarInactiveTintColor: '#A8CFFF',
+      }}
+    >
+      <Tab.Screen name="Mis Retos" component={HomeScreen} options={{ tabBarIcon: () => <Text>🏃</Text> }} />
+      <Tab.Screen name="Catalogo" component={CatalogoScreen} options={{ tabBarIcon: () => <Text>🏅</Text> }} />
+      <Tab.Screen name="Ranking" component={RankingScreen} options={{ tabBarIcon: () => <Text>🏆</Text> }} />
+      <Tab.Screen name="Registrar" component={RegistroManualScreen} options={{ tabBarIcon: () => <Text>➕</Text> }} />
+      <Tab.Screen name="Perfil" component={PerfilScreen} options={{ tabBarIcon: () => <Text>👤</Text> }} />
+      {esAdmin && (
+        <Tab.Screen name="Admin" component={AdminScreen} options={{ tabBarIcon: () => <Text>⚙️</Text> }} />
+      )}
+    </Tab.Navigator>
+  );
+}
+
 export default function App() {
   const [usuario, setUsuario] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -42,19 +70,14 @@ export default function App() {
   const [mostrarReset, setMostrarReset] = useState(false);
 
   useEffect(() => {
-    // Manejar deep link de reset password
     const handleDeepLink = async (url) => {
       if (!url) return;
       if (url.includes('reset-password') || url.includes('type=recovery')) {
-        // Supabase maneja el token automáticamente via onAuthStateChange
         setMostrarReset(true);
       }
     };
 
-    // Deep link inicial si la app se abrió desde el link
     Linking.getInitialURL().then(handleDeepLink);
-
-    // Deep link si la app ya estaba abierta
     const subscription = Linking.addEventListener('url', ({ url }) => handleDeepLink(url));
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -112,26 +135,12 @@ export default function App() {
 
   return (
     <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: {
-            backgroundColor: '#0D1B2A',
-            borderTopColor: '#1E3A5F',
-          },
-          tabBarActiveTintColor: '#1E6FD9',
-          tabBarInactiveTintColor: '#A8CFFF',
-        }}
-      >
-        <Tab.Screen name="Mis Retos" component={HomeScreen} options={{ tabBarIcon: () => <Text>🏃</Text> }} />
-        <Tab.Screen name="Catalogo" component={CatalogoScreen} options={{ tabBarIcon: () => <Text>🏅</Text> }} />
-        <Tab.Screen name="Ranking" component={RankingScreen} options={{ tabBarIcon: () => <Text>🏆</Text> }} />
-        <Tab.Screen name="Registrar" component={RegistroManualScreen} options={{ tabBarIcon: () => <Text>➕</Text> }} />
-        <Tab.Screen name="Perfil" component={PerfilScreen} options={{ tabBarIcon: () => <Text>👤</Text> }} />
-        {esAdmin && (
-          <Tab.Screen name="Admin" component={AdminScreen} options={{ tabBarIcon: () => <Text>⚙️</Text> }} />
-        )}
-      </Tab.Navigator>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="HomeTabs">
+          {() => <HomeTabs esAdmin={esAdmin} />}
+        </Stack.Screen>
+        <Stack.Screen name="DetalleReto" component={DetalleRetoScreen} />
+      </Stack.Navigator>
     </NavigationContainer>
   );
 }

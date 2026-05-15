@@ -24,7 +24,7 @@ const getFrase = (pct, modalidad) => {
   return 'El camino empieza con el primer paso 🌱';
 };
 
-export default function HomeScreen() {
+export default function HomeScreen({ navigation }) {
   const [challenges, setChallenges] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(false);
@@ -226,7 +226,12 @@ export default function HomeScreen() {
                     porcentaje={item.porcentaje}
                     checkpointsData={item.checkpoints}
                   />
-
+                  <TouchableOpacity
+                    style={styles.detalleBtn}
+                    onPress={() => navigation.navigate('DetalleReto', { item, userId })}
+                  >
+                    <Text style={styles.detalleBtnText}>📖 Ver mi historia completa →</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity style={styles.compartirBtn} onPress={() => compartirProgreso(index)}>
                     <Text style={styles.compartirBtnText}>📤 Compartir progreso</Text>
                   </TouchableOpacity>
@@ -307,5 +312,6 @@ const styles = StyleSheet.create({
   compartirBtn: { backgroundColor: '#0D1B2A', borderWidth: 1, borderColor: '#2a4a6a', paddingVertical: 10, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
   compartirBtnText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
   actualizarBtn: { marginTop: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center' },
-  actualizarBtnText: { color: '#A8CFFF', fontSize: 14 },
+  actualizarBtnText: { color: '#A8CFFF', fontSize: 14 },detalleBtn: { backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#1E6FD9', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
+  detalleBtnText: { color: '#1E6FD9', fontSize: 13, fontWeight: 'bold' },
 });
