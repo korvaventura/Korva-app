@@ -1,10 +1,11 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text } from 'react-native';
+import { Text, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
 import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { supabase } from './supabase';
 import HomeScreen from './screens/HomeScreen';
 import CatalogoScreen from './screens/CatalogoScreen';
@@ -26,6 +27,36 @@ const ADMINS = [
   'fabrialejandrogonzalez@gmail.com',
   'malejo.eche16@gmail.com',
 ];
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+const registrarPushToken = async (userId) => {
+  try {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') return;
+
+    const token = (await Notifications.getExpoPushTokenAsync()).data;
+
+    await fetch('https://korva-app-production.up.railway.app/usuarios/push-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId, push_token: token }),
+    });
+  } catch (error) {
+    console.log('Error registrando push token:', error);
+  }
+};
 
 const chequearPantallas = async (setMostrarTerminos, setMostrarOnboarding) => {
   const terminosAceptados = await AsyncStorage.getItem('terminos_aceptados');
@@ -53,7 +84,7 @@ function HomeTabs({ esAdmin }) {
       <Tab.Screen name="Mis Retos" component={HomeScreen} options={{ tabBarIcon: () => <Text>🏃</Text> }} />
       <Tab.Screen name="Catalogo" component={CatalogoScreen} options={{ tabBarIcon: () => <Text>🏅</Text> }} />
       <Tab.Screen name="Ranking" component={RankingScreen} options={{ tabBarIcon: () => <Text>🏆</Text> }} />
-     <Tab.Screen name="Registrar" component={RegistroManualScreen} options={{ tabBarLabel: 'Registrar km', tabBarIcon: () => <Text>➕</Text> }} />
+      <Tab.Screen name="Registrar" component={RegistroManualScreen} options={{ tabBarLabel: 'Registrar km', tabBarIcon: () => <Text>➕</Text> }} />
       <Tab.Screen name="Perfil" component={PerfilScreen} options={{ tabBarIcon: () => <Text>👤</Text> }} />
       {esAdmin && (
         <Tab.Screen name="Admin" component={AdminScreen} options={{ tabBarIcon: () => <Text>⚙️</Text> }} />
@@ -85,6 +116,7 @@ export default function App() {
       setCargando(false);
       if (session?.user) {
         await chequearPantallas(setMostrarTerminos, setMostrarOnboarding);
+        await registrarPushToken(session.user.id);
       }
     });
 
@@ -95,6 +127,7 @@ export default function App() {
         setMostrarReset(true);
       } else if (user) {
         await chequearPantallas(setMostrarTerminos, setMostrarOnboarding);
+        await registrarPushToken(user.id);
       }
     });
 
