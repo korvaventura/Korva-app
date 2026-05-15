@@ -1,7 +1,6 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
 import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,7 +17,10 @@ import OnboardingScreen from './screens/OnboardingScreen';
 import TerminosScreen from './screens/TerminosScreen';
 import ResetPasswordScreen from './screens/ResetPasswordScreen';
 import DetalleRetoScreen from './screens/DetalleRetoScreen';
-import { Text, Platform, ActivityIndicator } from 'react-native';
+
+// ACÁ AGRUPAMOS TODO LO DE REACT NATIVE EN UNA SOLA LÍNEA Y AGREGAMOS 'View':
+import { View, Text, Platform, ActivityIndicator } from 'react-native';
+
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
@@ -146,16 +148,16 @@ export default function App() {
     setMostrarOnboarding(false);
   };
 
- if (cargando) {
-  return (
-    <View style={{ flex: 1, backgroundColor: '#0D1B2A', alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontSize: 64, marginBottom: 16 }}>🏅</Text>
-      <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#FFFFFF', letterSpacing: 6, marginBottom: 8 }}>KORVA</Text>
-      <Text style={{ fontSize: 14, color: '#A8CFFF', marginBottom: 32 }}>Desafíos virtuales. Medallas reales.</Text>
-      <ActivityIndicator color="#FC4C02" size="large" />
-    </View>
-  );
-}
+  if (cargando) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0D1B2A', alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontSize: 64, marginBottom: 16 }}>🏅</Text>
+        <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#FFFFFF', letterSpacing: 6, marginBottom: 8 }}>KORVA</Text>
+        <Text style={{ fontSize: 14, color: '#A8CFFF', marginBottom: 32 }}>Desafíos virtuales. Medallas reales.</Text>
+        <ActivityIndicator color="#FC4C02" size="large" />
+      </View>
+    );
+  }
 
   if (mostrarReset) {
     return <ResetPasswordScreen onVolver={() => { setMostrarReset(false); setUsuario(null); }} />;
