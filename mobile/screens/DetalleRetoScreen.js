@@ -133,13 +133,16 @@ export default function DetalleRetoScreen({ route, navigation }) {
 
   const stats = calcularStats();
 
-  // Calcular ritmo y prediccion
+  // Calcular ritmo y prediccion con descansos
   const kmRestantes = parseFloat(item.distancia_total) - parseFloat(item.km_completados);
   const diasDesdeInicio = item.started_at ? diasEntre(new Date(item.started_at), new Date()) : 1;
   const ritmoDiario = parseFloat(item.km_completados) / diasDesdeInicio;
   const diasParaTerminar = ritmoDiario > 0 ? Math.ceil(kmRestantes / ritmoDiario) : null;
   const fechaEstimada = diasParaTerminar ? new Date(Date.now() + diasParaTerminar * 86400000) : null;
 
+  // Factor de descanso: run = 60% días activos (4/7), ride = 75% (5/7)
+  const factorDescanso = modalidad === 'run' ? 0.6 : 0.75;
+  const sesionesporSemana = modalidad === 'run' ? 4 : 5;
   // Calcular km acumulados por actividad para hitos
   let acumulado = 0;
   const actividadesConHito = [...actividades].reverse().map((act, i) => {
@@ -215,7 +218,8 @@ export default function DetalleRetoScreen({ route, navigation }) {
       {!estaCompletado && (
         <View style={styles.ritmoCard}>
           <Text style={styles.ritmoTitulo}>📈 Tu ritmo actual</Text>
-          <Text style={styles.ritmoKm}>{ritmoDiario.toFixed(1)} km/día promedio</Text>
+         <Text style={styles.ritmoKm}>{ritmoDiario.toFixed(1)} km/sesión promedio</Text>
+          <Text style={styles.ritmoSesiones}>{sesionesporSemana} sesiones por semana recomendadas</Text>
           {fechaEstimada && (
             <Text style={styles.ritmoPrediccion}>
               A este ritmo terminás el {formatearFecha(fechaEstimada)}
@@ -256,7 +260,12 @@ export default function DetalleRetoScreen({ route, navigation }) {
                 {diasEntre(new Date(), new Date(metaFecha))} días restantes
               </Text>
               <Text style={styles.metaRitmo}>
-                Necesitás {(kmRestantes / diasEntre(new Date(), new Date(metaFecha))).toFixed(1)} km/día para llegar a tiempo
+                {(() => {
+                  const diasRestantes = diasEntre(new Date(), new Date(metaFecha));
+                  const sesionesRestantes = Math.floor(diasRestantes * factorDescanso);
+                  const kmPorSesion = sesionesRestantes > 0 ? (kmRestantes / sesionesRestantes).toFixed(1) : '—';
+                  return `${kmPorSesion}km por sesión · ${sesionesporSemana} veces/semana`;
+                })()}
               </Text>
             </>
           ) : (
@@ -369,5 +378,5 @@ const styles = StyleSheet.create({
   timelineKm: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
   timelineTipo: { fontSize: 11, color: '#A8CFFF' },
   timelineAcumulado: { fontSize: 11, color: '#4a6a8a', marginTop: 4 },
-  backBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  backBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 }, ritmoSesiones: { fontSize: 12, color: '#4a6a8a', marginBottom: 4 }, ritmoSesiones: { fontSize: 12, color: '#4a6a8a', marginBottom: 4 },
 });
