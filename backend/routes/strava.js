@@ -149,7 +149,6 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
       .from('activities')
       .select('distance_km')
       .eq('user_id', userId)
-      .eq('sport_type', uc.modalidad || uc.challenges.sport_type)
       .gte('recorded_at', uc.started_at);
 
     const totalKm = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
@@ -319,7 +318,6 @@ router.get('/progreso/:userId', async (req, res) => {
         .from('activities')
         .select('distance_km')
         .eq('user_id', userId)
-        .eq('sport_type', uc.modalidad || uc.challenges.sport_type)
         .gte('recorded_at', uc.started_at);
 
       const totalKm = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
