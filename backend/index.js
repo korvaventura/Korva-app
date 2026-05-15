@@ -163,26 +163,49 @@ app.get('/perfil/:userId', async (req, res) => {
 });
 
 app.post('/actividades/manual', async (req, res) => {
-  const { user_id, sport_type, distance_km, recorded_at } = req.body;
+  const { user_id, challenge_id, sport_type, distance_km, recorded_at } = req.body;
+  const distanciaFloat = parseFloat(distance_km);
+
   try {
-    const { data, error } = await supabase
+    // 1. Guardar la actividad
+    const { data: nuevaActividad, error: errorActividad } = await supabase
       .from('activities')
       .insert({
         user_id,
+        challenge_id, // IMPORTANTE: Asegúrate de enviar esto desde la app móvil
         source: 'manual',
         external_id: `manual_${user_id}_${Date.now()}`,
         sport_type,
-        distance_km: parseFloat(distance_km),
+        distance_km: distanciaFloat,
         duration_seconds: 0,
         recorded_at: recorded_at || new Date().toISOString()
       })
       .select()
       .single();
 
-    if (error) throw error;
-    res.json({ mensaje: 'Actividad registrada exitosamente', actividad: data });
+    if (errorActividad) throw errorActividad;
+
+    // 2. Sumar los km a todos los retos activos del usuario (o al reto específico si lo pasaste)
+    // Si la app móvil envía challenge_id, actualizamos ese. Si no, actualizamos todos los activos.
+    let query = supabase.from('user_challenges').select('id, km_completed').eq('user_id', user_id).eq('status', 'active');
+    if (challenge_id) {
+      query = query.eq('challenge_id', challenge_id);
+    }
+    
+    const { data: retosActivos, error: errorRetos } = await query;
+    if (errorRetos) throw errorRetos;
+
+    for (let reto of retosActivos) {
+      const nuevosKm = (parseFloat(reto.km_completed) || 0) + distanciaFloat;
+      await supabase
+        .from('user_challenges')
+        .update({ km_completed: nuevosKm })
+        .eq('id', reto.id);
+    }
+
+    res.json({ mensaje: 'Actividad registrada y kilómetros sumados', actividad: nuevaActividad });
   } catch (error) {
-    res.json({ error: 'Error registrando actividad', detalle: error.message });
+    res.status(500).json({ error: 'Error registrando actividad', detalle: error.message });
   }
 });
 
@@ -385,20 +408,38 @@ app.put('/admin/challenges/:id', async (req, res) => {
 
 app.put('/usuarios/modalidad', async (req, res) => {
   const { user_id, challenge_id, modalidad } = req.body;
+  
+  if (!['run', 'ride'].includes(modalidad)) {
+    return res.status(400).json({ error: 'Modalidad inválida' });
+  }
+
   try {
+    // 1. Obtener todas las actividades del usuario para ese reto (sin importar el deporte)
+    const { data: actividades, error: actError } = await supabase
+      .from('activities')
+      .select('distance_km')
+      .eq('user_id', user_id)
+      .eq('challenge_id', challenge_id); // Asumiendo que guardas el challenge_id en la actividad
+
+    if (actError) throw actError;
+
+    // 2. Sumar todos los km 1 a 1
+    const totalKm = actividades.reduce((sum, act) => sum + (parseFloat(act.distance_km) || 0), 0);
+
+    // 3. Actualizar la modalidad y los km recalculados en user_challenges
     const { data, error } = await supabase
       .from('user_challenges')
-      .update({ modalidad })
+      .update({ modalidad, km_completed: totalKm })
       .eq('user_id', user_id)
       .eq('challenge_id', challenge_id)
-      .eq('status', 'active')
+      .in('status', ['active', 'pending']) // Incluí pending por si cambian antes de empezar
       .select()
       .single();
 
     if (error) throw error;
-    res.json({ mensaje: 'Modalidad actualizada', data });
+    res.json({ mensaje: 'Modalidad y kilómetros actualizados', data });
   } catch (error) {
-    res.json({ error: 'Error actualizando modalidad', detalle: error.message });
+    res.status(500).json({ error: 'Error actualizando modalidad', detalle: error.message });
   }
 });
 app.delete('/actividades/:actividadId', async (req, res) => {
