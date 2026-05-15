@@ -401,7 +401,21 @@ app.put('/usuarios/modalidad', async (req, res) => {
     res.json({ error: 'Error actualizando modalidad', detalle: error.message });
   }
 });
-
+app.delete('/actividades/:actividadId', async (req, res) => {
+  const { actividadId } = req.params;
+  const { user_id } = req.body;
+  try {
+    const { error } = await supabase
+      .from('activities')
+      .delete()
+      .eq('id', actividadId)
+      .eq('user_id', user_id);
+    if (error) throw error;
+    res.json({ mensaje: 'Actividad eliminada' });
+  } catch (error) {
+    res.json({ error: 'Error eliminando actividad', detalle: error.message });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
