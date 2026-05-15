@@ -10,6 +10,7 @@ const CHECKPOINTS_DEFAULT = [
     nombre: 'Tolhuin',
     kmFisico: 0,
     emoji: '🏘️',
+    pista: 'El punto de partida. Todo gran viaje empieza con un primer paso...',
     desc: 'El corazón de Tierra del Fuego. Su nombre en lengua Selk\'nam significa exactamente eso: "corazón". Fundada en 1972 con solo 20 casas, hoy tiene el autódromo más austral del mundo. Sus calles fueron diseñadas con manzanas redondas para que los niños jugaran protegidos del viento patagónico.',
     datoRaro: '🧭 Km 0 de tu aventura. Desde acá hasta Ushuaia, la Ruta Nacional 3 — la misma que arranca en Buenos Aires — llega a su fin.',
     x: 280, y: 40,
@@ -19,6 +20,7 @@ const CHECKPOINTS_DEFAULT = [
     nombre: 'Lago Fagnano',
     kmFisico: 20,
     emoji: '💧',
+    pista: 'Dos países, dos placas tectónicas, un solo lago...',
     desc: 'Este lago está literalmente partido en dos por la Falla de Magallanes: la orilla norte pertenece a la placa Sudamericana y la sur a la placa de Scotia. Dos placas tectónicas, dos países (Argentina y Chile), un solo lago. En 1949 un terremoto de 7.8 grados generó olas sísmicas que crearon nuevas lagunas.',
     datoRaro: '⚡ Las placas que lo rodean se mueven 5.4mm por año. Estás corriendo sobre una falla activa.',
     x: 210, y: 75,
@@ -28,6 +30,7 @@ const CHECKPOINTS_DEFAULT = [
     nombre: 'Paso Garibaldi',
     kmFisico: 45,
     emoji: '⛰️',
+    pista: 'Un secreto guardado por generaciones, descubierto por un niño...',
     desc: 'Este paso fue descubierto en 1935 por Luis Garibaldi Honte, un descendiente Selk\'nam que de niño escuchó a su abuela hablar de un paso secreto que usaban los haush para cruzar la cordillera. El nombre "Garibaldi" no viene del prócer italiano: viene de una frase en dialecto que le gritaban de niño para que fuera a buscar agua.',
     datoRaro: '🚙 El primer vehículo en cruzarlo tardó 10 horas. Vos llegás antes.',
     x: 150, y: 115,
@@ -37,6 +40,7 @@ const CHECKPOINTS_DEFAULT = [
     nombre: 'Monte Olivia',
     kmFisico: 80,
     emoji: '🗻',
+    pista: 'Los yamanas le daban un nombre que describía su filo... ¿cuál era?',
     desc: 'En lengua yamana se llama "Uliwai" — punta de arpón. La cima fue conquistada por primera vez en 1913 por el cura salesiano Alberto María de Agostini, sin clavos de escalada. 35 años después, el segundo escalador en llegar encontró todavía intacta la bandera argentina que de Agostini había plantado en la cumbre.',
     datoRaro: '🏔️ 1.326 metros. El guardián silencioso de Ushuaia. Solo expertos llegan a su cima.',
     x: 80, y: 150,
@@ -46,6 +50,7 @@ const CHECKPOINTS_DEFAULT = [
     nombre: 'Ushuaia',
     kmFisico: 103,
     emoji: '🏁',
+    pista: 'El lugar donde termina el mundo conocido...',
     desc: '¡Lo lograste! La ciudad más austral del mundo te recibe. Fue una colonia penal hasta 1947. El Canal Beagle lleva el nombre del barco en que viajó Charles Darwin cuando desarrolló su teoría de la evolución. Desde acá, el próximo punto habitado hacia el sur es la Antártida.',
     datoRaro: '🌍 Estás en el fin del mundo. Y tu medalla está en camino.',
     x: 30, y: 180,
@@ -76,6 +81,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
   const desbloqueado = (cp) => kmFisicos >= cp.kmFisico;
   const esInicio = modalVisible?.id === 'tolhuin';
   const esFin = modalVisible?.id === 'ushuaia';
+  const estaDesbloqueado = modalVisible ? desbloqueado(modalVisible) : false;
 
   return (
     <View style={styles.container}>
@@ -83,75 +89,38 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
 
       <View style={styles.mapaWrapper}>
         <Svg width="100%" height={220} viewBox="0 0 320 220">
-
           <Rect x="0" y="0" width="320" height="220" fill="#0D1B2A" rx="16" />
-
-          <Path
-            d="M165,58 C182,52 222,54 238,63 C248,69 243,82 226,84 C204,87 172,81 162,73 C155,67 157,61 165,58"
-            fill="#1E3A5F"
-            opacity="0.9"
-          />
+          <Path d="M165,58 C182,52 222,54 238,63 C248,69 243,82 226,84 C204,87 172,81 162,73 C155,67 157,61 165,58" fill="#1E3A5F" opacity="0.9" />
           <SvgText x="200" y="73" fill="#4a6a8a" fontSize="7" textAnchor="middle">Lago Fagnano</SvgText>
-
           <Path d="M95,165 L115,135 L135,165" fill="none" stroke="#1E3A5F" strokeWidth="1.5" />
           <Path d="M110,165 L138,122 L166,165" fill="none" stroke="#1E3A5F" strokeWidth="1.5" />
           <Path d="M55,190 L75,162 L95,190" fill="none" stroke="#1E3A5F" strokeWidth="1.5" />
-
-          <Path
-            d="M0,205 C50,200 100,203 160,205 C220,207 270,204 320,205 L320,220 L0,220"
-            fill="#1E3A5F"
-            opacity="0.6"
-          />
+          <Path d="M0,205 C50,200 100,203 160,205 C220,207 270,204 320,205 L320,220 L0,220" fill="#1E3A5F" opacity="0.6" />
           <SvgText x="160" y="215" fill="#4a6a8a" fontSize="7" textAnchor="middle">Canal Beagle</SvgText>
-
           <Path d={RUTA} fill="none" stroke="#2a4a6a" strokeWidth="4" strokeLinecap="round" strokeDasharray="6,4" />
-
           {pctFisico > 0 && (
-            <Path
-              d={RUTA}
-              fill="none"
-              stroke="#FC4C02"
-              strokeWidth="4"
-              strokeLinecap="round"
-              strokeDasharray={`${pctFisico * 3.2} ${(100 - pctFisico) * 3.2}`}
-            />
+            <Path d={RUTA} fill="none" stroke="#FC4C02" strokeWidth="4" strokeLinecap="round" strokeDasharray={`${pctFisico * 3.2} ${(100 - pctFisico) * 3.2}`} />
           )}
-
           {checkpoints.map((cp) => {
             const bloqueado = !desbloqueado(cp);
             return (
               <React.Fragment key={cp.id}>
-                <Circle
-                  cx={cp.x}
-                  cy={cp.y}
-                  r={bloqueado ? 5 : 7}
-                  fill={bloqueado ? '#1E3A5F' : '#FC4C02'}
-                  stroke={bloqueado ? '#2a4a6a' : '#FFFFFF'}
-                  strokeWidth="2"
-                  onPress={() => setModalVisible(cp)}
-                />
+                <Circle cx={cp.x} cy={cp.y} r={bloqueado ? 5 : 7} fill={bloqueado ? '#1E3A5F' : '#FC4C02'} stroke={bloqueado ? '#2a4a6a' : '#FFFFFF'} strokeWidth="2" onPress={() => setModalVisible(cp)} />
                 {!bloqueado && (
-                  <SvgText x={cp.x} y={cp.y - 12} fill="#FFFFFF" fontSize="8" textAnchor="middle" fontWeight="bold">
-                    {cp.nombre}
-                  </SvgText>
+                  <SvgText x={cp.x} y={cp.y - 12} fill="#FFFFFF" fontSize="8" textAnchor="middle" fontWeight="bold">{cp.nombre}</SvgText>
                 )}
               </React.Fragment>
             );
           })}
-
           {kmFisicos > 0 && (
             <>
               <Circle cx={pinPos.x} cy={pinPos.y} r={11} fill="#FC4C02" opacity="0.25" />
               <Circle cx={pinPos.x} cy={pinPos.y} r={6} fill="#FC4C02" stroke="#FFFFFF" strokeWidth="2" />
-              <SvgText x={pinPos.x} y={pinPos.y - 14} fill="#FC4C02" fontSize="8" textAnchor="middle" fontWeight="bold">
-                {(kmFisicos * factor).toFixed(0)}km
-              </SvgText>
+              <SvgText x={pinPos.x} y={pinPos.y - 14} fill="#FC4C02" fontSize="8" textAnchor="middle" fontWeight="bold">{(kmFisicos * factor).toFixed(0)}km</SvgText>
             </>
           )}
-
           <SvgText x="280" y="32" fill="#A8CFFF" fontSize="8" textAnchor="middle">INICIO</SvgText>
           <SvgText x="30" y="195" fill="#FC4C02" fontSize="8" textAnchor="middle">META</SvgText>
-
         </Svg>
       </View>
 
@@ -159,11 +128,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
         {checkpoints.map((cp) => {
           const bloqueado = !desbloqueado(cp);
           return (
-            <TouchableOpacity
-              key={cp.id}
-              style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo]}
-              onPress={() => setModalVisible(cp)}
-            >
+            <TouchableOpacity key={cp.id} style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo]} onPress={() => setModalVisible(cp)}>
               <Text style={styles.leyendaEmoji}>{bloqueado ? '🔒' : cp.emoji}</Text>
               <Text style={[styles.leyendaNombre, !bloqueado && styles.leyendaNombreActivo]}>{cp.nombre}</Text>
               <Text style={styles.leyendaKm}>{(cp.kmFisico * factor).toFixed(0)}km</Text>
@@ -172,40 +137,50 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
         })}
       </ScrollView>
 
-      <Modal
-        visible={!!modalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalVisible(null)}
-      >
+      <Modal visible={!!modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(null)}>
         <TouchableOpacity style={styles.modalOverlay} onPress={() => setModalVisible(null)}>
-          <View style={[styles.modalCard, esInicio && styles.modalCardInicio, esFin && styles.modalCardFin]}>
-            <Text style={styles.modalEmoji}>{modalVisible?.emoji}</Text>
+          <View style={[styles.modalCard, esInicio && styles.modalCardInicio, esFin && styles.modalCardFin, !estaDesbloqueado && styles.modalCardBloqueado]}>
+
+            <Text style={styles.modalEmoji}>{estaDesbloqueado ? modalVisible?.emoji : '🔒'}</Text>
             <Text style={styles.modalNombre}>{modalVisible?.nombre}</Text>
             <Text style={styles.modalKm}>Km {((modalVisible?.kmFisico || 0) * factor).toFixed(0)} de {distanciaTotal}km</Text>
 
-            {(esInicio || esFin) && (
-              <View style={styles.mensajeEspecialBox}>
-                <Text style={styles.mensajeEspecial}>
-                  {esInicio ? '🚀 ¡Bienvenido al desafío! Cada paso que des desde acá te acerca al fin del mundo.' : '🏅 ¡Lo lograste! Llegaste al fin del mundo. Tu medalla está en camino.'}
-                </Text>
-              </View>
-            )}
+            {estaDesbloqueado ? (
+              <>
+                {(esInicio || esFin) && (
+                  <View style={styles.mensajeEspecialBox}>
+                    <Text style={styles.mensajeEspecial}>
+                      {esInicio ? '🚀 ¡Bienvenido al desafío! Cada paso que des desde acá te acerca al fin del mundo.' : '🏅 ¡Lo lograste! Llegaste al fin del mundo. Tu medalla está en camino.'}
+                    </Text>
+                  </View>
+                )}
+                <Text style={styles.modalDesc}>{modalVisible?.desc}</Text>
+                {modalVisible?.datoRaro && (
+                  <View style={styles.datoRaroBox}>
+                    <Text style={styles.datoRaroTexto}>{modalVisible.datoRaro}</Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Pista */}
+                <View style={styles.pistaBox}>
+                  <Text style={styles.pistaTexto}>💭 {modalVisible?.pista}</Text>
+                </View>
 
-            <Text style={styles.modalDesc}>{modalVisible?.desc}</Text>
+                {/* Descripcion difuminada */}
+                <View style={styles.difuminadoWrapper}>
+                  <Text style={styles.difuminadoTexto}>{modalVisible?.desc}</Text>
+                  <View style={styles.difuminadoOverlay} />
+                </View>
 
-            {modalVisible?.datoRaro && desbloqueado(modalVisible) && (
-              <View style={styles.datoRaroBox}>
-                <Text style={styles.datoRaroTexto}>{modalVisible.datoRaro}</Text>
-              </View>
-            )}
-
-            {!desbloqueado(modalVisible || {}) && (
-              <View style={styles.modalBloqueadoBox}>
-                <Text style={styles.modalBloqueado}>
-                  🔒 Desbloqueás este punto al llegar a {((modalVisible?.kmFisico || 0) * factor).toFixed(0)}km
-                </Text>
-              </View>
+                {/* Mensaje de desbloqueo */}
+                <View style={styles.desbloqueoBox}>
+                  <Text style={styles.desbloqueoTexto}>
+                    🔒 Llegá a {((modalVisible?.kmFisico || 0) * factor).toFixed(0)}km para descubrir la historia completa
+                  </Text>
+                </View>
+              </>
             )}
 
             <TouchableOpacity style={styles.modalBtn} onPress={() => setModalVisible(null)}>
@@ -233,6 +208,7 @@ const styles = StyleSheet.create({
   modalCard: { backgroundColor: '#1E3A5F', borderRadius: 24, padding: 28, alignItems: 'center', width: '100%' },
   modalCardInicio: { borderWidth: 2, borderColor: '#1E6FD9' },
   modalCardFin: { borderWidth: 2, borderColor: '#FC4C02' },
+  modalCardBloqueado: { borderWidth: 2, borderColor: '#2a4a6a' },
   modalEmoji: { fontSize: 48, marginBottom: 12 },
   modalNombre: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   modalKm: { fontSize: 13, color: '#A8CFFF', marginBottom: 16 },
@@ -241,8 +217,15 @@ const styles = StyleSheet.create({
   modalDesc: { fontSize: 13, color: '#A8CFFF', textAlign: 'center', lineHeight: 22, marginBottom: 12 },
   datoRaroBox: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, marginBottom: 16, width: '100%' },
   datoRaroTexto: { fontSize: 12, color: '#1E6FD9', textAlign: 'center', fontStyle: 'italic' },
-  modalBloqueadoBox: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, marginBottom: 16, width: '100%' },
-  modalBloqueado: { fontSize: 12, color: '#4a6a8a', textAlign: 'center' },
+  pistaBox: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 16, width: '100%', borderWidth: 1, borderColor: '#2a4a6a' },
+  pistaTexto: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', fontStyle: 'italic', lineHeight: 22 },
+  difuminadoWrapper: { width: '100%', marginBottom: 12, overflow: 'hidden', borderRadius: 10 },
+  difuminadoTexto: { fontSize: 13, color: '#4a6a8a', textAlign: 'center', lineHeight: 22 },
+  difuminadoOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, backgroundColor: 'transparent', borderRadius: 10,
+    shadowColor: '#1E3A5F', shadowOffset: { width: 0, height: -20 }, shadowOpacity: 1, shadowRadius: 20,
+  },
+  desbloqueoBox: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 16, width: '100%', borderWidth: 1, borderColor: '#FC4C02' },
+  desbloqueoTexto: { fontSize: 13, color: '#FC4C02', textAlign: 'center', fontWeight: 'bold' },
   modalBtn: { backgroundColor: '#FC4C02', paddingVertical: 12, paddingHorizontal: 32, borderRadius: 12 },
   modalBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
 });
