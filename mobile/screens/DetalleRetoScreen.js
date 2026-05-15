@@ -25,7 +25,7 @@ const getHitoActividad = (actividad, index, totalKmAcumulado, distanciaTotal) =>
   if (pct >= 75) return { emoji: '🔥', texto: 'En la recta final' };
   if (pct >= 50) return { emoji: '⚡', texto: 'Mitad del camino' };
   if (pct >= 25) return { emoji: '💪', texto: 'Arrancando fuerte' };
-  return { emoji: '🏃', texto: actividad.sport_type === 'ride' ? 'Pedaleando' : 'Corriendo' };
+  return { emoji: actividad.sport_type === 'ride' ? '🚴' : '🏃', texto: actividad.sport_type === 'ride' ? 'Pedaleando' : 'Corriendo' };
 };
 
 export default function DetalleRetoScreen({ route, navigation }) {
