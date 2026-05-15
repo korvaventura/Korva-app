@@ -158,7 +158,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
 
             <Text style={styles.modalEmoji}>{estaDesbloqueado ? modalVisible?.emoji : '🔒'}</Text>
             <Text style={styles.modalNombre}>{modalVisible?.nombre}</Text>
-            <Text style={styles.modalKm}>Km {((modalVisible?.kmFisico || 0) * factor).toFixed(0)} de {distanciaTotal}km</Text>
+            <Text style={styles.modalKm}>{((modalVisible?.kmFisico || 0) * factor).toFixed(0)}km de {distanciaTotal}km</Text>
 
             {estaDesbloqueado ? (
               <>
