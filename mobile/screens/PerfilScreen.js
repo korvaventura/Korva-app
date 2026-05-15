@@ -239,7 +239,9 @@ export default function PerfilScreen() {
         <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.total_km || 0}</Text><Text style={styles.statLabel}>km totales</Text></View>
         <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.medallas || 0}</Text><Text style={styles.statLabel}>Medallas</Text></View>
       </View>
-
+  {inscripcionActiva && (
+        <View style={styles.seccion}>
+          <Text style={styles.seccionTitulo}>🏅 Mi reto activo</Text>
       {nivel && (
         <View style={styles.seccion}>
           <Text style={styles.seccionTitulo}>⚡ Tu nivel</Text>
@@ -304,9 +306,6 @@ export default function PerfilScreen() {
         )}
       </View>
 
-      {inscripcionActiva && (
-        <View style={styles.seccion}>
-          <Text style={styles.seccionTitulo}>🏅 Mi reto activo</Text>
           <View style={styles.modalidadCard}>
             <Text style={styles.modalidadTitulo}>{inscripcionActiva.challenges?.title}</Text>
             <Text style={styles.modalidadLabel}>Modalidad actual</Text>
