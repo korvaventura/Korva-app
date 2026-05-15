@@ -1,7 +1,12 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Clipboard, Alert } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Clipboard, Alert, Image } from 'react-native';
 import { useState, useEffect } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import { createClient } from '@supabase/supabase-js';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
+const SUPABASE_URL = 'https://yvlpnshfqwkpcftotltb.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2bHBuc2hmcXdrcGNmdG90bHRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU4NTM5NjAsImV4cCI6MjA2MTQyOTk2MH0.HMsNKoJJHLuBtJVoaGGy4bfnPHsW2fSiGPMHHuU0PXk';
+const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CHECKPOINTS_DEFAULT = [
   { id: 'tolhuin', nombre: 'Tolhuin', kmFisico: 0, emoji: '🏘️', desc: 'El corazón de Tierra del Fuego. Su nombre en lengua Selk\'nam significa exactamente eso: "corazón". Fundada en 1972 con solo 20 casas, hoy tiene el autódromo más austral del mundo.', datoRaro: '🧭 Km 0 de tu aventura. Desde acá hasta Ushuaia, la Ruta Nacional 3 llega a su fin.' },
@@ -19,6 +24,7 @@ export default function AdminScreen() {
   const [mensaje, setMensaje] = useState('');
   const [filtro, setFiltro] = useState('pendientes');
   const [vista, setVista] = useState('envios');
+  const [subiendoFoto, setSubiendoFoto] = useState(null);
 
   const [nuevoReto, setNuevoReto] = useState({
     title: '', description: '', historia: '', price_usd: '',
@@ -62,6 +68,55 @@ export default function AdminScreen() {
       setChallengesActivos(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error:', error);
+    }
+  };
+
+  const subirFotoCheckpoint = async (index) => {
+    try {
+      const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permiso.granted) {
+        Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería para subir fotos.');
+        return;
+      }
+
+      const resultado = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+
+      if (resultado.canceled) return;
+
+      setSubiendoFoto(index);
+
+      const uri = resultado.assets[0].uri;
+      const fileName = `checkpoint_${Date.now()}_${index}.jpg`;
+
+      const response = await fetch(uri);
+      const blob = await response.blob();
+
+      const { data, error } = await supabaseClient.storage
+        .from('korva-images')
+        .upload(`checkpoints/${fileName}`, blob, {
+          contentType: 'image/jpeg',
+          upsert: true,
+        });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabaseClient.storage
+        .from('korva-images')
+        .getPublicUrl(`checkpoints/${fileName}`);
+
+      actualizarCheckpoint(index, 'fotoUrl', urlData.publicUrl);
+      Alert.alert('✅ Foto subida', 'La imagen fue cargada correctamente.');
+
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo subir la foto. Intentá de nuevo.');
+      console.error(error);
+    } finally {
+      setSubiendoFoto(null);
     }
   };
 
@@ -259,6 +314,7 @@ export default function AdminScreen() {
   const pendientes = challenges.filter(c => c.status === 'completed');
   const enviados = challenges.filter(c => c.status === 'shipped');
   const lista = filtro === 'pendientes' ? pendientes : enviados;
+
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>⚙️ Admin</Text>
@@ -428,45 +484,43 @@ export default function AdminScreen() {
                   </View>
 
                   <Text style={styles.formLabel}>Emoji</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={cp.emoji}
-                    onChangeText={v => actualizarCheckpoint(index, 'emoji', v)}
-                    placeholderTextColor="#4a6a8a"
-                  />
+                  <TextInput style={styles.input} value={cp.emoji} onChangeText={v => actualizarCheckpoint(index, 'emoji', v)} placeholderTextColor="#4a6a8a" />
 
                   <Text style={styles.formLabel}>Nombre</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={cp.nombre}
-                    onChangeText={v => actualizarCheckpoint(index, 'nombre', v)}
-                    placeholderTextColor="#4a6a8a"
-                  />
+                  <TextInput style={styles.input} value={cp.nombre} onChangeText={v => actualizarCheckpoint(index, 'nombre', v)} placeholderTextColor="#4a6a8a" />
 
                   <Text style={styles.formLabel}>Descripción</Text>
-                  <TextInput
-                    style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-                    value={cp.desc}
-                    onChangeText={v => actualizarCheckpoint(index, 'desc', v)}
-                    placeholderTextColor="#4a6a8a"
-                    multiline
-                  />
+                  <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]} value={cp.desc} onChangeText={v => actualizarCheckpoint(index, 'desc', v)} placeholderTextColor="#4a6a8a" multiline />
 
                   <Text style={styles.formLabel}>Dato curioso</Text>
-                  <TextInput
-                    style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
-                    value={cp.datoRaro}
-                    onChangeText={v => actualizarCheckpoint(index, 'datoRaro', v)}
-                    placeholderTextColor="#4a6a8a"
-                    multiline
-                  />
+                  <TextInput style={[styles.input, { height: 60, textAlignVertical: 'top' }]} value={cp.datoRaro} onChangeText={v => actualizarCheckpoint(index, 'datoRaro', v)} placeholderTextColor="#4a6a8a" multiline />
 
-                  <Text style={styles.formLabel}>URL foto (opcional)</Text>
+                  <Text style={styles.formLabel}>Foto del lugar</Text>
+                  {cp.fotoUrl ? (
+                    <View style={styles.fotoPreviewWrapper}>
+                      <Image source={{ uri: cp.fotoUrl }} style={styles.fotoPreview} resizeMode="cover" />
+                      <TouchableOpacity style={styles.fotoChangeBtn} onPress={() => subirFotoCheckpoint(index)}>
+                        <Text style={styles.fotoChangeBtnText}>🖼️ Cambiar foto</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.fotoUploadBtn}
+                      onPress={() => subirFotoCheckpoint(index)}
+                      disabled={subiendoFoto === index}
+                    >
+                      {subiendoFoto === index ? (
+                        <ActivityIndicator color="#1E6FD9" size="small" />
+                      ) : (
+                        <Text style={styles.fotoUploadBtnText}>📷 Subir foto desde galería</Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { marginTop: 8 }]}
                     value={cp.fotoUrl || ''}
                     onChangeText={v => actualizarCheckpoint(index, 'fotoUrl', v)}
-                    placeholder="https://..."
+                    placeholder="O pegá una URL directamente..."
                     placeholderTextColor="#4a6a8a"
                   />
                 </View>
@@ -615,4 +669,10 @@ const styles = StyleSheet.create({
   kmBadgeSmall: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E3A5F', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   kmInput: { color: '#FC4C02', fontWeight: 'bold', fontSize: 14, width: 40, textAlign: 'center' },
   kmInputLabel: { color: '#4a6a8a', fontSize: 12, marginLeft: 2 },
+  fotoPreviewWrapper: { marginBottom: 8 },
+  fotoPreview: { width: '100%', height: 160, borderRadius: 12, marginBottom: 8 },
+  fotoChangeBtn: { borderWidth: 1, borderColor: '#2a4a6a', borderRadius: 10, padding: 10, alignItems: 'center' },
+  fotoChangeBtnText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
+  fotoUploadBtn: { backgroundColor: '#0D1B2A', borderWidth: 1, borderColor: '#1E6FD9', borderRadius: 10, padding: 14, alignItems: 'center', marginBottom: 0 },
+  fotoUploadBtnText: { color: '#1E6FD9', fontSize: 13, fontWeight: 'bold' },
 });
