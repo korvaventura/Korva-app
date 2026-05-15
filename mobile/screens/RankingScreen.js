@@ -46,12 +46,22 @@ export default function RankingScreen() {
     try {
       const res = await fetch(`${BACKEND_URL}/ranking/${challengeId}`);
       const data = await res.json();
-      const filtrado = Array.isArray(data)
-        ? data
-            .filter(r => r.modalidad === modalidad)
-            .map((r, i) => ({ ...r, posicion: i + 1 }))
-        : [];
-      setRanking(filtrado);
+     const filtrado = Array.isArray(data)
+  ? data.filter(r => r.modalidad === modalidad)
+  : [];
+
+const reordenado = filtrado.sort((a, b) => {
+  const aEsPropio = a.nombre?.toLowerCase().startsWith(miNombre.toLowerCase());
+  const bEsPropio = b.nombre?.toLowerCase().startsWith(miNombre.toLowerCase());
+  const aCompletado = parseFloat(a.porcentaje) >= 100;
+  const bCompletado = parseFloat(b.porcentaje) >= 100;
+
+  if (aEsPropio && aCompletado) return -1;
+  if (bEsPropio && bCompletado) return 1;
+  return b.km_completados - a.km_completados;
+}).map((r, i) => ({ ...r, posicion: i + 1 }));
+
+setRanking(reordenado);
     } catch (error) {
       console.error('Error:', error);
     } finally {
