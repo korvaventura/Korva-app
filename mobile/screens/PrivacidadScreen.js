@@ -1,11 +1,15 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function PrivacidadScreen({ onVolver }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onVolver} style={styles.backBtn}>
-          <Text style={styles.backText}>← Volver</Text>
+          <View style={styles.backBtnRow}>
+            <Ionicons name="arrow-back" size={16} color="#1E6FD9" />
+            <Text style={styles.backText}>Volver</Text>
+          </View>
         </TouchableOpacity>
         <Text style={styles.titulo}>🔒 Política de Privacidad</Text>
         <Text style={styles.subtitulo}>Última actualización: 6 de mayo de 2026</Text>
@@ -71,6 +75,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0D1B2A' },
   header: { paddingTop: 60, paddingHorizontal: 24, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#1E3A5F' },
   backBtn: { marginBottom: 12 },
+  backBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   backText: { color: '#1E6FD9', fontSize: 14, fontWeight: 'bold' },
   titulo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   subtitulo: { fontSize: 12, color: '#4a6a8a' },
