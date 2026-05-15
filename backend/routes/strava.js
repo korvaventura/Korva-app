@@ -68,7 +68,12 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
     user_id: userId,
     source: 'strava',
     external_id: String(actividad.id),
-    sport_type: actividad.type.toLowerCase(),
+    sport_type: (() => {
+  const tipo = actividad.type?.toLowerCase() || '';
+  if (['run', 'virtualrun', 'trailrun', 'treadmill'].includes(tipo)) return 'run';
+  if (['ride', 'virtualride', 'mountainbikeride', 'gravelride', 'ebikeride'].includes(tipo)) return 'ride';
+  return tipo;
+})(),
     distance_km: actividad.distance / 1000,
     duration_seconds: actividad.moving_time,
     recorded_at: actividad.start_date
