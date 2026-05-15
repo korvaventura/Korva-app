@@ -29,6 +29,49 @@ const enviarPushNotification = async (pushToken, title, body) => {
   }
 };
 
+const verificarYEnviarNotificacionRacha = async (supabase, userId) => {
+  try {
+    const { data: actividades } = await supabase
+      .from('activities')
+      .select('recorded_at')
+      .eq('user_id', userId)
+      .order('recorded_at', { ascending: false });
+
+    const diasUnicos = [...new Set(
+      actividades?.map(a => a.recorded_at?.split('T')[0]) || []
+    )].sort().reverse();
+
+    let racha = 0;
+    for (let i = 0; i < diasUnicos.length; i++) {
+      const esperado = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
+      if (diasUnicos[i] === esperado) racha++;
+      else break;
+    }
+
+    const mensajes = {
+      3: { title: '🔥 ¡3 días en racha!', body: 'Estás en llamas. Seguí así 💪' },
+      7: { title: '⚡ ¡Una semana completa!', body: 'Siete días seguidos entrenando. Sos una máquina.' },
+      14: { title: '👑 ¡14 días en racha!', body: 'Dos semanas sin parar. Leyenda.' },
+      21: { title: '🏅 ¡21 días seguidos!', body: 'Ya es un hábito. Nada te para.' },
+      30: { title: '🌍 ¡Un mes de racha!', body: '30 días consecutivos. Estás en otro nivel.' },
+    };
+
+    if (mensajes[racha]) {
+      const { data: usuario } = await supabase
+        .from('users')
+        .select('push_token')
+        .eq('id', userId)
+        .single();
+
+      if (usuario?.push_token) {
+        await enviarPushNotification(usuario.push_token, mensajes[racha].title, mensajes[racha].body);
+      }
+    }
+  } catch (error) {
+    console.error('Error verificando racha:', error);
+  }
+};
+
 const getValidStravaToken = async (supabase, userId) => {
   const { data: user, error } = await supabase
     .from('users')
@@ -144,6 +187,9 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
       }
     }
   }
+
+  // Verificar racha después de procesar la actividad
+  await verificarYEnviarNotificacionRacha(supabase, userId);
 
   console.log(`Actividad ${stravaActivityId} procesada para usuario ${userId}`);
 };
