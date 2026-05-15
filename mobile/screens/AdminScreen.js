@@ -28,7 +28,7 @@ export default function AdminScreen() {
   const [subiendoFoto, setSubiendoFoto] = useState(null);
 
   const [nuevoReto, setNuevoReto] = useState({
-    title: '', description: '', historia: '', price_usd: '',
+    title: '', description: '', historia: '', price_usd: '', price_ars: '',
     medal_image_url: '', link_mercadopago: '', link_shopify: '',
     modalidades: [{ tipo: 'run', label: 'Running', distancia_km: '' }],
   });
@@ -278,7 +278,7 @@ export default function AdminScreen() {
   };
 
   const crearReto = async () => {
-    const { title, description, historia, price_usd, medal_image_url, link_mercadopago, link_shopify, modalidades } = nuevoReto;
+const { title, description, historia, price_usd, price_ars, medal_image_url, link_mercadopago, link_shopify, modalidades } = nuevoReto;
     if (!title || !description || !price_usd || modalidades.some(m => !m.distancia_km)) {
       Alert.alert('Faltan datos', 'Completá título, descripción, precio y distancias.');
       return;
@@ -289,7 +289,7 @@ export default function AdminScreen() {
       const res = await fetch(`${BACKEND_URL}/admin/challenges`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, historia, price_usd: parseFloat(price_usd), medal_image_url, link_mercadopago, link_shopify, modalidades: modalidadesFormateadas, sport_type: modalidades.length > 1 ? 'multi' : modalidades[0].tipo })
+        body: JSON.stringify({ title, description, historia, price_usd: parseFloat(price_usd), price_ars: price_ars ? parseInt(price_ars) : null, medal_image_url, link_mercadopago, link_shopify, modalidades: modalidadesFormateadas, sport_type: modalidades.length > 1 ? 'multi' : modalidades[0].tipo })
       });
       const data = await res.json();
       if (data.error) throw new Error(data.detalle);
@@ -428,14 +428,13 @@ export default function AdminScreen() {
               <Text style={styles.formLabel}>Historia</Text>
               <TextInput style={[styles.input, { height: 100, textAlignVertical: 'top' }]} value={formEditar.historia} onChangeText={v => setFormEditar(p => ({ ...p, historia: v }))} placeholderTextColor="#4a6a8a" multiline />
               <Text style={styles.formLabel}>Precio USD *</Text>
-<TextInput style={styles.input} value={formEditar.price_usd} onChangeText={v => setFormEditar(p => ({ ...p, price_usd: v }))} placeholderTextColor="#4a6a8a" keyboardType="numeric" />
-<Text style={styles.formLabel}>Precio ARS (pesos argentinos)</Text>
-<TextInput style={styles.input} value={formEditar.price_ars} onChangeText={v => setFormEditar(p => ({ ...p, price_ars: v }))} placeholder="Ej: 49990" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
+              <TextInput style={styles.input} value={formEditar.price_usd} onChangeText={v => setFormEditar(p => ({ ...p, price_usd: v }))} placeholderTextColor="#4a6a8a" keyboardType="numeric" />
+              <Text style={styles.formLabel}>Precio ARS (pesos argentinos)</Text>
+              <TextInput style={styles.input} value={formEditar.price_ars} onChangeText={v => setFormEditar(p => ({ ...p, price_ars: v }))} placeholder="Ej: 49990" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
               <Text style={styles.formLabel}>URL imagen medalla</Text>
               <TextInput style={styles.input} value={formEditar.medal_image_url} onChangeText={v => setFormEditar(p => ({ ...p, medal_image_url: v }))} placeholderTextColor="#4a6a8a" />
               <Text style={styles.formLabel}>🇦🇷 Link MercadoPago</Text>
               <TextInput style={styles.input} value={formEditar.link_mercadopago} onChangeText={v => setFormEditar(p => ({ ...p, link_mercadopago: v }))} placeholderTextColor="#4a6a8a" />
-              <Text style={styles.formLabel}>🌍 Link Shopify</Text>
               <TextInput style={styles.input} value={formEditar.link_shopify} onChangeText={v => setFormEditar(p => ({ ...p, link_shopify: v }))} placeholderTextColor="#4a6a8a" />
               <Text style={styles.formLabel}>🔥 Oferta (dejar vacío para quitar)</Text>
               <TextInput style={styles.input} value={formEditar.oferta_texto} onChangeText={v => setFormEditar(p => ({ ...p, oferta_texto: v }))} placeholder="Ej: 2do reto 50% off" placeholderTextColor="#4a6a8a" />
@@ -564,8 +563,10 @@ export default function AdminScreen() {
           <TextInput style={[styles.input, { height: 70, textAlignVertical: 'top' }]} value={nuevoReto.description} onChangeText={v => setNuevoReto(p => ({ ...p, description: v }))} placeholder="Texto corto..." placeholderTextColor="#4a6a8a" multiline />
           <Text style={styles.formLabel}>Historia</Text>
           <TextInput style={[styles.input, { height: 120, textAlignVertical: 'top' }]} value={nuevoReto.historia} onChangeText={v => setNuevoReto(p => ({ ...p, historia: v }))} placeholder="La historia del reto..." placeholderTextColor="#4a6a8a" multiline />
-          <Text style={styles.formLabel}>Precio USD *</Text>
+           <Text style={styles.formLabel}>Precio USD *</Text>
           <TextInput style={styles.input} value={nuevoReto.price_usd} onChangeText={v => setNuevoReto(p => ({ ...p, price_usd: v }))} placeholder="Ej: 49" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
+          <Text style={styles.formLabel}>Precio ARS (pesos argentinos)</Text>
+          <TextInput style={styles.input} value={nuevoReto.price_ars} onChangeText={v => setNuevoReto(p => ({ ...p, price_ars: v }))} placeholder="Ej: 49990" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
           <Text style={styles.formLabel}>URL imagen medalla</Text>
           <TextInput style={styles.input} value={nuevoReto.medal_image_url} onChangeText={v => setNuevoReto(p => ({ ...p, medal_image_url: v }))} placeholder="https://..." placeholderTextColor="#4a6a8a" />
           <Text style={styles.formLabel}>🇦🇷 Link MercadoPago</Text>
