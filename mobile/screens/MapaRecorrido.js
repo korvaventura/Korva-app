@@ -32,7 +32,7 @@ const RUTA_BASE_PATH = ROUTE_SEGMENTS.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.
 const CHECKPOINTS_DEFAULT = [
   { id: 'tolhuin', nombre: 'Tolhuin', kmFisico: 0, emoji: '🏘️', x: 720, y: 35, pista: 'El punto de partida...', desc: 'El corazón de Tierra del Fuego. Su nombre en lengua Selk\'nam significa "corazón"...', datoRaro: '🧭 Km 0 de tu aventura.' },
   { id: 'lago_fagnano', nombre: 'Lago Fagnano', kmFisico: 20, emoji: '💧', x: 520, y: 62, pista: 'Un lago que guarda...', desc: 'El más grande de Tierra del Fuego. La Falla de Magallanes lo atraviesa...', datoRaro: '⚡ Estás corriendo sobre una falla tectónica activa.' },
-  { id: 'paso_garibaldi', nombre: 'Paso Garibaldi', kmFisico: 45, emoji: '⛰️', x: 350, y: 105, pista: 'Un secreto guardado...', desc: 'Descubierto en 1935 por Luis Garibaldi Honte...', datoRaro: '🚙 El primer vehículo en cruzarlo tardó 10 horas.' },
+  { id: 'paso_garibaldi', nombre: 'Paso Garibaldi', kmFisico: 45, emoji: '⛰️', x: 350, y: 105, pista: 'Un secreto guardado...', desc: 'Descubierto en 1935 por Luis Garibaldi Honte...', datoRaro: '🚙 El primer vehículo en cruzarlo tardó 10 hours.' },
   { id: 'monte_olivia', nombre: 'Monte Olivia', kmFisico: 80, emoji: '🗻', x: 180, y: 148, pista: 'Los yamanas le daban...', desc: 'En lengua yamana se llama "Uliwai"...', datoRaro: '🏔️ 1.326 metros. El guardián silencioso.' },
   { id: 'ushuaia', nombre: 'Ushuaia', kmFisico: 103, emoji: '🏁', x: 60, y: 175, pista: 'El fin del mundo...', desc: '¡Lo lograste! La ciudad más austral...', datoRaro: '🌍 Estás en el fin del mundo.' },
 ];
@@ -130,7 +130,6 @@ const EfectoNieve = () => {
     </View>
   );
 };
-// --- FIN DEL COMPONENTE DE CLIMA ---
 
 export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpointsData }) {
   const [modalVisible, setModalVisible] = useState(null);
@@ -197,32 +196,31 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
               
               {/* Máscara de Niebla (Fog of War) */}
               <Mask id="fogMask">
-                {/* 1. Base blanca: Todo cubierto de niebla */}
                 <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="white" />
                 
-                {/* ⭐ DESPEJAR TODO EL PASADO: Agregamos el KEY para obligar a Android a actualizar el mapa entero */}
+                {/* Despejar todo el relieve del mapa hacia la derecha */}
                 {kmFisicos > 0 && (
                   <Rect 
-                    key={`clear-past-${kmFisicos}`} /* <--- ESTA LÍNEA LOGRA EL EFECTO */
+                    key={`clear-past-${kmFisicos}`}
                     x={pinPos.x} 
                     y="0" 
                     width={MAPA_WIDTH_VIRTUAL - pinPos.x} 
                     height="260" 
-                    fill="black" /* Negro = Revelar mapa colorido */
+                    fill="black" 
                   />
                 )}
                 
-                {/* 2. Ruta Completada (Negro): Perfora la niebla en el camino exacto */}
+                {/* Ruta Completada (Negro): Perfora la niebla */}
                 {pathCompletado !== "" && (
                   <Path d={pathCompletado} fill="none" stroke="black" strokeWidth="22" strokeLinecap="round" strokeLinejoin="round" />
                 )}
                 
-                {/* 3. Checkpoints Desbloqueados (Negro) */}
+                {/* Checkpoints Desbloqueados en la máscara */}
                 {checkpoints.filter(desbloqueado).map(cp => (
                   <Circle key={cp.id} cx={cp.x} cy={cp.y} r="20" fill="black" />
                 ))}
 
-                {/* 4. Spotlight Dinámico (Negro): Sigue al pin y palpita para difuminar el borde del Fog */}
+                {/* Spotlight Dinámico que palpita */}
                 {kmFisicos > 0 && (
                   <AnimatedCircle 
                     key={`spot-${kmFisicos}`} 
@@ -235,6 +233,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
               </Mask>
             </Defs>
 
+            {/* Fondos y relieves geográficos */}
             <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="url(#gradBg)" />
             <Path d={`M0,140 Q${MAPA_WIDTH_VIRTUAL/4},90 ${MAPA_WIDTH_VIRTUAL/2},150 T${MAPA_WIDTH_VIRTUAL},100 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#334155" opacity="0.3" />
             
@@ -244,23 +243,13 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
             <Path d={`M0,240 Q${MAPA_WIDTH_VIRTUAL/2},220 ${MAPA_WIDTH_VIRTUAL},245 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#0284C7" opacity="0.35" />
             <SvgText x="300" y="250" fill="#7DD3FC" fontSize="12" textAnchor="middle">Canal Beagle</SvgText>
 
-            <Path d={RUTA_BASE_PATH} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Dibujo de las líneas de la ruta */}
+            <Path d="M475569" d={RUTA_BASE_PATH} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
             {pathCompletado !== "" && (
               <Path d={pathCompletado} fill="none" stroke="#EA580C" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
             )}
 
-            {checkpoints.map((cp) => {
-              const isDesbloqueado = desbloqueado(cp);
-              return (
-                <React.Fragment key={cp.id}>
-                  <Circle cx={cp.x} cy={cp.y} r={isDesbloqueado ? 10 : 8} fill={isDesbloqueado ? '#F97316' : '#334155'} stroke={isDesbloqueado ? '#FFFFFF' : '#64748B'} strokeWidth="3" onPress={() => setModalVisible(cp)} />
-                  {!isDesbloqueado && <SvgText x={cp.x} y={cp.y + 4} fill="#94A3B8" fontSize="10" textAnchor="middle">🔒</SvgText>}
-                  <SvgText x={cp.x} y={cp.y - 18} fill="#F8FAFC" fontSize="12" textAnchor="middle" fontWeight="bold">{cp.nombre}</SvgText>
-                </React.Fragment>
-              );
-            })}
-
-            {/* Capa oscura que genera la niebla */}
+            {/* Capa oscura que genera la niebla (Moviéramos los Checkpoints abajo de esto) */}
             <Rect 
               x="0" y="0" 
               width={MAPA_WIDTH_VIRTUAL} height="260" 
@@ -269,7 +258,27 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
               mask="url(#fogMask)"
             />
 
-            {/* Elementos de Progreso Activos (Por encima de la niebla) */}
+            {/* ⭐ CAPA SUPERIOR: Pintamos los Checkpoints por encima de la niebla para recibir el clic */}
+            {checkpoints.map((cp) => {
+              const isDesbloqueado = desbloqueado(cp);
+              return (
+                <React.Fragment key={cp.id}>
+                  <Circle 
+                    cx={cp.x} 
+                    cy={cp.y} 
+                    r={isDesbloqueado ? 12 : 10} /* Subimos radio para mejor área táctil */
+                    fill={isDesbloqueado ? '#F97316' : '#334155'} 
+                    stroke={isDesbloqueado ? '#FFFFFF' : '#64748B'} 
+                    strokeWidth="3" 
+                    onPress={() => setModalVisible(cp)} /* Ahora sí el clic responde */
+                  />
+                  {!isDesbloqueado && <SvgText x={cp.x} y={cp.y + 4} fill="#94A3B8" fontSize="10" textAnchor="middle">🔒</SvgText>}
+                  <SvgText x={cp.x} y={cp.y - 18} fill="#F8FAFC" fontSize="12" textAnchor="middle" fontWeight="bold">{cp.nombre}</SvgText>
+                </React.Fragment>
+              );
+            })}
+
+            {/* Elementos de Progreso Activos (Pin del corredor y Radar) */}
             {kmFisicos > 0 && (
               <AnimatedCircle 
                 key={`radar-${kmFisicos}`}
@@ -285,7 +294,6 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
               <>
                 <Circle cx={pinPos.x} cy={pinPos.y} r={8} fill="#FFFFFF" stroke="#EA580C" strokeWidth="4" />
                 
-                {/* Fondo Oscuro del Kilometraje Centrado */}
                 <Rect 
                   x={pinPos.x - 24} 
                   y={pinPos.y + 16} 
@@ -295,7 +303,6 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
                   fill="#1E293B" 
                 />
                 
-                {/* Texto del Kilometraje Centrado */}
                 <SvgText 
                   x={pinPos.x} 
                   y={pinPos.y + 26} 
@@ -312,7 +319,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
           </Svg>
         </ScrollView>
 
-        {/* 🏔️ CLIMA DINÁMICO: Nieva en la alta montaña (Km 40 al 85) */}
+        {/* CLIMA DINÁMICO */}
         {kmFisicos >= 40 && kmFisicos <= 85 && (
           <EfectoNieve />
         )}
