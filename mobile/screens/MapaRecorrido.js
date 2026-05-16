@@ -131,6 +131,54 @@ const EfectoNieve = () => {
   );
 };
 
+// --- COMPONENTE DE CLIMA DINÁMICO (LLUVIA) ---
+const GotaLluvia = ({ delay, startX, duration }) => {
+  const translateY = useRef(new Animated.Value(-20)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(translateY, {
+        toValue: 280,
+        duration: duration,
+        delay: delay,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: startX,
+        width: 1.5,
+        height: 15,
+        backgroundColor: '#60A5FA',
+        opacity: 0.4,
+        transform: [{ translateY }, { rotate: '-10deg' }]
+      }}
+    />
+  );
+};
+
+const EfectoLluvia = () => {
+  const gotas = useRef(
+    Array.from({ length: 40 }).map((_, i) => ({
+      id: i,
+      startX: Math.random() * SCREEN_WIDTH,
+      delay: Math.random() * 2000,
+      duration: Math.random() * 800 + 700,
+    }))
+  ).current;
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]} pointerEvents="none">
+      {gotas.map(g => <GotaLluvia key={g.id} {...g} />)}
+    </View>
+  );
+};
+
 export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpointsData }) {
   const [modalVisible, setModalVisible] = useState(null);
   const scrollViewRef = useRef(null);
@@ -243,13 +291,13 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
             <Path d={`M0,240 Q${MAPA_WIDTH_VIRTUAL/2},220 ${MAPA_WIDTH_VIRTUAL},245 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#0284C7" opacity="0.35" />
             <SvgText x="300" y="250" fill="#7DD3FC" fontSize="12" textAnchor="middle">Canal Beagle</SvgText>
 
-            {/* Dibujo de las líneas de la ruta */}
-            <Path d="M475569" d={RUTA_BASE_PATH} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Dibujo de las líneas de la ruta (Corregido atributo duplicado) */}
+            <Path d={RUTA_BASE_PATH} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
             {pathCompletado !== "" && (
               <Path d={pathCompletado} fill="none" stroke="#EA580C" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
             )}
 
-            {/* Capa oscura que genera la niebla (Moviéramos los Checkpoints abajo de esto) */}
+            {/* Capa oscura que genera la niebla */}
             <Rect 
               x="0" y="0" 
               width={MAPA_WIDTH_VIRTUAL} height="260" 
@@ -258,7 +306,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
               mask="url(#fogMask)"
             />
 
-            {/* ⭐ CAPA SUPERIOR: Pintamos los Checkpoints por encima de la niebla para recibir el clic */}
+            {/* CAPA SUPERIOR: Checkpoints por encima de la niebla para recibir el clic */}
             {checkpoints.map((cp) => {
               const isDesbloqueado = desbloqueado(cp);
               return (
@@ -266,11 +314,11 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
                   <Circle 
                     cx={cp.x} 
                     cy={cp.y} 
-                    r={isDesbloqueado ? 12 : 10} /* Subimos radio para mejor área táctil */
+                    r={isDesbloqueado ? 12 : 10} 
                     fill={isDesbloqueado ? '#F97316' : '#334155'} 
                     stroke={isDesbloqueado ? '#FFFFFF' : '#64748B'} 
                     strokeWidth="3" 
-                    onPress={() => setModalVisible(cp)} /* Ahora sí el clic responde */
+                    onPress={() => setModalVisible(cp)} 
                   />
                   {!isDesbloqueado && <SvgText x={cp.x} y={cp.y + 4} fill="#94A3B8" fontSize="10" textAnchor="middle">🔒</SvgText>}
                   <SvgText x={cp.x} y={cp.y - 18} fill="#F8FAFC" fontSize="12" textAnchor="middle" fontWeight="bold">{cp.nombre}</SvgText>
@@ -319,10 +367,18 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
           </Svg>
         </ScrollView>
 
-        {/* CLIMA DINÁMICO */}
+        {/* 🗺️ CONTROL DE CLIMA DINÁMICO POR ZONAS */}
+        {/* ZONA 1 (Km 0 al 39): Lluvia templada */}
+        {kmFisicos >= 0 && kmFisicos < 40 && (
+          <EfectoLluvia />
+        )}
+
+        {/* ZONA 2 (Km 40 al 85): Nieve intensa */}
         {kmFisicos >= 40 && kmFisicos <= 85 && (
           <EfectoNieve />
         )}
+
+        {/* ZONA 3 (Km 86 al 103): Llegada despejada a Ushuaia (Sin partículas) */}
       </View>
       
       <Text style={styles.scrollHint}>👈 Desliza para explorar la ruta 👉</Text>
