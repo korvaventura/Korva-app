@@ -197,16 +197,32 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
               
               {/* Máscara de Niebla (Fog of War) */}
               <Mask id="fogMask">
+                {/* 1. Base blanca: Todo cubierto de niebla */}
                 <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="white" />
                 
+                {/* ⭐ DESPEJAR TODO EL PASADO: Agregamos el KEY para obligar a Android a actualizar el mapa entero */}
+                {kmFisicos > 0 && (
+                  <Rect 
+                    key={`clear-past-${kmFisicos}`} /* <--- ESTA LÍNEA LOGRA EL EFECTO */
+                    x={pinPos.x} 
+                    y="0" 
+                    width={MAPA_WIDTH_VIRTUAL - pinPos.x} 
+                    height="260" 
+                    fill="black" /* Negro = Revelar mapa colorido */
+                  />
+                )}
+                
+                {/* 2. Ruta Completada (Negro): Perfora la niebla en el camino exacto */}
                 {pathCompletado !== "" && (
                   <Path d={pathCompletado} fill="none" stroke="black" strokeWidth="22" strokeLinecap="round" strokeLinejoin="round" />
                 )}
                 
+                {/* 3. Checkpoints Desbloqueados (Negro) */}
                 {checkpoints.filter(desbloqueado).map(cp => (
                   <Circle key={cp.id} cx={cp.x} cy={cp.y} r="20" fill="black" />
                 ))}
 
+                {/* 4. Spotlight Dinámico (Negro): Sigue al pin y palpita para difuminar el borde del Fog */}
                 {kmFisicos > 0 && (
                   <AnimatedCircle 
                     key={`spot-${kmFisicos}`} 
