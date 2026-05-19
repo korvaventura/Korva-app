@@ -1,40 +1,40 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, Animated, Dimensions } from 'react-native';
-import Svg, { Path, Circle, Rect, Text as SvgText, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Text as SvgText, Defs, LinearGradient, Stop, Mask } from 'react-native-svg';
 
 const DISTANCIA_FISICA = 103;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const MAPA_WIDTH_VIRTUAL = 800; // El ancho real del mapa para hacer scroll
 
-// Segmentos estirados para el mapa de 800px de ancho
+// Segmentos estirados para el mapa panorámico
 const ROUTE_SEGMENTS = [
-  { km: 0,   x: 720, y: 35 },   // Tolhuin 
+  { km: 0,   x: 720, y: 35 },
   { km: 5,   x: 680, y: 42 },
   { km: 10,  x: 630, y: 48 },
   { km: 15,  x: 580, y: 55 },
-  { km: 20,  x: 520, y: 62 },   // Lago Fagnano
+  { km: 20,  x: 520, y: 62 },
   { km: 25,  x: 480, y: 65 },
   { km: 30,  x: 440, y: 68 },
   { km: 35,  x: 400, y: 75 },
   { km: 40,  x: 370, y: 88 },
-  { km: 45,  x: 350, y: 105 },  // Paso Garibaldi
+  { km: 45,  x: 350, y: 105 },
   { km: 48,  x: 390, y: 115 },  
   { km: 52,  x: 340, y: 125 },  
   { km: 60,  x: 300, y: 135 },
   { km: 70,  x: 240, y: 142 },
-  { km: 80,  x: 180, y: 148 },  // Monte Olivia
+  { km: 80,  x: 180, y: 148 },
   { km: 90,  x: 120, y: 160 },
-  { km: 103, x: 60,  y: 175 },  // Ushuaia
+  { km: 103, x: 60,  y: 175 },
 ];
 
 const RUTA_BASE_PATH = ROUTE_SEGMENTS.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
 
 const CHECKPOINTS_DEFAULT = [
-  { id: 'tolhuin', nombre: 'Tolhuin', kmFisico: 0, emoji: '🏘️', x: 720, y: 35, pista: 'El punto de partida...', desc: 'El corazón de Tierra del Fuego. Su nombre en lengua Selk\'nam significa "corazón". Fundada en 1972, tiene el autódromo más austral del mundo. Sus calles fueron diseñadas con manzanas redondas para proteger a los niños del viento.', datoRaro: '🧭 Km 0 de tu aventura. Acá empieza el fin de la Ruta Nacional 3.' },
-  { id: 'lago_fagnano', nombre: 'Lago Fagnano', kmFisico: 20, emoji: '💧', x: 520, y: 62, pista: 'Un lago que guarda dos mundos...', desc: 'El Lago Fagnano es el más grande de Tierra del Fuego. La Falla de Magallanes lo atraviesa en profundidad. Sus aguas tocan suelo argentino y chileno.', datoRaro: '⚡ Estás corriendo sobre una falla tectónica activa.' },
-  { id: 'paso_garibaldi', nombre: 'Paso Garibaldi', kmFisico: 45, emoji: '⛰️', x: 350, y: 105, pista: 'Un secreto guardado...', desc: 'Descubierto en 1935 por Luis Garibaldi Honte, descendiente Selk\'nam. El nombre no viene del prócer, sino de una frase en dialecto que le gritaban de niño.', datoRaro: '🚙 El primer vehículo en cruzarlo tardó 10 horas. Vos llegás antes.' },
-  { id: 'monte_olivia', nombre: 'Monte Olivia', kmFisico: 80, emoji: '🗻', x: 180, y: 148, pista: 'Los yamanas le daban un nombre...', desc: 'En lengua yamana se llama "Uliwai" (punta de arpón). La cima fue conquistada en 1913 por el cura Alberto de Agostini, sin clavos de escalada.', datoRaro: '🏔️ 1.326 metros. El guardián silencioso de Ushuaia.' },
-  { id: 'ushuaia', nombre: 'Ushuaia', kmFisico: 103, emoji: '🏁', x: 60, y: 175, pista: 'El fin del mundo...', desc: '¡Lo lograste! La ciudad más austral del mundo te recibe. Fue una colonia penal hasta 1947. Desde acá, el próximo punto habitado hacia el sur es la Antártida.', datoRaro: '🌍 Estás en el fin del mundo. Y tu medalla está en camino.' },
+  { id: 'tolhuin', nombre: 'Tolhuin', kmFisico: 0, emoji: '🏘️', x: 720, y: 35, pista: 'El punto de partida...', desc: 'El corazón de Tierra del Fuego. Su nombre en lengua Selk\'nam significa "corazón"...', datoRaro: '🧭 Km 0 de tu aventura.' },
+  { id: 'lago_fagnano', nombre: 'Lago Fagnano', kmFisico: 20, emoji: '💧', x: 520, y: 62, pista: 'Un lago que guarda...', desc: 'El más grande de Tierra del Fuego. La Falla de Magallanes lo atraviesa...', datoRaro: '⚡ Estás corriendo sobre una falla tectónica activa.' },
+  { id: 'paso_garibaldi', nombre: 'Paso Garibaldi', kmFisico: 45, emoji: '⛰️', x: 350, y: 105, pista: 'Un secreto guardado...', desc: 'Descubierto en 1935 por Luis Garibaldi Honte...', datoRaro: '🚙 El primer vehículo en cruzarlo tardó 10 hours.' },
+  { id: 'monte_olivia', nombre: 'Monte Olivia', kmFisico: 80, emoji: '🗻', x: 180, y: 148, pista: 'Los yamanas le daban...', desc: 'En lengua yamana se llama "Uliwai"...', datoRaro: '🏔️ 1.326 metros. El guardián silencioso.' },
+  { id: 'ushuaia', nombre: 'Ushuaia', kmFisico: 103, emoji: '🏁', x: 60, y: 175, pista: 'El fin del mundo...', desc: '¡Lo lograste! La ciudad más austral...', datoRaro: '🌍 Estás en el fin del mundo.' },
 ];
 
 const getPuntoEnRuta = (kmFisicos) => {
@@ -71,10 +71,119 @@ const getCompletedPathString = (kmFisicos) => {
   return d;
 };
 
+// --- COMPONENTE DE CLIMA DINÁMICO (NIEVE) ---
+const CopoNieve = ({ delay, startX, size, duration }) => {
+  const translateY = useRef(new Animated.Value(-20)).current;
+  const translateX = useRef(new Animated.Value(startX)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.parallel([
+        Animated.timing(translateY, {
+          toValue: 280,
+          duration: duration,
+          delay: delay,
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.timing(translateX, { toValue: startX + 15, duration: duration / 2, useNativeDriver: true }),
+          Animated.timing(translateX, { toValue: startX - 15, duration: duration / 2, useNativeDriver: true }),
+        ])
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        top: 0,
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: '#F8FAFC',
+        opacity: 0.7,
+        shadowColor: '#FFF',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 4,
+        transform: [{ translateY }, { translateX }]
+      }}
+    />
+  );
+};
+
+const EfectoNieve = () => {
+  const copos = useRef(
+    Array.from({ length: 35 }).map((_, i) => ({
+      id: i,
+      startX: Math.random() * SCREEN_WIDTH,
+      delay: Math.random() * 3000,
+      size: Math.random() * 3 + 2,
+      duration: Math.random() * 2500 + 2000,
+    }))
+  ).current;
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]} pointerEvents="none">
+      {copos.map(c => <CopoNieve key={c.id} {...c} />)}
+    </View>
+  );
+};
+
+// --- COMPONENTE DE CLIMA DINÁMICO (LLUVIA) ---
+const GotaLluvia = ({ delay, startX, duration }) => {
+  const translateY = useRef(new Animated.Value(-20)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(translateY, {
+        toValue: 280,
+        duration: duration,
+        delay: delay,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: startX,
+        width: 1.5,
+        height: 15,
+        backgroundColor: '#60A5FA',
+        opacity: 0.4,
+        transform: [{ translateY }, { rotate: '-10deg' }]
+      }}
+    />
+  );
+};
+
+const EfectoLluvia = () => {
+  const gotas = useRef(
+    Array.from({ length: 40 }).map((_, i) => ({
+      id: i,
+      startX: Math.random() * SCREEN_WIDTH,
+      delay: Math.random() * 2000,
+      duration: Math.random() * 800 + 700,
+    }))
+  ).current;
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]} pointerEvents="none">
+      {gotas.map(g => <GotaLluvia key={g.id} {...g} />)}
+    </View>
+  );
+};
+
 export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpointsData }) {
   const [modalVisible, setModalVisible] = useState(null);
   const scrollViewRef = useRef(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  
+  const pulseAnim = useRef(new Animated.Value(0)).current;
 
   const factor = (distanciaTotal || DISTANCIA_FISICA) / DISTANCIA_FISICA;
   const kmFisicos = Math.min(parseFloat(kmCompletados || 0) / factor, DISTANCIA_FISICA);
@@ -85,17 +194,22 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
     ? checkpointsData.map((cp, i) => ({ ...CHECKPOINTS_DEFAULT[i], ...cp }))
     : CHECKPOINTS_DEFAULT;
 
-  // Animación de latido para el pin actual
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.5, duration: 1000, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true })
+        Animated.timing(pulseAnim, { 
+          toValue: 1, 
+          duration: 1500, 
+          useNativeDriver: false 
+        })
       ])
     ).start();
   }, []);
 
-  // Auto-enfoque en el mapa al cargar
+  const animatedRadiusRadar = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 28] });
+  const animatedRadiusSpotlight = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 32] });
+  const animatedOpacity = pulseAnim.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.6, 0.1, 0] });
+
   useEffect(() => {
     if (scrollViewRef.current) {
       const scrollToX = Math.max(0, pinPos.x - (SCREEN_WIDTH / 2));
@@ -112,7 +226,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
 
   return (
     <View style={styles.container}>
-      <Text style={styles.titulo}>🗺️ Tu Recorrido Interactivo</Text>
+      <Text style={styles.titulo}>🗺️ Explora el Fin del Mundo</Text>
 
       <View style={styles.mapaWrapper}>
         <ScrollView 
@@ -127,61 +241,153 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
                 <Stop offset="0" stopColor="#0F172A" stopOpacity="1" />
                 <Stop offset="1" stopColor="#1E293B" stopOpacity="1" />
               </LinearGradient>
+              
+              {/* Máscara de Niebla (Fog of War) */}
+              <Mask id="fogMask">
+                <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="white" />
+                
+                {/* Despejar todo el relieve del mapa hacia la derecha */}
+                {kmFisicos > 0 && (
+                  <Rect 
+                    key={`clear-past-${kmFisicos}`}
+                    x={pinPos.x} 
+                    y="0" 
+                    width={MAPA_WIDTH_VIRTUAL - pinPos.x} 
+                    height="260" 
+                    fill="black" 
+                  />
+                )}
+                
+                {/* Ruta Completada (Negro): Perfora la niebla */}
+                {pathCompletado !== "" && (
+                  <Path d={pathCompletado} fill="none" stroke="black" strokeWidth="22" strokeLinecap="round" strokeLinejoin="round" />
+                )}
+                
+                {/* Checkpoints Desbloqueados en la máscara */}
+                {checkpoints.filter(desbloqueado).map(cp => (
+                  <Circle key={cp.id} cx={cp.x} cy={cp.y} r="20" fill="black" />
+                ))}
+
+                {/* Spotlight Dinámico que palpita */}
+                {kmFisicos > 0 && (
+                  <AnimatedCircle 
+                    key={`spot-${kmFisicos}`} 
+                    cx={pinPos.x} 
+                    cy={pinPos.y} 
+                    r={animatedRadiusSpotlight} 
+                    fill="black" 
+                  />
+                )}
+              </Mask>
             </Defs>
+
+            {/* Fondos y relieves geográficos */}
             <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="url(#gradBg)" />
-            
             <Path d={`M0,140 Q${MAPA_WIDTH_VIRTUAL/4},90 ${MAPA_WIDTH_VIRTUAL/2},150 T${MAPA_WIDTH_VIRTUAL},100 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#334155" opacity="0.3" />
             
-            <Path d="M400,40 Q550,20 700,50 T800,45 L800,0 L400,0 Z" fill="#0284C7" opacity="0.15" />
-            <SvgText x="550" y="25" fill="#7DD3FC" fontSize="12" textAnchor="middle" opacity="0.7">Lago Fagnano</SvgText>
+            <Path d="M400,40 Q550,20 700,50 T800,45 L800,0 L400,0 Z" fill="#0284C7" opacity="0.35" />
+            <SvgText x="550" y="25" fill="#7DD3FC" fontSize="12" textAnchor="middle">Lago Fagnano</SvgText>
 
-            <Path d={`M0,240 Q${MAPA_WIDTH_VIRTUAL/2},220 ${MAPA_WIDTH_VIRTUAL},245 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#0284C7" opacity="0.15" />
-            <SvgText x="300" y="250" fill="#7DD3FC" fontSize="12" textAnchor="middle" opacity="0.7">Canal Beagle</SvgText>
+            <Path d={`M0,240 Q${MAPA_WIDTH_VIRTUAL/2},220 ${MAPA_WIDTH_VIRTUAL},245 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#0284C7" opacity="0.35" />
+            <SvgText x="300" y="250" fill="#7DD3FC" fontSize="12" textAnchor="middle">Canal Beagle</SvgText>
 
+            {/* Dibujo de las líneas de la ruta (Corregido atributo duplicado) */}
             <Path d={RUTA_BASE_PATH} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
             {pathCompletado !== "" && (
               <Path d={pathCompletado} fill="none" stroke="#EA580C" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
             )}
 
+            {/* Capa oscura que genera la niebla */}
+            <Rect 
+              x="0" y="0" 
+              width={MAPA_WIDTH_VIRTUAL} height="260" 
+              fill="#0D1B2A" 
+              opacity="0.85" 
+              mask="url(#fogMask)"
+            />
+
+            {/* CAPA SUPERIOR: Checkpoints por encima de la niebla para recibir el clic */}
             {checkpoints.map((cp) => {
               const isDesbloqueado = desbloqueado(cp);
               return (
                 <React.Fragment key={cp.id}>
-                  <Circle cx={cp.x} cy={cp.y} r={isDesbloqueado ? 10 : 8} fill={isDesbloqueado ? '#F97316' : '#334155'} stroke={isDesbloqueado ? '#FFFFFF' : '#64748B'} strokeWidth="3" onPress={() => setModalVisible(cp)} />
+                  <Circle 
+                    cx={cp.x} 
+                    cy={cp.y} 
+                    r={isDesbloqueado ? 12 : 10} 
+                    fill={isDesbloqueado ? '#F97316' : '#334155'} 
+                    stroke={isDesbloqueado ? '#FFFFFF' : '#64748B'} 
+                    strokeWidth="3" 
+                    onPress={() => setModalVisible(cp)} 
+                  />
                   {!isDesbloqueado && <SvgText x={cp.x} y={cp.y + 4} fill="#94A3B8" fontSize="10" textAnchor="middle">🔒</SvgText>}
                   <SvgText x={cp.x} y={cp.y - 18} fill="#F8FAFC" fontSize="12" textAnchor="middle" fontWeight="bold">{cp.nombre}</SvgText>
                 </React.Fragment>
               );
             })}
 
+            {/* Elementos de Progreso Activos (Pin del corredor y Radar) */}
             {kmFisicos > 0 && (
-              <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={18} fill="#EA580C" opacity="0.3" style={{ transform: [{ scale: pulseAnim }] }} />
+              <AnimatedCircle 
+                key={`radar-${kmFisicos}`}
+                cx={pinPos.x} 
+                cy={pinPos.y} 
+                r={animatedRadiusRadar} 
+                fill="#EA580C" 
+                opacity={animatedOpacity} 
+              />
             )}
             
             {kmFisicos > 0 && (
               <>
                 <Circle cx={pinPos.x} cy={pinPos.y} r={8} fill="#FFFFFF" stroke="#EA580C" strokeWidth="4" />
-                {/* Los kilómetros ahora están POR DEBAJO del pin */}
-                <Rect x={pinPos.x - 22} y={pinPos.y + 16} width="44" height="20" rx="6" fill="#1E293B" />
-                <SvgText x={pinPos.x} y={pinPos.y + 30} fill="#F97316" fontSize="11" textAnchor="middle" fontWeight="900">
-                  {(kmFisicos * factor).toFixed(0)}km
+                
+                <Rect 
+                  x={pinPos.x - 24} 
+                  y={pinPos.y + 16} 
+                  width="48" 
+                  height="20" 
+                  rx="10" 
+                  fill="#1E293B" 
+                />
+                
+                <SvgText 
+                  x={pinPos.x} 
+                  y={pinPos.y + 26} 
+                  fill="#F97316" 
+                  fontSize="11" 
+                  textAnchor="middle" 
+                  alignmentBaseline="middle" 
+                  fontWeight="900"
+                >
+                  {(kmFisicos * factor).toFixed(0)} km
                 </SvgText>
               </>
             )}
           </Svg>
         </ScrollView>
+
+        {/* 🗺️ CONTROL DE CLIMA DINÁMICO POR ZONAS */}
+        {/* ZONA 1 (Km 0 al 39): Lluvia templada */}
+        {kmFisicos >= 0 && kmFisicos < 40 && (
+          <EfectoLluvia />
+        )}
+
+        {/* ZONA 2 (Km 40 al 85): Nieve intensa */}
+        {kmFisicos >= 40 && kmFisicos <= 85 && (
+          <EfectoNieve />
+        )}
+
+        {/* ZONA 3 (Km 86 al 103): Llegada despejada a Ushuaia (Sin partículas) */}
       </View>
+      
       <Text style={styles.scrollHint}>👈 Desliza para explorar la ruta 👉</Text>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
         {checkpoints.map((cp) => {
           const bloqueado = !desbloqueado(cp);
           return (
-            <TouchableOpacity 
-              key={cp.id} 
-              style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo]} 
-              onPress={() => setModalVisible(cp)}
-            >
+            <TouchableOpacity key={cp.id} style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo]} onPress={() => setModalVisible(cp)}>
               <Text style={styles.leyendaEmoji}>{bloqueado ? '🔒' : cp.emoji}</Text>
               <View style={styles.leyendaTextos}>
                 <Text style={[styles.leyendaNombre, !bloqueado && styles.leyendaNombreActivo]}>{cp.nombre}</Text>
@@ -242,50 +448,34 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
   );
 }
 
-// Componente animado para el latido
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const styles = StyleSheet.create({
   container: { marginBottom: 16 },
   titulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 12 },
-  mapaWrapper: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#334155', backgroundColor: '#0F172A' },
+  mapaWrapper: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#334155', backgroundColor: '#0F172A', position: 'relative' },
   scrollHint: { textAlign: 'center', color: '#64748B', fontSize: 11, marginTop: 8, marginBottom: 12, fontStyle: 'italic' },
-  
   leyendaScroll: { marginBottom: 8 },
-  leyendaItem: { 
-    flexDirection: 'row',
-    backgroundColor: '#1E293B', 
-    borderRadius: 12, 
-    padding: 12, 
-    marginRight: 10, 
-    alignItems: 'center', 
-    borderWidth: 1, 
-    borderColor: '#334155' 
-  },
+  leyendaItem: { flexDirection: 'row', backgroundColor: '#1E293B', borderRadius: 12, padding: 12, marginRight: 10, alignItems: 'center', borderWidth: 1, borderColor: '#334155' },
   leyendaItemActivo: { borderColor: '#EA580C', backgroundColor: '#0F172A' },
   leyendaEmoji: { fontSize: 20, marginRight: 8 },
   leyendaTextos: { justifyContent: 'center' },
   leyendaNombre: { fontSize: 12, color: '#64748B', fontWeight: 'bold' },
   leyendaNombreActivo: { color: '#F8FAFC' },
   leyendaKm: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
-  
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalCard: { backgroundColor: '#1E293B', borderRadius: 24, padding: 28, alignItems: 'center', width: '100%', borderColor: '#334155', borderWidth: 1 },
   modalCardInicio: { borderColor: '#3B82F6' },
   modalCardFin: { borderColor: '#EA580C' },
   modalCardBloqueado: { borderColor: '#334155' },
-  
   modalEmoji: { fontSize: 48, marginBottom: 12 },
   modalNombre: { fontSize: 24, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 4 },
   modalKm: { fontSize: 14, color: '#94A3B8', marginBottom: 20 },
-  
   mensajeEspecialBox: { backgroundColor: '#0F172A', borderRadius: 12, padding: 14, marginBottom: 16, width: '100%' },
   mensajeEspecial: { fontSize: 14, color: '#EA580C', textAlign: 'center', fontWeight: 'bold', lineHeight: 22 },
   modalDesc: { fontSize: 14, color: '#E2E8F0', textAlign: 'center', lineHeight: 24, marginBottom: 16 },
-  
   datoRaroBox: { backgroundColor: '#0F172A', borderRadius: 10, padding: 12, marginBottom: 20, width: '100%', borderLeftWidth: 3, borderLeftColor: '#3B82F6' },
   datoRaroTexto: { fontSize: 13, color: '#3B82F6', textAlign: 'center', fontStyle: 'italic' },
-  
   pistaBox: { backgroundColor: '#0F172A', borderRadius: 12, padding: 14, marginBottom: 16, width: '100%', borderWidth: 1, borderColor: '#334155' },
   pistaTexto: { fontSize: 14, color: '#CBD5E1', textAlign: 'center', fontStyle: 'italic', lineHeight: 22 },
   difuminadoWrapper: { width: '100%', marginBottom: 16, overflow: 'hidden', borderRadius: 10, maxHeight: 40 },
@@ -293,7 +483,6 @@ const styles = StyleSheet.create({
   difuminadoOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: '#1E293B', opacity: 0.85 },
   desbloqueoBox: { backgroundColor: '#0F172A', borderRadius: 12, padding: 14, marginBottom: 20, width: '100%', borderWidth: 1, borderColor: '#EA580C' },
   desbloqueoTexto: { fontSize: 13, color: '#EA580C', textAlign: 'center', fontWeight: 'bold' },
-  
   modalBtn: { backgroundColor: '#EA580C', paddingVertical: 14, paddingHorizontal: 36, borderRadius: 12, width: '100%', alignItems: 'center' },
   modalBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
 });

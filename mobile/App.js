@@ -1,7 +1,6 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text, Platform, ActivityIndicator, View } from 'react-native';
 import { useState, useEffect } from 'react';
 import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,6 +17,9 @@ import OnboardingScreen from './screens/OnboardingScreen';
 import TerminosScreen from './screens/TerminosScreen';
 import ResetPasswordScreen from './screens/ResetPasswordScreen';
 import DetalleRetoScreen from './screens/DetalleRetoScreen';
+
+// ACÁ AGRUPAMOS TODO LO DE REACT NATIVE EN UNA SOLA LÍNEA Y AGREGAMOS 'View':
+import { View, Text, Platform, ActivityIndicator } from 'react-native';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
