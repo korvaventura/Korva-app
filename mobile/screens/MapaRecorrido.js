@@ -178,6 +178,238 @@ const EfectoLluvia = () => {
     </View>
   );
 };
+// --- COMPONENTE DE CLIMA DINÁMICO (VIENTO) ---
+const ParticulaViento = ({ delay, startY, duration }) => {
+  const translateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(translateX, {
+        toValue: -50, // Se sale por la izquierda de la pantalla
+        duration: duration,
+        delay: delay,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        top: startY,
+        width: 12,
+        height: 2,
+        backgroundColor: '#CBD5E1', // Gris clarito (polvo/viento)
+        opacity: 0.5,
+        transform: [{ translateX }]
+      }}
+    />
+  );
+};
+
+const EfectoViento = () => {
+  const rafagas = useRef(
+    Array.from({ length: 20 }).map((_, i) => ({
+      id: i,
+      startY: Math.random() * 260, // 260 es el alto de tu mapa
+      delay: Math.random() * 2000,
+      duration: Math.random() * 600 + 400, // Súper rápidas
+    }))
+  ).current;
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]} pointerEvents="none">
+      {rafagas.map(r => <ParticulaViento key={r.id} {...r} />)}
+    </View>
+  );
+};
+
+// --- COMPONENTE DE CLIMA DINÁMICO (NOCHE ESTRELLADA) ---
+const Estrella = ({ delay, top, left, size }) => {
+  const opacity = useRef(new Animated.Value(0.1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.8, duration: 1500, delay: delay, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.1, duration: 1500, useNativeDriver: true })
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        top: top,
+        left: left,
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: '#FFFFFF',
+        opacity: opacity,
+        shadowColor: '#FFF',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 3,
+      }}
+    />
+  );
+};
+
+const EfectoEstrellas = () => {
+  const estrellas = useRef(
+    Array.from({ length: 40 }).map((_, i) => ({
+      id: i,
+      top: Math.random() * 120, // Solo en la mitad superior del cielo
+      left: Math.random() * SCREEN_WIDTH,
+      delay: Math.random() * 3000,
+      size: Math.random() * 2 + 1,
+    }))
+  ).current;
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { zIndex: 5 }]} pointerEvents="none">
+      {estrellas.map(e => <Estrella key={e.id} {...e} />)}
+    </View>
+  );
+};
+
+// --- COMPONENTE DE CLIMA DINÁMICO (TORMENTA ELÉCTRICA) ---
+const EfectoTormentaElectrica = () => {
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const dispararRelampago = () => {
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.7, duration: 50, useNativeDriver: true }), // Flash rápido
+        Animated.timing(opacity, { toValue: 0, duration: 100, useNativeDriver: true }),  // Oscurece
+        Animated.timing(opacity, { toValue: 0.4, duration: 50, useNativeDriver: true }), // Flash secundario
+        Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true })   // Apaga lento
+      ]).start();
+      
+      // Programa el próximo relámpago entre 3 y 8 segundos después
+      setTimeout(dispararRelampago, Math.random() * 5000 + 3000); 
+    };
+
+    // Inicia el primer relámpago
+    setTimeout(dispararRelampago, 1000);
+  }, []);
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]} pointerEvents="none">
+      {/* Puedes combinar este efecto poniendo <EfectoLluvia /> justo aquí arriba */}
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: '#FFFFFF', opacity: opacity }]} />
+    </View>
+  );
+};
+
+// --- COMPONENTE DE CLIMA DINÁMICO (TORMENTA DE ARENA) ---
+const ParticulaArena = ({ delay, startX, startY, duration }) => {
+  const translate = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(translate, {
+        toValue: 300, // Se mueve 300px hacia abajo y a la izquierda
+        duration: duration,
+        delay: delay,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        top: startY,
+        left: startX,
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: '#FCD34D', // Amarillo/Naranja arena
+        opacity: 0.6,
+        transform: [
+          { translateX: Animated.multiply(translate, -1) }, // Va hacia la izquierda
+          { translateY: translate } // Va hacia abajo
+        ]
+      }}
+    />
+  );
+};
+
+const EfectoTormentaArena = () => {
+  const arena = useRef(
+    Array.from({ length: 60 }).map((_, i) => ({
+      id: i,
+      startX: (Math.random() * SCREEN_WIDTH) + 150, // Empieza más a la derecha
+      startY: Math.random() * -100, // Empieza arriba de la pantalla
+      delay: Math.random() * 2000,
+      duration: Math.random() * 1000 + 800,
+    }))
+  ).current;
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]} pointerEvents="none">
+      {/* Filtro naranja oscuro de fondo */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#B45309', opacity: 0.3 }]} />
+      {arena.map(a => <ParticulaArena key={a.id} {...a} />)}
+    </View>
+  );
+};
+
+// --- COMPONENTE DE CLIMA DINÁMICO (NIEBLA BAJA) ---
+const NubeNiebla = ({ delay, startY, duration, size }) => {
+  const translateX = useRef(new Animated.Value(-size)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(translateX, {
+        toValue: SCREEN_WIDTH + size, // Cruza tooooooda la pantalla
+        duration: duration,
+        delay: delay,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        top: startY,
+        width: size,
+        height: size / 2, // Forma de óvalo aplastado
+        borderRadius: size / 2,
+        backgroundColor: '#F1F5F9', // Gris niebla
+        opacity: 0.15, // Muy tenue
+        transform: [{ translateX }],
+        // El blur en React Native requiere un poco más de trabajo, 
+        // pero con opacidad baja y formas redondas da el "gatazo" perfecto.
+      }}
+    />
+  );
+};
+
+const EfectoNieblaBaja = () => {
+  const nubes = useRef(
+    Array.from({ length: 5 }).map((_, i) => ({
+      id: i,
+      startY: (Math.random() * 100) + 100, // Flota en la parte baja/media
+      delay: Math.random() * 5000,
+      duration: Math.random() * 15000 + 10000, // Súper lentas (10 a 25 segundos)
+      size: Math.random() * 200 + 150, // Enormes
+    }))
+  ).current;
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]} pointerEvents="none">
+      {nubes.map(n => <NubeNiebla key={n.id} {...n} />)}
+    </View>
+  );
+};
 
 export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpointsData }) {
   const [modalVisible, setModalVisible] = useState(null);
@@ -378,7 +610,10 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, checkpoin
           <EfectoNieve />
         )}
 
-        {/* ZONA 3 (Km 86 al 103): Llegada despejada a Ushuaia (Sin partículas) */}
+        {/* ZONA 3 (Km 86 al 103): Noche estrellada de victoria al llegar a Ushuaia 🌌 */}
+        {kmFisicos > 85 && kmFisicos <= 103 && (
+          <EfectoEstrellas />
+        )}
       </View>
       
       <Text style={styles.scrollHint}>👈 Desliza para explorar la ruta 👉</Text>
