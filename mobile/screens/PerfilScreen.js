@@ -75,7 +75,7 @@ export default function PerfilScreen() {
 
   const cargarPerfil = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/perfil/${userId}`);
+      const res = await fetch(`${BACKEND_URL}/perfil/${userId}?t=${Date.now()}`);
       const data = await res.json();
       setUsuario(data.usuario);
       setStats(data.stats);
