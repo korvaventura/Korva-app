@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Linking } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../supabase';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
@@ -49,6 +50,16 @@ export default function PerfilScreen() {
     }
   }, [userId]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (userId) {
+        cargarPerfil();
+        cargarActividades();
+        cargarInscripcionActiva();
+      }
+    }, [userId])
+  );
+
   useEffect(() => {
     const subscription = Linking.addEventListener('url', ({ url }) => {
       if (url.includes('strava-connected')) cargarPerfil();
@@ -86,12 +97,16 @@ export default function PerfilScreen() {
         text: 'Eliminar', style: 'destructive',
         onPress: async () => {
           try {
-            await fetch(`${BACKEND_URL}/actividades/${actividadId}`, {
+           await fetch(`${BACKEND_URL}/actividades/${actividadId}`, {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ user_id: userId })
             });
             setActividades(prev => prev.filter(a => a.id !== actividadId));
+            await new Promise(resolve => setTimeout(resolve, 800));
+            await cargarPerfil();
+            await cargarActividades();
+            await cargarInscripcionActiva();
           } catch (error) {
             Alert.alert('Error', 'No se pudo eliminar la actividad.');
           }
@@ -103,8 +118,8 @@ export default function PerfilScreen() {
   const cargarInscripcionActiva = async () => {
     try {
       const { data, error } = await supabase
-  .from('user_challenges')
-  .select('id, modalidad, challenge_id, meta_fecha, km_completed, challenges(title, modalidades)')
+        .from('user_challenges')
+        .select('id, modalidad, challenge_id, meta_fecha, km_completed, challenges(title, modalidades)')
         .eq('user_id', userId)
         .eq('status', 'active')
         .single();
@@ -242,7 +257,7 @@ export default function PerfilScreen() {
 
       {stats && (
         <View style={styles.statsRow}>
-          <View style={styles.statCard}><Text style={styles.statNumero}>🔥 {stats.racha_actual || 0}</Text><Text style={styles.statLabel}>Racha días</Text></View>
+          <View style={styles.statCard}><Text style={styles.statNumero}>🔥 {stats.racha_actual || 0}</Text><Text style={styles.statLabel}>Racha sem.</Text></View>
           <View style={styles.statCard}><Text style={styles.statNumero}>{stats.mejor_semana_km || 0}</Text><Text style={styles.statLabel}>Mejor semana</Text></View>
           <View style={styles.statCard}><Text style={styles.statNumero}>{stats.promedio_semanal_km || 0}</Text><Text style={styles.statLabel}>km/semana</Text></View>
         </View>
@@ -255,9 +270,73 @@ export default function PerfilScreen() {
           </View>
         </View>
       )}
-  {inscripcionActiva && (
+
+      {inscripcionActiva && (
         <View style={styles.seccion}>
           <Text style={styles.seccionTitulo}>🏅 Mi reto activo</Text>
+          <View style={styles.modalidadCard}>
+            <Text style={styles.modalidadTitulo}>{inscripcionActiva.challenges?.title}</Text>
+            <Text style={styles.modalidadLabel}>Modalidad actual</Text>
+            <View style={styles.modalidadBtns}>
+              <TouchableOpacity
+                style={[styles.modalidadBtn, inscripcionActiva.modalidad === 'run' && styles.modalidadBtnActivo]}
+                onPress={() => cambiarModalidad('run')} disabled={cambiandoModalidad}
+              >
+                <Text style={[styles.modalidadBtnText, inscripcionActiva.modalidad === 'run' && styles.modalidadBtnTextActivo]}>🏃 Running</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalidadBtn, inscripcionActiva.modalidad === 'ride' && styles.modalidadBtnActivo]}
+                onPress={() => cambiarModalidad('ride')} disabled={cambiandoModalidad}
+              >
+                <Text style={[styles.modalidadBtnText, inscripcionActiva.modalidad === 'ride' && styles.modalidadBtnTextActivo]}>🚴 Ciclismo</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.metaSeparador} />
+            <View style={styles.metaHeader}>
+              <Text style={styles.metaTitulo}>🎯 Mi meta personal</Text>
+              <TouchableOpacity onPress={() => { setInputMeta(metaFecha ? new Date(metaFecha).toLocaleDateString('es-AR') : ''); setEditandoMeta(!editandoMeta); }}>
+                <Text style={styles.metaEditarBtn}>{editandoMeta ? 'Cancelar' : metaFecha ? 'Editar' : '+ Agregar'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {editandoMeta ? (
+              <View style={styles.metaInputRow}>
+                <TextInput
+                  style={styles.metaInput}
+                  value={inputMeta}
+                  onChangeText={setInputMeta}
+                  placeholder="DD/MM/AAAA"
+                  placeholderTextColor="#4a6a8a"
+                  keyboardType="numeric"
+                />
+                <TouchableOpacity style={styles.metaGuardarBtn} onPress={guardarMeta} disabled={guardandoMeta}>
+                  {guardandoMeta ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.metaGuardarBtnText}>Guardar</Text>}
+                </TouchableOpacity>
+              </View>
+            ) : metaFecha ? (
+              <View style={styles.metaInfo}>
+                <Text style={styles.metaFecha}>📅 {formatearFecha(metaFecha)}</Text>
+                <Text style={styles.metaDias}>{diasEntre(new Date(), new Date(metaFecha))} días restantes</Text>
+                <Text style={styles.metaRitmo}>
+                  {(() => {
+                    const diasRestantes = diasEntre(new Date(), new Date(metaFecha));
+                    const sesionesRestantes = Math.floor(diasRestantes * factorDescanso);
+                    const modalidadData = inscripcionActiva?.challenges?.modalidades?.find(m => m.tipo === inscripcionActiva.modalidad);
+                    const distanciaTotal = modalidadData?.distancia_km || 0;
+                    const kmRestantes = Math.max(0, distanciaTotal - (inscripcionActiva?.km_completed || 0));
+                    const kmPorSesion = sesionesRestantes > 0 ? (kmRestantes / sesionesRestantes).toFixed(1) : '—';
+                    return `${kmPorSesion}km por sesión · ${sesionesporSemana} veces/semana`;
+                  })()}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.metaVacio}>Sin meta definida. Podés agregar una fecha objetivo opcional.</Text>
+            )}
+          </View>
+        </View>
+      )}
+
       {nivel && (
         <View style={styles.seccion}>
           <Text style={styles.seccionTitulo}>⚡ Tu nivel</Text>
@@ -321,70 +400,6 @@ export default function PerfilScreen() {
           </>
         )}
       </View>
-
-          <View style={styles.modalidadCard}>
-            <Text style={styles.modalidadTitulo}>{inscripcionActiva.challenges?.title}</Text>
-            <Text style={styles.modalidadLabel}>Modalidad actual</Text>
-            <View style={styles.modalidadBtns}>
-              <TouchableOpacity
-                style={[styles.modalidadBtn, inscripcionActiva.modalidad === 'run' && styles.modalidadBtnActivo]}
-                onPress={() => cambiarModalidad('run')} disabled={cambiandoModalidad}
-              >
-                <Text style={[styles.modalidadBtnText, inscripcionActiva.modalidad === 'run' && styles.modalidadBtnTextActivo]}>🏃 Running</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalidadBtn, inscripcionActiva.modalidad === 'ride' && styles.modalidadBtnActivo]}
-                onPress={() => cambiarModalidad('ride')} disabled={cambiandoModalidad}
-              >
-                <Text style={[styles.modalidadBtnText, inscripcionActiva.modalidad === 'ride' && styles.modalidadBtnTextActivo]}>🚴 Ciclismo</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Meta personal */}
-            <View style={styles.metaSeparador} />
-            <View style={styles.metaHeader}>
-              <Text style={styles.metaTitulo}>🎯 Mi meta personal</Text>
-              <TouchableOpacity onPress={() => { setInputMeta(metaFecha ? new Date(metaFecha).toLocaleDateString('es-AR') : ''); setEditandoMeta(!editandoMeta); }}>
-                <Text style={styles.metaEditarBtn}>{editandoMeta ? 'Cancelar' : metaFecha ? 'Editar' : '+ Agregar'}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {editandoMeta ? (
-              <View style={styles.metaInputRow}>
-                <TextInput
-                  style={styles.metaInput}
-                  value={inputMeta}
-                  onChangeText={setInputMeta}
-                  placeholder="DD/MM/AAAA"
-                  placeholderTextColor="#4a6a8a"
-                  keyboardType="numeric"
-                />
-                <TouchableOpacity style={styles.metaGuardarBtn} onPress={guardarMeta} disabled={guardandoMeta}>
-                  {guardandoMeta ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.metaGuardarBtnText}>Guardar</Text>}
-                </TouchableOpacity>
-              </View>
-            ) : metaFecha ? (
-              <View style={styles.metaInfo}>
-                <Text style={styles.metaFecha}>📅 {formatearFecha(metaFecha)}</Text>
-                <Text style={styles.metaDias}>{diasEntre(new Date(), new Date(metaFecha))} días restantes</Text>
-                <Text style={styles.metaRitmo}>
-                  {(() => {
-                    const diasRestantes = diasEntre(new Date(), new Date(metaFecha));
-                    const sesionesRestantes = Math.floor(diasRestantes * factorDescanso);
-                   const modalidadData = inscripcionActiva?.challenges?.modalidades?.find(m => m.tipo === inscripcionActiva.modalidad);
-                  const distanciaTotal = modalidadData?.distancia_km || 0;
-                  const kmRestantes = Math.max(0, distanciaTotal - (inscripcionActiva?.km_completed || 0));
-                  const kmPorSesion = sesionesRestantes > 0 ? (kmRestantes / sesionesRestantes).toFixed(1) : '—';
-                    return `${kmPorSesion}km por sesión · ${sesionesporSemana} veces/semana`;
-                  })()}
-                </Text>
-              </View>
-            ) : (
-              <Text style={styles.metaVacio}>Sin meta definida. Podés agregar una fecha objetivo opcional.</Text>
-            )}
-          </View>
-        </View>
-      )}
 
       <View style={styles.seccion}>
         <Text style={styles.seccionTitulo}>📦 Direccion de envio</Text>
@@ -533,6 +548,7 @@ const styles = StyleSheet.create({
   stravaConectadoText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
   stravaReconectarText: { color: '#A8CFFF', fontSize: 13 },
   cerrarButton: { borderWidth: 1, borderColor: '#2a3a4a', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center', paddingHorizontal: 24 },
-  cerrarButtonText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 15 }, perfilDeporteCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#1E6FD9' },
-perfilDeporteTexto: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF' },
+  cerrarButtonText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 15 },
+  perfilDeporteCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#1E6FD9' },
+  perfilDeporteTexto: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF' },
 });
