@@ -56,6 +56,12 @@ export default function PerfilScreen() {
         cargarPerfil();
         cargarActividades();
         cargarInscripcionActiva();
+      } else {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session?.user?.id) {
+            setUserId(session.user.id);
+          }
+        });
       }
     }, [userId])
   );
