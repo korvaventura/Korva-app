@@ -416,6 +416,8 @@ export default function HomeScreen({ navigation }) {
                     distanciaTotal={item.distancia_total}
                     porcentaje={item.porcentaje}
                     checkpointsData={item.checkpoints}
+                    challengeId={item.challenge_id}
+                    challengeTitle={item.challenge}
                   />
 
                   {mostrarCardMeta && (
