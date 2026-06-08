@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser'; // ✅ FIX: import WebBrowser
 import { supabase } from '../supabase';
 import CompletadoScreen from './CompletadoScreen';
 import ViewShot from 'react-native-view-shot';
@@ -154,8 +155,13 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
+  // ✅ FIX: usar WebBrowser.openAuthSessionAsync en lugar de Linking.openURL
+  // Esto abre un in-app browser que sabe redirigir de vuelta a korva:// al terminar el OAuth
   const conectarStrava = async () => {
-    await Linking.openURL(`${BACKEND_URL}/strava/auth`);
+    await WebBrowser.openAuthSessionAsync(
+      `${BACKEND_URL}/strava/auth`,
+      'korva://strava-connected'
+    );
   };
 
   const compartirProgreso = async (index) => {

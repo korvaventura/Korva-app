@@ -187,7 +187,6 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
     }
   }
 
-  // Verificar racha después de procesar la actividad
   await verificarYEnviarNotificacionRacha(supabase, userId);
 
   console.log(`Actividad ${stravaActivityId} procesada para usuario ${userId}`);
@@ -235,7 +234,9 @@ router.get('/callback', async (req, res) => {
       .single();
 
     if (error) throw error;
-    res.redirect(`mobile://strava-connected?userId=${user.id}`);
+
+    // ✅ FIX: scheme corregido de 'mobile://' a 'korva://'
+    res.redirect(`korva://strava-connected?userId=${user.id}`);
   } catch (error) {
     res.json({ error: 'Error conectando con Strava', detalle: error.message });
   }
