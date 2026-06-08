@@ -1,8 +1,8 @@
-// Por esto (quita Linking de react-native):
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator } from 'react-native';
-import * as Linking from 'expo-linking'; // <-- Agrega esta línea
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Modal } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
@@ -34,6 +34,7 @@ export default function PerfilScreen() {
   const [editandoMeta, setEditandoMeta] = useState(false);
   const [inputMeta, setInputMeta] = useState('');
   const [guardandoMeta, setGuardandoMeta] = useState(false);
+  const [modalStravaVisible, setModalStravaVisible] = useState(false);
   const [formDireccion, setFormDireccion] = useState({
     nombre: '', direccion: '', ciudad: '', codigo_postal: '', pais: '', telefono: '',
   });
@@ -60,9 +61,7 @@ export default function PerfilScreen() {
         cargarInscripcionActiva();
       } else {
         supabase.auth.getSession().then(({ data: { session } }) => {
-          if (session?.user?.id) {
-            setUserId(session.user.id);
-          }
+          if (session?.user?.id) setUserId(session.user.id);
         });
       }
     }, [userId])
@@ -70,7 +69,10 @@ export default function PerfilScreen() {
 
   useEffect(() => {
     const subscription = Linking.addEventListener('url', ({ url }) => {
-      if (url.includes('strava-connected')) cargarPerfil();
+      if (url.includes('strava-connected')) {
+        cargarPerfil();
+        setModalStravaVisible(true);
+      }
     });
     return () => subscription.remove();
   }, []);
@@ -105,7 +107,7 @@ export default function PerfilScreen() {
         text: 'Eliminar', style: 'destructive',
         onPress: async () => {
           try {
-           await fetch(`${BACKEND_URL}/actividades/${actividadId}`, {
+            await fetch(`${BACKEND_URL}/actividades/${actividadId}`, {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ user_id: userId })
@@ -218,16 +220,18 @@ export default function PerfilScreen() {
     } finally { setGuardando(false); }
   };
 
-  const conectarStrava = async () => { 
-  // Generamos la URL de retorno dinámica de Expo
-  const returnUrl = Linking.createURL('strava-connected');
-  
-  // Se la pasamos al backend
-  const authUrl = `${BACKEND_URL}/strava/auth?returnUrl=${encodeURIComponent(returnUrl)}`;
-  
-  // Abrimos el navegador
-  await Linking.openURL(authUrl); 
-};
+  // ✅ FIX: usar WebBrowser.openAuthSessionAsync
+  const conectarStrava = async () => {
+    const result = await WebBrowser.openAuthSessionAsync(
+      `${BACKEND_URL}/strava/auth`,
+      'korva://strava-connected'
+    );
+    if (result.type === 'success' || result.url?.includes('strava-connected')) {
+      await cargarPerfil();
+      setModalStravaVisible(true);
+    }
+  };
+
   const cerrarSesion = async () => { await supabase.auth.signOut(); };
 
   const formatearFechaCorta = (fecha) => {
@@ -251,6 +255,50 @@ export default function PerfilScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+
+      {/* Modal instructivo Strava */}
+      <Modal
+        visible={modalStravaVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalStravaVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalEmoji}>🎉</Text>
+            <Text style={styles.modalTitulo}>¡Strava conectado!</Text>
+            <Text style={styles.modalSubtitulo}>Así funciona de ahora en adelante:</Text>
+
+            <View style={styles.modalPaso}>
+              <Text style={styles.modalPasoEmoji}>📱</Text>
+              <View style={styles.modalPasoInfo}>
+                <Text style={styles.modalPasoTitulo}>Descargá Strava</Text>
+                <Text style={styles.modalPasoDesc}>Si no lo tenés, bajalo de la App Store o Google Play</Text>
+              </View>
+            </View>
+
+            <View style={styles.modalPaso}>
+              <Text style={styles.modalPasoEmoji}>🏃</Text>
+              <View style={styles.modalPasoInfo}>
+                <Text style={styles.modalPasoTitulo}>Salí a correr y registrá tu actividad</Text>
+                <Text style={styles.modalPasoDesc}>Usá Strava normalmente para trackear tu entrenamiento</Text>
+              </View>
+            </View>
+
+            <View style={styles.modalPaso}>
+              <Text style={styles.modalPasoEmoji}>✅</Text>
+              <View style={styles.modalPasoInfo}>
+                <Text style={styles.modalPasoTitulo}>Tus km aparecen solos acá</Text>
+                <Text style={styles.modalPasoDesc}>Cada actividad que registres en Strava se suma automáticamente a tu desafío</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.modalBtn} onPress={() => setModalStravaVisible(false)}>
+              <Text style={styles.modalBtnText}>¡Entendido, a correr! 🚀</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <View style={styles.heroBg}>
         <View style={styles.avatarWrapper}>
@@ -466,16 +514,30 @@ export default function PerfilScreen() {
         )}
       </View>
 
-      {stravaConectado ? (
-        <View style={styles.stravaConectadoCard}>
-          <Text style={styles.stravaConectadoText}>✅ Strava conectado</Text>
-          <TouchableOpacity onPress={conectarStrava}><Text style={styles.stravaReconectarText}>Reconectar</Text></TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity style={styles.stravaButton} onPress={conectarStrava}>
-          <Text style={styles.stravaButtonText}>🔗 Conectar con Strava</Text>
-        </TouchableOpacity>
-      )}
+      {/* Sección Strava con estado inteligente */}
+      <View style={styles.seccion}>
+        <Text style={styles.seccionTitulo}>🔗 Strava</Text>
+        {stravaConectado ? (
+          <>
+            <View style={styles.stravaConectadoCard}>
+              <View style={styles.stravaConectadoInfo}>
+                <Text style={styles.stravaConectadoText}>✅ Strava conectado</Text>
+                <Text style={styles.stravaConectadoDesc}>Tus actividades se sincronizan automáticamente</Text>
+              </View>
+              <TouchableOpacity onPress={conectarStrava}>
+                <Text style={styles.stravaReconectarText}>Reconectar</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.stravaInstructivoBtn} onPress={() => setModalStravaVisible(true)}>
+              <Text style={styles.stravaInstructivoBtnText}>📖 ¿Cómo funciona la sincronización?</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <TouchableOpacity style={styles.stravaButton} onPress={conectarStrava}>
+            <Text style={styles.stravaButtonText}>🔗 Conectar con Strava</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       <TouchableOpacity style={styles.cerrarButton} onPress={cerrarSesion}>
         <Text style={styles.cerrarButtonText}>Cerrar sesion</Text>
@@ -559,13 +621,30 @@ const styles = StyleSheet.create({
   cancelarBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 14 },
   guardarBtn: { flex: 1, backgroundColor: '#1E6FD9', borderRadius: 10, padding: 12, alignItems: 'center' },
   guardarBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
-  stravaButton: { backgroundColor: '#FC4C02', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center', marginBottom: 12, paddingHorizontal: 24 },
+  stravaButton: { backgroundColor: '#FC4C02', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center', marginBottom: 12 },
   stravaButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
-  stravaConectadoCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1E3A5F', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 20, width: '100%', marginBottom: 12 },
-  stravaConectadoText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
-  stravaReconectarText: { color: '#A8CFFF', fontSize: 13 },
-  cerrarButton: { borderWidth: 1, borderColor: '#2a3a4a', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center', paddingHorizontal: 24 },
+  stravaConectadoCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1E3A5F', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 8, borderWidth: 1, borderColor: '#2a6a2a' },
+  stravaConectadoInfo: { flex: 1 },
+  stravaConectadoText: { color: '#4CAF50', fontWeight: 'bold', fontSize: 14, marginBottom: 2 },
+  stravaConectadoDesc: { fontSize: 11, color: '#A8CFFF' },
+  stravaReconectarText: { color: '#4a6a8a', fontSize: 13 },
+  stravaInstructivoBtn: { borderWidth: 1, borderColor: '#2a4a6a', borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
+  stravaInstructivoBtnText: { color: '#A8CFFF', fontSize: 13 },
+  cerrarButton: { borderWidth: 1, borderColor: '#2a3a4a', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center', paddingHorizontal: 24, marginHorizontal: 24 },
   cerrarButtonText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 15 },
   perfilDeporteCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#1E6FD9' },
   perfilDeporteTexto: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF' },
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalCard: { backgroundColor: '#1E3A5F', borderRadius: 24, padding: 28, width: '100%', borderWidth: 1, borderColor: '#FC4C02' },
+  modalEmoji: { fontSize: 48, textAlign: 'center', marginBottom: 12 },
+  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', marginBottom: 6 },
+  modalSubtitulo: { fontSize: 13, color: '#A8CFFF', textAlign: 'center', marginBottom: 24 },
+  modalPaso: { flexDirection: 'row', gap: 14, marginBottom: 18, alignItems: 'flex-start' },
+  modalPasoEmoji: { fontSize: 24, width: 32 },
+  modalPasoInfo: { flex: 1 },
+  modalPasoTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 3 },
+  modalPasoDesc: { fontSize: 12, color: '#A8CFFF', lineHeight: 18 },
+  modalBtn: { backgroundColor: '#FC4C02', paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginTop: 8 },
+  modalBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
 });

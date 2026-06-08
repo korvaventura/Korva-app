@@ -1,9 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking, TextInput, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking, TextInput, Alert, Modal } from 'react-native';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as WebBrowser from 'expo-web-browser'; // ✅ FIX: import WebBrowser
+import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
 import CompletadoScreen from './CompletadoScreen';
 import ViewShot from 'react-native-view-shot';
@@ -65,6 +65,8 @@ export default function HomeScreen({ navigation }) {
   const [metaInputs, setMetaInputs] = useState({});
   const [metaVisibles, setMetaVisibles] = useState({});
   const [guardandoMeta, setGuardandoMeta] = useState({});
+  const [stravaConectado, setStravaConectado] = useState(false);
+  const [modalStravaVisible, setModalStravaVisible] = useState(false);
   const viewShotRefs = useRef([]);
 
   useEffect(() => {
@@ -79,21 +81,43 @@ export default function HomeScreen({ navigation }) {
   }, []);
 
   useEffect(() => {
-    if (userId) cargarProgreso();
+    if (userId) {
+      cargarProgreso();
+      verificarStrava();
+    }
   }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
-      if (userId) cargarProgreso();
+      if (userId) {
+        cargarProgreso();
+        verificarStrava();
+      }
     }, [userId])
   );
 
   useEffect(() => {
     const subscription = Linking.addEventListener('url', ({ url }) => {
-      if (url.includes('strava-connected')) cargarProgreso();
+      if (url.includes('strava-connected')) {
+        cargarProgreso();
+        verificarStrava();
+        setModalStravaVisible(true);
+      }
     });
     return () => subscription.remove();
   }, []);
+
+  const verificarStrava = async () => {
+    if (!userId) return;
+    try {
+      const { data } = await supabase
+        .from('users')
+        .select('strava_token')
+        .eq('id', userId)
+        .single();
+      setStravaConectado(!!data?.strava_token);
+    } catch (e) {}
+  };
 
   const cargarProgreso = async () => {
     if (!userId) return;
@@ -155,13 +179,16 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  // ✅ FIX: usar WebBrowser.openAuthSessionAsync en lugar de Linking.openURL
-  // Esto abre un in-app browser que sabe redirigir de vuelta a korva:// al terminar el OAuth
   const conectarStrava = async () => {
-    await WebBrowser.openAuthSessionAsync(
+    const result = await WebBrowser.openAuthSessionAsync(
       `${BACKEND_URL}/strava/auth`,
       'korva://strava-connected'
     );
+    if (result.type === 'success' || result.url?.includes('strava-connected')) {
+      await verificarStrava();
+      await cargarProgreso();
+      setModalStravaVisible(true);
+    }
   };
 
   const compartirProgreso = async (index) => {
@@ -192,14 +219,65 @@ export default function HomeScreen({ navigation }) {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
 
+      {/* Modal instructivo Strava */}
+      <Modal
+        visible={modalStravaVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalStravaVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalEmoji}>🎉</Text>
+            <Text style={styles.modalTitulo}>¡Strava conectado!</Text>
+            <Text style={styles.modalSubtitulo}>Así funciona de ahora en adelante:</Text>
+
+            <View style={styles.modalPaso}>
+              <Text style={styles.modalPasoEmoji}>📱</Text>
+              <View style={styles.modalPasoInfo}>
+                <Text style={styles.modalPasoTitulo}>Descargá Strava</Text>
+                <Text style={styles.modalPasoDesc}>Si no lo tenés, bajalo de la App Store o Google Play</Text>
+              </View>
+            </View>
+
+            <View style={styles.modalPaso}>
+              <Text style={styles.modalPasoEmoji}>🏃</Text>
+              <View style={styles.modalPasoInfo}>
+                <Text style={styles.modalPasoTitulo}>Salí a correr y registrá tu actividad</Text>
+                <Text style={styles.modalPasoDesc}>Usá Strava normalmente para trackear tu entrenamiento</Text>
+              </View>
+            </View>
+
+            <View style={styles.modalPaso}>
+              <Text style={styles.modalPasoEmoji}>✅</Text>
+              <View style={styles.modalPasoInfo}>
+                <Text style={styles.modalPasoTitulo}>Tus km aparecen solos acá</Text>
+                <Text style={styles.modalPasoDesc}>Cada actividad que registres en Strava se suma automáticamente a tu desafío</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.modalBtn} onPress={() => setModalStravaVisible(false)}>
+              <Text style={styles.modalBtnText}>¡Entendido, a correr! 🚀</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.header}>
         <View>
           <Text style={styles.saludo}>Hola{nombre ? `, ${nombre}` : ''}! 👋</Text>
           <Text style={styles.subtitulo}>Tus retos activos</Text>
         </View>
-        <TouchableOpacity style={styles.stravaBtn} onPress={conectarStrava}>
-          <Text style={styles.stravaBtnText}>Strava</Text>
-        </TouchableOpacity>
+
+        {stravaConectado ? (
+          <View style={styles.stravaConectadoBadge}>
+            <Text style={styles.stravaConectadoBadgeText}>✓ Strava</Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.stravaBtn} onPress={conectarStrava}>
+            <Text style={styles.stravaBtnText}>Conectar Strava</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {bannerVisible && !cargando && (
@@ -220,13 +298,28 @@ export default function HomeScreen({ navigation }) {
               </View>
             </View>
           ))}
-          <TouchableOpacity style={styles.bannerBtn} onPress={conectarStrava}>
-            <View style={styles.btnRow}>
-              <Text style={styles.bannerBtnText}>Conectar Strava ahora</Text>
-              <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
-            </View>
-          </TouchableOpacity>
+          {!stravaConectado && (
+            <TouchableOpacity style={styles.bannerBtn} onPress={conectarStrava}>
+              <View style={styles.btnRow}>
+                <Text style={styles.bannerBtnText}>Conectar Strava ahora</Text>
+                <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
+      )}
+
+      {stravaConectado && !cargando && (
+        <TouchableOpacity style={styles.stravaActivoCard} onPress={() => setModalStravaVisible(true)}>
+          <View style={styles.stravaActivoRow}>
+            <Text style={styles.stravaActivoEmoji}>🟠</Text>
+            <View style={styles.stravaActivoInfo}>
+              <Text style={styles.stravaActivoTitulo}>Strava activo</Text>
+              <Text style={styles.stravaActivoDesc}>Tus actividades se sincronizan automáticamente · Tocá para ver cómo</Text>
+            </View>
+            <Ionicons name="information-circle-outline" size={20} color="#A8CFFF" />
+          </View>
+        </TouchableOpacity>
       )}
 
       {cargando ? (
@@ -394,6 +487,26 @@ const styles = StyleSheet.create({
   subtitulo: { fontSize: 13, color: '#A8CFFF' },
   stravaBtn: { backgroundColor: '#FC4C02', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
   stravaBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
+  stravaConectadoBadge: { backgroundColor: '#1a3a1a', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2a6a2a' },
+  stravaConectadoBadgeText: { color: '#4CAF50', fontWeight: 'bold', fontSize: 13 },
+  stravaActivoCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#FC4C02' },
+  stravaActivoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  stravaActivoEmoji: { fontSize: 20 },
+  stravaActivoInfo: { flex: 1 },
+  stravaActivoTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
+  stravaActivoDesc: { fontSize: 11, color: '#A8CFFF' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalCard: { backgroundColor: '#1E3A5F', borderRadius: 24, padding: 28, width: '100%', borderWidth: 1, borderColor: '#FC4C02' },
+  modalEmoji: { fontSize: 48, textAlign: 'center', marginBottom: 12 },
+  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', marginBottom: 6 },
+  modalSubtitulo: { fontSize: 13, color: '#A8CFFF', textAlign: 'center', marginBottom: 24 },
+  modalPaso: { flexDirection: 'row', gap: 14, marginBottom: 18, alignItems: 'flex-start' },
+  modalPasoEmoji: { fontSize: 24, width: 32 },
+  modalPasoInfo: { flex: 1 },
+  modalPasoTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 3 },
+  modalPasoDesc: { fontSize: 12, color: '#A8CFFF', lineHeight: 18 },
+  modalBtn: { backgroundColor: '#FC4C02', paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginTop: 8 },
+  modalBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
   bannerCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#1E6FD9' },
   bannerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   bannerTitulo: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
