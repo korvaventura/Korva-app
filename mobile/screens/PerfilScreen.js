@@ -1,4 +1,6 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Linking } from 'react-native';
+// Por esto (quita Linking de react-native):
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator } from 'react-native';
+import * as Linking from 'expo-linking'; // <-- Agrega esta línea
 import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../supabase';
@@ -216,7 +218,16 @@ export default function PerfilScreen() {
     } finally { setGuardando(false); }
   };
 
-  const conectarStrava = async () => { await Linking.openURL(`${BACKEND_URL}/strava/auth`); };
+  const conectarStrava = async () => { 
+  // Generamos la URL de retorno dinámica de Expo
+  const returnUrl = Linking.createURL('strava-connected');
+  
+  // Se la pasamos al backend
+  const authUrl = `${BACKEND_URL}/strava/auth?returnUrl=${encodeURIComponent(returnUrl)}`;
+  
+  // Abrimos el navegador
+  await Linking.openURL(authUrl); 
+};
   const cerrarSesion = async () => { await supabase.auth.signOut(); };
 
   const formatearFechaCorta = (fecha) => {
