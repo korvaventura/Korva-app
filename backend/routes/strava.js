@@ -194,12 +194,19 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
 };
 
 router.get('/auth', (req, res) => {
-  const stravaAuthUrl = `https://www.strava.com/oauth/authorize?client_id=232688&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=force&scope=activity:read_all`;
+  // Aquí usamos la URL dinámica si la app nos la envía, si no usamos un fallback
+  const returnUrl = req.query.returnUrl || 'mobile://strava-connected';
+  
+  // Agregamos el parámetro 'state' para que Strava nos lo devuelva luego
+  const stravaAuthUrl = `https://www.strava.com/oauth/authorize?client_id=232688&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=force&scope=activity:read_all&state=${encodeURIComponent(returnUrl)}`;
+  
   res.redirect(stravaAuthUrl);
 });
 
 router.get('/callback', async (req, res) => {
-  const { code } = req.query;
+  // Extraemos también el 'state' de la respuesta de Strava
+  const { code, state } = req.query; 
+  
   try {
     const response = await fetch('https://www.strava.com/oauth/token', {
       method: 'POST',
@@ -235,7 +242,12 @@ router.get('/callback', async (req, res) => {
       .single();
 
     if (error) throw error;
-    res.redirect(`mobile://strava-connected?userId=${user.id}`);
+    
+    // Usamos el 'state' para redirigir de vuelta a la app. 
+    // Si por alguna razón está vacío, usamos el predeterminado para evitar errores.
+    const finalReturnUrl = state || 'mobile://strava-connected';
+    res.redirect(`${finalReturnUrl}?userId=${user.id}`);
+    
   } catch (error) {
     res.json({ error: 'Error conectando con Strava', detalle: error.message });
   }
