@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import MapaRecorrido from './MapaRecorrido';
 
 const COMO_FUNCIONA = [
   { emoji: '1️⃣', titulo: 'Inscribite', desc: 'Elegí tu modalidad y completá el pago.' },
@@ -19,6 +20,7 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
 
   const modalidades = challenge.modalidades || [];
   const galeria = Array.isArray(challenge.galeria) ? challenge.galeria : [];
+  const distanciaTotal = modalidades[0]?.distancia_km || challenge.total_distance_km || 0;
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
@@ -67,7 +69,7 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
         <Text style={styles.seccionTitulo}>📖 La historia</Text>
         <View style={styles.historiaCard}>
           <Text style={styles.historiaTexto}>
-            {challenge.historia || 'El fin del mundo no es un destino, es un estado mental. Este reto nació de la idea de empujar los límites hasta el último confín — donde el viento sopla fuerte, el terreno es salvaje y solo los que se atreven llegan.\n\nCorré o pedaleá a tu ritmo, desde donde estés. La distancia es real. La medalla, también.'}
+            {challenge.historia || 'Completá la distancia a tu ritmo desde cualquier lugar del mundo. Cada kilómetro cuenta.'}
           </Text>
         </View>
       </View>
@@ -85,35 +87,29 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
         ))}
       </View>
 
+      {/* Mapa interactivo real */}
       <View style={styles.seccion}>
         <Text style={styles.seccionTitulo}>🗺️ La ruta</Text>
-        <View style={styles.mapaPlaceholder}>
-          <Text style={styles.mapaEmoji}>🗺️</Text>
-          <Text style={styles.mapaTexto}>Mapa de la ruta próximamente</Text>
-          <Text style={styles.mapaSubtexto}>Podés completar la distancia desde cualquier lugar del mundo</Text>
-        </View>
+        <Text style={styles.mapaSubtitulo}>Explorá los checkpoints — se desbloquean a medida que avanzás</Text>
+        <MapaRecorrido
+          kmCompletados={0}
+          distanciaTotal={distanciaTotal}
+          porcentaje="0"
+          challengeId={challenge.id}
+          challengeTitle={challenge.title}
+        />
       </View>
 
-      {/* Galería */}
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>📸 Galería</Text>
-        {galeria.length > 0 ? (
+      {galeria.length > 0 && (
+        <View style={styles.seccion}>
+          <Text style={styles.seccionTitulo}>📸 Galería</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {galeria.map((url, i) => (
-              <Image
-                key={i}
-                source={{ uri: url }}
-                style={styles.galeriaImg}
-                resizeMode="cover"
-              />
+              <Image key={i} source={{ uri: url }} style={styles.galeriaImg} resizeMode="cover" />
             ))}
           </ScrollView>
-        ) : (
-          <View style={styles.galeriaSinFotos}>
-            <Text style={styles.galeriaSinFotosText}>📷 Fotos próximamente</Text>
-          </View>
-        )}
-      </View>
+        </View>
+      )}
 
       <View style={styles.seccion}>
         <Text style={styles.seccionTitulo}>💬 Lo que dicen</Text>
@@ -154,7 +150,8 @@ const styles = StyleSheet.create({
   heroBadge: { position: 'absolute', bottom: 16, right: 16, backgroundColor: '#FC4C02', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20 },
   heroBadgeText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
   seccion: { paddingHorizontal: 24, marginTop: 28 },
-  seccionTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 14 },
+  seccionTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 6 },
+  mapaSubtitulo: { fontSize: 12, color: '#4a6a8a', marginBottom: 14 },
   deporte: { fontSize: 11, fontWeight: 'bold', color: '#1E6FD9', letterSpacing: 1, marginBottom: 8 },
   titulo: { fontSize: 26, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 10 },
   descripcion: { fontSize: 14, color: '#A8CFFF', lineHeight: 22 },
@@ -170,13 +167,7 @@ const styles = StyleSheet.create({
   pasoInfo: { flex: 1 },
   pasoTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
   pasoDesc: { fontSize: 13, color: '#A8CFFF', lineHeight: 20 },
-  mapaPlaceholder: { backgroundColor: '#1E3A5F', borderRadius: 16, height: 160, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2a4a6a' },
-  mapaEmoji: { fontSize: 36, marginBottom: 10 },
-  mapaTexto: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  mapaSubtexto: { fontSize: 12, color: '#A8CFFF', textAlign: 'center', paddingHorizontal: 20 },
   galeriaImg: { width: 200, height: 140, borderRadius: 14, marginRight: 10 },
-  galeriaSinFotos: { backgroundColor: '#1E3A5F', borderRadius: 14, height: 100, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2a4a6a' },
-  galeriaSinFotosText: { color: '#4a6a8a', fontSize: 14 },
   testimonioCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 18, marginBottom: 12 },
   testimonioTexto: { fontSize: 13, color: '#A8CFFF', lineHeight: 20, marginBottom: 10, fontStyle: 'italic' },
   testimonioNombre: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' },
