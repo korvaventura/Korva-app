@@ -227,6 +227,9 @@ export default function PerfilScreen() {
       'korva://strava-connected'
     );
     if (result.type === 'success' || result.url?.includes('strava-connected')) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      await cargarPerfil();
+      await new Promise(resolve => setTimeout(resolve, 1500));
       await cargarPerfil();
       setModalStravaVisible(true);
     }

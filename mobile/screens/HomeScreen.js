@@ -185,8 +185,13 @@ export default function HomeScreen({ navigation }) {
       'korva://strava-connected'
     );
     if (result.type === 'success' || result.url?.includes('strava-connected')) {
+      // Esperar que el backend termine de guardar el token en Supabase
+      await new Promise(resolve => setTimeout(resolve, 1500));
       await verificarStrava();
       await cargarProgreso();
+      // Si aún no detectó el token, reintentar una vez más
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      await verificarStrava();
       setModalStravaVisible(true);
     }
   };
