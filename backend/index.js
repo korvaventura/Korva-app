@@ -103,17 +103,18 @@ const verificarYEnviarNotificacionRacha = async (userId) => {
 
 const recalcularKmUsuario = async (user_id, challenge_id = null) => {
   try {
+    // Buscar retos active Y completed (no shipped — esos ya fueron enviados)
     let query = supabase
       .from('user_challenges')
-      .select('id, started_at, challenge_id')
+      .select('id, started_at, challenge_id, status, challenges(modalidades, total_distance_km)')
       .eq('user_id', user_id)
-      .eq('status', 'active');
+      .in('status', ['active', 'completed']);
 
     if (challenge_id) query = query.eq('challenge_id', challenge_id);
 
-    const { data: retosActivos } = await query;
+    const { data: retos } = await query;
 
-    for (const reto of retosActivos || []) {
+    for (const reto of retos || []) {
       const { data: todasActividades } = await supabase
         .from('activities')
         .select('distance_km')
@@ -122,9 +123,22 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
 
       const totalKm = todasActividades?.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
 
+      // Calcular distancia total de la modalidad del reto
+      const modalidades = reto.challenges?.modalidades || [];
+      const distanciaTotal = modalidades[0]?.distancia_km || reto.challenges?.total_distance_km || 100;
+      const porcentaje = (totalKm / distanciaTotal) * 100;
+
+      // Revertir a active si los km bajaron de 100%
+      const nuevoStatus = porcentaje >= 100 ? 'completed' : 'active';
+
       await supabase
         .from('user_challenges')
-        .update({ km_completed: totalKm })
+        .update({
+          km_completed: totalKm,
+          status: nuevoStatus,
+          // Si revierte a active, limpiar completed_at
+          completed_at: nuevoStatus === 'active' ? null : undefined,
+        })
         .eq('id', reto.id);
     }
   } catch (error) {
