@@ -11,11 +11,11 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CHECKPOINTS_DEFAULT = [
-  { id: 'tolhuin', nombre: 'Tolhuin', kmFisico: 0, emoji: '🏘️', desc: 'El corazón de Tierra del Fuego. Su nombre en lengua Selk\'nam significa exactamente eso: "corazón". Fundada en 1972 con solo 20 casas, hoy tiene el autódromo más austral del mundo.', datoRaro: '🧭 Km 0 de tu aventura. Desde acá hasta Ushuaia, la Ruta Nacional 3 llega a su fin.' },
-  { id: 'lago_fagnano', nombre: 'Lago Fagnano', kmFisico: 20, emoji: '💧', desc: 'Este lago está literalmente partido en dos por la Falla de Magallanes: la orilla norte pertenece a la placa Sudamericana y la sur a la placa de Scotia. En 1949 un terremoto de 7.8 grados generó olas sísmicas que crearon nuevas lagunas.', datoRaro: '⚡ Las placas que lo rodean se mueven 5.4mm por año. Estás corriendo sobre una falla activa.' },
-  { id: 'paso_garibaldi', nombre: 'Paso Garibaldi', kmFisico: 45, emoji: '⛰️', desc: 'Descubierto en 1935 por Luis Garibaldi Honte, un descendiente Selk\'nam que de niño escuchó a su abuela hablar de un paso secreto que usaban los haush para cruzar la cordillera.', datoRaro: '🚙 El primer vehículo en cruzarlo tardó 10 horas. Vos llegás antes.' },
-  { id: 'monte_olivia', nombre: 'Monte Olivia', kmFisico: 80, emoji: '🗻', desc: 'En lengua yamana se llama "Uliwai" — punta de arpón. La cima fue conquistada por primera vez en 1913 por el cura salesiano Alberto María de Agostini, sin clavos de escalada.', datoRaro: '🏔️ 1.326 metros. 35 años después de la primera cumbre, encontraron intacta la bandera argentina.' },
-  { id: 'ushuaia', nombre: 'Ushuaia', kmFisico: 103, emoji: '🏁', desc: 'La ciudad más austral del mundo. Fue una colonia penal hasta 1947. El Canal Beagle lleva el nombre del barco en que viajó Charles Darwin cuando desarrolló su teoría de la evolución.', datoRaro: '🌍 Desde acá, el próximo punto habitado hacia el sur es la Antártida.' },
+  { id: 'tolhuin', nombre: 'Tolhuin', kmFisico: 0, emoji: '🏘️', desc: 'El corazón de Tierra del Fuego.', datoRaro: '🧭 Km 0 de tu aventura.' },
+  { id: 'lago_fagnano', nombre: 'Lago Fagnano', kmFisico: 20, emoji: '💧', desc: 'Lago partido por la Falla de Magallanes.', datoRaro: '⚡ Estás corriendo sobre una falla activa.' },
+  { id: 'paso_garibaldi', nombre: 'Paso Garibaldi', kmFisico: 45, emoji: '⛰️', desc: 'Descubierto en 1935.', datoRaro: '🚙 El primer vehículo tardó 10 horas.' },
+  { id: 'monte_olivia', nombre: 'Monte Olivia', kmFisico: 80, emoji: '🗻', desc: '1.326 metros sobre el Canal Beagle.', datoRaro: '🏔️ El guardián silencioso.' },
+  { id: 'ushuaia', nombre: 'Ushuaia', kmFisico: 103, emoji: '🏁', desc: 'La ciudad más austral del mundo.', datoRaro: '🌍 El próximo punto habitado es la Antártida.' },
 ];
 
 export default function AdminScreen() {
@@ -47,6 +47,9 @@ export default function AdminScreen() {
   const [challengeMapa, setChallengeMapa] = useState(null);
   const [checkpoints, setCheckpoints] = useState([]);
   const [guardandoMapa, setGuardandoMapa] = useState(false);
+
+  // Evidencia expandida
+  const [evidenciaExpandida, setEvidenciaExpandida] = useState(null);
 
   useEffect(() => {
     cargarChallenges();
@@ -109,7 +112,7 @@ export default function AdminScreen() {
       onSuccess(urlData.publicUrl);
       Alert.alert('✅ Foto subida', 'La imagen fue cargada correctamente.');
     } catch (error) {
-      Alert.alert('Error', 'No se pudo subir la foto. Intentá de nuevo.');
+      Alert.alert('Error', 'No se pudo subir la foto.');
       console.error(error);
     }
   };
@@ -179,7 +182,7 @@ export default function AdminScreen() {
       setRetoEditando(null);
       cargarChallengesActivos();
     } catch (error) {
-      Alert.alert('Error', 'No se pudo guardar. Intentá de nuevo.');
+      Alert.alert('Error', 'No se pudo guardar.');
     } finally {
       setGuardandoEdicion(false);
     }
@@ -219,7 +222,7 @@ export default function AdminScreen() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.detalle);
-      Alert.alert('✅ Mapa guardado', 'Los checkpoints fueron actualizados.');
+      Alert.alert('✅ Mapa guardado');
       setChallengeMapa(null);
       cargarChallengesActivos();
     } catch (error) {
@@ -280,7 +283,7 @@ export default function AdminScreen() {
   const agregarModalidad = () => {
     const tipos = nuevoReto.modalidades.map(m => m.tipo);
     const siguiente = !tipos.includes('run') ? 'run' : !tipos.includes('ride') ? 'ride' : null;
-    if (!siguiente) { Alert.alert('Máximo 2 modalidades', 'Ya tenés Running y Ciclismo.'); return; }
+    if (!siguiente) { Alert.alert('Máximo 2 modalidades'); return; }
     setNuevoReto(prev => ({ ...prev, modalidades: [...prev.modalidades, { tipo: siguiente, label: siguiente === 'run' ? 'Running' : 'Ciclismo', distancia_km: '' }] }));
   };
 
@@ -318,7 +321,7 @@ export default function AdminScreen() {
       setVista('envios');
       cargarChallengesActivos();
     } catch (error) {
-      Alert.alert('Error', 'No se pudo crear el reto. Intentá de nuevo.');
+      Alert.alert('Error', 'No se pudo crear el reto.');
     } finally {
       setCreando(false);
     }
@@ -405,6 +408,24 @@ export default function AdminScreen() {
                   </View>
                   <Text style={styles.email}>{item.email}</Text>
                   {renderDireccion(item.direccion)}
+
+                  {/* ✅ Evidencia de km manual */}
+                  {item.evidencia_url && (
+                    <View style={styles.evidenciaAdminBox}>
+                      <Text style={styles.evidenciaAdminLabel}>📸 EVIDENCIA KM MANUAL</Text>
+                      <TouchableOpacity onPress={() => setEvidenciaExpandida(evidenciaExpandida === item.id ? null : item.id)}>
+                        <Image
+                          source={{ uri: item.evidencia_url }}
+                          style={[styles.evidenciaAdminImg, evidenciaExpandida === item.id && styles.evidenciaAdminImgExpandida]}
+                          resizeMode="contain"
+                        />
+                        <Text style={styles.evidenciaAdminTap}>
+                          {evidenciaExpandida === item.id ? '↑ Reducir' : '↓ Expandir'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
                   <TouchableOpacity style={styles.copiarBtn} onPress={() => copiarDireccion(item)}><Text style={styles.copiarBtnText}>📋 Copiar datos de envío</Text></TouchableOpacity>
                   <Text style={styles.label}>NUMERO DE TRACKING</Text>
                   <TextInput style={styles.input} value={tracking[item.id] || ''} onChangeText={(val) => setTracking({ ...tracking, [item.id]: val })} placeholder="Ej: AR123456789" placeholderTextColor="#4a6a8a" />
@@ -441,52 +462,36 @@ export default function AdminScreen() {
                 <Text style={styles.formTitulo}>✏️ Editando reto</Text>
                 <TouchableOpacity onPress={() => setRetoEditando(null)}><Text style={styles.cancelarEdicionText}>✕ Cancelar</Text></TouchableOpacity>
               </View>
-
               <Text style={styles.formLabel}>Título *</Text>
               <TextInput style={styles.input} value={formEditar.title} onChangeText={v => setFormEditar(p => ({ ...p, title: v }))} placeholderTextColor="#4a6a8a" />
-
               <Text style={styles.formLabel}>Descripción corta *</Text>
               <TextInput style={[styles.input, { height: 70, textAlignVertical: 'top' }]} value={formEditar.description} onChangeText={v => setFormEditar(p => ({ ...p, description: v }))} placeholderTextColor="#4a6a8a" multiline />
-
               <Text style={styles.formLabel}>Historia</Text>
               <TextInput style={[styles.input, { height: 100, textAlignVertical: 'top' }]} value={formEditar.historia} onChangeText={v => setFormEditar(p => ({ ...p, historia: v }))} placeholderTextColor="#4a6a8a" multiline />
-
               <Text style={styles.formLabel}>Precio USD *</Text>
               <TextInput style={styles.input} value={formEditar.price_usd} onChangeText={v => setFormEditar(p => ({ ...p, price_usd: v }))} placeholderTextColor="#4a6a8a" keyboardType="numeric" />
-
-              <Text style={styles.formLabel}>Precio ARS (pesos argentinos)</Text>
+              <Text style={styles.formLabel}>Precio ARS</Text>
               <TextInput style={styles.input} value={formEditar.price_ars} onChangeText={v => setFormEditar(p => ({ ...p, price_ars: v }))} placeholder="Ej: 49990" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
-
               <Text style={styles.formLabel}>🏅 Imagen medalla</Text>
               {formEditar.medal_image_url ? (
                 <View style={styles.fotoPreviewWrapper}>
                   <Image source={{ uri: formEditar.medal_image_url }} style={styles.fotoPreview} resizeMode="cover" />
-                  <TouchableOpacity style={styles.fotoChangeBtn} onPress={subirImagenMedalla}>
-                    <Text style={styles.fotoChangeBtnText}>🖼️ Cambiar imagen</Text>
-                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.fotoChangeBtn} onPress={subirImagenMedalla}><Text style={styles.fotoChangeBtnText}>🖼️ Cambiar imagen</Text></TouchableOpacity>
                 </View>
               ) : (
-                <TouchableOpacity style={styles.fotoUploadBtn} onPress={subirImagenMedalla}>
-                  <Text style={styles.fotoUploadBtnText}>📷 Subir imagen medalla</Text>
-                </TouchableOpacity>
+                <TouchableOpacity style={styles.fotoUploadBtn} onPress={subirImagenMedalla}><Text style={styles.fotoUploadBtnText}>📷 Subir imagen medalla</Text></TouchableOpacity>
               )}
               <TextInput style={[styles.input, { marginTop: 8 }]} value={formEditar.medal_image_url} onChangeText={v => setFormEditar(p => ({ ...p, medal_image_url: v }))} placeholder="O pegá una URL..." placeholderTextColor="#4a6a8a" />
-
               <Text style={styles.formLabel}>🖼️ Imagen portada</Text>
               {formEditar.imagen_portada ? (
                 <View style={styles.fotoPreviewWrapper}>
                   <Image source={{ uri: formEditar.imagen_portada }} style={styles.fotoPreview} resizeMode="cover" />
-                  <TouchableOpacity style={styles.fotoChangeBtn} onPress={subirImagenPortada}>
-                    <Text style={styles.fotoChangeBtnText}>🖼️ Cambiar portada</Text>
-                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.fotoChangeBtn} onPress={subirImagenPortada}><Text style={styles.fotoChangeBtnText}>🖼️ Cambiar portada</Text></TouchableOpacity>
                 </View>
               ) : (
-                <TouchableOpacity style={styles.fotoUploadBtn} onPress={subirImagenPortada}>
-                  <Text style={styles.fotoUploadBtnText}>📷 Subir imagen portada</Text>
-                </TouchableOpacity>
+                <TouchableOpacity style={styles.fotoUploadBtn} onPress={subirImagenPortada}><Text style={styles.fotoUploadBtnText}>📷 Subir imagen portada</Text></TouchableOpacity>
               )}
               <TextInput style={[styles.input, { marginTop: 8 }]} value={formEditar.imagen_portada} onChangeText={v => setFormEditar(p => ({ ...p, imagen_portada: v }))} placeholder="O pegá una URL..." placeholderTextColor="#4a6a8a" />
-
               <Text style={styles.formLabel}>📸 Galería de fotos</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
                 {(formEditar.galeria || []).map((url, i) => (
@@ -501,16 +506,12 @@ export default function AdminScreen() {
                   {subiendoGaleria ? <ActivityIndicator color="#1E6FD9" size="small" /> : <Text style={styles.galeriaAgregarText}>+ Agregar</Text>}
                 </TouchableOpacity>
               </ScrollView>
-
               <Text style={styles.formLabel}>🇦🇷 Link MercadoPago</Text>
               <TextInput style={styles.input} value={formEditar.link_mercadopago} onChangeText={v => setFormEditar(p => ({ ...p, link_mercadopago: v }))} placeholderTextColor="#4a6a8a" />
-
               <Text style={styles.formLabel}>🌍 Link Shopify</Text>
               <TextInput style={styles.input} value={formEditar.link_shopify} onChangeText={v => setFormEditar(p => ({ ...p, link_shopify: v }))} placeholderTextColor="#4a6a8a" />
-
-              <Text style={styles.formLabel}>🔥 Oferta (dejar vacío para quitar)</Text>
+              <Text style={styles.formLabel}>🔥 Oferta</Text>
               <TextInput style={styles.input} value={formEditar.oferta_texto} onChangeText={v => setFormEditar(p => ({ ...p, oferta_texto: v }))} placeholder="Ej: 2do reto 50% off" placeholderTextColor="#4a6a8a" />
-
               <TouchableOpacity style={styles.crearBtn} onPress={guardarEdicion} disabled={guardandoEdicion}>
                 {guardandoEdicion ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.crearBtnText}>💾 Guardar cambios</Text>}
               </TouchableOpacity>
@@ -576,7 +577,7 @@ export default function AdminScreen() {
                       {subiendoFoto === index ? <ActivityIndicator color="#1E6FD9" size="small" /> : <Text style={styles.fotoUploadBtnText}>📷 Subir foto desde galería</Text>}
                     </TouchableOpacity>
                   )}
-                  <TextInput style={[styles.input, { marginTop: 8 }]} value={cp.fotoUrl || ''} onChangeText={v => actualizarCheckpoint(index, 'fotoUrl', v)} placeholder="O pegá una URL directamente..." placeholderTextColor="#4a6a8a" />
+                  <TextInput style={[styles.input, { marginTop: 8 }]} value={cp.fotoUrl || ''} onChangeText={v => actualizarCheckpoint(index, 'fotoUrl', v)} placeholder="O pegá una URL..." placeholderTextColor="#4a6a8a" />
                 </View>
               ))}
               <TouchableOpacity style={styles.crearBtn} onPress={guardarMapa} disabled={guardandoMapa}>
@@ -610,14 +611,14 @@ export default function AdminScreen() {
           <TextInput style={[styles.input, { height: 120, textAlignVertical: 'top' }]} value={nuevoReto.historia} onChangeText={v => setNuevoReto(p => ({ ...p, historia: v }))} placeholder="La historia del reto..." placeholderTextColor="#4a6a8a" multiline />
           <Text style={styles.formLabel}>Precio USD *</Text>
           <TextInput style={styles.input} value={nuevoReto.price_usd} onChangeText={v => setNuevoReto(p => ({ ...p, price_usd: v }))} placeholder="Ej: 49" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
-          <Text style={styles.formLabel}>Precio ARS (pesos argentinos)</Text>
+          <Text style={styles.formLabel}>Precio ARS</Text>
           <TextInput style={styles.input} value={nuevoReto.price_ars} onChangeText={v => setNuevoReto(p => ({ ...p, price_ars: v }))} placeholder="Ej: 49990" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
           <Text style={styles.formLabel}>URL imagen medalla</Text>
           <TextInput style={styles.input} value={nuevoReto.medal_image_url} onChangeText={v => setNuevoReto(p => ({ ...p, medal_image_url: v }))} placeholder="https://..." placeholderTextColor="#4a6a8a" />
           <Text style={styles.formLabel}>🇦🇷 Link MercadoPago</Text>
           <TextInput style={styles.input} value={nuevoReto.link_mercadopago} onChangeText={v => setNuevoReto(p => ({ ...p, link_mercadopago: v }))} placeholder="https://mercadopago.com..." placeholderTextColor="#4a6a8a" />
-          <Text style={styles.formLabel}>🌍 Link Shopify (internacional)</Text>
-          <TextInput style={styles.input} value={nuevoReto.link_shopify} onChangeText={v => setNuevoReto(p => ({ ...p, link_shopify: v }))} placeholder="https://korva.run/checkouts/..." placeholderTextColor="#4a6a8a" />
+          <Text style={styles.formLabel}>🌍 Link Shopify</Text>
+          <TextInput style={styles.input} value={nuevoReto.link_shopify} onChangeText={v => setNuevoReto(p => ({ ...p, link_shopify: v }))} placeholder="https://korva.run/..." placeholderTextColor="#4a6a8a" />
           <Text style={styles.formLabel}>Modalidades *</Text>
           {nuevoReto.modalidades.map((m, i) => (
             <View key={i} style={styles.modalidadRow}>
@@ -695,6 +696,12 @@ const styles = StyleSheet.create({
   trackingBox: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, marginTop: 8 },
   trackingLabel: { fontSize: 10, fontWeight: 'bold', color: '#4CAF50', letterSpacing: 2, marginBottom: 4 },
   trackingNum: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
+  // Evidencia admin
+  evidenciaAdminBox: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#1E6FD9' },
+  evidenciaAdminLabel: { fontSize: 10, fontWeight: 'bold', color: '#1E6FD9', letterSpacing: 2, marginBottom: 8 },
+  evidenciaAdminImg: { width: '100%', height: 160, borderRadius: 10 },
+  evidenciaAdminImgExpandida: { height: 320 },
+  evidenciaAdminTap: { color: '#4a6a8a', fontSize: 11, textAlign: 'center', marginTop: 6 },
   retoCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 18, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
   retoTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   retoPrecio: { fontSize: 13, color: '#FC4C02', fontWeight: 'bold' },

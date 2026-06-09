@@ -289,7 +289,7 @@ app.get('/perfil/:userId', async (req, res) => {
 });
 
 app.post('/actividades/manual', async (req, res) => {
-  const { user_id, challenge_id, sport_type, distance_km, recorded_at } = req.body;
+  const { user_id, challenge_id, sport_type, distance_km, recorded_at, evidencia_url } = req.body;
   const distanciaFloat = parseFloat(distance_km);
 
   try {
@@ -300,7 +300,8 @@ app.post('/actividades/manual', async (req, res) => {
         external_id: `manual_${user_id}_${Date.now()}`,
         sport_type, distance_km: distanciaFloat,
         duration_seconds: 0,
-        recorded_at: recorded_at || new Date().toISOString()
+        recorded_at: recorded_at || new Date().toISOString(),
+        evidencia_url: evidencia_url || null,
       })
       .select()
       .single();
