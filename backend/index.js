@@ -17,6 +17,10 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET
 );
 
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); // aumentar límite para imágenes base64
 
