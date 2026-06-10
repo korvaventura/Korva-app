@@ -50,6 +50,15 @@ export default function AdminScreen() {
 
   // Evidencia expandida
   const [evidenciaExpandida, setEvidenciaExpandida] = useState(null);
+  const [usuarioExpandido, setUsuarioExpandido] = useState(null);
+  const [evidenciasAdmin, setEvidenciasAdmin] = useState([]);
+  const [cargandoEvidencias, setCargandoEvidencias] = useState(false);
+
+  useEffect(() => {
+    if (vista === 'evidencias' && evidenciasAdmin.length === 0) {
+      cargarEvidencias();
+    }
+  }, [vista]);
 
   useEffect(() => {
     cargarChallenges();
@@ -62,6 +71,23 @@ export default function AdminScreen() {
       cargarChallengesActivos();
     }, [])
   );
+
+  const cargarEvidencias = async () => {
+    setCargandoEvidencias(true);
+    try {
+      const { data, error } = await supabaseClient
+        .from('activities')
+        .select('id, user_id, distance_km, sport_type, recorded_at, evidencia_url, users(name, email)')
+        .eq('source', 'manual')
+        .not('evidencia_url', 'is', null)
+        .order('recorded_at', { ascending: false });
+      if (!error) setEvidenciasAdmin(data || []);
+    } catch (e) {
+      console.error('Error cargando evidencias:', e);
+    } finally {
+      setCargandoEvidencias(false);
+    }
+  };
 
   const cargarChallenges = async () => {
     try {
@@ -353,6 +379,9 @@ export default function AdminScreen() {
         <TouchableOpacity style={[styles.vistaBtn, vista === 'envios' && styles.vistaBtnActivo]} onPress={() => setVista('envios')}>
           <Text style={[styles.vistaText, vista === 'envios' && styles.vistaTextActivo]}>📬 Envíos</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={[styles.vistaBtn, vista === 'evidencias' && styles.vistaBtnActivo]} onPress={() => setVista('evidencias')}>
+          <Text style={[styles.vistaText, vista === 'evidencias' && styles.vistaTextActivo]}>📸 Evidencias</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={[styles.vistaBtn, vista === 'editar' && styles.vistaBtnActivo]} onPress={() => setVista('editar')}>
           <Text style={[styles.vistaText, vista === 'editar' && styles.vistaTextActivo]}>✏️ Editar</Text>
         </TouchableOpacity>
@@ -409,20 +438,22 @@ export default function AdminScreen() {
                   <Text style={styles.email}>{item.email}</Text>
                   {renderDireccion(item.direccion)}
 
-                  {/* ✅ Evidencia de km manual */}
-                  {item.evidencia_url && (
+                  {/* ✅ Evidencias de km manual */}
+                  {item.evidencias && item.evidencias.length > 0 && (
                     <View style={styles.evidenciaAdminBox}>
-                      <Text style={styles.evidenciaAdminLabel}>📸 EVIDENCIA KM MANUAL</Text>
-                      <TouchableOpacity onPress={() => setEvidenciaExpandida(evidenciaExpandida === item.id ? null : item.id)}>
-                        <Image
-                          source={{ uri: item.evidencia_url }}
-                          style={[styles.evidenciaAdminImg, evidenciaExpandida === item.id && styles.evidenciaAdminImgExpandida]}
-                          resizeMode="contain"
-                        />
-                        <Text style={styles.evidenciaAdminTap}>
-                          {evidenciaExpandida === item.id ? '↑ Reducir' : '↓ Expandir'}
-                        </Text>
-                      </TouchableOpacity>
+                      <Text style={styles.evidenciaAdminLabel}>📸 EVIDENCIAS KM MANUAL ({item.evidencias.length})</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        {item.evidencias.map((url, i) => (
+                          <TouchableOpacity key={i} onPress={() => setEvidenciaExpandida(evidenciaExpandida === `${item.id}_${i}` ? null : `${item.id}_${i}`)}>
+                            <Image
+                              source={{ uri: url }}
+                              style={[styles.evidenciaAdminImg, evidenciaExpandida === `${item.id}_${i}` && styles.evidenciaAdminImgExpandida, { marginRight: 8 }]}
+                              resizeMode="contain"
+                            />
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                      <Text style={styles.evidenciaAdminTap}>Tocá para expandir</Text>
                     </View>
                   )}
 
@@ -450,6 +481,99 @@ export default function AdminScreen() {
             })
           }
         </>
+      )}
+
+      {vista === 'evidencias' && (
+        <View>
+          {cargandoEvidencias ? (
+            <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
+          ) : evidenciasAdmin.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyEmoji}>📸</Text>
+              <Text style={styles.emptyText}>Sin evidencias todavía</Text>
+              <Text style={styles.emptySubtext}>Aparecen acá cuando usuarios suban fotos en registro manual</Text>
+              <TouchableOpacity style={[styles.editarBtn, { marginTop: 16 }]} onPress={cargarEvidencias}>
+                <Text style={styles.editarBtnText}>↻ Cargar evidencias</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (() => {
+            // Agrupar por usuario
+            const porUsuario = {};
+            evidenciasAdmin.forEach(act => {
+              const userId = act.user_id;
+              if (!porUsuario[userId]) {
+                porUsuario[userId] = {
+                  nombre: act.users?.name || 'Sin nombre',
+                  email: act.users?.email || '',
+                  actividades: [],
+                };
+              }
+              porUsuario[userId].actividades.push(act);
+            });
+
+            return (
+              <>
+                <TouchableOpacity style={[styles.editarBtn, { marginBottom: 16 }]} onPress={cargarEvidencias}>
+                  <Text style={styles.editarBtnText}>↻ Actualizar</Text>
+                </TouchableOpacity>
+                {Object.entries(porUsuario).map(([userId, datos]) => (
+                  <View key={userId} style={styles.evidenciaUsuarioCard}>
+                    <TouchableOpacity
+                      style={styles.evidenciaUsuarioHeader}
+                      onPress={() => setUsuarioExpandido(usuarioExpandido === userId ? null : userId)}
+                    >
+                      <View style={styles.evidenciaUsuarioAvatar}>
+                        <Text style={styles.evidenciaUsuarioLetra}>
+                          {datos.nombre?.charAt(0)?.toUpperCase() || '?'}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.evidenciaUsuarioNombre}>{datos.nombre}</Text>
+                        <Text style={styles.evidenciaUsuarioEmail}>{datos.email}</Text>
+                        <Text style={styles.evidenciaUsuarioCount}>{datos.actividades.length} evidencia{datos.actividades.length !== 1 ? 's' : ''}</Text>
+                      </View>
+                      <Text style={{ color: '#4a6a8a', fontSize: 18 }}>
+                        {usuarioExpandido === userId ? '▲' : '▼'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {usuarioExpandido === userId && (
+                      <View style={styles.evidenciaActividadesList}>
+                        {datos.actividades.map((act, i) => (
+                          <View key={i} style={styles.evidenciaActividadItem}>
+                            <View style={styles.evidenciaActividadInfo}>
+                              <Text style={styles.evidenciaActividadKm}>
+                                {act.sport_type === 'run' ? '🏃' : '🚴'} {parseFloat(act.distance_km).toFixed(1)} km
+                              </Text>
+                              <Text style={styles.evidenciaActividadFecha}>
+                                {new Date(act.recorded_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              onPress={() => setEvidenciaExpandida(evidenciaExpandida === `ev_${act.id}` ? null : `ev_${act.id}`)}
+                            >
+                              <Image
+                                source={{ uri: act.evidencia_url }}
+                                style={[
+                                  styles.evidenciaAdminImg,
+                                  evidenciaExpandida === `ev_${act.id}` && styles.evidenciaAdminImgExpandida
+                                ]}
+                                resizeMode="contain"
+                              />
+                              <Text style={styles.evidenciaAdminTap}>
+                                {evidenciaExpandida === `ev_${act.id}` ? '↑ Reducir' : '↓ Expandir'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </>
+            );
+          })()}
+        </View>
       )}
 
       {vista === 'editar' && (
@@ -645,7 +769,19 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#0D1B2A' },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
   titulo: { fontSize: 26, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 16 },
-  vistaRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+  evidenciaUsuarioCard: { backgroundColor: '#1E3A5F', borderRadius: 16, marginBottom: 12, overflow: 'hidden' },
+  evidenciaUsuarioHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
+  evidenciaUsuarioAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center' },
+  evidenciaUsuarioLetra: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
+  evidenciaUsuarioNombre: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
+  evidenciaUsuarioEmail: { fontSize: 12, color: '#4a6a8a', marginBottom: 2 },
+  evidenciaUsuarioCount: { fontSize: 11, color: '#FC4C02', fontWeight: 'bold' },
+  evidenciaActividadesList: { borderTopWidth: 1, borderTopColor: '#0D1B2A', padding: 16, gap: 16 },
+  evidenciaActividadItem: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 12 },
+  evidenciaActividadInfo: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  evidenciaActividadKm: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF' },
+  evidenciaActividadFecha: { fontSize: 12, color: '#4a6a8a' },
+  vistaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
   vistaBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
   vistaBtnActivo: { borderColor: '#FC4C02' },
   vistaText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 11 },
