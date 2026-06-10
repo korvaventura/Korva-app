@@ -28,6 +28,13 @@ const getFrase = (pct) => {
   return 'El camino empieza con el primer paso 🌱';
 };
 
+const getSubtitulo = (challengeTitle) => {
+  const t = (challengeTitle || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (t.includes('dubrovnik')) return 'Pile Gate → Ploče Gate';
+  if (t.includes('andres') || t.includes('san andr')) return 'San Luis → Punta Sur';
+  return 'Tolhuin → Ushuaia';
+};
+
 const formatearFechaMeta = (fecha) => {
   if (!fecha) return null;
   return new Date(fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
@@ -436,7 +443,7 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
           </View>
           <View style={styles.shareKmRow}>
             <Text style={styles.shareKmText}>{item.km_completados} km</Text>
-            <Text style={styles.shareKmTotal}>· {item.distancia_total} km totales</Text>
+            <Text style={styles.shareKmTotal}>· {getSubtitulo(item.challenge)}</Text>
             {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅</Text>}
           </View>
           {metaFormateada && <Text style={styles.shareMetaText}>🎯 Meta: {metaFormateada}</Text>}

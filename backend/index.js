@@ -641,6 +641,68 @@ app.delete('/actividades/:actividadId', async (req, res) => {
   }
 });
 
+app.get('/admin/metricas', async (req, res) => {
+  try {
+    // Total usuarios
+    const { count: totalUsuarios } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true });
+
+    // Inscripciones por status
+    const { data: inscripciones } = await supabase
+      .from('user_challenges')
+      .select('status, challenge_id, km_completed, challenges(title)');
+
+    const activos = inscripciones?.filter(i => i.status === 'active').length || 0;
+    const completados = inscripciones?.filter(i => i.status === 'completed').length || 0;
+    const enviados = inscripciones?.filter(i => i.status === 'shipped').length || 0;
+
+    // Km totales
+    const { data: actividades } = await supabase
+      .from('activities')
+      .select('distance_km, sport_type, source');
+
+    const kmTotales = actividades?.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
+    const kmStrava = actividades?.filter(a => a.source === 'strava').reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
+    const kmManual = actividades?.filter(a => a.source === 'manual').reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
+    const totalActividades = actividades?.length || 0;
+
+    // Usuarios con Strava conectado
+    const { count: conStrava } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .not('strava_token', 'is', null);
+
+    // Métricas por challenge
+    const porChallenge = {};
+    inscripciones?.forEach(i => {
+      const titulo = i.challenges?.title || 'Sin título';
+      if (!porChallenge[titulo]) {
+        porChallenge[titulo] = { activos: 0, completados: 0, enviados: 0, kmTotales: 0 };
+      }
+      if (i.status === 'active') porChallenge[titulo].activos++;
+      if (i.status === 'completed') porChallenge[titulo].completados++;
+      if (i.status === 'shipped') porChallenge[titulo].enviados++;
+      porChallenge[titulo].kmTotales += parseFloat(i.km_completed) || 0;
+    });
+
+    res.json({
+      totalUsuarios,
+      conStrava,
+      activos,
+      completados,
+      enviados,
+      kmTotales: kmTotales.toFixed(1),
+      kmStrava: kmStrava.toFixed(1),
+      kmManual: kmManual.toFixed(1),
+      totalActividades,
+      porChallenge,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error cargando métricas', detalle: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });

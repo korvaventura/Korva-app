@@ -50,10 +50,28 @@ export default function AdminScreen() {
   const [usuarioExpandido, setUsuarioExpandido] = useState(null);
   const [evidenciasAdmin, setEvidenciasAdmin] = useState([]);
   const [cargandoEvidencias, setCargandoEvidencias] = useState(false);
+  const [metricas, setMetricas] = useState(null);
+  const [cargandoMetricas, setCargandoMetricas] = useState(false);
+
+  const cargarMetricas = async () => {
+    setCargandoMetricas(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/admin/metricas`);
+      const data = await res.json();
+      setMetricas(data);
+    } catch (e) {
+      console.error('Error cargando métricas:', e);
+    } finally {
+      setCargandoMetricas(false);
+    }
+  };
 
   useEffect(() => {
     if (vista === 'evidencias' && evidenciasAdmin.length === 0) {
       cargarEvidencias();
+    }
+    if (vista === 'metricas') {
+      cargarMetricas();
     }
   }, [vista]);
 
@@ -388,6 +406,9 @@ export default function AdminScreen() {
         <TouchableOpacity style={[styles.vistaBtn, vista === 'evidencias' && styles.vistaBtnActivo]} onPress={() => setVista('evidencias')}>
           <Text style={[styles.vistaText, vista === 'evidencias' && styles.vistaTextActivo]}>📸 Evidencias</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={[styles.vistaBtn, vista === 'metricas' && styles.vistaBtnActivo]} onPress={() => setVista('metricas')}>
+          <Text style={[styles.vistaText, vista === 'metricas' && styles.vistaTextActivo]}>📊 Métricas</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={[styles.vistaBtn, vista === 'editar' && styles.vistaBtnActivo]} onPress={() => setVista('editar')}>
           <Text style={[styles.vistaText, vista === 'editar' && styles.vistaTextActivo]}>✏️ Editar</Text>
         </TouchableOpacity>
@@ -487,6 +508,108 @@ export default function AdminScreen() {
             })
           }
         </>
+      )}
+
+      {vista === 'metricas' && (
+        <View>
+          {cargandoMetricas ? (
+            <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
+          ) : !metricas ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyEmoji}>📊</Text>
+              <Text style={styles.emptyText}>Sin datos</Text>
+              <TouchableOpacity style={[styles.editarBtn, { marginTop: 16 }]} onPress={cargarMetricas}>
+                <Text style={styles.editarBtnText}>↻ Cargar métricas</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <TouchableOpacity style={[styles.editarBtn, { marginBottom: 16 }]} onPress={cargarMetricas}>
+                <Text style={styles.editarBtnText}>↻ Actualizar</Text>
+              </TouchableOpacity>
+
+              {/* Usuarios */}
+              <Text style={styles.metricaSeccion}>👥 Usuarios</Text>
+              <View style={styles.metricaRow}>
+                <View style={styles.metricaCard}>
+                  <Text style={styles.metricaNumero}>{metricas.totalUsuarios}</Text>
+                  <Text style={styles.metricaLabel}>Total</Text>
+                </View>
+                <View style={styles.metricaCard}>
+                  <Text style={styles.metricaNumero}>{metricas.conStrava}</Text>
+                  <Text style={styles.metricaLabel}>Con Strava</Text>
+                </View>
+                <View style={styles.metricaCard}>
+                  <Text style={styles.metricaNumero}>{metricas.totalUsuarios > 0 ? Math.round((metricas.conStrava / metricas.totalUsuarios) * 100) : 0}%</Text>
+                  <Text style={styles.metricaLabel}>Adopción</Text>
+                </View>
+              </View>
+
+              {/* Retos */}
+              <Text style={styles.metricaSeccion}>🏅 Retos</Text>
+              <View style={styles.metricaRow}>
+                <View style={[styles.metricaCard, { borderColor: '#1E6FD9' }]}>
+                  <Text style={[styles.metricaNumero, { color: '#1E6FD9' }]}>{metricas.activos}</Text>
+                  <Text style={styles.metricaLabel}>Activos</Text>
+                </View>
+                <View style={[styles.metricaCard, { borderColor: '#FC4C02' }]}>
+                  <Text style={[styles.metricaNumero, { color: '#FC4C02' }]}>{metricas.completados}</Text>
+                  <Text style={styles.metricaLabel}>Completados</Text>
+                </View>
+                <View style={[styles.metricaCard, { borderColor: '#4CAF50' }]}>
+                  <Text style={[styles.metricaNumero, { color: '#4CAF50' }]}>{metricas.enviados}</Text>
+                  <Text style={styles.metricaLabel}>Enviados</Text>
+                </View>
+              </View>
+
+              {/* Km */}
+              <Text style={styles.metricaSeccion}>🏃 Kilómetros</Text>
+              <View style={styles.metricaRow}>
+                <View style={styles.metricaCard}>
+                  <Text style={styles.metricaNumero}>{parseFloat(metricas.kmTotales).toLocaleString('es-AR')}</Text>
+                  <Text style={styles.metricaLabel}>km totales</Text>
+                </View>
+                <View style={styles.metricaCard}>
+                  <Text style={styles.metricaNumero}>{parseFloat(metricas.kmStrava).toLocaleString('es-AR')}</Text>
+                  <Text style={styles.metricaLabel}>via Strava</Text>
+                </View>
+                <View style={styles.metricaCard}>
+                  <Text style={styles.metricaNumero}>{parseFloat(metricas.kmManual).toLocaleString('es-AR')}</Text>
+                  <Text style={styles.metricaLabel}>manual</Text>
+                </View>
+              </View>
+              <View style={styles.metricaTotalActividades}>
+                <Text style={styles.metricaTotalActividadesText}>📋 {metricas.totalActividades} actividades registradas en total</Text>
+              </View>
+
+              {/* Por challenge */}
+              <Text style={styles.metricaSeccion}>📍 Por challenge</Text>
+              {Object.entries(metricas.porChallenge).map(([titulo, datos], i) => (
+                <View key={i} style={styles.metricaChallengeCard}>
+                  <Text style={styles.metricaChallengeTitulo}>{titulo}</Text>
+                  <View style={styles.metricaRow}>
+                    <View style={styles.metricaCardSmall}>
+                      <Text style={styles.metricaNumeroSmall}>{datos.activos}</Text>
+                      <Text style={styles.metricaLabelSmall}>activos</Text>
+                    </View>
+                    <View style={styles.metricaCardSmall}>
+                      <Text style={styles.metricaNumeroSmall}>{datos.completados}</Text>
+                      <Text style={styles.metricaLabelSmall}>completados</Text>
+                    </View>
+                    <View style={styles.metricaCardSmall}>
+                      <Text style={styles.metricaNumeroSmall}>{datos.enviados}</Text>
+                      <Text style={styles.metricaLabelSmall}>enviados</Text>
+                    </View>
+                    <View style={styles.metricaCardSmall}>
+                      <Text style={styles.metricaNumeroSmall}>{parseFloat(datos.kmTotales).toFixed(0)}</Text>
+                      <Text style={styles.metricaLabelSmall}>km</Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
+        </View>
       )}
 
       {vista === 'evidencias' && (
@@ -775,6 +898,18 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#0D1B2A' },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
   titulo: { fontSize: 26, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 16 },
+  metricaSeccion: { fontSize: 13, fontWeight: 'bold', color: '#A8CFFF', letterSpacing: 1, marginBottom: 10, marginTop: 4 },
+  metricaRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  metricaCard: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#2a4a6a' },
+  metricaNumero: { fontSize: 24, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
+  metricaLabel: { fontSize: 10, color: '#A8CFFF', textAlign: 'center', letterSpacing: 0.5 },
+  metricaTotalActividades: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', marginBottom: 20 },
+  metricaTotalActividadesText: { fontSize: 13, color: '#A8CFFF', fontWeight: 'bold' },
+  metricaChallengeCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 16, marginBottom: 10 },
+  metricaChallengeTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 10 },
+  metricaCardSmall: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10, alignItems: 'center' },
+  metricaNumeroSmall: { fontSize: 18, fontWeight: 'bold', color: '#FC4C02', marginBottom: 2 },
+  metricaLabelSmall: { fontSize: 9, color: '#4a6a8a', textAlign: 'center' },
   evidenciaUsuarioCard: { backgroundColor: '#1E3A5F', borderRadius: 16, marginBottom: 12, overflow: 'hidden' },
   evidenciaUsuarioHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
   evidenciaUsuarioAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center' },
