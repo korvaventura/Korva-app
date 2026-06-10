@@ -5,6 +5,7 @@ const { createClient } = require('@supabase/supabase-js');
 const stravaRoutes = require('./routes/strava');
 const shopifyRoutes = require('./routes/shopify');
 const mercadopagoRoutes = require('./routes/mercadopago');
+const invitacionesRoutes = require('./routes/invitaciones');
 const { enviarEmailInscripcion, enviarEmailMedallaEnCamino } = require('./routes/emails');
 
 const app = express();
@@ -20,6 +21,7 @@ app.use(express.json());
 app.use('/strava', stravaRoutes);
 app.use('/shopify', shopifyRoutes);
 app.use('/mercadopago', mercadopagoRoutes);
+app.use('/invitaciones', invitacionesRoutes);
 
 const enviarPushNotification = async (pushToken, title, body) => {
   try {
@@ -33,6 +35,39 @@ const enviarPushNotification = async (pushToken, title, body) => {
   }
 };
 
+const calcularRachaSemanal = (actividades) => {
+  const actividadesPorSemana = {};
+  actividades?.forEach(a => {
+    const fecha = new Date(a.recorded_at);
+    const dia = fecha.getDay();
+    const lunes = new Date(fecha);
+    lunes.setDate(fecha.getDate() - ((dia + 6) % 7));
+    const semana = lunes.toISOString().split('T')[0];
+    actividadesPorSemana[semana] = (actividadesPorSemana[semana] || 0) + 1;
+  });
+
+  let racha = 0;
+  const hoy = new Date();
+  const diaHoy = hoy.getDay();
+  const lunesEstaSemana = new Date(hoy);
+  lunesEstaSemana.setDate(hoy.getDate() - ((diaHoy + 6) % 7));
+
+  for (let i = 0; i < 52; i++) {
+    const lunes = new Date(lunesEstaSemana);
+    lunes.setDate(lunesEstaSemana.getDate() - i * 7);
+    const semanaKey = lunes.toISOString().split('T')[0];
+    const count = actividadesPorSemana[semanaKey] || 0;
+    if (i === 0) {
+      if (count === 0) break;
+    } else {
+      if (count < 3) break;
+    }
+    racha++;
+  }
+
+  return racha;
+};
+
 const verificarYEnviarNotificacionRacha = async (userId) => {
   try {
     const { data: actividades } = await supabase
@@ -41,23 +76,13 @@ const verificarYEnviarNotificacionRacha = async (userId) => {
       .eq('user_id', userId)
       .order('recorded_at', { ascending: false });
 
-    const diasUnicos = [...new Set(
-      actividades?.map(a => a.recorded_at?.split('T')[0]) || []
-    )].sort().reverse();
-
-    let racha = 0;
-    for (let i = 0; i < diasUnicos.length; i++) {
-      const esperado = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
-      if (diasUnicos[i] === esperado) racha++;
-      else break;
-    }
+    const racha = calcularRachaSemanal(actividades);
 
     const mensajes = {
-      3: { title: '🔥 ¡3 días en racha!', body: 'Estás en llamas. Seguí así 💪' },
-      7: { title: '⚡ ¡Una semana completa!', body: 'Siete días seguidos entrenando. Sos una máquina.' },
-      14: { title: '👑 ¡14 días en racha!', body: 'Dos semanas sin parar. Leyenda.' },
-      21: { title: '🏅 ¡21 días seguidos!', body: 'Ya es un hábito. Nada te para.' },
-      30: { title: '🌍 ¡Un mes de racha!', body: '30 días consecutivos. Estás en otro nivel.' },
+      2: { title: '🔥 ¡2 semanas en racha!', body: 'Dos semanas consecutivas entrenando. Seguí así 💪' },
+      4: { title: '⚡ ¡Un mes de racha!', body: 'Cuatro semanas seguidas. Sos una máquina.' },
+      8: { title: '👑 ¡2 meses en racha!', body: 'Ocho semanas sin parar. Leyenda.' },
+      12: { title: '🏅 ¡3 meses en racha!', body: 'Ya es un hábito de hierro. Nada te para.' },
     };
 
     if (mensajes[racha]) {
@@ -78,17 +103,18 @@ const verificarYEnviarNotificacionRacha = async (userId) => {
 
 const recalcularKmUsuario = async (user_id, challenge_id = null) => {
   try {
+    // Buscar retos active Y completed (no shipped — esos ya fueron enviados)
     let query = supabase
       .from('user_challenges')
-      .select('id, started_at, challenge_id')
+      .select('id, started_at, challenge_id, status, challenges(modalidades, total_distance_km)')
       .eq('user_id', user_id)
-      .eq('status', 'active');
+      .in('status', ['active', 'completed']);
 
     if (challenge_id) query = query.eq('challenge_id', challenge_id);
 
-    const { data: retosActivos } = await query;
+    const { data: retos } = await query;
 
-    for (const reto of retosActivos || []) {
+    for (const reto of retos || []) {
       const { data: todasActividades } = await supabase
         .from('activities')
         .select('distance_km')
@@ -97,9 +123,22 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
 
       const totalKm = todasActividades?.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
 
+      // Calcular distancia total de la modalidad del reto
+      const modalidades = reto.challenges?.modalidades || [];
+      const distanciaTotal = modalidades[0]?.distancia_km || reto.challenges?.total_distance_km || 100;
+      const porcentaje = (totalKm / distanciaTotal) * 100;
+
+      // Revertir a active si los km bajaron de 100%
+      const nuevoStatus = porcentaje >= 100 ? 'completed' : 'active';
+
       await supabase
         .from('user_challenges')
-        .update({ km_completed: totalKm })
+        .update({
+          km_completed: totalKm,
+          status: nuevoStatus,
+          // Si revierte a active, limpiar completed_at
+          completed_at: nuevoStatus === 'active' ? null : undefined,
+        })
         .eq('id', reto.id);
     }
   } catch (error) {
@@ -230,16 +269,7 @@ app.get('/perfil/:userId', async (req, res) => {
     const actividadesFechas = await supabase
       .from('activities').select('recorded_at').eq('user_id', userId).order('recorded_at', { ascending: false });
 
-    const diasUnicos = [...new Set(
-      actividadesFechas.data?.map(a => a.recorded_at?.split('T')[0]) || []
-    )].sort().reverse();
-
-    let racha = 0;
-    for (let i = 0; i < diasUnicos.length; i++) {
-      const esperado = new Date(Date.now() - i * 86400000).toISOString().split('T')[0];
-      if (diasUnicos[i] === esperado) racha++;
-      else break;
-    }
+    const racha = calcularRachaSemanal(actividadesFechas.data || []);
 
     const actividadesConKm = await supabase
       .from('activities').select('recorded_at, distance_km, sport_type').eq('user_id', userId);
@@ -289,7 +319,7 @@ app.get('/perfil/:userId', async (req, res) => {
 });
 
 app.post('/actividades/manual', async (req, res) => {
-  const { user_id, challenge_id, sport_type, distance_km, recorded_at } = req.body;
+  const { user_id, challenge_id, sport_type, distance_km, recorded_at, evidencia_url } = req.body;
   const distanciaFloat = parseFloat(distance_km);
 
   try {
@@ -300,7 +330,8 @@ app.post('/actividades/manual', async (req, res) => {
         external_id: `manual_${user_id}_${Date.now()}`,
         sport_type, distance_km: distanciaFloat,
         duration_seconds: 0,
-        recorded_at: recorded_at || new Date().toISOString()
+        recorded_at: recorded_at || new Date().toISOString(),
+        evidencia_url: evidencia_url || null,
       })
       .select()
       .single();

@@ -1,9 +1,14 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../supabase';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
+const SUPABASE_URL = 'https://yvlpnshfqwkpcftotltb.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2bHBuc2hmcXdrcGNmdG90bHRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU4NTM5NjAsImV4cCI6MjA2MTQyOTk2MH0.HMsNKoJJHLuBtJVoaGGy4bfnPHsW2fSiGPMHHuU0PXk';
+const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const getFecha = (diasAtras) => {
   const d = new Date();
@@ -24,6 +29,9 @@ export default function RegistroManualScreen() {
   const [userId, setUserId] = useState(null);
   const [diasAtras, setDiasAtras] = useState(0);
   const [challengeId, setChallengeId] = useState(null);
+  const [evidenciaUri, setEvidenciaUri] = useState(null);
+  const [subiendoEvidencia, setSubiendoEvidencia] = useState(false);
+  const [evidenciaUrl, setEvidenciaUrl] = useState(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -40,6 +48,72 @@ export default function RegistroManualScreen() {
     });
   }, []);
 
+  const seleccionarEvidencia = async () => {
+    try {
+      const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permiso.granted) {
+        Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería para subir evidencia.');
+        return;
+      }
+      const resultado = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.7,
+      });
+      if (resultado.canceled) return;
+      setEvidenciaUri(resultado.assets[0].uri);
+      setEvidenciaUrl(null); // resetear URL anterior
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo seleccionar la imagen.');
+    }
+  };
+
+  const sacarFoto = async () => {
+    try {
+      const permiso = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permiso.granted) {
+        Alert.alert('Permiso requerido', 'Necesitamos acceso a la cámara.');
+        return;
+      }
+      const resultado = await ImagePicker.launchCameraAsync({
+        allowsEditing: false,
+        quality: 0.7,
+      });
+      if (resultado.canceled) return;
+      setEvidenciaUri(resultado.assets[0].uri);
+      setEvidenciaUrl(null);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo tomar la foto.');
+    }
+  };
+
+  const subirEvidencia = async (uri) => {
+    setSubiendoEvidencia(true);
+    try {
+      const fileName = `evidencia_${userId}_${Date.now()}.jpg`;
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const { error } = await supabaseClient.storage
+        .from('korva-images')
+        .upload(`evidencias/${fileName}`, blob, { contentType: 'image/jpeg', upsert: true });
+      if (error) throw error;
+      const { data: urlData } = supabaseClient.storage
+        .from('korva-images')
+        .getPublicUrl(`evidencias/${fileName}`);
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('Error subiendo evidencia:', error);
+      return null;
+    } finally {
+      setSubiendoEvidencia(false);
+    }
+  };
+
+  const quitarEvidencia = () => {
+    setEvidenciaUri(null);
+    setEvidenciaUrl(null);
+  };
+
   const registrar = async () => {
     if (!distancia || parseFloat(distancia) <= 0) {
       setMensaje('Ingresa una distancia valida');
@@ -54,6 +128,12 @@ export default function RegistroManualScreen() {
     setMensaje('');
     setExito(false);
     try {
+      // Subir evidencia si hay una seleccionada
+      let urlEvidencia = evidenciaUrl;
+      if (evidenciaUri && !evidenciaUrl) {
+        urlEvidencia = await subirEvidencia(evidenciaUri);
+      }
+
       const fechaActividad = getFecha(diasAtras);
       const res = await fetch(`${BACKEND_URL}/actividades/manual`, {
         method: 'POST',
@@ -63,7 +143,8 @@ export default function RegistroManualScreen() {
           challenge_id: challengeId,
           sport_type: deporte,
           distance_km: parseFloat(distancia),
-          recorded_at: fechaActividad.toISOString()
+          recorded_at: fechaActividad.toISOString(),
+          evidencia_url: urlEvidencia || null,
         })
       });
       const data = await res.json();
@@ -75,6 +156,8 @@ export default function RegistroManualScreen() {
         setExito(true);
         setDistancia('');
         setDiasAtras(0);
+        setEvidenciaUri(null);
+        setEvidenciaUrl(null);
         setTimeout(() => { setMensaje(''); setExito(false); }, 3000);
       }
     } catch (error) {
@@ -156,6 +239,38 @@ export default function RegistroManualScreen() {
         </Text>
       </View>
 
+      {/* Sección de evidencia */}
+      <View style={styles.seccion}>
+        <Text style={styles.seccionTitulo}>📸 Evidencia <Text style={styles.opcional}>(opcional)</Text></Text>
+        <Text style={styles.evidenciaSubtitulo}>Captura de Strava, Garmin u otra app de entrenamiento</Text>
+
+        {evidenciaUri ? (
+          <View style={styles.evidenciaPreviewWrapper}>
+            <Image source={{ uri: evidenciaUri }} style={styles.evidenciaPreview} resizeMode="cover" />
+            {subiendoEvidencia && (
+              <View style={styles.evidenciaOverlay}>
+                <ActivityIndicator color="#FFFFFF" size="large" />
+                <Text style={styles.evidenciaSubiendoText}>Subiendo...</Text>
+              </View>
+            )}
+            <TouchableOpacity style={styles.evidenciaQuitarBtn} onPress={quitarEvidencia}>
+              <Text style={styles.evidenciaQuitarText}>✕ Quitar</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.evidenciaBotonesRow}>
+            <TouchableOpacity style={styles.evidenciaBtn} onPress={seleccionarEvidencia}>
+              <Ionicons name="image-outline" size={20} color="#1E6FD9" />
+              <Text style={styles.evidenciaBtnText}>Galería</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.evidenciaBtn} onPress={sacarFoto}>
+              <Ionicons name="camera-outline" size={20} color="#1E6FD9" />
+              <Text style={styles.evidenciaBtnText}>Cámara</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
       {mensaje ? (
         <View style={[styles.mensajeBox, exito && styles.mensajeExito]}>
           <Text style={[styles.mensajeText, exito && styles.mensajeTextoExito]}>
@@ -200,7 +315,18 @@ const styles = StyleSheet.create({
   distanciaInput: { fontSize: 56, fontWeight: 'bold', color: '#FFFFFF', minWidth: 120, textAlign: 'center' },
   distanciaUnidad: { fontSize: 24, color: '#A8CFFF', fontWeight: 'bold' },
   seccion: { marginBottom: 20 },
-  seccionTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 12, letterSpacing: 0.5 },
+  seccionTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4, letterSpacing: 0.5 },
+  opcional: { fontSize: 12, color: '#4a6a8a', fontWeight: 'normal' },
+  evidenciaSubtitulo: { fontSize: 12, color: '#4a6a8a', marginBottom: 12 },
+  evidenciaBotonesRow: { flexDirection: 'row', gap: 10 },
+  evidenciaBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E6FD9', flexDirection: 'row', justifyContent: 'center', gap: 8 },
+  evidenciaBtnText: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 14 },
+  evidenciaPreviewWrapper: { position: 'relative', borderRadius: 14, overflow: 'hidden' },
+  evidenciaPreview: { width: '100%', height: 200, borderRadius: 14 },
+  evidenciaOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+  evidenciaSubiendoText: { color: '#FFFFFF', marginTop: 8, fontWeight: 'bold' },
+  evidenciaQuitarBtn: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
+  evidenciaQuitarText: { color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' },
   fechaScroll: { marginBottom: 12 },
   fechaBtn: { backgroundColor: '#1E3A5F', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8, borderWidth: 2, borderColor: 'transparent' },
   fechaBtnActivo: { borderColor: '#1E6FD9', backgroundColor: '#162d4a' },

@@ -2,6 +2,8 @@ const { Resend } = require('resend');
 
 const getResend = () => new Resend(process.env.RESEND_API_KEY);
 
+const BACKEND_URL = 'https://korva-app-production.up.railway.app';
+
 const header = `
   <div style="background: #0D1B2A; padding: 32px 40px 24px; border-bottom: 3px solid #FC4C02;">
     <table width="100%" cellpadding="0" cellspacing="0">
@@ -78,6 +80,48 @@ const enviarEmailInscripcion = async (email, nombre, challenge, modalidad) => {
     console.log('Email de inscripcion enviado a:', email);
   } catch (error) {
     console.error('Error enviando email:', error);
+  }
+};
+
+const enviarEmailInvitacion = async (email, nombre, challenge, tokens) => {
+  try {
+    const linksHtml = tokens.map((token, i) => `
+      <div style="margin: 12px 0;">
+        <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 6px;">Persona ${i + 2}:</p>
+        <a href="${BACKEND_URL}/invitaciones/${token}"
+           style="display: inline-block; background: #FC4C02; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none; word-break: break-all;">
+          Activar mi lugar en ${challenge}
+        </a>
+        <p style="color: #4a6a8a; font-size: 11px; margin: 6px 0 0;">Link válido por 30 días</p>
+      </div>
+    `).join('');
+
+    await getResend().emails.send({
+      from: 'Korva <onboarding@resend.dev>',
+      to: email,
+      subject: `🎟️ Compartí el acceso — ${challenge}`,
+      html: wrapper(`
+        ${badge('🎟️ ACCESOS PARA COMPARTIR')}
+        <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
+        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Compraste <strong style="color: #FFFFFF;">${tokens.length + 1} lugares</strong> para el reto <strong style="color: #FFFFFF;">${challenge}</strong>. Tu inscripción ya está activa.</p>
+        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Compartí estos links con las personas que van a correr con vos:</p>
+
+        ${card(linksHtml, '#FC4C02')}
+
+        ${card(`
+          <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">CÓMO FUNCIONA</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">1️⃣ &nbsp; Mandales el link a cada persona</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">2️⃣ &nbsp; Entran al link, eligen su modalidad y se registran</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">3️⃣ &nbsp; Descargan la app y arrancan a correr 🏃</p>
+        `, '#1E6FD9')}
+
+        <p style="color: #4a6a8a; font-size: 13px;">Cada link es de uso único y válido por 30 días.</p>
+        <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 24px;">El equipo Korva 🏅</p>
+      `)
+    });
+    console.log('Email de invitacion enviado a:', email);
+  } catch (error) {
+    console.error('Error enviando email de invitacion:', error);
   }
 };
 
@@ -158,4 +202,4 @@ const enviarEmailAdmin = async (asunto, mensaje) => {
   }
 };
 
-module.exports = { enviarEmailInscripcion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdmin };
+module.exports = { enviarEmailInscripcion, enviarEmailInvitacion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdmin };

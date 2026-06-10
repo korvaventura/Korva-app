@@ -1,12 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
-const { enviarEmailInscripcion } = require('../routes/emails');
+const crypto = require('crypto');
+const { enviarEmailInscripcion, enviarEmailInvitacion } = require('../routes/emails');
 
 const getSupabase = () => createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SECRET
 );
+
+const generarToken = () => crypto.randomBytes(24).toString('hex');
 
 router.post('/webhook/order', async (req, res) => {
   console.log('Webhook Shopify recibido!', req.body?.email);
@@ -15,6 +18,9 @@ router.post('/webhook/order', async (req, res) => {
 
   try {
     const email = order.email;
+
+    // Calcular cantidad total comprada
+    const cantidad = order.line_items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 1;
 
     const { data: user } = await supabase
       .from('users')
@@ -28,7 +34,7 @@ router.post('/webhook/order', async (req, res) => {
 
     const { data: pendiente } = await supabase
       .from('user_challenges')
-      .select('id, modalidad, challenges(title)')
+      .select('id, modalidad, challenge_id, challenges(title)')
       .eq('user_id', user.id)
       .eq('status', 'pending')
       .order('started_at', { ascending: false })
@@ -36,6 +42,7 @@ router.post('/webhook/order', async (req, res) => {
       .single();
 
     if (pendiente) {
+      // Activar al comprador principal
       await supabase
         .from('user_challenges')
         .update({ status: 'active' })
@@ -43,13 +50,39 @@ router.post('/webhook/order', async (req, res) => {
 
       console.log('Challenge activado para:', email);
 
-      // Enviar email de confirmacion
       if (user.email && pendiente.challenges?.title) {
         enviarEmailInscripcion(
           user.email,
           user.name,
           pendiente.challenges.title,
           pendiente.modalidad === 'run' ? 'Running' : 'Ciclismo'
+        );
+      }
+
+      // Si compró más de 1, generar tokens de invitación
+      if (cantidad > 1) {
+        const tokens = [];
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 días
+
+        for (let i = 0; i < cantidad - 1; i++) {
+          const token = generarToken();
+          await supabase.from('invitations').insert({
+            token,
+            challenge_id: pendiente.challenge_id,
+            created_by: user.id,
+            expires_at: expiresAt.toISOString()
+          });
+          tokens.push(token);
+        }
+
+        console.log(`Generados ${tokens.length} tokens de invitación para ${email}`);
+
+        // Mandar email con los links de invitación
+        enviarEmailInvitacion(
+          user.email,
+          user.name,
+          pendiente.challenges.title,
+          tokens
         );
       }
     }
