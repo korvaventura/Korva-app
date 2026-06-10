@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
+const { enviarNotificacionProgreso } = require('../routes/notificaciones');
 
 const REDIRECT_URI = 'https://korva-app-production.up.railway.app/strava/callback';
 const WEBHOOK_VERIFY_TOKEN = 'korva_webhook_secret_2024';
@@ -151,6 +152,7 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
       .eq('user_id', userId)
       .gte('recorded_at', uc.started_at);
 
+    const kmAntes = uc.km_completed || 0;
     const totalKm = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
     const porcentaje = Math.min((totalKm / modalidadElegida.distancia_km) * 100, 100);
     const yaCompletado = uc.status === 'completed';
@@ -165,25 +167,27 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
       })
       .eq('id', uc.id);
 
+    // Email al completar
     if (porcentaje >= 100 && !yaCompletado) {
       const { data: usuario } = await supabase
         .from('users')
-        .select('email, name, push_token')
+        .select('email, name')
         .eq('id', userId)
         .single();
-
       if (usuario?.email) {
         const { enviarEmailCompletado } = require('../routes/emails');
         enviarEmailCompletado(usuario.email, usuario.name, uc.challenges.title);
       }
+    }
 
-      if (usuario?.push_token) {
-        await enviarPushNotification(
-          usuario.push_token,
-          '🏅 ¡Completaste el reto!',
-          `Llegaste al fin del mundo. Tu medalla de ${uc.challenges.title} está en camino 🎉`
-        );
-      }
+    // Notificación inteligente (una sola por actividad)
+    if (!yaCompletado) {
+      await enviarNotificacionProgreso(
+        supabase, userId,
+        uc.challenge_id, uc.challenges.title,
+        kmAntes, totalKm,
+        modalidadElegida.distancia_km
+      );
     }
   }
 

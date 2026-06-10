@@ -7,6 +7,7 @@ const shopifyRoutes = require('./routes/shopify');
 const mercadopagoRoutes = require('./routes/mercadopago');
 const invitacionesRoutes = require('./routes/invitaciones');
 const { enviarEmailInscripcion, enviarEmailMedallaEnCamino } = require('./routes/emails');
+const { enviarNotificacionProgreso } = require('./routes/notificaciones');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -322,8 +323,40 @@ app.post('/actividades/manual', async (req, res) => {
 
     if (errorActividad) throw errorActividad;
 
+    // Guardar km antes de recalcular
+    const { data: ucAntes } = await supabase
+      .from('user_challenges')
+      .select('km_completed, challenge_id, challenges(title, modalidades, total_distance_km)')
+      .eq('user_id', user_id)
+      .eq('challenge_id', challenge_id)
+      .single();
+
+    const kmAntes = ucAntes?.km_completed || 0;
+
     await recalcularKmUsuario(user_id, challenge_id);
     await verificarYEnviarNotificacionRacha(user_id);
+
+    // Notificación inteligente post-registro
+    if (ucAntes) {
+      const { data: ucDespues } = await supabase
+        .from('user_challenges')
+        .select('km_completed, status')
+        .eq('user_id', user_id)
+        .eq('challenge_id', challenge_id)
+        .single();
+
+      const modalidades = ucAntes.challenges?.modalidades || [];
+      const distanciaTotal = modalidades[0]?.distancia_km || ucAntes.challenges?.total_distance_km || 100;
+
+      if (ucAntes.status !== 'completed') {
+        await enviarNotificacionProgreso(
+          supabase, user_id,
+          challenge_id, ucAntes.challenges?.title,
+          kmAntes, ucDespues?.km_completed || 0,
+          distanciaTotal
+        );
+      }
+    }
 
     res.json({ mensaje: 'Actividad registrada y kilómetros sumados', actividad: nuevaActividad });
   } catch (error) {
