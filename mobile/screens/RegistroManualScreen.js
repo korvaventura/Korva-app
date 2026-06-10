@@ -157,7 +157,7 @@ export default function RegistroManualScreen() {
       });
       const data = await res.json();
       if (data.error) {
-        setMensaje('Error al registrar. Intenta de nuevo.');
+        setMensaje(data.error);
         setExito(false);
       } else {
         setMensaje(`${distancia} km de ${deporte === 'run' ? 'running' : 'ciclismo'} registrados!`);

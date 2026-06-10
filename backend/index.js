@@ -330,6 +330,29 @@ app.post('/actividades/manual', async (req, res) => {
   const { user_id, challenge_id, sport_type, distance_km, recorded_at, evidencia_url } = req.body;
   const distanciaFloat = parseFloat(distance_km);
 
+  // Rate limiting — máximo 5 registros manuales por día por usuario
+  try {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const { count } = await supabase
+      .from('activities')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user_id)
+      .eq('source', 'manual')
+      .gte('created_at', hoy.toISOString());
+
+    if (count >= 5) {
+      return res.status(429).json({ error: 'Límite diario alcanzado. Podés registrar hasta 5 actividades manuales por día.' });
+    }
+  } catch (e) {
+    console.error('Error verificando rate limit:', e);
+  }
+
+  // Validar distancia máxima razonable (300km por actividad)
+  if (isNaN(distanciaFloat) || distanciaFloat <= 0 || distanciaFloat > 300) {
+    return res.status(400).json({ error: 'Distancia inválida. Debe ser entre 0.1 y 300 km.' });
+  }
+
   try {
     const { data: nuevaActividad, error: errorActividad } = await supabase
       .from('activities')
