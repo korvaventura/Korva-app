@@ -4,6 +4,8 @@ const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
 const { enviarEmailInscripcion, enviarEmailInvitacion } = require('../routes/emails');
 
+const SHOPIFY_WEBHOOK_SECRET = '4b50434416a39f4c3538e11b8648cda6182c020a882943051b8a39854f5898f6';
+
 const getSupabase = () => createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SECRET
@@ -11,15 +13,37 @@ const getSupabase = () => createClient(
 
 const generarToken = () => crypto.randomBytes(24).toString('hex');
 
-router.post('/webhook/order', async (req, res) => {
-  console.log('Webhook Shopify recibido!', req.body?.email);
-  const order = req.body;
+// ✅ Verificar firma HMAC de Shopify
+const verificarFirmaShopify = (rawBody, hmacHeader) => {
+  if (!hmacHeader) return false;
+  const hash = crypto
+    .createHmac('sha256', SHOPIFY_WEBHOOK_SECRET)
+    .update(rawBody)
+    .digest('base64');
+  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(hmacHeader));
+};
+
+router.post('/webhook/order', express.raw({ type: 'application/json' }), async (req, res) => {
+  // Verificar firma antes de procesar
+  const hmacHeader = req.headers['x-shopify-hmac-sha256'];
+  if (!verificarFirmaShopify(req.body, hmacHeader)) {
+    console.warn('Webhook Shopify rechazado: firma inválida');
+    return res.status(401).json({ error: 'Firma inválida' });
+  }
+
+  // Parsear el body una vez verificado
+  let order;
+  try {
+    order = JSON.parse(req.body.toString());
+  } catch (e) {
+    return res.status(400).json({ error: 'Body inválido' });
+  }
+
+  console.log('Webhook Shopify verificado!', order?.email);
   const supabase = getSupabase();
 
   try {
     const email = order.email;
-
-    // Calcular cantidad total comprada
     const cantidad = order.line_items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 1;
 
     const { data: user } = await supabase
@@ -42,7 +66,6 @@ router.post('/webhook/order', async (req, res) => {
       .single();
 
     if (pendiente) {
-      // Activar al comprador principal
       await supabase
         .from('user_challenges')
         .update({ status: 'active' })
@@ -59,10 +82,9 @@ router.post('/webhook/order', async (req, res) => {
         );
       }
 
-      // Si compró más de 1, generar tokens de invitación
       if (cantidad > 1) {
         const tokens = [];
-        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 días
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
         for (let i = 0; i < cantidad - 1; i++) {
           const token = generarToken();
@@ -76,14 +98,7 @@ router.post('/webhook/order', async (req, res) => {
         }
 
         console.log(`Generados ${tokens.length} tokens de invitación para ${email}`);
-
-        // Mandar email con los links de invitación
-        enviarEmailInvitacion(
-          user.email,
-          user.name,
-          pendiente.challenges.title,
-          tokens
-        );
+        enviarEmailInvitacion(user.email, user.name, pendiente.challenges.title, tokens);
       }
     }
 
