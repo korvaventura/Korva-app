@@ -237,28 +237,12 @@ app.get('/perfil/:userId', async (req, res) => {
 
     const getInsignias = (completados, totalKm) => {
       const insignias = [];
-      // --- INSIGNIAS DE PARTICIPACIÓN ---
       if (completados >= 1) insignias.push({ id: 'primera_medalla', nombre: 'Primera medalla', emoji: '🏅' });
-      if (completados >= 2) insignias.push({ id: 'doble', nombre: 'Doble modalidad', emoji: '🚴' });
-      if (completados >= 3) insignias.push({ id: 'triplete', nombre: 'Triplete', emoji: '🥉' });
-      if (completados >= 5) insignias.push({ id: 'constancia', nombre: 'Constancia', emoji: '⭐' });
-      if (completados >= 10) insignias.push({ id: 'coleccionista', nombre: 'Coleccionista', emoji: '🏆' });
-      if (completados >= 15) insignias.push({ id: 'elite', nombre: 'Atleta Élite', emoji: '🎖️' });
-      if (completados >= 25) insignias.push({ id: 'salon_fama', nombre: 'Salón de la Fama', emoji: '🏛️' });
-
-      // Lógica específica para el Fin del Mundo
-      const logroApie = (modalidad === 'correr' || modalidad === 'caminar') && totalKm >= 103;
-      const logroBici = (modalidad === 'bici' || modalidad === 'ciclismo') && totalKm >= 309;
-
-      if (logroApie || logroBici) {
-        insignias.push({ id: 'fin_del_mundo', nombre: 'Fin del Mundo', emoji: '🏔️' });
-      }
-            // --- INSIGNIAS DE DISTANCIA ---
       if (totalKm >= 100) insignias.push({ id: 'km_100', nombre: '100 km', emoji: '💯' });
       if (totalKm >= 250) insignias.push({ id: 'km_250', nombre: '250 km', emoji: '⚡' });
       if (totalKm >= 500) insignias.push({ id: 'km_500', nombre: '500 km', emoji: '🌍' });
       if (totalKm >= 1000) insignias.push({ id: 'km_1000', nombre: '1000 km', emoji: '👑' });
-      
+      if (completados >= 2) insignias.push({ id: 'doble', nombre: 'Doble modalidad', emoji: '🚴' });
       return insignias;
     };
 
@@ -385,17 +369,30 @@ app.get('/admin/challenges-activos', async (req, res) => {
 
     if (error) throw error;
 
-    const resultado = data.map(uc => ({
-      id: uc.id,
-      usuario: uc.users?.name,
-      email: uc.users?.email,
-      challenge: uc.challenges?.title,
-      modalidad: uc.modalidad,
-      km_completados: uc.km_completed,
-      tracking_number: uc.tracking_number,
-      direccion: uc.users?.shipping_address,
-      completed_at: uc.completed_at,
-      status: uc.status
+    // Para cada user_challenge, buscar evidencias de actividades manuales
+    const resultado = await Promise.all(data.map(async (uc) => {
+      const { data: actividades } = await supabase
+        .from('activities')
+        .select('evidencia_url')
+        .eq('user_id', uc.user_id)
+        .eq('source', 'manual')
+        .not('evidencia_url', 'is', null)
+        .order('recorded_at', { ascending: false })
+        .limit(5);
+
+      return {
+        id: uc.id,
+        usuario: uc.users?.name,
+        email: uc.users?.email,
+        challenge: uc.challenges?.title,
+        modalidad: uc.modalidad,
+        km_completados: uc.km_completed,
+        tracking_number: uc.tracking_number,
+        direccion: uc.users?.shipping_address,
+        completed_at: uc.completed_at,
+        status: uc.status,
+        evidencias: actividades?.map(a => a.evidencia_url) || [],
+      };
     }));
 
     res.json(resultado);
