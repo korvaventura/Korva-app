@@ -237,12 +237,28 @@ app.get('/perfil/:userId', async (req, res) => {
 
     const getInsignias = (completados, totalKm) => {
       const insignias = [];
+      // --- INSIGNIAS DE PARTICIPACIÓN ---
       if (completados >= 1) insignias.push({ id: 'primera_medalla', nombre: 'Primera medalla', emoji: '🏅' });
+      if (completados >= 2) insignias.push({ id: 'doble', nombre: 'Doble modalidad', emoji: '🚴' });
+      if (completados >= 3) insignias.push({ id: 'triplete', nombre: 'Triplete', emoji: '🥉' });
+      if (completados >= 5) insignias.push({ id: 'constancia', nombre: 'Constancia', emoji: '⭐' });
+      if (completados >= 10) insignias.push({ id: 'coleccionista', nombre: 'Coleccionista', emoji: '🏆' });
+      if (completados >= 15) insignias.push({ id: 'elite', nombre: 'Atleta Élite', emoji: '🎖️' });
+      if (completados >= 25) insignias.push({ id: 'salon_fama', nombre: 'Salón de la Fama', emoji: '🏛️' });
+
+      // Lógica específica para el Fin del Mundo
+      const logroApie = (modalidad === 'correr' || modalidad === 'caminar') && totalKm >= 103;
+      const logroBici = (modalidad === 'bici' || modalidad === 'ciclismo') && totalKm >= 309;
+
+      if (logroApie || logroBici) {
+        insignias.push({ id: 'fin_del_mundo', nombre: 'Fin del Mundo', emoji: '🏔️' });
+      }
+            // --- INSIGNIAS DE DISTANCIA ---
       if (totalKm >= 100) insignias.push({ id: 'km_100', nombre: '100 km', emoji: '💯' });
       if (totalKm >= 250) insignias.push({ id: 'km_250', nombre: '250 km', emoji: '⚡' });
       if (totalKm >= 500) insignias.push({ id: 'km_500', nombre: '500 km', emoji: '🌍' });
       if (totalKm >= 1000) insignias.push({ id: 'km_1000', nombre: '1000 km', emoji: '👑' });
-      if (completados >= 2) insignias.push({ id: 'doble', nombre: 'Doble modalidad', emoji: '🚴' });
+      
       return insignias;
     };
 
