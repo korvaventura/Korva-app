@@ -18,7 +18,30 @@ const supabase = createClient(
 );
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // aumentar límite para imágenes base64
+
+// ─── UPLOAD DE IMÁGENES ──────────────────────────────────────────
+app.post('/upload', async (req, res) => {
+  const { base64, carpeta, nombre } = req.body;
+  if (!base64 || !carpeta) {
+    return res.status(400).json({ error: 'Faltan datos: base64 y carpeta son requeridos' });
+  }
+  try {
+    const buffer = Buffer.from(base64, 'base64');
+    const fileName = nombre || `${carpeta}_${Date.now()}.jpg`;
+    const path = `${carpeta}/${fileName}`;
+    const { error } = await supabase.storage
+      .from('korva-images')
+      .upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+    if (error) throw error;
+    const { data: urlData } = supabase.storage
+      .from('korva-images')
+      .getPublicUrl(path);
+    res.json({ url: urlData.publicUrl });
+  } catch (error) {
+    res.status(500).json({ error: 'Error subiendo imagen', detalle: error.message });
+  }
+});
 app.use('/strava', stravaRoutes);
 app.use('/shopify', shopifyRoutes);
 app.use('/mercadopago', mercadopagoRoutes);

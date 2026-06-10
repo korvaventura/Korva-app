@@ -1,14 +1,11 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Clipboard, Alert, Image } from 'react-native';
 import { useState, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { createClient } from '@supabase/supabase-js';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
+import { supabase } from '../supabase';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
-const SUPABASE_URL = 'https://yvlpnshfqwkpcftotltb.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2bHBuc2hmcXdrcGNmdG90bHRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU4NTM5NjAsImV4cCI6MjA2MTQyOTk2MH0.HMsNKoJJHLuBtJVoaGGy4bfnPHsW2fSiGPMHHuU0PXk';
-const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CHECKPOINTS_DEFAULT = [
   { id: 'tolhuin', nombre: 'Tolhuin', kmFisico: 0, emoji: '🏘️', desc: 'El corazón de Tierra del Fuego.', datoRaro: '🧭 Km 0 de tu aventura.' },
@@ -75,7 +72,7 @@ export default function AdminScreen() {
   const cargarEvidencias = async () => {
     setCargandoEvidencias(true);
     try {
-      const { data, error } = await supabaseClient
+      const { data, error } = await supabase
         .from('activities')
         .select('id, user_id, distance_km, sport_type, recorded_at, evidencia_url, users(name, email)')
         .eq('source', 'manual')
@@ -125,17 +122,26 @@ export default function AdminScreen() {
       });
       if (resultado.canceled) return;
       const uri = resultado.assets[0].uri;
-      const fileName = `${carpeta}_${Date.now()}.jpg`;
+
+      // Convertir a base64
       const response = await fetch(uri);
       const blob = await response.blob();
-      const { error } = await supabaseClient.storage
-        .from('korva-images')
-        .upload(`${carpeta}/${fileName}`, blob, { contentType: 'image/jpeg', upsert: true });
-      if (error) throw error;
-      const { data: urlData } = supabaseClient.storage
-        .from('korva-images')
-        .getPublicUrl(`${carpeta}/${fileName}`);
-      onSuccess(urlData.publicUrl);
+      const reader = new FileReader();
+      const base64 = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      // Subir via backend
+      const res = await fetch(`${BACKEND_URL}/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64, carpeta, nombre: `${carpeta}_${Date.now()}.jpg` }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      onSuccess(data.url);
       Alert.alert('✅ Foto subida', 'La imagen fue cargada correctamente.');
     } catch (error) {
       Alert.alert('Error', 'No se pudo subir la foto.');
