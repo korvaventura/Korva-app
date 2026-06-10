@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Modal } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Modal, Dimensions } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
@@ -6,6 +6,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CARD_WIDTH = SCREEN_WIDTH - 48; // padding 24 cada lado
 
 const formatearFecha = (fecha) => {
   if (!fecha) return '';
@@ -28,12 +30,13 @@ export default function PerfilScreen() {
   const [mostrarTodasActividades, setMostrarTodasActividades] = useState(false);
   const [editandoDireccion, setEditandoDireccion] = useState(false);
   const [guardando, setGuardando] = useState(false);
-  const [inscripcionActiva, setInscripcionActiva] = useState(null);
+  const [inscripcionesActivas, setInscripcionesActivas] = useState([]);
+  const [retoIndex, setRetoIndex] = useState(0);
   const [cambiandoModalidad, setCambiandoModalidad] = useState(false);
-  const [metaFecha, setMetaFecha] = useState('');
-  const [editandoMeta, setEditandoMeta] = useState(false);
-  const [inputMeta, setInputMeta] = useState('');
-  const [guardandoMeta, setGuardandoMeta] = useState(false);
+  const [metaFecha, setMetaFecha] = useState({});
+  const [editandoMeta, setEditandoMeta] = useState({});
+  const [inputMeta, setInputMeta] = useState({});
+  const [guardandoMeta, setGuardandoMeta] = useState({});
   const [modalStravaVisible, setModalStravaVisible] = useState(false);
   const [formDireccion, setFormDireccion] = useState({
     nombre: '', direccion: '', ciudad: '', codigo_postal: '', pais: '', telefono: '',
@@ -49,7 +52,7 @@ export default function PerfilScreen() {
     if (userId) {
       cargarPerfil();
       cargarActividades();
-      cargarInscripcionActiva();
+      cargarInscripcionesActivas();
     }
   }, [userId]);
 
@@ -58,7 +61,7 @@ export default function PerfilScreen() {
       if (userId) {
         cargarPerfil();
         cargarActividades();
-        cargarInscripcionActiva();
+        cargarInscripcionesActivas();
       } else {
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (session?.user?.id) setUserId(session.user.id);
@@ -101,7 +104,7 @@ export default function PerfilScreen() {
   };
 
   const eliminarActividad = async (actividadId) => {
-    Alert.alert('Eliminar actividad', '¿Estás seguro que querés eliminar esta actividad? Esta acción no se puede deshacer.', [
+    Alert.alert('Eliminar actividad', '¿Estás seguro que querés eliminar esta actividad?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar', style: 'destructive',
@@ -116,7 +119,7 @@ export default function PerfilScreen() {
             await new Promise(resolve => setTimeout(resolve, 800));
             await cargarPerfil();
             await cargarActividades();
-            await cargarInscripcionActiva();
+            await cargarInscripcionesActivas();
           } catch (error) {
             Alert.alert('Error', 'No se pudo eliminar la actividad.');
           }
@@ -125,23 +128,25 @@ export default function PerfilScreen() {
     ]);
   };
 
-  const cargarInscripcionActiva = async () => {
+  const cargarInscripcionesActivas = async () => {
     try {
       const { data, error } = await supabase
         .from('user_challenges')
         .select('id, modalidad, challenge_id, meta_fecha, km_completed, challenges(title, modalidades)')
         .eq('user_id', userId)
-        .eq('status', 'active')
-        .single();
-      if (!error) {
-        setInscripcionActiva(data);
-        if (data?.meta_fecha) setMetaFecha(data.meta_fecha);
+        .eq('status', 'active');
+      if (!error && data) {
+        setInscripcionesActivas(data);
+        // Inicializar metaFecha para cada reto
+        const metas = {};
+        data.forEach(d => { if (d.meta_fecha) metas[d.challenge_id] = d.meta_fecha; });
+        setMetaFecha(metas);
       }
     } catch (error) {}
   };
 
-  const cambiarModalidad = async (nuevaModalidad) => {
-    if (nuevaModalidad === inscripcionActiva?.modalidad) return;
+  const cambiarModalidad = async (inscripcion, nuevaModalidad) => {
+    if (nuevaModalidad === inscripcion.modalidad) return;
     Alert.alert('Cambiar modalidad', `¿Querés cambiar a ${nuevaModalidad === 'run' ? 'Running 🏃' : 'Ciclismo 🚴'}?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
@@ -152,9 +157,11 @@ export default function PerfilScreen() {
             await fetch(`${BACKEND_URL}/usuarios/modalidad`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ user_id: userId, challenge_id: inscripcionActiva.challenge_id, modalidad: nuevaModalidad })
+              body: JSON.stringify({ user_id: userId, challenge_id: inscripcion.challenge_id, modalidad: nuevaModalidad })
             });
-            setInscripcionActiva(prev => ({ ...prev, modalidad: nuevaModalidad }));
+            setInscripcionesActivas(prev => prev.map(i =>
+              i.challenge_id === inscripcion.challenge_id ? { ...i, modalidad: nuevaModalidad } : i
+            ));
             Alert.alert('✅ Modalidad actualizada');
           } catch (error) {
             Alert.alert('Error', 'No se pudo cambiar la modalidad');
@@ -164,28 +171,28 @@ export default function PerfilScreen() {
     ]);
   };
 
-  const guardarMeta = async () => {
-    if (!inputMeta) {
-      await supabase.from('user_challenges').update({ meta_fecha: null })
-        .eq('user_id', userId).eq('challenge_id', inscripcionActiva.challenge_id);
-      setMetaFecha('');
-      setEditandoMeta(false);
+  const guardarMeta = async (inscripcion) => {
+    const cId = inscripcion.challenge_id;
+    const input = inputMeta[cId] || '';
+    if (!input) {
+      await supabase.from('user_challenges').update({ meta_fecha: null }).eq('user_id', userId).eq('challenge_id', cId);
+      setMetaFecha(prev => { const n = { ...prev }; delete n[cId]; return n; });
+      setEditandoMeta(prev => ({ ...prev, [cId]: false }));
       return;
     }
-    const partes = inputMeta.split('/');
+    const partes = input.split('/');
     if (partes.length !== 3) { Alert.alert('Formato inválido', 'Usá DD/MM/AAAA'); return; }
     const fecha = new Date(`${partes[2]}-${partes[1]}-${partes[0]}`);
     if (isNaN(fecha.getTime())) { Alert.alert('Fecha inválida'); return; }
     if (fecha <= new Date()) { Alert.alert('La fecha debe ser futura'); return; }
-    setGuardandoMeta(true);
+    setGuardandoMeta(prev => ({ ...prev, [cId]: true }));
     try {
-      await supabase.from('user_challenges').update({ meta_fecha: fecha.toISOString() })
-        .eq('user_id', userId).eq('challenge_id', inscripcionActiva.challenge_id);
-      setMetaFecha(fecha.toISOString());
-      setEditandoMeta(false);
+      await supabase.from('user_challenges').update({ meta_fecha: fecha.toISOString() }).eq('user_id', userId).eq('challenge_id', cId);
+      setMetaFecha(prev => ({ ...prev, [cId]: fecha.toISOString() }));
+      setEditandoMeta(prev => ({ ...prev, [cId]: false }));
     } catch (error) {
       Alert.alert('Error', 'No se pudo guardar la meta.');
-    } finally { setGuardandoMeta(false); }
+    } finally { setGuardandoMeta(prev => ({ ...prev, [cId]: false })); }
   };
 
   const abrirEdicion = () => {
@@ -220,7 +227,6 @@ export default function PerfilScreen() {
     } finally { setGuardando(false); }
   };
 
-  // ✅ FIX: usar WebBrowser.openAuthSessionAsync
   const conectarStrava = async () => {
     const result = await WebBrowser.openAuthSessionAsync(
       `${BACKEND_URL}/strava/auth`,
@@ -253,25 +259,16 @@ export default function PerfilScreen() {
   const direccion = usuario?.shipping_address;
   const inicial = usuario?.name?.charAt(0)?.toUpperCase() || 'K';
 
-  const factorDescanso = inscripcionActiva?.modalidad === 'run' ? 0.6 : 0.75;
-  const sesionesporSemana = inscripcionActiva?.modalidad === 'run' ? 4 : 5;
-
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
 
       {/* Modal instructivo Strava */}
-      <Modal
-        visible={modalStravaVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalStravaVisible(false)}
-      >
+      <Modal visible={modalStravaVisible} transparent animationType="fade" onRequestClose={() => setModalStravaVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalEmoji}>🎉</Text>
             <Text style={styles.modalTitulo}>¡Strava conectado!</Text>
             <Text style={styles.modalSubtitulo}>Así funciona de ahora en adelante:</Text>
-
             <View style={styles.modalPaso}>
               <Text style={styles.modalPasoEmoji}>📱</Text>
               <View style={styles.modalPasoInfo}>
@@ -279,7 +276,6 @@ export default function PerfilScreen() {
                 <Text style={styles.modalPasoDesc}>Si no lo tenés, bajalo de la App Store o Google Play</Text>
               </View>
             </View>
-
             <View style={styles.modalPaso}>
               <Text style={styles.modalPasoEmoji}>🏃</Text>
               <View style={styles.modalPasoInfo}>
@@ -287,7 +283,6 @@ export default function PerfilScreen() {
                 <Text style={styles.modalPasoDesc}>Usá Strava normalmente para trackear tu entrenamiento</Text>
               </View>
             </View>
-
             <View style={styles.modalPaso}>
               <Text style={styles.modalPasoEmoji}>✅</Text>
               <View style={styles.modalPasoInfo}>
@@ -295,7 +290,6 @@ export default function PerfilScreen() {
                 <Text style={styles.modalPasoDesc}>Cada actividad que registres en Strava se suma automáticamente a tu desafío</Text>
               </View>
             </View>
-
             <TouchableOpacity style={styles.modalBtn} onPress={() => setModalStravaVisible(false)}>
               <Text style={styles.modalBtnText}>¡Entendido, a correr! 🚀</Text>
             </TouchableOpacity>
@@ -303,6 +297,7 @@ export default function PerfilScreen() {
         </View>
       </Modal>
 
+      {/* Hero */}
       <View style={styles.heroBg}>
         <View style={styles.avatarWrapper}>
           {usuario?.avatar_url ? (
@@ -317,6 +312,7 @@ export default function PerfilScreen() {
         <Text style={styles.email}>{usuario?.email}</Text>
       </View>
 
+      {/* Stats */}
       <View style={styles.statsRow}>
         <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.total_actividades || 0}</Text><Text style={styles.statLabel}>Actividades</Text></View>
         <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.total_km || 0}</Text><Text style={styles.statLabel}>km totales</Text></View>
@@ -339,72 +335,119 @@ export default function PerfilScreen() {
         </View>
       )}
 
-      {inscripcionActiva && (
+      {/* Retos activos — deslizables */}
+      {inscripcionesActivas.length > 0 && (
         <View style={styles.seccion}>
-          <Text style={styles.seccionTitulo}>🏅 Mi reto activo</Text>
-          <View style={styles.modalidadCard}>
-            <Text style={styles.modalidadTitulo}>{inscripcionActiva.challenges?.title}</Text>
-            <Text style={styles.modalidadLabel}>Modalidad actual</Text>
-            <View style={styles.modalidadBtns}>
-              <TouchableOpacity
-                style={[styles.modalidadBtn, inscripcionActiva.modalidad === 'run' && styles.modalidadBtnActivo]}
-                onPress={() => cambiarModalidad('run')} disabled={cambiandoModalidad}
-              >
-                <Text style={[styles.modalidadBtnText, inscripcionActiva.modalidad === 'run' && styles.modalidadBtnTextActivo]}>🏃 Running</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalidadBtn, inscripcionActiva.modalidad === 'ride' && styles.modalidadBtnActivo]}
-                onPress={() => cambiarModalidad('ride')} disabled={cambiandoModalidad}
-              >
-                <Text style={[styles.modalidadBtnText, inscripcionActiva.modalidad === 'ride' && styles.modalidadBtnTextActivo]}>🚴 Ciclismo</Text>
-              </TouchableOpacity>
-            </View>
+          <Text style={styles.seccionTitulo}>🏅 Mis retos activos</Text>
 
-            <View style={styles.metaSeparador} />
-            <View style={styles.metaHeader}>
-              <Text style={styles.metaTitulo}>🎯 Mi meta personal</Text>
-              <TouchableOpacity onPress={() => { setInputMeta(metaFecha ? new Date(metaFecha).toLocaleDateString('es-AR') : ''); setEditandoMeta(!editandoMeta); }}>
-                <Text style={styles.metaEditarBtn}>{editandoMeta ? 'Cancelar' : metaFecha ? 'Editar' : '+ Agregar'}</Text>
-              </TouchableOpacity>
-            </View>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={e => setRetoIndex(Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH))}
+            style={{ marginHorizontal: -0 }}
+          >
+            {inscripcionesActivas.map((inscripcion, idx) => {
+              const cId = inscripcion.challenge_id;
+              const modalidades = inscripcion.challenges?.modalidades || [];
+              const modalidadData = modalidades.find(m => m.tipo === inscripcion.modalidad);
+              const distanciaTotal = modalidadData?.distancia_km || 0;
+              const kmCompletados = inscripcion.km_completed || 0;
+              const pct = distanciaTotal > 0 ? Math.min((kmCompletados / distanciaTotal) * 100, 100) : 0;
+              const mFecha = metaFecha[cId];
+              const factorDescanso = inscripcion.modalidad === 'run' ? 0.6 : 0.75;
+              const sesionesporSemana = inscripcion.modalidad === 'run' ? 4 : 5;
 
-            {editandoMeta ? (
-              <View style={styles.metaInputRow}>
-                <TextInput
-                  style={styles.metaInput}
-                  value={inputMeta}
-                  onChangeText={setInputMeta}
-                  placeholder="DD/MM/AAAA"
-                  placeholderTextColor="#4a6a8a"
-                  keyboardType="numeric"
-                />
-                <TouchableOpacity style={styles.metaGuardarBtn} onPress={guardarMeta} disabled={guardandoMeta}>
-                  {guardandoMeta ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.metaGuardarBtnText}>Guardar</Text>}
-                </TouchableOpacity>
-              </View>
-            ) : metaFecha ? (
-              <View style={styles.metaInfo}>
-                <Text style={styles.metaFecha}>📅 {formatearFecha(metaFecha)}</Text>
-                <Text style={styles.metaDias}>{diasEntre(new Date(), new Date(metaFecha))} días restantes</Text>
-                <Text style={styles.metaRitmo}>
-                  {(() => {
-                    const diasRestantes = diasEntre(new Date(), new Date(metaFecha));
-                    const sesionesRestantes = Math.floor(diasRestantes * factorDescanso);
-                    const modalidadData = inscripcionActiva?.challenges?.modalidades?.find(m => m.tipo === inscripcionActiva.modalidad);
-                    const distanciaTotal = modalidadData?.distancia_km || 0;
-                    const kmRestantes = Math.max(0, distanciaTotal - (inscripcionActiva?.km_completed || 0));
-                    const kmPorSesion = sesionesRestantes > 0 ? (kmRestantes / sesionesRestantes).toFixed(1) : '—';
-                    return `${kmPorSesion}km por sesión · ${sesionesporSemana} veces/semana`;
-                  })()}
-                </Text>
-              </View>
-            ) : (
-              <Text style={styles.metaVacio}>Sin meta definida. Podés agregar una fecha objetivo opcional.</Text>
-            )}
-          </View>
+              return (
+                <View key={cId} style={[styles.retoCard, { width: CARD_WIDTH }]}>
+                  <Text style={styles.retoCardTitulo}>{inscripcion.challenges?.title}</Text>
+
+                  {/* Barra de progreso */}
+                  <View style={styles.retoProgressWrapper}>
+                    <View style={styles.retoProgressBar}>
+                      <View style={[styles.retoProgressFill, { width: `${pct}%` }]} />
+                    </View>
+                    <Text style={styles.retoProgressPct}>{pct.toFixed(0)}%</Text>
+                  </View>
+                  <Text style={styles.retoKm}>{kmCompletados.toFixed(1)} km de {distanciaTotal} km</Text>
+
+                  {/* Selector modalidad */}
+                  <Text style={styles.modalidadLabel}>Modalidad</Text>
+                  <View style={styles.modalidadBtns}>
+                    {modalidades.map((m, i) => (
+                      <TouchableOpacity
+                        key={i}
+                        style={[styles.modalidadBtn, inscripcion.modalidad === m.tipo && styles.modalidadBtnActivo]}
+                        onPress={() => cambiarModalidad(inscripcion, m.tipo)}
+                        disabled={cambiandoModalidad}
+                      >
+                        <Text style={[styles.modalidadBtnText, inscripcion.modalidad === m.tipo && styles.modalidadBtnTextActivo]}>
+                          {m.tipo === 'run' ? '🏃 Running' : '🚴 Ciclismo'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* Meta personal */}
+                  <View style={styles.metaSeparador} />
+                  <View style={styles.metaHeader}>
+                    <Text style={styles.metaTitulo}>🎯 Meta personal</Text>
+                    <TouchableOpacity onPress={() => {
+                      setInputMeta(prev => ({ ...prev, [cId]: mFecha ? new Date(mFecha).toLocaleDateString('es-AR') : '' }));
+                      setEditandoMeta(prev => ({ ...prev, [cId]: !prev[cId] }));
+                    }}>
+                      <Text style={styles.metaEditarBtn}>{editandoMeta[cId] ? 'Cancelar' : mFecha ? 'Editar' : '+ Agregar'}</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {editandoMeta[cId] ? (
+                    <View style={styles.metaInputRow}>
+                      <TextInput
+                        style={styles.metaInput}
+                        value={inputMeta[cId] || ''}
+                        onChangeText={v => setInputMeta(prev => ({ ...prev, [cId]: v }))}
+                        placeholder="DD/MM/AAAA"
+                        placeholderTextColor="#4a6a8a"
+                        keyboardType="numeric"
+                      />
+                      <TouchableOpacity style={styles.metaGuardarBtn} onPress={() => guardarMeta(inscripcion)} disabled={guardandoMeta[cId]}>
+                        {guardandoMeta[cId] ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.metaGuardarBtnText}>Guardar</Text>}
+                      </TouchableOpacity>
+                    </View>
+                  ) : mFecha ? (
+                    <View style={styles.metaInfo}>
+                      <Text style={styles.metaFechaText}>📅 {formatearFecha(mFecha)}</Text>
+                      <Text style={styles.metaDias}>{diasEntre(new Date(), new Date(mFecha))} días restantes</Text>
+                      <Text style={styles.metaRitmo}>
+                        {(() => {
+                          const diasRestantes = diasEntre(new Date(), new Date(mFecha));
+                          const sesionesRestantes = Math.floor(diasRestantes * factorDescanso);
+                          const kmRestantes = Math.max(0, distanciaTotal - kmCompletados);
+                          const kmPorSesion = sesionesRestantes > 0 ? (kmRestantes / sesionesRestantes).toFixed(1) : '—';
+                          return `${kmPorSesion}km por sesión · ${sesionesporSemana} veces/semana`;
+                        })()}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.metaVacio}>Sin meta definida. Opcional.</Text>
+                  )}
+                </View>
+              );
+            })}
+          </ScrollView>
+
+          {/* Dots indicadores */}
+          {inscripcionesActivas.length > 1 && (
+            <View style={styles.dotsRow}>
+              {inscripcionesActivas.map((_, i) => (
+                <View key={i} style={[styles.dot, i === retoIndex && styles.dotActivo]} />
+              ))}
+            </View>
+          )}
         </View>
       )}
 
+      {/* Nivel */}
       {nivel && (
         <View style={styles.seccion}>
           <Text style={styles.seccionTitulo}>⚡ Tu nivel</Text>
@@ -418,6 +461,7 @@ export default function PerfilScreen() {
         </View>
       )}
 
+      {/* Insignias */}
       {insignias.length > 0 && (
         <View style={styles.seccion}>
           <Text style={styles.seccionTitulo}>🎖️ Insignias</Text>
@@ -432,6 +476,7 @@ export default function PerfilScreen() {
         </View>
       )}
 
+      {/* Actividades */}
       <View style={styles.seccion}>
         <Text style={styles.seccionTitulo}>📋 Actividades recientes</Text>
         {actividades.length === 0 ? (
@@ -469,6 +514,7 @@ export default function PerfilScreen() {
         )}
       </View>
 
+      {/* Dirección */}
       <View style={styles.seccion}>
         <Text style={styles.seccionTitulo}>📦 Direccion de envio</Text>
         {editandoDireccion ? (
@@ -517,7 +563,7 @@ export default function PerfilScreen() {
         )}
       </View>
 
-      {/* Sección Strava con estado inteligente */}
+      {/* Strava */}
       <View style={styles.seccion}>
         <Text style={styles.seccionTitulo}>🔗 Strava</Text>
         {stravaConectado ? (
@@ -566,6 +612,36 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 10, color: '#A8CFFF', textAlign: 'center', letterSpacing: 0.5 },
   seccion: { width: '100%', paddingHorizontal: 24, marginBottom: 20 },
   seccionTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 12 },
+  // Retos deslizables
+  retoCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20, marginRight: 12 },
+  retoCardTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 14 },
+  retoProgressWrapper: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
+  retoProgressBar: { flex: 1, height: 8, backgroundColor: '#0D1B2A', borderRadius: 4 },
+  retoProgressFill: { height: 8, backgroundColor: '#FC4C02', borderRadius: 4 },
+  retoProgressPct: { fontSize: 14, fontWeight: 'bold', color: '#FC4C02', minWidth: 36 },
+  retoKm: { fontSize: 12, color: '#A8CFFF', marginBottom: 16 },
+  dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2a4a6a' },
+  dotActivo: { width: 18, backgroundColor: '#FC4C02' },
+  modalidadLabel: { fontSize: 12, color: '#A8CFFF', marginBottom: 10 },
+  modalidadBtns: { flexDirection: 'row', gap: 10 },
+  modalidadBtn: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  modalidadBtnActivo: { borderColor: '#FC4C02' },
+  modalidadBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
+  modalidadBtnTextActivo: { color: '#FFFFFF' },
+  metaSeparador: { height: 1, backgroundColor: '#2a4a6a', marginVertical: 16 },
+  metaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  metaTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' },
+  metaEditarBtn: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 13 },
+  metaInputRow: { flexDirection: 'row', gap: 10 },
+  metaInput: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, color: '#FFFFFF', fontSize: 14, borderWidth: 1, borderColor: '#2a4a6a' },
+  metaGuardarBtn: { backgroundColor: '#FC4C02', borderRadius: 10, padding: 12, alignItems: 'center', justifyContent: 'center' },
+  metaGuardarBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
+  metaInfo: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12 },
+  metaFechaText: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
+  metaDias: { fontSize: 13, color: '#FC4C02', fontWeight: 'bold', marginBottom: 4 },
+  metaRitmo: { fontSize: 12, color: '#A8CFFF' },
+  metaVacio: { fontSize: 13, color: '#4a6a8a', fontStyle: 'italic' },
   nivelCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 16 },
   nivelEmoji: { fontSize: 36 },
   nivelInfo: { flex: 1 },
@@ -589,27 +665,6 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 32, marginBottom: 8 },
   emptyText: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   emptySubtext: { fontSize: 12, color: '#A8CFFF', textAlign: 'center' },
-  modalidadCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20 },
-  modalidadTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
-  modalidadLabel: { fontSize: 12, color: '#A8CFFF', marginBottom: 12 },
-  modalidadBtns: { flexDirection: 'row', gap: 10 },
-  modalidadBtn: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
-  modalidadBtnActivo: { borderColor: '#FC4C02' },
-  modalidadBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 14 },
-  modalidadBtnTextActivo: { color: '#FFFFFF' },
-  metaSeparador: { height: 1, backgroundColor: '#2a4a6a', marginVertical: 16 },
-  metaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  metaTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' },
-  metaEditarBtn: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 13 },
-  metaInputRow: { flexDirection: 'row', gap: 10 },
-  metaInput: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, color: '#FFFFFF', fontSize: 14, borderWidth: 1, borderColor: '#2a4a6a' },
-  metaGuardarBtn: { backgroundColor: '#FC4C02', borderRadius: 10, padding: 12, alignItems: 'center', justifyContent: 'center' },
-  metaGuardarBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
-  metaInfo: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12 },
-  metaFecha: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  metaDias: { fontSize: 13, color: '#FC4C02', fontWeight: 'bold', marginBottom: 4 },
-  metaRitmo: { fontSize: 12, color: '#A8CFFF' },
-  metaVacio: { fontSize: 13, color: '#4a6a8a', fontStyle: 'italic' },
   direccionCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20 },
   direccionNombre: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 10 },
   direccionLinea: { fontSize: 13, color: '#A8CFFF', marginBottom: 5 },
@@ -637,7 +692,6 @@ const styles = StyleSheet.create({
   cerrarButtonText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 15 },
   perfilDeporteCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#1E6FD9' },
   perfilDeporteTexto: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF' },
-  // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalCard: { backgroundColor: '#1E3A5F', borderRadius: 24, padding: 28, width: '100%', borderWidth: 1, borderColor: '#FC4C02' },
   modalEmoji: { fontSize: 48, textAlign: 'center', marginBottom: 12 },
