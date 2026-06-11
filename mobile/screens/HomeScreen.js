@@ -15,7 +15,7 @@ const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 const PASOS = [
-  { emoji: '🔗', titulo: 'Conectá Strava', desc: 'Sincronizá tus actividades automáticamente.' },
+  { emoji: '📝', titulo: 'Registrá tus km', desc: 'Usá la pestaña "Registrar" para cargar tus actividades manualmente.' },
   { emoji: '🏃', titulo: 'Empezá a correr', desc: 'Cada km cuenta hacia tu medalla.' },
   { emoji: '📦', titulo: 'Recibí tu medalla', desc: 'Al llegar al 100% te la enviamos a casa.' },
 ];
@@ -53,6 +53,7 @@ export default function HomeScreen({ navigation }) {
   const [guardandoMeta, setGuardandoMeta] = useState({});
   const [stravaConectado, setStravaConectado] = useState(false);
   const [modalStravaVisible, setModalStravaVisible] = useState(false);
+  const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
   const [retoIndex, setRetoIndex] = useState(0);
   const [mapaScrollActivo, setMapaScrollActivo] = useState(false);
   const viewShotRefs = useRef([]);
@@ -167,6 +168,17 @@ export default function HomeScreen({ navigation }) {
   };
 
   const conectarStrava = async () => {
+    // Si ya está conectado, abrir el flujo normal
+    if (stravaConectado) {
+      setModalStravaVisible(true);
+      return;
+    }
+    // Si no está conectado, mostrar modal de próximamente
+    setModalStravaProximamente(true);
+  };
+
+  const conectarStravaReal = async () => {
+    setModalStravaProximamente(false);
     const result = await WebBrowser.openAuthSessionAsync(
       `${BACKEND_URL}/strava/auth`,
       'korva://strava-connected'
@@ -206,7 +218,35 @@ export default function HomeScreen({ navigation }) {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
 
-      {/* Modal Strava */}
+      {/* Modal Próximamente Strava */}
+      <Modal visible={modalStravaProximamente} transparent animationType="fade" onRequestClose={() => setModalStravaProximamente(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalEmoji}>🔗</Text>
+            <Text style={styles.modalTitulo}>Strava — Próximamente</Text>
+            <Text style={styles.modalSubtitulo}>La sincronización automática con Strava estará disponible en los próximos días.</Text>
+            <View style={styles.modalPaso}>
+              <Text style={styles.modalPasoEmoji}>📝</Text>
+              <View style={styles.modalPasoInfo}>
+                <Text style={styles.modalPasoTitulo}>Por ahora usá el registro manual</Text>
+                <Text style={styles.modalPasoDesc}>Desde la pestaña "Registrar" podés cargar tus km en segundos. Es igual de fácil y tus km se suman igual.</Text>
+              </View>
+            </View>
+            <View style={styles.modalPaso}>
+              <Text style={styles.modalPasoEmoji}>📲</Text>
+              <View style={styles.modalPasoInfo}>
+                <Text style={styles.modalPasoTitulo}>Te avisamos cuando esté listo</Text>
+                <Text style={styles.modalPasoDesc}>Cuando la integración esté disponible para vos, vas a ver el botón activo acá.</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.modalBtn} onPress={() => setModalStravaProximamente(false)}>
+              <Text style={styles.modalBtnText}>Entendido 👍</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Strava conectado */}
       <Modal visible={modalStravaVisible} transparent animationType="fade" onRequestClose={() => setModalStravaVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -252,8 +292,8 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.stravaConectadoBadgeText}>✓ Strava</Text>
           </View>
         ) : (
-          <TouchableOpacity style={styles.stravaBtn} onPress={conectarStrava}>
-            <Text style={styles.stravaBtnText}>Conectar Strava</Text>
+          <TouchableOpacity style={styles.stravaProximoBtn} onPress={conectarStrava}>
+            <Text style={styles.stravaProximoBtnText}>🔗 Strava</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -277,14 +317,6 @@ export default function HomeScreen({ navigation }) {
               </View>
             </View>
           ))}
-          {!stravaConectado && (
-            <TouchableOpacity style={styles.bannerBtn} onPress={conectarStrava}>
-              <View style={styles.btnRow}>
-                <Text style={styles.bannerBtnText}>Conectar Strava ahora</Text>
-                <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
-              </View>
-            </TouchableOpacity>
-          )}
         </View>
       )}
 
@@ -521,6 +553,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 },
   saludo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
   subtitulo: { fontSize: 13, color: '#A8CFFF' },
+  stravaProximoBtn: { backgroundColor: '#1E3A5F', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2a4a6a' },
+  stravaProximoBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
   stravaBtn: { backgroundColor: '#FC4C02', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
   stravaBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
   stravaConectadoBadge: { backgroundColor: '#1a3a1a', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2a6a2a' },
