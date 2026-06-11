@@ -5,24 +5,10 @@ import Svg, { Path, Circle, Rect, Text as SvgText, Defs, LinearGradient, Stop, M
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const MAPA_WIDTH_VIRTUAL = 800;
 
-// ─── NORMALIZAR TILDES ───────────────────────────────────────────
 const normalizar = (str) =>
   (str || '').toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
-
-const getConfig = (challengeId, challengeTitle) => {
-  // Primero por ID exacto (más confiable)
-  if (challengeId === '64442b1d-12b8-4a58-a951-50ea10cb2131') return CONFIGS.dubrovnik;
-  if (challengeId === '85a362a5-eee7-456d-9027-358d44446004') return CONFIGS.san_andres;
-
-  // Fallback por título normalizado
-  const titulo = normalizar(challengeTitle);
-  if (titulo.includes('dubrovnik')) return CONFIGS.dubrovnik;
-  if (titulo.includes('andres') || titulo.includes('san andr')) return CONFIGS.san_andres;
-
-  return CONFIGS.default;
-};
 
 // ─── CONFIGURACIONES POR CHALLENGE ───────────────────────────────
 
@@ -253,6 +239,17 @@ const CONFIGS = {
 
 // ─── HELPERS ────────────────────────────────────────────────────
 
+const getConfig = (challengeId, challengeTitle) => {
+  // Primero por ID exacto (más confiable)
+  if (challengeId === '64442b1d-12b8-4a58-a951-50ea10cb2131') return CONFIGS.dubrovnik;
+  if (challengeId === '85a362a5-eee7-456d-9027-358d44446004') return CONFIGS.san_andres;
+  // Fallback por título normalizado
+  const titulo = normalizar(challengeTitle);
+  if (titulo.includes('dubrovnik')) return CONFIGS.dubrovnik;
+  if (titulo.includes('andres') || titulo.includes('san andr')) return CONFIGS.san_andres;
+  return CONFIGS.default;
+};
+
 const getPuntoEnRuta = (segmentos, kmFisicos, distanciaFisica) => {
   if (kmFisicos <= 0) return segmentos[0];
   if (kmFisicos >= distanciaFisica) return segmentos[segmentos.length - 1];
@@ -378,11 +375,38 @@ const EfectoCaribe = () => {
   );
 };
 
-// ─── COMPONENTE PRINCIPAL ────────────────────────────────────────
+// ─── ESTRELLA FUGAZ ─────────────────────────────────────────────
+const Estrella = ({ delay, startX, startY }) => {
+  const opacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(Animated.sequence([
+      Animated.timing(opacity, { toValue: 1, duration: 300, delay, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0, duration: 1000, useNativeDriver: true }),
+      Animated.delay(Math.random() * 2000),
+    ])).start();
+  }, []);
+  return <Animated.View style={{ position: 'absolute', top: startY, left: startX, width: 2, height: 2, borderRadius: 1, backgroundColor: '#FFFFFF', opacity }} />;
+};
+
+const EfectoCieloEstrellado = () => {
+  const estrellas = useRef(Array.from({ length: 40 }).map((_, i) => ({
+    id: i,
+    startX: Math.random() * SCREEN_WIDTH,
+    startY: Math.random() * 180,
+    delay: Math.random() * 4000,
+  }))).current;
+  return (
+    <View style={[StyleSheet.absoluteFill, { zIndex: 20 }]} pointerEvents="none">
+      {estrellas.map(e => <Estrella key={e.id} {...e} />)}
+    </View>
+  );
+};
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle }) {
+export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, onScrollBegin, onScrollEnd }) {
   const [modalVisible, setModalVisible] = useState(null);
   const scrollViewRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -424,7 +448,8 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
     if (clima === 'caribe') return <EfectoCaribe />;
     if (clima === 'mixto') {
       if (kmFisicos < 40) return <EfectoLluvia />;
-      if (kmFisicos >= 40 && kmFisicos <= 85) return <EfectoNieve />;
+      if (kmFisicos >= 40 && kmFisicos < 80) return <EfectoNieve />;
+      if (kmFisicos >= 80) return <EfectoCieloEstrellado />;
     }
     return null;
   };
@@ -434,7 +459,15 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
       <Text style={styles.titulo}>{titulo}</Text>
 
       <View style={styles.mapaWrapper}>
-        <ScrollView ref={scrollViewRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ width: MAPA_WIDTH_VIRTUAL }}>
+        <ScrollView
+          ref={scrollViewRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ width: MAPA_WIDTH_VIRTUAL }}
+          onScrollBeginDrag={() => onScrollBegin && onScrollBegin()}
+          onScrollEndDrag={() => onScrollEnd && onScrollEnd()}
+          onMomentumScrollEnd={() => onScrollEnd && onScrollEnd()}
+        >
           <Svg width={MAPA_WIDTH_VIRTUAL} height={260} viewBox={`0 0 ${MAPA_WIDTH_VIRTUAL} 260`}>
             <Defs>
               <LinearGradient id="gradBg" x1="0" y1="0" x2="0" y2="1">

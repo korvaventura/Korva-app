@@ -54,6 +54,7 @@ export default function HomeScreen({ navigation }) {
   const [stravaConectado, setStravaConectado] = useState(false);
   const [modalStravaVisible, setModalStravaVisible] = useState(false);
   const [retoIndex, setRetoIndex] = useState(0);
+  const [mapaScrollActivo, setMapaScrollActivo] = useState(false);
   const viewShotRefs = useRef([]);
   const retosScrollRef = useRef(null);
 
@@ -348,6 +349,8 @@ export default function HomeScreen({ navigation }) {
               saltarMeta={saltarMeta}
               compartirProgreso={compartirProgreso}
               viewShotRefs={viewShotRefs}
+              onMapaScrollBegin={() => {}}
+              onMapaScrollEnd={() => {}}
             />
           ) : (
             // Múltiples retos — deslizables
@@ -357,6 +360,7 @@ export default function HomeScreen({ navigation }) {
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
+                scrollEnabled={!mapaScrollActivo}
                 onMomentumScrollEnd={e => setRetoIndex(Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH))}
                 style={styles.retosScroll}
               >
@@ -376,6 +380,8 @@ export default function HomeScreen({ navigation }) {
                       saltarMeta={saltarMeta}
                       compartirProgreso={compartirProgreso}
                       viewShotRefs={viewShotRefs}
+                      onMapaScrollBegin={() => setMapaScrollActivo(true)}
+                      onMapaScrollEnd={() => setMapaScrollActivo(false)}
                     />
                   </View>
                 ))}
@@ -411,7 +417,7 @@ export default function HomeScreen({ navigation }) {
 }
 
 // ─── Componente reto individual ──────────────────────────────────
-function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs }) {
+function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onMapaScrollBegin, onMapaScrollEnd }) {
   const pct = Math.min(parseFloat(item.porcentaje), 100);
   const estaCompletado = pct >= 100;
   const frase = getFrase(pct);
@@ -461,6 +467,8 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
         checkpointsData={item.checkpoints}
         challengeId={item.challenge_id}
         challengeTitle={item.challenge}
+        onScrollBegin={onMapaScrollBegin}
+        onScrollEnd={onMapaScrollEnd}
       />
 
       {mostrarCardMeta && (
