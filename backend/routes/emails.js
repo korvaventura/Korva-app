@@ -58,7 +58,7 @@ const card = (contenido, borderColor = '#1E3A5F') => `
 const enviarEmailInscripcion = async (email, nombre, challenge, modalidad) => {
   try {
     await getResend().emails.send({
-      from: 'Korva Aventuras <noreply@korva.run>',
+      from: 'Korva <onboarding@resend.dev>',
       to: email,
       subject: `🏅 Inscripción confirmada — ${challenge}`,
       html: wrapper(`
@@ -98,7 +98,7 @@ const enviarEmailInvitacion = async (email, nombre, challenge, tokens) => {
     `).join('');
 
     await getResend().emails.send({
-      from: 'Korva Aventuras <noreply@korva.run>',
+      from: 'Korva <onboarding@resend.dev>',
       to: email,
       subject: `🎟️ Compartí el acceso — ${challenge}`,
       html: wrapper(`
@@ -129,7 +129,7 @@ const enviarEmailInvitacion = async (email, nombre, challenge, tokens) => {
 const enviarEmailCompletado = async (email, nombre, challenge) => {
   try {
     await getResend().emails.send({
-      from: 'Korva Aventuras <noreply@korva.run>',
+      from: 'Korva <onboarding@resend.dev>',
       to: email,
       subject: `🎉 ¡Completaste ${challenge}! Tu medalla está siendo preparada`,
       html: wrapper(`
@@ -156,7 +156,7 @@ const enviarEmailCompletado = async (email, nombre, challenge) => {
 const enviarEmailMedallaEnCamino = async (email, nombre, challenge, tracking) => {
   try {
     await getResend().emails.send({
-      from: 'Korva Aventuras <noreply@korva.run>',
+      from: 'Korva <onboarding@resend.dev>',
       to: email,
       subject: `📦 Tu medalla está en camino — ${challenge}`,
       html: wrapper(`
@@ -183,7 +183,7 @@ const enviarEmailMedallaEnCamino = async (email, nombre, challenge, tracking) =>
 const enviarEmailAdmin = async (asunto, mensaje) => {
   try {
     await getResend().emails.send({
-      from: 'Korva Aventuras <noreply@korva.run>',
+      from: 'Korva <onboarding@resend.dev>',
       to: 'korvaventura@gmail.com',
       subject: `⚠️ Korva Admin — ${asunto}`,
       html: wrapper(`
@@ -206,7 +206,7 @@ const enviarEmailAdmin = async (asunto, mensaje) => {
 const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad, dorsalPdfBase64, postalPdfBase64, bibNumber) => {
   try {
     await getResend().emails.send({
-      from: 'Korva Aventuras <noreply@korva.run>',
+      from: 'Korva <onboarding@resend.dev>',
       to: email,
       subject: `🏅 Inscripción confirmada — ${challenge}`,
       html: wrapper(`
