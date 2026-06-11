@@ -52,6 +52,7 @@ export default function HomeScreen({ navigation }) {
   const [metaVisibles, setMetaVisibles] = useState({});
   const [guardandoMeta, setGuardandoMeta] = useState({});
   const [stravaConectado, setStravaConectado] = useState(false);
+  const [stravaHabilitado, setStravaHabilitado] = useState(false);
   const [modalStravaVisible, setModalStravaVisible] = useState(false);
   const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
   const [retoIndex, setRetoIndex] = useState(0);
@@ -102,10 +103,11 @@ export default function HomeScreen({ navigation }) {
     try {
       const { data } = await supabase
         .from('users')
-        .select('strava_token')
+        .select('strava_token, strava_habilitado')
         .eq('id', userId)
         .single();
       setStravaConectado(!!data?.strava_token);
+      setStravaHabilitado(!!data?.strava_habilitado);
     } catch (e) {}
   };
 
@@ -168,13 +170,16 @@ export default function HomeScreen({ navigation }) {
   };
 
   const conectarStrava = async () => {
-    // Si ya está conectado, abrir el flujo normal
     if (stravaConectado) {
       setModalStravaVisible(true);
       return;
     }
-    // Si no está conectado, mostrar modal de próximamente
-    setModalStravaProximamente(true);
+    // Solo abrir OAuth si el usuario tiene Strava habilitado
+    if (stravaHabilitado) {
+      conectarStravaReal();
+    } else {
+      setModalStravaProximamente(true);
+    }
   };
 
   const conectarStravaReal = async () => {
