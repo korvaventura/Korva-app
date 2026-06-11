@@ -212,23 +212,39 @@ const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad,
       html: wrapper(`
         ${badge('INSCRIPCIÓN CONFIRMADA')}
         <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
-        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tu inscripción al reto <strong style="color: #FFFFFF;">${challenge}</strong> en modalidad <strong style="color: #FC4C02;">${modalidad}</strong> fue confirmada.</p>
+        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tu inscripción al desafío <strong style="color: #FFFFFF;">${challenge}</strong> en modalidad <strong style="color: #FC4C02;">${modalidad}</strong> fue confirmada. Adjunto a este email encontrás tu dorsal y tu postal de bienvenida.</p>
 
         ${card(`
           <p style="color: #FC4C02; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">TU DORSAL OFICIAL</p>
           <p style="color: #FFFFFF; font-size: 32px; font-weight: bold; margin: 0 0 4px;">#${bibNumber}</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 0;">Encontrás tu dorsal y postal adjuntos a este email.</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 0;">Guardalo, imprimilo o compartilo — es tuyo.</p>
         `, '#FC4C02')}
 
         ${card(`
-          <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">TUS PRÓXIMOS PASOS</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">1️⃣ &nbsp; Descargá la app Korva</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">2️⃣ &nbsp; Registrá tus km desde la pestaña "Registrar"</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">3️⃣ &nbsp; Al llegar al 100%, tu medalla viaja a tu puerta 📦</p>
-          <p style="color: #4a6a8a; font-size: 12px; margin: 12px 0 0;">La integración con Strava estará disponible próximamente.</p>
+          <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 16px;">TUS PRÓXIMOS PASOS</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">1️⃣ &nbsp; <strong style="color: #FFFFFF;">Descargá la app Korva</strong> para registrar tus km y ver tu progreso</p>
+          <div style="margin: 12px 0 16px; display: flex; gap: 10px;">
+            <a href="https://play.google.com/store/apps/details?id=com.korva.mobile" style="display: inline-block; background: #1E6FD9; color: #FFFFFF; font-size: 13px; font-weight: bold; padding: 10px 18px; border-radius: 10px; text-decoration: none; margin-right: 8px;">📱 Google Play</a>
+            <a href="https://apps.apple.com/app/korva/id0000000000" style="display: inline-block; background: #1E3A5F; color: #FFFFFF; font-size: 13px; font-weight: bold; padding: 10px 18px; border-radius: 10px; text-decoration: none; border: 1px solid #2a4a6a;">🍎 App Store</a>
+          </div>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">2️⃣ &nbsp; Iniciá sesión con <strong style="color: #FFFFFF;">este mismo email (${email})</strong> — así tu desafío aparece activo automáticamente</p>
+          <div style="background: #2a1a0a; border-radius: 10px; padding: 12px 14px; margin: 8px 0; border-left: 3px solid #FC4C02;">
+            <p style="color: #FC4C02; font-size: 12px; font-weight: bold; margin: 0 0 4px;">⚠️ Importante</p>
+            <p style="color: #A8CFFF; font-size: 12px; margin: 0; line-height: 1.6;">Usá exactamente <strong style="color: #FFFFFF;">${email}</strong> al registrarte. Si usás otro email, tu desafío no va a aparecer. ¿Te equivocaste? Escribinos a <a href="mailto:korvaventura@gmail.com" style="color: #1E6FD9;">korvaventura@gmail.com</a> y lo resolvemos.</p>
+          </div>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">3️⃣ &nbsp; Registrá tus km desde la pestaña "Registrar" — cada salida suma</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">4️⃣ &nbsp; Cargá tu dirección de envío en el Perfil para recibir tu medalla</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">5️⃣ &nbsp; Cuando completás el 100% iniciamos la orden de envío de tu medalla 🏅</p>
         `, '#1E6FD9')}
 
-        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6;">Cada kilómetro cuenta. Cada salida te acerca a tu medalla. ¡A correr!</p>
+        ${card(`
+          <p style="color: #4a6a8a; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 10px;">SOBRE EL DESAFÍO</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">✅ &nbsp;Podés completarlo a tu ritmo — no hay límite de tiempo</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">✅ &nbsp;Podés sumar km corriendo, caminando o en bicicleta — todo cuenta</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">✅ &nbsp;Consultá los tiempos de envío por país en <a href="https://korva.run" style="color: #1E6FD9;">korva.run</a></p>
+        `, '#2a4a6a')}
+
+        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6;">¿Tenés dudas? Respondé este email o escribinos a <a href="mailto:korvaventura@gmail.com" style="color: #1E6FD9;">korvaventura@gmail.com</a></p>
         <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 24px;">El equipo Korva 🏅</p>
       `),
       attachments: [
