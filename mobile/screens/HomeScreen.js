@@ -55,6 +55,8 @@ export default function HomeScreen({ navigation }) {
   const [stravaHabilitado, setStravaHabilitado] = useState(false);
   const [modalStravaVisible, setModalStravaVisible] = useState(false);
   const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
+  const [modalAyudaVisible, setModalAyudaVisible] = useState(false);
+  const [faqAbierta, setFaqAbierta] = useState(null);
   const [retoIndex, setRetoIndex] = useState(0);
   const [mapaScrollActivo, setMapaScrollActivo] = useState(false);
   const viewShotRefs = useRef([]);
@@ -223,6 +225,74 @@ export default function HomeScreen({ navigation }) {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
 
+      {/* Modal FAQ / Ayuda */}
+      <Modal visible={modalAyudaVisible} transparent animationType="slide" onRequestClose={() => setModalAyudaVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxHeight: '85%' }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={styles.modalTitulo}>❓ Ayuda</Text>
+              <TouchableOpacity onPress={() => setModalAyudaVisible(false)}>
+                <Text style={{ color: '#4a6a8a', fontSize: 18, fontWeight: 'bold' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {[
+                {
+                  q: '¿Cómo funciona Korva?',
+                  a: 'Korva es una plataforma de desafíos virtuales de running y ciclismo. Comprás un challenge, completás la distancia en el mundo real registrando tus km, y cuando llegás al 100% te enviamos una medalla física a tu casa.'
+                },
+                {
+                  q: '¿Necesito completar el challenge de una sola vez?',
+                  a: 'No, para nada. Podés correr o pedalear a tu ritmo — salidas cortas, largas, cuando quieras. Los km se van acumulando hasta completar la distancia total del challenge.'
+                },
+                {
+                  q: '¿Cómo registro mis kilómetros?',
+                  a: 'Desde la pestaña "Registrar" podés cargar tus actividades manualmente — ingresás los km y el tipo de actividad. También podés conectar Strava para que se sincronicen solos (próximamente para todos).'
+                },
+                {
+                  q: '¿Qué son los logros?',
+                  a: 'Los logros son badges que ganás por tu actividad — kilómetros recorridos, rachas de días activos, cantidad de actividades y más. Son completamente gratuitos y se acumulan siempre, tengas o no un challenge activo.'
+                },
+                {
+                  q: '¿Puedo usar la app sin comprar un challenge?',
+                  a: '¡Sí! Podés registrar tus actividades y acumular logros sin costo. Los challenges son para quienes quieren una meta con medalla física incluida.'
+                },
+                {
+                  q: '¿Cuándo llega mi medalla?',
+                  a: 'Cuando completás el 100% del challenge te notificamos y preparamos el envío. Los tiempos dependen de tu país — generalmente entre 2 y 6 semanas. Asegurate de tener tu dirección cargada en el Perfil.'
+                },
+                {
+                  q: '¿Puedo cambiar mi modalidad (running/ciclismo)?',
+                  a: 'Sí, podés cambiarla desde la sección "Mis retos activos" en el Perfil. Tené en cuenta que las distancias son distintas según la modalidad.'
+                },
+                {
+                  q: '¿Necesito Strava?',
+                  a: 'No es obligatorio. Podés registrar tus km manualmente desde la app. La integración con Strava para sincronización automática estará disponible próximamente.'
+                },
+                {
+                  q: '¿Tengo un problema o una consulta?',
+                  a: 'Escribinos a korvaventura@gmail.com o por Instagram @korva.aventuras. Te respondemos a la brevedad.'
+                },
+              ].map((item, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.faqItem}
+                  onPress={() => setFaqAbierta(faqAbierta === i ? null : i)}
+                >
+                  <View style={styles.faqHeader}>
+                    <Text style={styles.faqPregunta}>{item.q}</Text>
+                    <Text style={styles.faqChevron}>{faqAbierta === i ? '▲' : '▼'}</Text>
+                  </View>
+                  {faqAbierta === i && (
+                    <Text style={styles.faqRespuesta}>{item.a}</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modal Próximamente Strava */}
       <Modal visible={modalStravaProximamente} transparent animationType="fade" onRequestClose={() => setModalStravaProximamente(false)}>
         <View style={styles.modalOverlay}>
@@ -292,15 +362,20 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.saludo}>Hola{nombre ? `, ${nombre}` : ''}! 👋</Text>
           <Text style={styles.subtitulo}>Tus retos activos</Text>
         </View>
-        {stravaConectado ? (
-          <View style={styles.stravaConectadoBadge}>
-            <Text style={styles.stravaConectadoBadgeText}>✓ Strava</Text>
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.stravaProximoBtn} onPress={conectarStrava}>
-            <Text style={styles.stravaProximoBtnText}>🔗 Strava</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity style={styles.ayudaBtn} onPress={() => setModalAyudaVisible(true)}>
+            <Text style={styles.ayudaBtnText}>?</Text>
           </TouchableOpacity>
-        )}
+          {stravaConectado ? (
+            <View style={styles.stravaConectadoBadge}>
+              <Text style={styles.stravaConectadoBadgeText}>✓ Strava</Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.stravaProximoBtn} onPress={conectarStrava}>
+              <Text style={styles.stravaProximoBtnText}>🔗 Strava</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Banner pago */}
@@ -366,9 +441,15 @@ export default function HomeScreen({ navigation }) {
 
           {challengesActivos.length === 0 && challengesPending.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyEmoji}>🏁</Text>
-              <Text style={styles.emptyText}>Sin retos activos</Text>
-              <Text style={styles.emptySubtext}>Inscribite en un challenge desde el Catálogo y empezá a correr</Text>
+              <Text style={styles.emptyEmoji}>🏃</Text>
+              <Text style={styles.emptyText}>¡Empezá a moverte!</Text>
+              <Text style={styles.emptySubtext}>Registrá tus km y acumulá logros gratis — no necesitás un challenge activo para empezar.</Text>
+              <View style={styles.emptyLogrosRow}>
+                <Text style={styles.emptyLogroItem}>👟 Distancia</Text>
+                <Text style={styles.emptyLogroItem}>🔥 Rachas</Text>
+                <Text style={styles.emptyLogroItem}>⚡ Actividades</Text>
+              </View>
+              <Text style={styles.emptySubtext}>Cuando quieras una medalla real, encontrá tu challenge en el Catálogo.</Text>
             </View>
           ) : challengesActivos.length === 1 ? (
             // Un solo reto — sin scroll horizontal
@@ -607,7 +688,16 @@ const styles = StyleSheet.create({
   pendingTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
   pendingModalidad: { fontSize: 12, color: '#A8CFFF', marginBottom: 6 },
   pendingTexto: { fontSize: 12, color: '#6a8a6a', lineHeight: 18 },
-  emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 40, alignItems: 'center', marginTop: 20 },
+  ayudaBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center', justifyContent: 'center' },
+  ayudaBtnText: { color: '#A8CFFF', fontWeight: 'bold', fontSize: 15 },
+  faqItem: { borderBottomWidth: 1, borderBottomColor: '#2a4a6a', paddingVertical: 14 },
+  faqHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  faqPregunta: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', flex: 1, paddingRight: 12 },
+  faqChevron: { color: '#4a6a8a', fontSize: 12 },
+  faqRespuesta: { fontSize: 13, color: '#A8CFFF', lineHeight: 20, marginTop: 10 },
+  emptyLogrosRow: { flexDirection: 'row', gap: 8, marginVertical: 16, flexWrap: 'wrap', justifyContent: 'center' },
+  emptyLogroItem: { backgroundColor: '#1E3A5F', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, fontSize: 12, color: '#A8CFFF', fontWeight: 'bold' },
+  emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 32, alignItems: 'center', marginTop: 20, gap: 8 },
   emptyEmoji: { fontSize: 48, marginBottom: 16 },
   emptyText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   emptySubtext: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 20 },
