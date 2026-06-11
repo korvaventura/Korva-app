@@ -13,45 +13,44 @@ const DEFAULT_PLANTILLAS = { dorsal: 'Dorsales.pptx', postal: 'Postales.pptx' };
 const generarBibYPostal = async (supabase, nombre, bibNumber, challengeId) => {
   try {
     const plantillas = PLANTILLAS[challengeId] || DEFAULT_PLANTILLAS;
+    console.log('Descargando plantillas:', plantillas);
 
-    // Descargar plantillas de Supabase Storage
     const { data: dorsalData, error: e1 } = await supabase.storage
       .from('korva-images')
       .download(`plantillas/${plantillas.dorsal}`);
-    if (e1) throw new Error('No se pudo descargar dorsal: ' + e1.message);
+    if (e1) { console.error('Error descargando dorsal:', e1); throw new Error('No se pudo descargar dorsal: ' + e1.message); }
+    console.log('Dorsal descargado OK');
 
     const { data: postalData, error: e2 } = await supabase.storage
       .from('korva-images')
       .download(`plantillas/${plantillas.postal}`);
-    if (e2) throw new Error('No se pudo descargar postal: ' + e2.message);
+    if (e2) { console.error('Error descargando postal:', e2); throw new Error('No se pudo descargar postal: ' + e2.message); }
+    console.log('Postal descargado OK');
 
     const dorsalB64 = Buffer.from(await dorsalData.arrayBuffer()).toString('base64');
     const postalB64 = Buffer.from(await postalData.arrayBuffer()).toString('base64');
+    console.log('Buffers convertidos OK');
 
-    // Llamar al script Python via stdin/stdout
     const scriptPath = path.join(__dirname, 'generar_bib_postal.py');
-    const input = JSON.stringify({
-      nombre,
-      bib_number: bibNumber,
-      dorsal_template: dorsalB64,
-      postal_template: postalB64,
-    });
+    const input = JSON.stringify({ nombre, bib_number: bibNumber, dorsal_template: dorsalB64, postal_template: postalB64 });
 
     const resultado = await new Promise((resolve, reject) => {
       const proc = spawn('python3', [scriptPath], { timeout: 90000 });
       let stdout = '';
       let stderr = '';
       proc.stdout.on('data', d => stdout += d);
-      proc.stderr.on('data', d => stderr += d);
+      proc.stderr.on('data', d => { stderr += d; console.error('Python stderr:', d.toString()); });
       proc.stdin.write(input);
       proc.stdin.end();
       proc.on('close', (code) => {
-        if (code !== 0) reject(new Error(`Python error: ${stderr}`));
+        console.log('Python exit code:', code, 'stdout length:', stdout.length);
+        if (code !== 0) reject(new Error(`Python error (code ${code}): ${stderr}`));
         else resolve(stdout);
       });
     });
 
     const { dorsal_pdf, postal_pdf } = JSON.parse(resultado);
+    console.log('PDFs generados OK');
     return { dorsalPdf: dorsal_pdf, postalPdf: postal_pdf };
 
   } catch (error) {
