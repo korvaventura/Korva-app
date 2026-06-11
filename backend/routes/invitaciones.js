@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
-const { enviarEmailInscripcion } = require('../routes/emails');
+const { enviarEmailInscripcionConBib, enviarEmailInscripcion } = require('../routes/emails');
+const { generarBibYPostal, asignarBibNumber } = require('../generador_bib');
 
 const getSupabase = () => createClient(
   process.env.SUPABASE_URL,
@@ -19,23 +20,13 @@ router.get('/:token', async (req, res) => {
     .eq('token', token)
     .single();
 
-  if (error || !invitacion) {
-    return res.send(paginaError('Link inválido', 'Este link de invitación no existe.'));
-  }
-
-  if (invitacion.used_by) {
-    return res.send(paginaError('Link ya usado', 'Este link de invitación ya fue utilizado.'));
-  }
-
-  if (new Date(invitacion.expires_at) < new Date()) {
-    return res.send(paginaError('Link expirado', 'Este link de invitación expiró. Pedile uno nuevo a quien te invitó.'));
-  }
+  if (error || !invitacion) return res.send(paginaError('Link inválido', 'Este link de invitación no existe.'));
+  if (invitacion.used_by) return res.send(paginaError('Link ya usado', 'Este link de invitación ya fue utilizado.'));
+  if (new Date(invitacion.expires_at) < new Date()) return res.send(paginaError('Link expirado', 'Este link de invitación expiró.'));
 
   const challenge = invitacion.challenges;
   const modalidades = challenge?.modalidades || [];
-  const tieneModalidades = modalidades.length > 0;
-
-  res.send(paginaRegistro(token, challenge?.title, modalidades, tieneModalidades));
+  res.send(paginaRegistro(token, challenge?.title, modalidades, modalidades.length > 0));
 });
 
 // POST /invitaciones/:token — procesa el registro
@@ -45,7 +36,6 @@ router.post('/:token', async (req, res) => {
   const supabase = getSupabase();
 
   try {
-    // Validar invitación
     const { data: invitacion, error } = await supabase
       .from('invitations')
       .select('*, challenges(title)')
@@ -59,26 +49,27 @@ router.post('/:token', async (req, res) => {
     // Crear o encontrar usuario
     const { data: usuarioExistente } = await supabase
       .from('users')
-      .select('id')
+      .select('id, bib_number')
       .eq('email', email)
       .single();
 
     let userId;
+    let bibNumber;
 
     if (usuarioExistente) {
       userId = usuarioExistente.id;
+      bibNumber = usuarioExistente.bib_number;
     } else {
       const { data: nuevoUsuario, error: errorUsuario } = await supabase
         .from('users')
         .insert({ email, name: nombre })
         .select()
         .single();
-
       if (errorUsuario) throw errorUsuario;
       userId = nuevoUsuario.id;
     }
 
-    // Verificar que no esté ya inscripto en este challenge
+    // Verificar que no esté ya inscripto
     const { data: yaInscripto } = await supabase
       .from('user_challenges')
       .select('id')
@@ -86,11 +77,9 @@ router.post('/:token', async (req, res) => {
       .eq('challenge_id', invitacion.challenge_id)
       .single();
 
-    if (yaInscripto) {
-      return res.send(paginaError('Ya inscripto', 'Este email ya está registrado en este desafío.'));
-    }
+    if (yaInscripto) return res.send(paginaError('Ya inscripto', 'Este email ya está registrado en este desafío.'));
 
-    // Inscribir en el challenge como active
+    // Inscribir en el challenge
     await supabase.from('user_challenges').insert({
       user_id: userId,
       challenge_id: invitacion.challenge_id,
@@ -106,9 +95,27 @@ router.post('/:token', async (req, res) => {
       .update({ used_by: userId, used_at: new Date().toISOString() })
       .eq('token', token);
 
-    // Enviar email de bienvenida
+    // Asignar bib number si no tiene
+    if (!bibNumber) {
+      bibNumber = await asignarBibNumber(supabase, userId);
+    }
+
+    // Generar dorsal y postal PDF
+    const pdfs = await generarBibYPostal(supabase, nombre, bibNumber, invitacion.challenge_id);
     const modalidadTexto = modalidad === 'ride' ? 'Ciclismo' : 'Running';
-    enviarEmailInscripcion(email, nombre, invitacion.challenges.title, modalidadTexto);
+
+    if (pdfs) {
+      await enviarEmailInscripcionConBib(
+        email, nombre,
+        invitacion.challenges.title,
+        modalidadTexto,
+        pdfs.dorsalPdf,
+        pdfs.postalPdf,
+        bibNumber
+      );
+    } else {
+      await enviarEmailInscripcion(email, nombre, invitacion.challenges.title, modalidadTexto);
+    }
 
     res.send(paginaExito(nombre, invitacion.challenges.title));
 
@@ -146,7 +153,6 @@ const baseHtml = (contenido) => `
     .challenge-name p { color: #FFFFFF; font-size: 16px; font-weight: bold; margin: 0; }
     .error-icon { font-size: 48px; margin-bottom: 16px; }
     .success-icon { font-size: 64px; text-align: center; margin-bottom: 16px; }
-    .app-badge { display: inline-block; background: #1E3A5F; border: 1px solid #2a4a6a; border-radius: 12px; padding: 12px 20px; color: #A8CFFF; font-size: 13px; text-decoration: none; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -163,27 +169,19 @@ const paginaRegistro = (token, challengeTitle, modalidades, tieneModalidades) =>
   <div class="badge">🎟️ INVITACIÓN</div>
   <h1>¡Te invitaron a correr! 🏃</h1>
   <p>Completá tus datos para activar tu lugar en el desafío:</p>
-
-  <div class="challenge-name">
-    <p>🏅 ${challengeTitle || 'Desafío Korva'}</p>
-  </div>
-
+  <div class="challenge-name"><p>🏅 ${challengeTitle || 'Desafío Korva'}</p></div>
   <form method="POST" action="/invitaciones/${token}">
     <label>NOMBRE COMPLETO *</label>
     <input type="text" name="nombre" placeholder="Tu nombre" required />
-
     <label>EMAIL *</label>
     <input type="email" name="email" placeholder="tu@email.com" required />
-
     <label>MODALIDAD *</label>
     <select name="modalidad" required>
       <option value="run">🏃 Running</option>
       ${tieneModalidades && modalidades.some(m => m.tipo === 'ride') ? '<option value="ride">🚴 Ciclismo</option>' : ''}
     </select>
-
     <button type="submit">Activar mi lugar →</button>
   </form>
-
   <p style="font-size: 12px; color: #4a6a8a; margin-top: 16px; text-align: center;">Al registrarte aceptás los términos de Korva Aventuras</p>
 `);
 
@@ -192,16 +190,13 @@ const paginaExito = (nombre, challengeTitle) => baseHtml(`
     <div class="success-icon">🎉</div>
     <div class="badge" style="background: #4CAF50;">¡LISTO!</div>
     <h1 style="margin-top: 16px;">¡Bienvenido/a, ${nombre}!</h1>
-    <p>Tu lugar en <strong style="color: #FFFFFF;">${challengeTitle}</strong> está activado. Te mandamos un email de confirmación.</p>
-
+    <p>Tu lugar en <strong style="color: #FFFFFF;">${challengeTitle}</strong> está activado. Te mandamos un email con tu dorsal y postal de bienvenida.</p>
     <div class="challenge-name" style="text-align: left;">
       <p style="font-size: 14px; color: #A8CFFF; font-weight: normal; margin-bottom: 8px;">Próximos pasos:</p>
-      <p style="margin: 4px 0; font-size: 14px;">1️⃣ Revisá tu email de bienvenida</p>
+      <p style="margin: 4px 0; font-size: 14px;">1️⃣ Revisá tu email — tiene tu dorsal adjunto</p>
       <p style="margin: 4px 0; font-size: 14px;">2️⃣ Descargá la app Korva</p>
       <p style="margin: 4px 0; font-size: 14px;">3️⃣ Conectá Strava y empezá a correr 🏃</p>
     </div>
-
-    <p style="color: #4a6a8a; font-size: 12px; margin-top: 8px;">La app estará disponible próximamente en App Store y Google Play</p>
   </div>
 `);
 

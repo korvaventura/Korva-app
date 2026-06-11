@@ -202,4 +202,50 @@ const enviarEmailAdmin = async (asunto, mensaje) => {
   }
 };
 
-module.exports = { enviarEmailInscripcion, enviarEmailInvitacion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdmin };
+const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad, dorsalPdfBase64, postalPdfBase64, bibNumber) => {
+  try {
+    await getResend().emails.send({
+      from: 'Korva <onboarding@resend.dev>',
+      to: email,
+      subject: `🏅 Inscripción confirmada — ${challenge}`,
+      html: wrapper(`
+        ${badge('INSCRIPCIÓN CONFIRMADA')}
+        <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
+        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tu inscripción al reto <strong style="color: #FFFFFF;">${challenge}</strong> en modalidad <strong style="color: #FC4C02;">${modalidad}</strong> fue confirmada.</p>
+
+        ${card(`
+          <p style="color: #FC4C02; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">TU DORSAL OFICIAL</p>
+          <p style="color: #FFFFFF; font-size: 32px; font-weight: bold; margin: 0 0 4px;">#${bibNumber}</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 0;">Encontrás tu dorsal y postal adjuntos a este email.</p>
+        `, '#FC4C02')}
+
+        ${card(`
+          <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">TUS PRÓXIMOS PASOS</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">1️⃣ &nbsp; Conectá tu Strava para sincronizar automáticamente</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">2️⃣ &nbsp; O cargá tus km manualmente desde la app</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">3️⃣ &nbsp; Al llegar al 100%, tu medalla viaja a tu puerta 📦</p>
+        `, '#1E6FD9')}
+
+        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6;">Cada kilómetro cuenta. Cada salida te acerca a tu medalla. ¡A correr!</p>
+        <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 24px;">El equipo Korva 🏅</p>
+      `),
+      attachments: [
+        {
+          filename: `Dorsal_${bibNumber}_${nombre.replace(/\s/g, '_')}.pdf`,
+          content: dorsalPdfBase64,
+          content_type: 'application/pdf',
+        },
+        {
+          filename: `Postal_${challenge.replace(/\s/g, '_')}_${nombre.replace(/\s/g, '_')}.pdf`,
+          content: postalPdfBase64,
+          content_type: 'application/pdf',
+        },
+      ],
+    });
+    console.log('Email con bib enviado a:', email);
+  } catch (error) {
+    console.error('Error enviando email con bib:', error);
+  }
+};
+
+module.exports = { enviarEmailInscripcion, enviarEmailInscripcionConBib, enviarEmailInvitacion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdmin };

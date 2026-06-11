@@ -1,0 +1,86 @@
+const { spawn } = require('child_process');
+const path = require('path');
+
+// Mapa de plantillas por challenge_id
+const PLANTILLAS = {
+  'ae54af78-dc6f-4cf5-af31-2c077ba58048': { dorsal: 'Dorsales.pptx', postal: 'Postales.pptx' },     // Fin del Mundo
+  '85a362a5-eee7-456d-9027-358d44446004': { dorsal: 'Dorsales.pptx', postal: 'Postales.pptx' },     // San Andrés (mismo diseño por ahora)
+  '64442b1d-12b8-4a58-a951-50ea10cb2131': { dorsal: 'Dorsales.pptx', postal: 'Postales.pptx' },     // Dubrovnik (mismo diseño por ahora)
+};
+
+const DEFAULT_PLANTILLAS = { dorsal: 'Dorsales.pptx', postal: 'Postales.pptx' };
+
+const generarBibYPostal = async (supabase, nombre, bibNumber, challengeId) => {
+  try {
+    const plantillas = PLANTILLAS[challengeId] || DEFAULT_PLANTILLAS;
+
+    // Descargar plantillas de Supabase Storage
+    const { data: dorsalData, error: e1 } = await supabase.storage
+      .from('korva-images')
+      .download(`plantillas/${plantillas.dorsal}`);
+    if (e1) throw new Error('No se pudo descargar dorsal: ' + e1.message);
+
+    const { data: postalData, error: e2 } = await supabase.storage
+      .from('korva-images')
+      .download(`plantillas/${plantillas.postal}`);
+    if (e2) throw new Error('No se pudo descargar postal: ' + e2.message);
+
+    const dorsalB64 = Buffer.from(await dorsalData.arrayBuffer()).toString('base64');
+    const postalB64 = Buffer.from(await postalData.arrayBuffer()).toString('base64');
+
+    // Llamar al script Python via stdin/stdout
+    const scriptPath = path.join(__dirname, 'generar_bib_postal.py');
+    const input = JSON.stringify({
+      nombre,
+      bib_number: bibNumber,
+      dorsal_template: dorsalB64,
+      postal_template: postalB64,
+    });
+
+    const resultado = await new Promise((resolve, reject) => {
+      const proc = spawn('python3', [scriptPath], { timeout: 90000 });
+      let stdout = '';
+      let stderr = '';
+      proc.stdout.on('data', d => stdout += d);
+      proc.stderr.on('data', d => stderr += d);
+      proc.stdin.write(input);
+      proc.stdin.end();
+      proc.on('close', (code) => {
+        if (code !== 0) reject(new Error(`Python error: ${stderr}`));
+        else resolve(stdout);
+      });
+    });
+
+    const { dorsal_pdf, postal_pdf } = JSON.parse(resultado);
+    return { dorsalPdf: dorsal_pdf, postalPdf: postal_pdf };
+
+  } catch (error) {
+    console.error('Error generando bib:', error.message);
+    return null;
+  }
+};
+
+const asignarBibNumber = async (supabase, userId) => {
+  try {
+    // Usar la secuencia de Supabase
+    const { data, error } = await supabase.rpc('get_next_bib_number');
+    if (error) throw error;
+    const bibNumber = data;
+    await supabase.from('users').update({ bib_number: bibNumber }).eq('id', userId);
+    return bibNumber;
+  } catch (error) {
+    console.error('Error asignando bib number:', error.message);
+    // Fallback: buscar el máximo actual y sumar 1
+    const { data: maxData } = await supabase
+      .from('users')
+      .select('bib_number')
+      .order('bib_number', { ascending: false })
+      .limit(1)
+      .single();
+    const bibNumber = (maxData?.bib_number || 220) + 1;
+    await supabase.from('users').update({ bib_number: bibNumber }).eq('id', userId);
+    return bibNumber;
+  }
+};
+
+module.exports = { generarBibYPostal, asignarBibNumber };
