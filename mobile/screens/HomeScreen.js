@@ -239,38 +239,54 @@ export default function HomeScreen({ navigation }) {
               {[
                 {
                   q: '¿Cómo funciona Korva?',
-                  a: 'Korva es una plataforma de desafíos virtuales de running y ciclismo. Comprás un challenge, completás la distancia en el mundo real registrando tus km, y cuando llegás al 100% te enviamos una medalla física a tu casa.'
+                  a: 'Elegís un desafío en el Catálogo y lo comprás. Una vez confirmado el pago, el desafío se activa en la app. Registrás tus km corriendo o pedaleando en el mundo real, y cuando completás la distancia total se inicia automáticamente la orden de envío de tu medalla.'
                 },
                 {
-                  q: '¿Necesito completar el challenge de una sola vez?',
-                  a: 'No, para nada. Podés correr o pedalear a tu ritmo — salidas cortas, largas, cuando quieras. Los km se van acumulando hasta completar la distancia total del challenge.'
+                  q: '¿Necesito completar el desafío de una sola vez?',
+                  a: 'No. Podés salir a correr o pedalear cuando quieras — salidas cortas, largas, a tu ritmo. Los km se van acumulando hasta completar la distancia total del desafío.'
+                },
+                {
+                  q: '¿Puedo mezclar actividades?',
+                  a: 'Sí. Si elegiste Running podés sumar km corriendo, caminando, trotando o incluso en bicicleta — todo se acumula hacia tu meta. La modalidad que elegís define la distancia del desafío, no el tipo de actividad que podés registrar.'
                 },
                 {
                   q: '¿Cómo registro mis kilómetros?',
-                  a: 'Desde la pestaña "Registrar" podés cargar tus actividades manualmente — ingresás los km y el tipo de actividad. También podés conectar Strava para que se sincronicen solos (próximamente para todos).'
+                  a: 'Desde la pestaña "Registrar" cargás tus km manualmente en segundos. La integración con Strava para sincronización automática estará disponible próximamente.'
                 },
                 {
-                  q: '¿Qué son los logros?',
-                  a: 'Los logros son badges que ganás por tu actividad — kilómetros recorridos, rachas de días activos, cantidad de actividades y más. Son completamente gratuitos y se acumulan siempre, tengas o no un challenge activo.'
-                },
-                {
-                  q: '¿Puedo usar la app sin comprar un challenge?',
-                  a: '¡Sí! Podés registrar tus actividades y acumular logros sin costo. Los challenges son para quienes quieren una meta con medalla física incluida.'
+                  q: '¿Cómo cargo mi dirección de envío?',
+                  a: 'Desde la pestaña "Perfil", sección "Dirección de envío". Asegurate de tenerla cargada antes de completar el desafío para que el envío salga sin demoras.'
                 },
                 {
                   q: '¿Cuándo llega mi medalla?',
-                  a: 'Cuando completás el 100% del challenge te notificamos y preparamos el envío. Los tiempos dependen de tu país — generalmente entre 2 y 6 semanas. Asegurate de tener tu dirección cargada en el Perfil.'
+                  a: 'Cuando completás el 100% del desafío se inicia la orden de envío automáticamente. Los tiempos varían según tu país — podés consultar los tiempos estimados en korva.run.'
                 },
                 {
-                  q: '¿Puedo cambiar mi modalidad (running/ciclismo)?',
-                  a: 'Sí, podés cambiarla desde la sección "Mis retos activos" en el Perfil. Tené en cuenta que las distancias son distintas según la modalidad.'
+                  q: '¿Qué pasa si se agota el stock?',
+                  a: 'Las medallas tienen stock limitado. Si al momento de completar tu desafío el stock está agotado, te avisamos por email y coordinamos el envío en cuanto tengamos reposición. Nunca perdés tu lugar.'
+                },
+                {
+                  q: '¿Qué son los logros?',
+                  a: 'Los logros son badges gratuitos que ganás por tu actividad — km recorridos, rachas de días activos, cantidad de salidas y más. Se acumulan siempre, tengas o no un desafío activo.'
+                },
+                {
+                  q: '¿Puedo usar la app sin comprar un desafío?',
+                  a: 'Sí. Podés registrar actividades y acumular logros sin costo. Los desafíos son para quienes quieren una meta con medalla física incluida.'
+                },
+                {
+                  q: '¿Puedo cambiar mi modalidad?',
+                  a: 'Sí, desde "Mis retos activos" en el Perfil podés cambiar entre Running y Ciclismo cuando quieras.'
+                },
+                {
+                  q: '¿Mis datos están seguros?',
+                  a: 'Sí. Solo vos podés ver tu perfil, dirección y actividades. No compartimos tu información con terceros.'
                 },
                 {
                   q: '¿Necesito Strava?',
-                  a: 'No es obligatorio. Podés registrar tus km manualmente desde la app. La integración con Strava para sincronización automática estará disponible próximamente.'
+                  a: 'No. El registro manual es suficiente para sumar tus km. Strava estará disponible próximamente como opción de sincronización automática.'
                 },
                 {
-                  q: '¿Tengo un problema o una consulta?',
+                  q: '¿Tengo un problema o consulta?',
                   a: 'Escribinos a korvaventura@gmail.com o por Instagram @korva.aventuras. Te respondemos a la brevedad.'
                 },
               ].map((item, i) => (
