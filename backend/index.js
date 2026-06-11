@@ -24,7 +24,43 @@ app.get('/health', (req, res) => {
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); // aumentar límite para imágenes base64
 
-// ─── UPLOAD DE IMÁGENES ──────────────────────────────────────────
+// ─── ENDPOINT DE PRUEBA DE BIB (sacar después) ──────────────────
+app.get('/test/bib/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const { data: user } = await supabase
+      .from('users')
+      .select('id, name, email, bib_number')
+      .eq('id', userId)
+      .single();
+
+    if (!user) return res.json({ error: 'Usuario no encontrado' });
+
+    const { generarBibYPostal, asignarBibNumber } = require('./generador_bib');
+    const { enviarEmailInscripcionConBib } = require('./routes/emails');
+
+    let bibNumber = user.bib_number;
+    if (!bibNumber) bibNumber = await asignarBibNumber(supabase, userId);
+
+    const pdfs = await generarBibYPostal(supabase, user.name, bibNumber, 'ae54af78-dc6f-4cf5-af31-2c077ba58048');
+
+    if (!pdfs) return res.json({ error: 'No se pudieron generar los PDFs' });
+
+    await enviarEmailInscripcionConBib(
+      user.email, user.name,
+      'Desafío Fin del Mundo',
+      'Running',
+      pdfs.dorsalPdf, pdfs.postalPdf,
+      bibNumber
+    );
+
+    res.json({ ok: true, mensaje: `Bib #${bibNumber} enviado a ${user.email}` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 app.post('/upload', async (req, res) => {
   const { base64, carpeta, nombre } = req.body;
   if (!base64 || !carpeta) {
