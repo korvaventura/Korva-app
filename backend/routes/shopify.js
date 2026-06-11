@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const { enviarEmailInscripcionConBib, enviarEmailInscripcion, enviarEmailInvitacion } = require('../routes/emails');
 const { generarBibYPostal, asignarBibNumber } = require('../generador_bib');
 
-const SHOPIFY_WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET || '4b50434416a39f4c3538e11b8648cda6182c020a882943051b8a39854f5898f6';
+const SHOPIFY_WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET;
 
 // Mapa product_id de Shopify → challenge_id en Supabase
 const PRODUCT_CHALLENGE_MAP = {
