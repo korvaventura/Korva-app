@@ -36,6 +36,13 @@ app.get('/test/bib/:userId', async (req, res) => {
 
     if (!user) return res.json({ error: 'Usuario no encontrado' });
 
+    // Verificar Python
+    const { execSync } = require('child_process');
+    let pythonVersion = 'no disponible';
+    let libreofficeVersion = 'no disponible';
+    try { pythonVersion = execSync('python3 --version').toString().trim(); } catch(e) { pythonVersion = e.message; }
+    try { libreofficeVersion = execSync('libreoffice --version').toString().trim(); } catch(e) { libreofficeVersion = e.message; }
+
     const { generarBibYPostal, asignarBibNumber } = require('./generador_bib');
     const { enviarEmailInscripcionConBib } = require('./routes/emails');
 
@@ -44,7 +51,11 @@ app.get('/test/bib/:userId', async (req, res) => {
 
     const pdfs = await generarBibYPostal(supabase, user.name, bibNumber, 'ae54af78-dc6f-4cf5-af31-2c077ba58048');
 
-    if (!pdfs) return res.json({ error: 'No se pudieron generar los PDFs' });
+    if (!pdfs) return res.json({ 
+      error: 'No se pudieron generar los PDFs',
+      python: pythonVersion,
+      libreoffice: libreofficeVersion
+    });
 
     await enviarEmailInscripcionConBib(
       user.email, user.name,
@@ -54,7 +65,7 @@ app.get('/test/bib/:userId', async (req, res) => {
       bibNumber
     );
 
-    res.json({ ok: true, mensaje: `Bib #${bibNumber} enviado a ${user.email}` });
+    res.json({ ok: true, mensaje: `Bib #${bibNumber} enviado a ${user.email}`, python: pythonVersion, libreoffice: libreofficeVersion });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
