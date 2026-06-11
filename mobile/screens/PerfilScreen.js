@@ -26,6 +26,7 @@ export default function PerfilScreen() {
   const [userId, setUserId] = useState(null);
   const [nivel, setNivel] = useState(null);
   const [insignias, setInsignias] = useState([]);
+  const [insigniasProgreso, setInsigniasProgreso] = useState({});
   const [actividades, setActividades] = useState([]);
   const [mostrarTodasActividades, setMostrarTodasActividades] = useState(false);
   const [editandoDireccion, setEditandoDireccion] = useState(false);
@@ -90,6 +91,7 @@ export default function PerfilScreen() {
       setStats(data.stats);
       setNivel(data.nivel);
       setInsignias(data.insignias || []);
+      setInsigniasProgreso(data.insigniasProgreso || {});
       // Traer strava_habilitado directamente de Supabase
       const { data: userData } = await supabase
         .from('users')
@@ -510,15 +512,112 @@ export default function PerfilScreen() {
       {/* Insignias */}
       {insignias.length > 0 && (
         <View style={styles.seccion}>
-          <Text style={styles.seccionTitulo}>🎖️ Insignias</Text>
-          <View style={styles.insigniasGrid}>
-            {insignias.map((ins, i) => (
-              <View key={i} style={styles.insigniaCard}>
-                <Text style={styles.insigniaEmoji}>{ins.emoji}</Text>
-                <Text style={styles.insigniaNombre}>{ins.nombre}</Text>
-              </View>
-            ))}
-          </View>
+          <Text style={styles.seccionTitulo}>🎖️ Insignias ({insignias.length})</Text>
+
+          {/* Distancia */}
+          {insignias.filter(i => i.categoria === 'distancia').length > 0 && (
+            <View style={styles.insigniaCategoria}>
+              <Text style={styles.insigniaCatTitulo}>🏃 Distancia</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {insignias.filter(i => i.categoria === 'distancia').map((ins, i) => (
+                  <View key={i} style={styles.insigniaCard}>
+                    <Text style={styles.insigniaEmoji}>{ins.emoji}</Text>
+                    <Text style={styles.insigniaNombre}>{ins.nombre}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+              {insigniasProgreso?.distancia && (
+                <Text style={styles.insigniaProximo}>→ Próximo: {insigniasProgreso.distancia.nombre} · faltan {insigniasProgreso.distancia.falta} {insigniasProgreso.distancia.unidad}</Text>
+              )}
+            </View>
+          )}
+
+          {/* Rachas */}
+          {insignias.filter(i => i.categoria === 'racha').length > 0 && (
+            <View style={styles.insigniaCategoria}>
+              <Text style={styles.insigniaCatTitulo}>🔥 Rachas</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {insignias.filter(i => i.categoria === 'racha').map((ins, i) => (
+                  <View key={i} style={styles.insigniaCard}>
+                    <Text style={styles.insigniaEmoji}>{ins.emoji}</Text>
+                    <Text style={styles.insigniaNombre}>{ins.nombre}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+              {insigniasProgreso?.racha && (
+                <Text style={styles.insigniaProximo}>→ Próximo: {insigniasProgreso.racha.nombre} · faltan {insigniasProgreso.racha.falta} {insigniasProgreso.racha.unidad}</Text>
+              )}
+            </View>
+          )}
+
+          {/* Actividades */}
+          {insignias.filter(i => i.categoria === 'actividades').length > 0 && (
+            <View style={styles.insigniaCategoria}>
+              <Text style={styles.insigniaCatTitulo}>⚡ Actividades</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {insignias.filter(i => i.categoria === 'actividades').map((ins, i) => (
+                  <View key={i} style={styles.insigniaCard}>
+                    <Text style={styles.insigniaEmoji}>{ins.emoji}</Text>
+                    <Text style={styles.insigniaNombre}>{ins.nombre}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+              {insigniasProgreso?.actividades && (
+                <Text style={styles.insigniaProximo}>→ Próximo: {insigniasProgreso.actividades.nombre} · faltan {insigniasProgreso.actividades.falta} {insigniasProgreso.actividades.unidad}</Text>
+              )}
+            </View>
+          )}
+
+          {/* Challenges */}
+          {insignias.filter(i => i.categoria === 'challenges').length > 0 && (
+            <View style={styles.insigniaCategoria}>
+              <Text style={styles.insigniaCatTitulo}>🏅 Challenges</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {insignias.filter(i => i.categoria === 'challenges').map((ins, i) => (
+                  <View key={i} style={styles.insigniaCard}>
+                    <Text style={styles.insigniaEmoji}>{ins.emoji}</Text>
+                    <Text style={styles.insigniaNombre}>{ins.nombre}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+              {insigniasProgreso?.challenges && (
+                <Text style={styles.insigniaProximo}>→ Próximo: {insigniasProgreso.challenges.nombre} · faltan {insigniasProgreso.challenges.falta} {insigniasProgreso.challenges.unidad}</Text>
+              )}
+            </View>
+          )}
+
+          {/* Consistencia */}
+          {insignias.filter(i => i.categoria === 'consistencia').length > 0 && (
+            <View style={styles.insigniaCategoria}>
+              <Text style={styles.insigniaCatTitulo}>📅 Consistencia</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {insignias.filter(i => i.categoria === 'consistencia').map((ins, i) => (
+                  <View key={i} style={styles.insigniaCard}>
+                    <Text style={styles.insigniaEmoji}>{ins.emoji}</Text>
+                    <Text style={styles.insigniaNombre}>{ins.nombre}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+              {insigniasProgreso?.consistencia && (
+                <Text style={styles.insigniaProximo}>→ Próximo: {insigniasProgreso.consistencia.nombre} · faltan {insigniasProgreso.consistencia.falta} {insigniasProgreso.consistencia.unidad}</Text>
+              )}
+            </View>
+          )}
+
+          {/* Especiales */}
+          {insignias.filter(i => i.categoria === 'especial').length > 0 && (
+            <View style={styles.insigniaCategoria}>
+              <Text style={styles.insigniaCatTitulo}>🌟 Especiales</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {insignias.filter(i => i.categoria === 'especial').map((ins, i) => (
+                  <View key={i} style={styles.insigniaCard}>
+                    <Text style={styles.insigniaEmoji}>{ins.emoji}</Text>
+                    <Text style={styles.insigniaNombre}>{ins.nombre}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
         </View>
       )}
 
@@ -698,8 +797,11 @@ const styles = StyleSheet.create({
   nivelInfo: { flex: 1 },
   nivelNombre: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   nivelSiguiente: { fontSize: 12, color: '#A8CFFF' },
+  insigniaCategoria: { marginBottom: 16 },
+  insigniaCatTitulo: { fontSize: 12, fontWeight: 'bold', color: '#A8CFFF', letterSpacing: 1, marginBottom: 10 },
+  insigniaProximo: { fontSize: 11, color: '#4a6a8a', marginTop: 8, fontStyle: 'italic' },
   insigniasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  insigniaCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', minWidth: 90 },
+  insigniaCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', minWidth: 80, marginRight: 8 },
   insigniaEmoji: { fontSize: 28, marginBottom: 6 },
   insigniaNombre: { fontSize: 11, color: '#A8CFFF', textAlign: 'center' },
   actividadRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, marginBottom: 8, gap: 12 },

@@ -276,20 +276,125 @@ app.get('/perfil/:userId', async (req, res) => {
       return { nombre: 'Explorador', emoji: '🌱', siguiente: 1 };
     };
 
-    const getInsignias = (completados, totalKm) => {
-      const insignias = [];
-      if (completados >= 1) insignias.push({ id: 'primera_medalla', nombre: 'Primera medalla', emoji: '🏅' });
-      if (totalKm >= 100) insignias.push({ id: 'km_100', nombre: '100 km', emoji: '💯' });
-      if (totalKm >= 250) insignias.push({ id: 'km_250', nombre: '250 km', emoji: '⚡' });
-      if (totalKm >= 500) insignias.push({ id: 'km_500', nombre: '500 km', emoji: '🌍' });
-      if (totalKm >= 1000) insignias.push({ id: 'km_1000', nombre: '1000 km', emoji: '👑' });
-      if (completados >= 2) insignias.push({ id: 'doble', nombre: 'Doble modalidad', emoji: '🚴' });
-      return insignias;
+    const getInsignias = (completados, totalKm, totalActividades, rachaActual, mejorRacha, semanasActivas, totalRun, totalRide, checkpointsDesbloqueados) => {
+      const ganadas = [];
+      const progreso = {};
+
+      // ── 🏃 DISTANCIA TOTAL ─────────────────────────────────────
+      const hitos_km = [
+        { km: 10,    id: 'km_10',    nombre: 'Primeros 10km',   emoji: '👟' },
+        { km: 25,    id: 'km_25',    nombre: '25 km',           emoji: '🌱' },
+        { km: 50,    id: 'km_50',    nombre: '50 km',           emoji: '⚡' },
+        { km: 100,   id: 'km_100',   nombre: '100 km',          emoji: '💯' },
+        { km: 200,   id: 'km_200',   nombre: '200 km',          emoji: '🔥' },
+        { km: 500,   id: 'km_500',   nombre: '500 km',          emoji: '🌍' },
+        { km: 1000,  id: 'km_1000',  nombre: '1.000 km',        emoji: '👑' },
+        { km: 2500,  id: 'km_2500',  nombre: '2.500 km',        emoji: '🚀' },
+        { km: 5000,  id: 'km_5000',  nombre: '5.000 km',        emoji: '🌌' },
+        { km: 10000, id: 'km_10000', nombre: '10.000 km',       emoji: '🔱' },
+      ];
+      let proximoKm = null;
+      for (const h of hitos_km) {
+        if (totalKm >= h.km) ganadas.push({ ...h, categoria: 'distancia' });
+        else if (!proximoKm) proximoKm = { nombre: h.nombre, falta: (h.km - totalKm).toFixed(1), unidad: 'km' };
+      }
+      progreso.distancia = proximoKm;
+
+      // ── 🔥 RACHAS (se ganan por mejor racha histórica) ──────────
+      const hitos_racha = [
+        { dias: 3,   id: 'racha_3',   nombre: '3 días seguidos',   emoji: '🔥' },
+        { dias: 7,   id: 'racha_7',   nombre: 'Una semana',        emoji: '⚡' },
+        { dias: 14,  id: 'racha_14',  nombre: 'Dos semanas',       emoji: '💪' },
+        { dias: 21,  id: 'racha_21',  nombre: 'Tres semanas',      emoji: '🎯' },
+        { dias: 30,  id: 'racha_30',  nombre: 'Un mes',            emoji: '🏆' },
+        { dias: 60,  id: 'racha_60',  nombre: 'Dos meses',         emoji: '👑' },
+        { dias: 90,  id: 'racha_90',  nombre: 'Tres meses',        emoji: '🌟' },
+        { dias: 180, id: 'racha_180', nombre: 'Seis meses',        emoji: '🌍' },
+        { dias: 365, id: 'racha_365', nombre: 'Un año entero',     emoji: '🔱' },
+      ];
+      let proximaRacha = null;
+      for (const h of hitos_racha) {
+        if (mejorRacha >= h.dias) ganadas.push({ ...h, categoria: 'racha' });
+        else if (!proximaRacha) proximaRacha = { nombre: h.nombre, falta: h.dias - mejorRacha, unidad: 'días seguidos' };
+      }
+      progreso.racha = proximaRacha;
+
+      // ── ⚡ ACTIVIDADES TOTALES ──────────────────────────────────
+      const hitos_act = [
+        { n: 1,   id: 'act_1',   nombre: 'Primera actividad',  emoji: '🌱' },
+        { n: 5,   id: 'act_5',   nombre: '5 actividades',      emoji: '✊' },
+        { n: 10,  id: 'act_10',  nombre: '10 actividades',     emoji: '💪' },
+        { n: 25,  id: 'act_25',  nombre: '25 actividades',     emoji: '⚡' },
+        { n: 50,  id: 'act_50',  nombre: '50 actividades',     emoji: '🔥' },
+        { n: 100, id: 'act_100', nombre: '100 actividades',    emoji: '💯' },
+        { n: 250, id: 'act_250', nombre: '250 actividades',    emoji: '👑' },
+        { n: 500, id: 'act_500', nombre: '500 actividades',    emoji: '🌌' },
+      ];
+      let proximaAct = null;
+      for (const h of hitos_act) {
+        if (totalActividades >= h.n) ganadas.push({ ...h, categoria: 'actividades' });
+        else if (!proximaAct) proximaAct = { nombre: h.nombre, falta: h.n - totalActividades, unidad: 'actividades' };
+      }
+      progreso.actividades = proximaAct;
+
+      // ── 🏅 CHALLENGES ───────────────────────────────────────────
+      const hitos_challenges = [
+        { n: 1, id: 'ch_1', nombre: 'Primera medalla',      emoji: '🏅' },
+        { n: 2, id: 'ch_2', nombre: 'Doble campeón',        emoji: '🥈' },
+        { n: 3, id: 'ch_3', nombre: 'Triple corona',        emoji: '🥇' },
+        { n: 5, id: 'ch_5', nombre: 'Leyenda Korva',        emoji: '🔱' },
+      ];
+      let proximoCh = null;
+      for (const h of hitos_challenges) {
+        if (completados >= h.n) ganadas.push({ ...h, categoria: 'challenges' });
+        else if (!proximoCh) proximoCh = { nombre: h.nombre, falta: h.n - completados, unidad: 'challenges' };
+      }
+      progreso.challenges = proximoCh;
+
+      // ── 📅 CONSISTENCIA (semanas activas en total) ──────────────
+      const hitos_sem = [
+        { n: 4,   id: 'sem_4',   nombre: '4 semanas activas',   emoji: '📅' },
+        { n: 8,   id: 'sem_8',   nombre: '8 semanas activas',   emoji: '🗓️' },
+        { n: 12,  id: 'sem_12',  nombre: '3 meses activo',      emoji: '💎' },
+        { n: 26,  id: 'sem_26',  nombre: '6 meses activo',      emoji: '🌟' },
+        { n: 52,  id: 'sem_52',  nombre: 'Un año activo',       emoji: '🏆' },
+        { n: 104, id: 'sem_104', nombre: 'Dos años activo',     emoji: '🔱' },
+      ];
+      let proximaSem = null;
+      for (const h of hitos_sem) {
+        if (semanasActivas >= h.n) ganadas.push({ ...h, categoria: 'consistencia' });
+        else if (!proximaSem) proximaSem = { nombre: h.nombre, falta: h.n - semanasActivas, unidad: 'semanas' };
+      }
+      progreso.consistencia = proximaSem;
+
+      // ── 🌐 MULTIDEPORTE ─────────────────────────────────────────
+      if (totalRun > 0 && totalRide > 0) ganadas.push({ id: 'multideporte', nombre: 'Multideporte', emoji: '🌐', categoria: 'especial' });
+      if (totalRun >= 50) ganadas.push({ id: 'corredor_pro', nombre: 'Corredor Pro', emoji: '🏃', categoria: 'especial' });
+      if (totalRide >= 50) ganadas.push({ id: 'ciclista_pro', nombre: 'Ciclista Pro', emoji: '🚴', categoria: 'especial' });
+      if (totalRun >= 10 && totalKm >= 100) ganadas.push({ id: 'centenario', nombre: 'Centenario', emoji: '💯', categoria: 'especial' });
+
+      return { ganadas, progreso };
     };
 
-    const nivel = getNivel(completados);
-    const totalKmNum = parseFloat(totalKm);
-    const insignias = getInsignias(completados, totalKmNum);
+    // Calcular mejor racha histórica (días consecutivos)
+    const todasFechas = actividadesFechas.data?.map(a => a.recorded_at?.split('T')[0]) || [];
+    const diasUnicos = [...new Set(todasFechas)].sort();
+    let mejorRacha = 0, rachaTemp = 1;
+    for (let i = 1; i < diasUnicos.length; i++) {
+      const diff = (new Date(diasUnicos[i]) - new Date(diasUnicos[i-1])) / 86400000;
+      if (diff === 1) { rachaTemp++; mejorRacha = Math.max(mejorRacha, rachaTemp); }
+      else rachaTemp = 1;
+    }
+    if (diasUnicos.length > 0) mejorRacha = Math.max(mejorRacha, 1);
+
+    const { ganadas: insigniasGanadas, progreso: insigniasProgreso } = getInsignias(
+      completados, totalKmNum,
+      actividades?.length || 0,
+      racha, mejorRacha,
+      Object.keys(kmPorSemanaFull).length,
+      deporteCount.run, deporteCount.ride,
+      []
+    );
 
     const actividadesFechas = await supabase
       .from('activities').select('recorded_at').eq('user_id', userId).order('recorded_at', { ascending: false });
@@ -331,12 +436,14 @@ app.get('/perfil/:userId', async (req, res) => {
         challenges_activos: activos,
         medallas: completados,
         racha_actual: racha,
+        mejor_racha: mejorRacha,
         mejor_semana_km: mejorSemanaKm.toFixed(1),
         promedio_semanal_km: promedioSemanal,
         perfil_deporte: perfilDeporte,
       },
       nivel,
-      insignias
+      insignias: insigniasGanadas,
+      insigniasProgreso,
     });
   } catch (error) {
     res.json({ error: 'Error cargando perfil', detalle: error.message });
