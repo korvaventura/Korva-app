@@ -227,7 +227,7 @@ router.get('/callback', async (req, res) => {
       .from('users')
       .upsert({
         email: stravaAthlete?.email || `strava_${stravaAthlete?.id}@korva.app`,
-        name: `${stravaAthlete?.firstname} ${stravaAthlete?.lastname}`,
+        name: [stravaAthlete?.firstname, stravaAthlete?.lastname].filter(Boolean).join(' ') || `Atleta ${stravaAthlete?.id}`,
         avatar_url: stravaAthlete?.profile,
         strava_token: data.access_token,
         strava_refresh_token: data.refresh_token,

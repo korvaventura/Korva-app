@@ -63,10 +63,19 @@ export default function HomeScreen({ navigation }) {
   const retosScrollRef = useRef(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user?.id) {
         setUserId(session.user.id);
-        setNombre(session.user.user_metadata?.name?.split(' ')[0] || '');
+        // Intentar nombre de user_metadata primero, si no de la tabla users
+        const metaNombre = session.user.user_metadata?.name?.split(' ')[0] || 
+                           session.user.user_metadata?.full_name?.split(' ')[0] || '';
+        if (metaNombre) {
+          setNombre(metaNombre);
+        } else {
+          // Fallback: buscar en tabla users
+          const { data } = await supabase.from('users').select('name').eq('id', session.user.id).single();
+          setNombre(data?.name?.split(' ')[0] || '');
+        }
       } else {
         setCargando(false);
       }
@@ -260,10 +269,6 @@ export default function HomeScreen({ navigation }) {
                 {
                   q: '¿Cuándo llega mi medalla?',
                   a: 'Cuando completás el 100% del desafío se inicia la orden de envío automáticamente. Los tiempos varían según tu país — podés consultar los tiempos estimados en korva.run.'
-                },
-                {
-                  q: '¿Qué pasa si se agota el stock?',
-                  a: 'Las medallas tienen stock limitado. Si al momento de completar tu desafío el stock está agotado, te avisamos por email y coordinamos el envío en cuanto tengamos reposición. Nunca perdés tu lugar.'
                 },
                 {
                   q: '¿Qué son los logros?',

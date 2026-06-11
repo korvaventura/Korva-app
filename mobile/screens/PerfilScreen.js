@@ -509,115 +509,54 @@ export default function PerfilScreen() {
         </View>
       )}
 
-      {/* Insignias */}
-      {insignias.length > 0 && (
+      {/* Logros */}
+      {(insignias.length > 0 || Object.keys(insigniasProgreso).length > 0) && (
         <View style={styles.seccion}>
-          <Text style={styles.seccionTitulo}>🎖️ Insignias ({insignias.length})</Text>
+          <Text style={styles.seccionTitulo}>🏆 Logros {insignias.length > 0 ? `(${insignias.length})` : ''}</Text>
 
-          {/* Distancia */}
-          {insignias.filter(i => i.categoria === 'distancia').length > 0 && (
-            <View style={styles.insigniaCategoria}>
-              <Text style={styles.insigniaCatTitulo}>🏃 Distancia</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {insignias.filter(i => i.categoria === 'distancia').map((ins, i) => (
-                  <View key={i} style={styles.insigniaCard}>
-                    <Text style={styles.insigniaEmoji}>{ins.emoji}</Text>
-                    <Text style={styles.insigniaNombre}>{ins.nombre}</Text>
-                  </View>
-                ))}
-              </ScrollView>
-              {insigniasProgreso?.distancia && (
-                <Text style={styles.insigniaProximo}>→ Próximo: {insigniasProgreso.distancia.nombre} · faltan {insigniasProgreso.distancia.falta} {insigniasProgreso.distancia.unidad}</Text>
-              )}
-            </View>
-          )}
+          {[
+            { key: 'distancia',    titulo: 'DISTANCIA',    emoji: '🏃' },
+            { key: 'racha',        titulo: 'RACHAS',       emoji: '🔥' },
+            { key: 'actividades',  titulo: 'ACTIVIDADES',  emoji: '⚡' },
+            { key: 'challenges',   titulo: 'CHALLENGES',   emoji: '🏅' },
+            { key: 'consistencia', titulo: 'CONSISTENCIA', emoji: '📅' },
+            { key: 'especial',     titulo: 'ESPECIALES',   emoji: '🌟' },
+          ].map(({ key, titulo, emoji }) => {
+            const ganados = insignias.filter(i => i.categoria === key);
+            const proximo = insigniasProgreso?.[key];
+            if (ganados.length === 0 && !proximo) return null;
 
-          {/* Rachas */}
-          {insignias.filter(i => i.categoria === 'racha').length > 0 && (
-            <View style={styles.insigniaCategoria}>
-              <Text style={styles.insigniaCatTitulo}>🔥 Rachas</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {insignias.filter(i => i.categoria === 'racha').map((ins, i) => (
-                  <View key={i} style={styles.insigniaCard}>
-                    <Text style={styles.insigniaEmoji}>{ins.emoji}</Text>
-                    <Text style={styles.insigniaNombre}>{ins.nombre}</Text>
-                  </View>
-                ))}
-              </ScrollView>
-              {insigniasProgreso?.racha && (
-                <Text style={styles.insigniaProximo}>→ Próximo: {insigniasProgreso.racha.nombre} · faltan {insigniasProgreso.racha.falta} {insigniasProgreso.racha.unidad}</Text>
-              )}
-            </View>
-          )}
+            // Mostrar últimos 3 ganados + 1 bloqueado si hay próximo
+            const visibles = ganados.slice(-3);
 
-          {/* Actividades */}
-          {insignias.filter(i => i.categoria === 'actividades').length > 0 && (
-            <View style={styles.insigniaCategoria}>
-              <Text style={styles.insigniaCatTitulo}>⚡ Actividades</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {insignias.filter(i => i.categoria === 'actividades').map((ins, i) => (
-                  <View key={i} style={styles.insigniaCard}>
-                    <Text style={styles.insigniaEmoji}>{ins.emoji}</Text>
-                    <Text style={styles.insigniaNombre}>{ins.nombre}</Text>
-                  </View>
-                ))}
-              </ScrollView>
-              {insigniasProgreso?.actividades && (
-                <Text style={styles.insigniaProximo}>→ Próximo: {insigniasProgreso.actividades.nombre} · faltan {insigniasProgreso.actividades.falta} {insigniasProgreso.actividades.unidad}</Text>
-              )}
-            </View>
-          )}
+            return (
+              <View key={key} style={styles.logroCategoria}>
+                <Text style={styles.logroCatTitulo}>{emoji} {titulo}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {visibles.map((ins, i) => (
+                    <View key={i} style={styles.logroCard}>
+                      <Text style={styles.logroEmoji}>{ins.emoji}</Text>
+                      <Text style={styles.logroNombre}>{ins.nombre}</Text>
+                    </View>
+                  ))}
 
-          {/* Challenges */}
-          {insignias.filter(i => i.categoria === 'challenges').length > 0 && (
-            <View style={styles.insigniaCategoria}>
-              <Text style={styles.insigniaCatTitulo}>🏅 Challenges</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {insignias.filter(i => i.categoria === 'challenges').map((ins, i) => (
-                  <View key={i} style={styles.insigniaCard}>
-                    <Text style={styles.insigniaEmoji}>{ins.emoji}</Text>
-                    <Text style={styles.insigniaNombre}>{ins.nombre}</Text>
-                  </View>
-                ))}
-              </ScrollView>
-              {insigniasProgreso?.challenges && (
-                <Text style={styles.insigniaProximo}>→ Próximo: {insigniasProgreso.challenges.nombre} · faltan {insigniasProgreso.challenges.falta} {insigniasProgreso.challenges.unidad}</Text>
-              )}
-            </View>
-          )}
+                  {/* Badge bloqueado misterioso */}
+                  {proximo && (
+                    <View style={styles.logroBloqueado}>
+                      <Text style={styles.logroBloqueadoEmoji}>🔒</Text>
+                      <Text style={styles.logroBloqueadoNombre}>???</Text>
+                    </View>
+                  )}
+                </ScrollView>
 
-          {/* Consistencia */}
-          {insignias.filter(i => i.categoria === 'consistencia').length > 0 && (
-            <View style={styles.insigniaCategoria}>
-              <Text style={styles.insigniaCatTitulo}>📅 Consistencia</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {insignias.filter(i => i.categoria === 'consistencia').map((ins, i) => (
-                  <View key={i} style={styles.insigniaCard}>
-                    <Text style={styles.insigniaEmoji}>{ins.emoji}</Text>
-                    <Text style={styles.insigniaNombre}>{ins.nombre}</Text>
-                  </View>
-                ))}
-              </ScrollView>
-              {insigniasProgreso?.consistencia && (
-                <Text style={styles.insigniaProximo}>→ Próximo: {insigniasProgreso.consistencia.nombre} · faltan {insigniasProgreso.consistencia.falta} {insigniasProgreso.consistencia.unidad}</Text>
-              )}
-            </View>
-          )}
-
-          {/* Especiales */}
-          {insignias.filter(i => i.categoria === 'especial').length > 0 && (
-            <View style={styles.insigniaCategoria}>
-              <Text style={styles.insigniaCatTitulo}>🌟 Especiales</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {insignias.filter(i => i.categoria === 'especial').map((ins, i) => (
-                  <View key={i} style={styles.insigniaCard}>
-                    <Text style={styles.insigniaEmoji}>{ins.emoji}</Text>
-                    <Text style={styles.insigniaNombre}>{ins.nombre}</Text>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          )}
+                {proximo && (
+                  <Text style={styles.logroProximo}>
+                    → {proximo.nombre} · faltan {proximo.falta} {proximo.unidad}
+                  </Text>
+                )}
+              </View>
+            );
+          })}
         </View>
       )}
 
@@ -797,6 +736,15 @@ const styles = StyleSheet.create({
   nivelInfo: { flex: 1 },
   nivelNombre: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   nivelSiguiente: { fontSize: 12, color: '#A8CFFF' },
+  logroCategoria: { marginBottom: 18 },
+  logroCatTitulo: { fontSize: 10, fontWeight: 'bold', color: '#4a6a8a', letterSpacing: 1.5, marginBottom: 10 },
+  logroCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 12, alignItems: 'center', minWidth: 72, marginRight: 8 },
+  logroEmoji: { fontSize: 22, marginBottom: 4 },
+  logroNombre: { fontSize: 9, color: '#A8CFFF', textAlign: 'center' },
+  logroBloqueado: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 12, alignItems: 'center', minWidth: 72, marginRight: 8, borderWidth: 1, borderColor: '#2a4a6a', borderStyle: 'dashed' },
+  logroBloqueadoEmoji: { fontSize: 22, marginBottom: 4, opacity: 0.4 },
+  logroBloqueadoNombre: { fontSize: 9, color: '#2a4a6a', textAlign: 'center' },
+  logroProximo: { fontSize: 10, color: '#4a6a8a', marginTop: 8, fontStyle: 'italic' },
   insigniaCategoria: { marginBottom: 16 },
   insigniaCatTitulo: { fontSize: 12, fontWeight: 'bold', color: '#A8CFFF', letterSpacing: 1, marginBottom: 10 },
   insigniaProximo: { fontSize: 11, color: '#4a6a8a', marginTop: 8, fontStyle: 'italic' },
