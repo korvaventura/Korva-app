@@ -391,7 +391,16 @@ export default function AdminScreen() {
     );
   };
 
-  const pendientes = challenges.filter(c => c.status === 'completed');
+  const [menuAbierto, setMenuAbierto] = useState(false);
+
+  const MENU_OPCIONES = [
+    { id: 'envios',    emoji: '📬', label: 'Envíos' },
+    { id: 'evidencias', emoji: '📸', label: 'Evidencias' },
+    { id: 'metricas',  emoji: '📊', label: 'Métricas' },
+    { id: 'editar',    emoji: '✏️', label: 'Editar retos' },
+    { id: 'mapa',      emoji: '🗺️', label: 'Editar mapas' },
+    { id: 'crear',     emoji: '➕', label: 'Nuevo reto' },
+  ];
   const enviados = challenges.filter(c => c.status === 'shipped');
   const lista = filtro === 'pendientes' ? pendientes : enviados;
 
@@ -399,25 +408,34 @@ export default function AdminScreen() {
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>⚙️ Admin</Text>
 
-      <View style={styles.vistaRow}>
-        <TouchableOpacity style={[styles.vistaBtn, vista === 'envios' && styles.vistaBtnActivo]} onPress={() => setVista('envios')}>
-          <Text style={[styles.vistaText, vista === 'envios' && styles.vistaTextActivo]}>📬 Envíos</Text>
+      {/* Menú desplegable */}
+      <View style={styles.menuWrapper}>
+        <TouchableOpacity
+          style={styles.menuBtn}
+          onPress={() => setMenuAbierto(!menuAbierto)}
+        >
+          <Text style={styles.menuBtnEmoji}>{MENU_OPCIONES.find(o => o.id === vista)?.emoji}</Text>
+          <Text style={styles.menuBtnLabel}>{MENU_OPCIONES.find(o => o.id === vista)?.label}</Text>
+          <Text style={styles.menuBtnChevron}>{menuAbierto ? '▲' : '▼'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.vistaBtn, vista === 'evidencias' && styles.vistaBtnActivo]} onPress={() => setVista('evidencias')}>
-          <Text style={[styles.vistaText, vista === 'evidencias' && styles.vistaTextActivo]}>📸 Evidencias</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.vistaBtn, vista === 'metricas' && styles.vistaBtnActivo]} onPress={() => setVista('metricas')}>
-          <Text style={[styles.vistaText, vista === 'metricas' && styles.vistaTextActivo]}>📊 Métricas</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.vistaBtn, vista === 'editar' && styles.vistaBtnActivo]} onPress={() => setVista('editar')}>
-          <Text style={[styles.vistaText, vista === 'editar' && styles.vistaTextActivo]}>✏️ Editar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.vistaBtn, vista === 'mapa' && styles.vistaBtnActivo]} onPress={() => setVista('mapa')}>
-          <Text style={[styles.vistaText, vista === 'mapa' && styles.vistaTextActivo]}>🗺️ Mapa</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.vistaBtn, vista === 'crear' && styles.vistaBtnActivo]} onPress={() => setVista('crear')}>
-          <Text style={[styles.vistaText, vista === 'crear' && styles.vistaTextActivo]}>➕ Nuevo</Text>
-        </TouchableOpacity>
+
+        {menuAbierto && (
+          <View style={styles.menuDropdown}>
+            {MENU_OPCIONES.map((op) => (
+              <TouchableOpacity
+                key={op.id}
+                style={[styles.menuOpcion, vista === op.id && styles.menuOpcionActiva]}
+                onPress={() => { setVista(op.id); setMenuAbierto(false); }}
+              >
+                <Text style={styles.menuOpcionEmoji}>{op.emoji}</Text>
+                <Text style={[styles.menuOpcionLabel, vista === op.id && styles.menuOpcionLabelActiva]}>
+                  {op.label}
+                </Text>
+                {vista === op.id && <Text style={styles.menuOpcionCheck}>✓</Text>}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
 
       {vista === 'envios' && (
@@ -922,6 +940,18 @@ const styles = StyleSheet.create({
   evidenciaActividadInfo: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   evidenciaActividadKm: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF' },
   evidenciaActividadFecha: { fontSize: 12, color: '#4a6a8a' },
+  menuWrapper: { marginBottom: 20, zIndex: 100 },
+  menuBtn: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 2, borderColor: '#FC4C02' },
+  menuBtnEmoji: { fontSize: 18 },
+  menuBtnLabel: { flex: 1, color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
+  menuBtnChevron: { color: '#FC4C02', fontSize: 14, fontWeight: 'bold' },
+  menuDropdown: { backgroundColor: '#1E3A5F', borderRadius: 14, marginTop: 4, borderWidth: 1, borderColor: '#2a4a6a', overflow: 'hidden' },
+  menuOpcion: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderBottomWidth: 1, borderBottomColor: '#2a4a6a' },
+  menuOpcionActiva: { backgroundColor: '#0D1B2A' },
+  menuOpcionEmoji: { fontSize: 18, width: 28 },
+  menuOpcionLabel: { flex: 1, color: '#A8CFFF', fontSize: 15, fontWeight: 'bold' },
+  menuOpcionLabelActiva: { color: '#FFFFFF' },
+  menuOpcionCheck: { color: '#FC4C02', fontSize: 16, fontWeight: 'bold' },
   vistaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
   vistaBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
   vistaBtnActivo: { borderColor: '#FC4C02' },
