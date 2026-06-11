@@ -17,13 +17,13 @@ const generarBibYPostal = async (supabase, nombre, bibNumber, challengeId) => {
 
     const { data: dorsalData, error: e1 } = await supabase.storage
       .from('korva-images')
-      .download(`plantillas/${plantillas.dorsal}`);
+      .download(`Plantillas/${plantillas.dorsal}`);
     if (e1) { console.error('Error descargando dorsal:', e1); throw new Error('No se pudo descargar dorsal: ' + e1.message); }
     console.log('Dorsal descargado OK');
 
     const { data: postalData, error: e2 } = await supabase.storage
       .from('korva-images')
-      .download(`plantillas/${plantillas.postal}`);
+      .download(`Plantillas/${plantillas.postal}`);
     if (e2) { console.error('Error descargando postal:', e2); throw new Error('No se pudo descargar postal: ' + e2.message); }
     console.log('Postal descargado OK');
 
