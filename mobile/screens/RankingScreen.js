@@ -39,7 +39,7 @@ export default function RankingScreen() {
 
   const cargarChallenges = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/challenges`);
+      const res = await fetch(`${BACKEND_URL}/challenges/todos`);
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         setChallenges(data);

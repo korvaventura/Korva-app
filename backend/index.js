@@ -202,6 +202,20 @@ app.get('/challenges', async (req, res) => {
   }
 });
 
+// Todos los challenges para ranking (incluyendo inactivos)
+app.get('/challenges/todos', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('challenges')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.json({ error: 'Error obteniendo challenges', detalle: error.message });
+  }
+});
+
 app.post('/challenges/inscribir', async (req, res) => {
   const { user_id, challenge_id, modalidad } = req.body;
   try {
