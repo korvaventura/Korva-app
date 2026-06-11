@@ -401,6 +401,7 @@ export default function AdminScreen() {
     { id: 'mapa',      emoji: '🗺️', label: 'Editar mapas' },
     { id: 'crear',     emoji: '➕', label: 'Nuevo reto' },
   ];
+  const pendientes = challenges.filter(c => c.status === 'completed');
   const enviados = challenges.filter(c => c.status === 'shipped');
   const lista = filtro === 'pendientes' ? pendientes : enviados;
 
