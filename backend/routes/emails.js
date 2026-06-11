@@ -222,11 +222,11 @@ const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad,
 
         ${card(`
           <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 16px;">TUS PRÓXIMOS PASOS</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">1️⃣ &nbsp; <strong style="color: #FFFFFF;">Descargá la app Korva</strong> para registrar tus km y ver tu progreso</p>
-          <div style="margin: 12px 0 16px; display: flex; gap: 10px;">
-            <a href="https://play.google.com/store/apps/details?id=com.korva.mobile" style="display: inline-block; background: #1E6FD9; color: #FFFFFF; font-size: 13px; font-weight: bold; padding: 10px 18px; border-radius: 10px; text-decoration: none; margin-right: 8px;">📱 Google Play</a>
-            <a href="https://apps.apple.com/app/korva/id0000000000" style="display: inline-block; background: #1E3A5F; color: #FFFFFF; font-size: 13px; font-weight: bold; padding: 10px 18px; border-radius: 10px; text-decoration: none; border: 1px solid #2a4a6a;">🍎 App Store</a>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">1️⃣ &nbsp; <strong style="color: #FFFFFF;">Accedé a la plataforma Korva</strong> para registrar tus km y ver tu progreso</p>
+          <div style="margin: 12px 0 8px;">
+            <a href="https://korva-aventuras.netlify.app/" style="display: inline-block; background: #FC4C02; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none;">🌐 Abrir plataforma web</a>
           </div>
+          <p style="color: #4a6a8a; font-size: 12px; margin: 0 0 16px;">📱 La app nativa para Android e iOS estará disponible próximamente en Google Play y App Store.</p>
           <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">2️⃣ &nbsp; Iniciá sesión con <strong style="color: #FFFFFF;">este mismo email (${email})</strong> — así tu desafío aparece activo automáticamente</p>
           <div style="background: #2a1a0a; border-radius: 10px; padding: 12px 14px; margin: 8px 0; border-left: 3px solid #FC4C02;">
             <p style="color: #FC4C02; font-size: 12px; font-weight: bold; margin: 0 0 4px;">⚠️ Importante</p>
@@ -243,6 +243,16 @@ const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad,
           <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">✅ &nbsp;Podés sumar km corriendo, caminando o en bicicleta — todo cuenta</p>
           <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">✅ &nbsp;Consultá los tiempos de envío por país en <a href="https://korva.run" style="color: #1E6FD9;">korva.run</a></p>
         `, '#2a4a6a')}
+
+        ${card(`
+          <p style="color: #4a6a8a; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 14px;">CÓMO REGISTRAR TUS KM</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 8px 0;"><strong style="color: #FFFFFF;">1.</strong> &nbsp;Ingresá a <a href="https://korva-aventuras.netlify.app/" style="color: #1E6FD9;">korva-aventuras.netlify.app</a></p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 8px 0;"><strong style="color: #FFFFFF;">2.</strong> &nbsp;Buscá tu desafío "${challenge}" y entrá</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 8px 0;"><strong style="color: #FFFFFF;">3.</strong> &nbsp;Cada vez que salgas a correr, caminar o andar en bici, registrá tus km — se van acumulando hasta completar el reto</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 8px 0;"><strong style="color: #FFFFFF;">4.</strong> &nbsp;Podés subir una foto como evidencia si querés — no es obligatorio pero suma</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 8px 0;"><strong style="color: #FFFFFF;">5.</strong> &nbsp;Seguí tu progreso y el ranking en tiempo real</p>
+          <p style="color: #4a6a8a; font-size: 12px; margin: 12px 0 0;">💡 Para guardar la web en tu celular como si fuera una app: en Instagram buscá @korva.aventuras → historias destacadas → "Registro kms" para ver el paso a paso.</p>
+        `, '#1E3A5F')}
 
         <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6;">¿Tenés dudas? Respondé este email o escribinos a <a href="mailto:korvaventura@gmail.com" style="color: #1E6FD9;">korvaventura@gmail.com</a></p>
         <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 24px;">El equipo Korva 🏅</p>
