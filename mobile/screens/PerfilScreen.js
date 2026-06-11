@@ -38,6 +38,8 @@ export default function PerfilScreen() {
   const [inputMeta, setInputMeta] = useState({});
   const [guardandoMeta, setGuardandoMeta] = useState({});
   const [modalStravaVisible, setModalStravaVisible] = useState(false);
+  const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
+  const [stravaHabilitado, setStravaHabilitado] = useState(false);
   const [formDireccion, setFormDireccion] = useState({
     nombre: '', direccion: '', ciudad: '', codigo_postal: '', pais: '', telefono: '',
   });
@@ -88,6 +90,13 @@ export default function PerfilScreen() {
       setStats(data.stats);
       setNivel(data.nivel);
       setInsignias(data.insignias || []);
+      // Traer strava_habilitado directamente de Supabase
+      const { data: userData } = await supabase
+        .from('users')
+        .select('strava_habilitado')
+        .eq('id', userId)
+        .single();
+      setStravaHabilitado(!!userData?.strava_habilitado);
     } catch (error) {
       console.error('Error:', error);
     }
@@ -228,6 +237,14 @@ export default function PerfilScreen() {
   };
 
   const conectarStrava = async () => {
+    if (stravaHabilitado) {
+      conectarStravaReal();
+    } else {
+      setModalStravaProximamente(true);
+    }
+  };
+
+  const conectarStravaReal = async () => {
     const result = await WebBrowser.openAuthSessionAsync(
       `${BACKEND_URL}/strava/auth`,
       'korva://strava-connected'
@@ -261,6 +278,34 @@ export default function PerfilScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+
+      {/* Modal Próximamente Strava */}
+      <Modal visible={modalStravaProximamente} transparent animationType="fade" onRequestClose={() => setModalStravaProximamente(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalEmoji}>🔗</Text>
+            <Text style={styles.modalTitulo}>Strava — Próximamente</Text>
+            <Text style={styles.modalSubtitulo}>La sincronización automática con Strava estará disponible en los próximos días.</Text>
+            <View style={styles.modalPaso}>
+              <Text style={styles.modalPasoEmoji}>📝</Text>
+              <View style={styles.modalPasoInfo}>
+                <Text style={styles.modalPasoTitulo}>Por ahora usá el registro manual</Text>
+                <Text style={styles.modalPasoDesc}>Desde la pestaña "Registrar" podés cargar tus km en segundos. Es igual de fácil y tus km se suman igual.</Text>
+              </View>
+            </View>
+            <View style={styles.modalPaso}>
+              <Text style={styles.modalPasoEmoji}>📲</Text>
+              <View style={styles.modalPasoInfo}>
+                <Text style={styles.modalPasoTitulo}>Te avisamos cuando esté listo</Text>
+                <Text style={styles.modalPasoDesc}>Cuando la integración esté disponible para vos, vas a ver el botón activo acá.</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.modalBtn} onPress={() => setModalStravaProximamente(false)}>
+              <Text style={styles.modalBtnText}>Entendido 👍</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal instructivo Strava */}
       <Modal visible={modalStravaVisible} transparent animationType="fade" onRequestClose={() => setModalStravaVisible(false)}>
@@ -484,7 +529,7 @@ export default function PerfilScreen() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>🏁</Text>
             <Text style={styles.emptyText}>Sin actividades todavia</Text>
-            <Text style={styles.emptySubtext}>Conectá Strava o registrá tus km manualmente</Text>
+            <Text style={styles.emptySubtext}>Registrá tus km desde la pestaña "Registrar"</Text>
           </View>
         ) : (
           <>
@@ -574,7 +619,7 @@ export default function PerfilScreen() {
                 <Text style={styles.stravaConectadoText}>✅ Strava conectado</Text>
                 <Text style={styles.stravaConectadoDesc}>Tus actividades se sincronizan automáticamente</Text>
               </View>
-              <TouchableOpacity onPress={conectarStrava}>
+              <TouchableOpacity onPress={conectarStravaReal}>
                 <Text style={styles.stravaReconectarText}>Reconectar</Text>
               </TouchableOpacity>
             </View>
@@ -582,9 +627,14 @@ export default function PerfilScreen() {
               <Text style={styles.stravaInstructivoBtnText}>📖 ¿Cómo funciona la sincronización?</Text>
             </TouchableOpacity>
           </>
-        ) : (
+        ) : stravaHabilitado ? (
           <TouchableOpacity style={styles.stravaButton} onPress={conectarStrava}>
             <Text style={styles.stravaButtonText}>🔗 Conectar con Strava</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.stravaProximoCard} onPress={() => setModalStravaProximamente(true)}>
+            <Text style={styles.stravaProximoTitulo}>🔗 Strava — Próximamente</Text>
+            <Text style={styles.stravaProximoDesc}>La sincronización automática estará disponible pronto. Por ahora registrá tus km manualmente. Tocá para más info.</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -680,6 +730,9 @@ const styles = StyleSheet.create({
   cancelarBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 14 },
   guardarBtn: { flex: 1, backgroundColor: '#1E6FD9', borderRadius: 10, padding: 12, alignItems: 'center' },
   guardarBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
+  stravaProximoCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#2a4a6a' },
+  stravaProximoTitulo: { fontSize: 14, fontWeight: 'bold', color: '#4a6a8a', marginBottom: 6 },
+  stravaProximoDesc: { fontSize: 12, color: '#4a6a8a', lineHeight: 18 },
   stravaButton: { backgroundColor: '#FC4C02', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center', marginBottom: 12 },
   stravaButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
   stravaConectadoCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1E3A5F', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 8, borderWidth: 1, borderColor: '#2a6a2a' },
