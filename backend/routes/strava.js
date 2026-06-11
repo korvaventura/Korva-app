@@ -239,8 +239,31 @@ router.get('/callback', async (req, res) => {
 
     if (error) throw error;
 
-    // ✅ FIX: scheme corregido de 'mobile://' a 'korva://'
-    res.redirect(`korva://strava-connected?userId=${user.id}`);
+    // Página HTML intermedia que abre el deep link — más confiable en Android
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Conectando con Strava...</title>
+          <style>
+            body { background: #0D1B2A; color: white; font-family: sans-serif;
+                   display: flex; flex-direction: column; align-items: center;
+                   justify-content: center; height: 100vh; margin: 0; }
+            p { color: #A8CFFF; font-size: 16px; }
+          </style>
+        </head>
+        <body>
+          <p>✅ Strava conectado. Volviendo a Korva...</p>
+          <script>
+            window.location.href = 'korva://strava-connected?userId=${user.id}';
+            setTimeout(() => {
+              window.location.href = 'korva://strava-connected?userId=${user.id}';
+            }, 500);
+          </script>
+        </body>
+      </html>
+    `);
   } catch (error) {
     res.json({ error: 'Error conectando con Strava', detalle: error.message });
   }
