@@ -337,15 +337,14 @@ export default function PerfilScreen() {
 
       {/* Retos activos — deslizables */}
       {inscripcionesActivas.length > 0 && (
-        <View style={styles.seccion}>
-          <Text style={styles.seccionTitulo}>🏅 Mis retos activos</Text>
+        <View style={{ width: '100%', marginBottom: 20 }}>
+          <Text style={[styles.seccionTitulo, { paddingHorizontal: 24 }]}>🏅 Mis retos activos</Text>
 
           <ScrollView
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={e => setRetoIndex(Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH))}
-            style={{ marginHorizontal: -0 }}
+            onMomentumScrollEnd={e => setRetoIndex(Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH))}
           >
             {inscripcionesActivas.map((inscripcion, idx) => {
               const cId = inscripcion.challenge_id;
@@ -359,78 +358,80 @@ export default function PerfilScreen() {
               const sesionesporSemana = inscripcion.modalidad === 'run' ? 4 : 5;
 
               return (
-                <View key={cId} style={[styles.retoCard, { width: CARD_WIDTH }]}>
-                  <Text style={styles.retoCardTitulo}>{inscripcion.challenges?.title}</Text>
+                <View key={cId} style={{ width: SCREEN_WIDTH, paddingHorizontal: 24 }}>
+                  <View style={styles.retoCard}>
+                    <Text style={styles.retoCardTitulo}>{inscripcion.challenges?.title}</Text>
 
-                  {/* Barra de progreso */}
-                  <View style={styles.retoProgressWrapper}>
-                    <View style={styles.retoProgressBar}>
-                      <View style={[styles.retoProgressFill, { width: `${pct}%` }]} />
+                    {/* Barra de progreso */}
+                    <View style={styles.retoProgressWrapper}>
+                      <View style={styles.retoProgressBar}>
+                        <View style={[styles.retoProgressFill, { width: `${pct}%` }]} />
+                      </View>
+                      <Text style={styles.retoProgressPct}>{pct.toFixed(0)}%</Text>
                     </View>
-                    <Text style={styles.retoProgressPct}>{pct.toFixed(0)}%</Text>
-                  </View>
-                  <Text style={styles.retoKm}>{kmCompletados.toFixed(1)} km de {distanciaTotal} km</Text>
+                    <Text style={styles.retoKm}>{kmCompletados.toFixed(1)} km de {distanciaTotal} km</Text>
 
-                  {/* Selector modalidad */}
-                  <Text style={styles.modalidadLabel}>Modalidad</Text>
-                  <View style={styles.modalidadBtns}>
-                    {modalidades.map((m, i) => (
-                      <TouchableOpacity
-                        key={i}
-                        style={[styles.modalidadBtn, inscripcion.modalidad === m.tipo && styles.modalidadBtnActivo]}
-                        onPress={() => cambiarModalidad(inscripcion, m.tipo)}
-                        disabled={cambiandoModalidad}
-                      >
-                        <Text style={[styles.modalidadBtnText, inscripcion.modalidad === m.tipo && styles.modalidadBtnTextActivo]}>
-                          {m.tipo === 'run' ? '🏃 Running' : '🚴 Ciclismo'}
+                    {/* Selector modalidad */}
+                    <Text style={styles.modalidadLabel}>Modalidad</Text>
+                    <View style={styles.modalidadBtns}>
+                      {modalidades.map((m, i) => (
+                        <TouchableOpacity
+                          key={i}
+                          style={[styles.modalidadBtn, inscripcion.modalidad === m.tipo && styles.modalidadBtnActivo]}
+                          onPress={() => cambiarModalidad(inscripcion, m.tipo)}
+                          disabled={cambiandoModalidad}
+                        >
+                          <Text style={[styles.modalidadBtnText, inscripcion.modalidad === m.tipo && styles.modalidadBtnTextActivo]}>
+                            {m.tipo === 'run' ? '🏃 Running' : '🚴 Ciclismo'}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    {/* Meta personal */}
+                    <View style={styles.metaSeparador} />
+                    <View style={styles.metaHeader}>
+                      <Text style={styles.metaTitulo}>🎯 Meta personal</Text>
+                      <TouchableOpacity onPress={() => {
+                        setInputMeta(prev => ({ ...prev, [cId]: mFecha ? new Date(mFecha).toLocaleDateString('es-AR') : '' }));
+                        setEditandoMeta(prev => ({ ...prev, [cId]: !prev[cId] }));
+                      }}>
+                        <Text style={styles.metaEditarBtn}>{editandoMeta[cId] ? 'Cancelar' : mFecha ? 'Editar' : '+ Agregar'}</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {editandoMeta[cId] ? (
+                      <View style={styles.metaInputRow}>
+                        <TextInput
+                          style={styles.metaInput}
+                          value={inputMeta[cId] || ''}
+                          onChangeText={v => setInputMeta(prev => ({ ...prev, [cId]: v }))}
+                          placeholder="DD/MM/AAAA"
+                          placeholderTextColor="#4a6a8a"
+                          keyboardType="numeric"
+                        />
+                        <TouchableOpacity style={styles.metaGuardarBtn} onPress={() => guardarMeta(inscripcion)} disabled={guardandoMeta[cId]}>
+                          {guardandoMeta[cId] ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.metaGuardarBtnText}>Guardar</Text>}
+                        </TouchableOpacity>
+                      </View>
+                    ) : mFecha ? (
+                      <View style={styles.metaInfo}>
+                        <Text style={styles.metaFechaText}>📅 {formatearFecha(mFecha)}</Text>
+                        <Text style={styles.metaDias}>{diasEntre(new Date(), new Date(mFecha))} días restantes</Text>
+                        <Text style={styles.metaRitmo}>
+                          {(() => {
+                            const diasRestantes = diasEntre(new Date(), new Date(mFecha));
+                            const sesionesRestantes = Math.floor(diasRestantes * factorDescanso);
+                            const kmRestantes = Math.max(0, distanciaTotal - kmCompletados);
+                            const kmPorSesion = sesionesRestantes > 0 ? (kmRestantes / sesionesRestantes).toFixed(1) : '—';
+                            return `${kmPorSesion}km por sesión · ${sesionesporSemana} veces/semana`;
+                          })()}
                         </Text>
-                      </TouchableOpacity>
-                    ))}
+                      </View>
+                    ) : (
+                      <Text style={styles.metaVacio}>Sin meta definida. Opcional.</Text>
+                    )}
                   </View>
-
-                  {/* Meta personal */}
-                  <View style={styles.metaSeparador} />
-                  <View style={styles.metaHeader}>
-                    <Text style={styles.metaTitulo}>🎯 Meta personal</Text>
-                    <TouchableOpacity onPress={() => {
-                      setInputMeta(prev => ({ ...prev, [cId]: mFecha ? new Date(mFecha).toLocaleDateString('es-AR') : '' }));
-                      setEditandoMeta(prev => ({ ...prev, [cId]: !prev[cId] }));
-                    }}>
-                      <Text style={styles.metaEditarBtn}>{editandoMeta[cId] ? 'Cancelar' : mFecha ? 'Editar' : '+ Agregar'}</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {editandoMeta[cId] ? (
-                    <View style={styles.metaInputRow}>
-                      <TextInput
-                        style={styles.metaInput}
-                        value={inputMeta[cId] || ''}
-                        onChangeText={v => setInputMeta(prev => ({ ...prev, [cId]: v }))}
-                        placeholder="DD/MM/AAAA"
-                        placeholderTextColor="#4a6a8a"
-                        keyboardType="numeric"
-                      />
-                      <TouchableOpacity style={styles.metaGuardarBtn} onPress={() => guardarMeta(inscripcion)} disabled={guardandoMeta[cId]}>
-                        {guardandoMeta[cId] ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.metaGuardarBtnText}>Guardar</Text>}
-                      </TouchableOpacity>
-                    </View>
-                  ) : mFecha ? (
-                    <View style={styles.metaInfo}>
-                      <Text style={styles.metaFechaText}>📅 {formatearFecha(mFecha)}</Text>
-                      <Text style={styles.metaDias}>{diasEntre(new Date(), new Date(mFecha))} días restantes</Text>
-                      <Text style={styles.metaRitmo}>
-                        {(() => {
-                          const diasRestantes = diasEntre(new Date(), new Date(mFecha));
-                          const sesionesRestantes = Math.floor(diasRestantes * factorDescanso);
-                          const kmRestantes = Math.max(0, distanciaTotal - kmCompletados);
-                          const kmPorSesion = sesionesRestantes > 0 ? (kmRestantes / sesionesRestantes).toFixed(1) : '—';
-                          return `${kmPorSesion}km por sesión · ${sesionesporSemana} veces/semana`;
-                        })()}
-                      </Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.metaVacio}>Sin meta definida. Opcional.</Text>
-                  )}
                 </View>
               );
             })}
@@ -613,7 +614,7 @@ const styles = StyleSheet.create({
   seccion: { width: '100%', paddingHorizontal: 24, marginBottom: 20 },
   seccionTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 12 },
   // Retos deslizables
-  retoCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20, marginRight: 12 },
+  retoCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20 },
   retoCardTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 14 },
   retoProgressWrapper: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
   retoProgressBar: { flex: 1, height: 8, backgroundColor: '#0D1B2A', borderRadius: 4 },
