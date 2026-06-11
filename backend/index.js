@@ -47,6 +47,8 @@ app.post('/upload', async (req, res) => {
   const { base64, carpeta, nombre } = req.body;
   if (!base64 || !carpeta) {
     return res.status(400).json({ error: 'Faltan datos: base64 y carpeta son requeridos' });
+  }
+  try {
     const buffer = Buffer.from(base64, 'base64');
     const fileName = nombre || `${carpeta}_${Date.now()}.jpg`;
     const path = `${carpeta}/${fileName}`;
