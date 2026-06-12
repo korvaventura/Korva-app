@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Clipboard, Alert, Image } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Clipboard, Alert, Image, Linking } from 'react-native';
 import { useState, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
@@ -607,9 +607,17 @@ export default function AdminScreen() {
                   </View>
                 </View>
 
-                <TouchableOpacity style={[styles.editarBtn, { marginBottom: 16 }]} onPress={cargarPedidosGrupales}>
-                  <Text style={styles.editarBtnText}>↻ Actualizar</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+                  <TouchableOpacity style={[styles.editarBtn, { flex: 1 }]} onPress={cargarPedidosGrupales}>
+                    <Text style={styles.editarBtnText}>↻ Actualizar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.editarBtn, { flex: 1, borderColor: '#4CAF50' }]}
+                    onPress={() => Linking.openURL(`${BACKEND_URL}/admin/export-envios`)}
+                  >
+                    <Text style={[styles.editarBtnText, { color: '#4CAF50' }]}>⬇️ Exportar CSV</Text>
+                  </TouchableOpacity>
+                </View>
 
                 {pedidosGrupales.map((grupo, i) => {
                   const expandido = grupoExpandido === grupo.group_id;
