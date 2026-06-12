@@ -732,7 +732,7 @@ app.get('/admin/pedidos-grupales', async (req, res) => {
   }
 });
 
-
+app.post('/usuarios/perfil', async (req, res) => {
   const { user_id, email, name } = req.body;
   try {
     const { data, error } = await supabase
