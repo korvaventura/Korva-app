@@ -153,6 +153,12 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
 
     if (pendienteExistente) {
       pendiente = pendienteExistente;
+      // Asegurar que tenga group_id (self) si no lo tenía
+      await supabase
+        .from('user_challenges')
+        .update({ group_id: user.id })
+        .eq('id', pendiente.id)
+        .is('group_id', null);
     } else if (challengeIdFromProduct) {
       const { data: nuevaInscripcion } = await supabase
         .from('user_challenges')
@@ -163,6 +169,7 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
           status: 'pending',
           km_completed: 0,
           started_at: new Date().toISOString(),
+          group_id: user.id,
         })
         .select('id, modalidad, challenge_id, challenges(title)')
         .single();

@@ -79,6 +79,16 @@ router.post('/:token', async (req, res) => {
 
     if (yaInscripto) return res.send(paginaError('Ya inscripto', 'Este email ya está registrado en este desafío.'));
 
+    // Obtener el group_id del comprador original (created_by)
+    let groupId = invitacion.created_by;
+    const { data: compradorUC } = await supabase
+      .from('user_challenges')
+      .select('group_id')
+      .eq('user_id', invitacion.created_by)
+      .eq('challenge_id', invitacion.challenge_id)
+      .single();
+    if (compradorUC?.group_id) groupId = compradorUC.group_id;
+
     // Inscribir en el challenge
     await supabase.from('user_challenges').insert({
       user_id: userId,
@@ -86,7 +96,8 @@ router.post('/:token', async (req, res) => {
       modalidad: modalidad || 'run',
       status: 'active',
       km_completed: 0,
-      started_at: new Date().toISOString()
+      started_at: new Date().toISOString(),
+      group_id: groupId,
     });
 
     // Marcar invitación como usada

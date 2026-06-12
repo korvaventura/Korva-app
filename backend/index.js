@@ -284,7 +284,6 @@ app.get('/perfil/:userId', async (req, res) => {
     const { data: challenges } = await supabase.from('user_challenges').select('status').eq('user_id', userId);
 
     const totalKm = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
-    const totalKmNum = totalKm;
     const activos = challenges?.filter(c => c.status === 'active').length || 0;
     const completados = challenges?.filter(c => c.status === 'completed' || c.status === 'shipped').length || 0;
 
@@ -296,12 +295,11 @@ app.get('/perfil/:userId', async (req, res) => {
       return { nombre: 'Explorador', emoji: '🌱', siguiente: 1 };
     };
 
-    const nivel = getNivel(completados);
-
     const getInsignias = (completados, totalKm, totalActividades, rachaActual, mejorRacha, semanasActivas, totalRun, totalRide, checkpointsDesbloqueados) => {
       const ganadas = [];
       const progreso = {};
 
+      // ── 🏃 DISTANCIA TOTAL ─────────────────────────────────────
       const hitos_km = [
         { km: 10,    id: 'km_10',    nombre: 'Primeros 10km',   emoji: '👟' },
         { km: 25,    id: 'km_25',    nombre: '25 km',           emoji: '🌱' },
@@ -321,6 +319,7 @@ app.get('/perfil/:userId', async (req, res) => {
       }
       progreso.distancia = proximoKm;
 
+      // ── 🔥 RACHAS (se ganan por mejor racha histórica) ──────────
       const hitos_racha = [
         { dias: 3,   id: 'racha_3',   nombre: '3 días seguidos',   emoji: '🔥' },
         { dias: 7,   id: 'racha_7',   nombre: 'Una semana',        emoji: '⚡' },
@@ -339,6 +338,7 @@ app.get('/perfil/:userId', async (req, res) => {
       }
       progreso.racha = proximaRacha;
 
+      // ── ⚡ ACTIVIDADES TOTALES ──────────────────────────────────
       const hitos_act = [
         { n: 1,   id: 'act_1',   nombre: 'Primera actividad',  emoji: '🌱' },
         { n: 5,   id: 'act_5',   nombre: '5 actividades',      emoji: '✊' },
@@ -356,6 +356,7 @@ app.get('/perfil/:userId', async (req, res) => {
       }
       progreso.actividades = proximaAct;
 
+      // ── 🏅 CHALLENGES ───────────────────────────────────────────
       const hitos_challenges = [
         { n: 1, id: 'ch_1', nombre: 'Primera medalla',      emoji: '🏅' },
         { n: 2, id: 'ch_2', nombre: 'Doble campeón',        emoji: '🥈' },
@@ -369,6 +370,7 @@ app.get('/perfil/:userId', async (req, res) => {
       }
       progreso.challenges = proximoCh;
 
+      // ── 📅 CONSISTENCIA (semanas activas en total) ──────────────
       const hitos_sem = [
         { n: 4,   id: 'sem_4',   nombre: '4 semanas activas',   emoji: '📅' },
         { n: 8,   id: 'sem_8',   nombre: '8 semanas activas',   emoji: '🗓️' },
@@ -384,6 +386,7 @@ app.get('/perfil/:userId', async (req, res) => {
       }
       progreso.consistencia = proximaSem;
 
+      // ── 🌐 MULTIDEPORTE ─────────────────────────────────────────
       if (totalRun > 0 && totalRide > 0) ganadas.push({ id: 'multideporte', nombre: 'Multideporte', emoji: '🌐', categoria: 'especial' });
       if (totalRun >= 50) ganadas.push({ id: 'corredor_pro', nombre: 'Corredor Pro', emoji: '🏃', categoria: 'especial' });
       if (totalRide >= 50) ganadas.push({ id: 'ciclista_pro', nombre: 'Ciclista Pro', emoji: '🚴', categoria: 'especial' });
@@ -392,7 +395,26 @@ app.get('/perfil/:userId', async (req, res) => {
       return { ganadas, progreso };
     };
 
-    // ── Calcular todo lo necesario ANTES de usarlo ──
+    // Calcular mejor racha histórica (días consecutivos)
+    const todasFechas = actividadesFechas.data?.map(a => a.recorded_at?.split('T')[0]) || [];
+    const diasUnicos = [...new Set(todasFechas)].sort();
+    let mejorRacha = 0, rachaTemp = 1;
+    for (let i = 1; i < diasUnicos.length; i++) {
+      const diff = (new Date(diasUnicos[i]) - new Date(diasUnicos[i-1])) / 86400000;
+      if (diff === 1) { rachaTemp++; mejorRacha = Math.max(mejorRacha, rachaTemp); }
+      else rachaTemp = 1;
+    }
+    if (diasUnicos.length > 0) mejorRacha = Math.max(mejorRacha, 1);
+
+    const { ganadas: insigniasGanadas, progreso: insigniasProgreso } = getInsignias(
+      completados, totalKmNum,
+      actividades?.length || 0,
+      racha, mejorRacha,
+      Object.keys(kmPorSemanaFull).length,
+      deporteCount.run, deporteCount.ride,
+      []
+    );
+
     const actividadesFechas = await supabase
       .from('activities').select('recorded_at').eq('user_id', userId).order('recorded_at', { ascending: false });
 
@@ -424,25 +446,6 @@ app.get('/perfil/:userId', async (req, res) => {
       : deporteCount.ride > 0
       ? 'Ciclista 🚴'
       : 'Explorador 🌱';
-
-    const todasFechas = actividadesFechas.data?.map(a => a.recorded_at?.split('T')[0]) || [];
-    const diasUnicos = [...new Set(todasFechas)].sort();
-    let mejorRacha = 0, rachaTemp = 1;
-    for (let i = 1; i < diasUnicos.length; i++) {
-      const diff = (new Date(diasUnicos[i]) - new Date(diasUnicos[i-1])) / 86400000;
-      if (diff === 1) { rachaTemp++; mejorRacha = Math.max(mejorRacha, rachaTemp); }
-      else rachaTemp = 1;
-    }
-    if (diasUnicos.length > 0) mejorRacha = Math.max(mejorRacha, 1);
-
-    const { ganadas: insigniasGanadas, progreso: insigniasProgreso } = getInsignias(
-      completados, totalKmNum,
-      actividades?.length || 0,
-      racha, mejorRacha,
-      Object.keys(kmPorSemanaFull).length,
-      deporteCount.run, deporteCount.ride,
-      []
-    );
 
     res.json({
       usuario,
@@ -578,6 +581,40 @@ app.post('/admin/medalla-enviada', async (req, res) => {
   }
 });
 
+// Marcar todo un grupo (pedido) como enviado de una vez
+app.post('/admin/grupo-enviado', async (req, res) => {
+  const { user_challenge_ids, tracking_number } = req.body;
+  if (!Array.isArray(user_challenge_ids) || user_challenge_ids.length === 0) {
+    return res.json({ error: 'Faltan user_challenge_ids' });
+  }
+  try {
+    const { data: ucs, error } = await supabase
+      .from('user_challenges')
+      .update({ status: 'shipped', tracking_number })
+      .in('id', user_challenge_ids)
+      .eq('status', 'completed') // solo marcar los que ya completaron
+      .select('*, challenges(*), users(*)');
+
+    if (error) throw error;
+
+    // Enviar email y push a cada miembro que sí completó
+    for (const uc of ucs) {
+      await enviarEmailMedallaEnCamino(uc.users.email, uc.users.name, uc.challenges.title, tracking_number);
+      if (uc.users?.push_token) {
+        await enviarPushNotification(
+          uc.users.push_token,
+          '📦 Tu medalla está en camino!',
+          `Tu medalla de ${uc.challenges.title} fue enviada. Pronto la tenés en casa 🏅`
+        );
+      }
+    }
+
+    res.json({ mensaje: `${ucs.length} medalla(s) marcadas como enviadas`, enviados: ucs.length });
+  } catch (error) {
+    res.json({ error: 'Error', detalle: error.message });
+  }
+});
+
 app.get('/admin/challenges-activos', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -620,7 +657,82 @@ app.get('/admin/challenges-activos', async (req, res) => {
   }
 });
 
-app.post('/usuarios/perfil', async (req, res) => {
+// Pedidos grupales — agrupa inscripciones por group_id y determina si están listas para enviar
+app.get('/admin/pedidos-grupales', async (req, res) => {
+  try {
+    // Traer todas las inscripciones activas y completadas (no enviadas) que tengan group_id
+    const { data, error } = await supabase
+      .from('user_challenges')
+      .select('*, challenges(*), users(*)')
+      .in('status', ['active', 'completed'])
+      .not('group_id', 'is', null);
+
+    if (error) throw error;
+
+    // Agrupar por group_id
+    const grupos = {};
+    for (const uc of data) {
+      const gid = uc.group_id;
+      if (!grupos[gid]) grupos[gid] = [];
+      grupos[gid].push(uc);
+    }
+
+    const DOS_SEMANAS_MS = 14 * 24 * 60 * 60 * 1000;
+    const ahora = Date.now();
+
+    const resultado = [];
+    for (const [groupId, miembros] of Object.entries(grupos)) {
+      const totalMiembros = miembros.length;
+      const completados = miembros.filter(m => m.status === 'completed');
+      const todosCompletados = completados.length === totalMiembros;
+
+      // Si nadie completó todavía, no mostrar este grupo
+      if (completados.length === 0) continue;
+
+      // Fecha del primer completado
+      const primerCompletado = completados
+        .map(m => new Date(m.completed_at).getTime())
+        .sort((a, b) => a - b)[0];
+
+      const diasDesdeElPrimero = Math.floor((ahora - primerCompletado) / (1000 * 60 * 60 * 24));
+      const esEnvioParcial = !todosCompletados && (ahora - primerCompletado) >= DOS_SEMANAS_MS;
+
+      // Solo mostrar si todos completaron, o si ya pasó el tope de 2 semanas
+      if (!todosCompletados && !esEnvioParcial) continue;
+
+      // El "comprador" / destinatario del envío es el miembro cuyo user_id === group_id
+      const comprador = miembros.find(m => m.user_id === groupId) || miembros[0];
+
+      resultado.push({
+        group_id: groupId,
+        comprador: comprador.users?.name,
+        email: comprador.users?.email,
+        direccion: comprador.users?.shipping_address,
+        total_miembros: totalMiembros,
+        completados: completados.length,
+        envio_parcial: esEnvioParcial,
+        dias_desde_primero: diasDesdeElPrimero,
+        miembros: miembros.map(m => ({
+          id: m.id,
+          usuario: m.users?.name,
+          email: m.users?.email,
+          challenge: m.challenges?.title,
+          modalidad: m.modalidad,
+          km_completados: m.km_completed,
+          status: m.status,
+          completed_at: m.completed_at,
+          tracking_number: m.tracking_number,
+        })),
+      });
+    }
+
+    res.json(resultado);
+  } catch (error) {
+    res.json({ error: 'Error', detalle: error.message });
+  }
+});
+
+
   const { user_id, email, name } = req.body;
   try {
     const { data, error } = await supabase
