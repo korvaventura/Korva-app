@@ -615,6 +615,95 @@ app.post('/admin/grupo-enviado', async (req, res) => {
   }
 });
 
+// Traduce términos comunes de direcciones español -> inglés usando Claude
+const traducirDireccion = async (direccion, indicaciones) => {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    // Sin API key: devolver tal cual
+    return { address: direccion || '', indications: indicaciones || '' };
+  }
+  try {
+    const prompt = `Translate the following shipping address fields from Spanish to English for an international courier. Keep proper nouns, street names, and numbers EXACTLY as written — only translate generic terms (e.g. "Avenida"->"Avenue", "Calle"->"Street", "Piso"->"Floor", "Depto"/"Departamento"->"Apt", "Edificio"->"Building", "Casa"->"House", "Entre calles"->"Between streets"). Respond ONLY with JSON, no markdown, no preamble:
+{"address": "...", "indications": "..."}
+
+Address: ${direccion || ''}
+Indications: ${indicaciones || ''}`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 500,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    const data = await response.json();
+    const text = data.content?.[0]?.text || '';
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    return { address: parsed.address || direccion || '', indications: parsed.indications || indicaciones || '' };
+  } catch (e) {
+    console.error('Error traduciendo dirección:', e.message);
+    return { address: direccion || '', indications: indicaciones || '' };
+  }
+};
+
+const csvEscape = (val) => {
+  const str = String(val ?? '');
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+};
+
+// Export CSV para el agente logístico — una fila por pedido (comprador + dirección), Units = total medallas
+app.get('/admin/export-envios', async (req, res) => {
+  try {
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const pedidosRes = await fetch(`${baseUrl}/admin/pedidos-grupales`);
+    const pedidos = await pedidosRes.json();
+
+    const filas = [];
+    for (const grupo of pedidos) {
+      const d = grupo.direccion;
+      const direccionTexto = d ? `${d.direccion || ''}, ${d.ciudad || ''}, ${d.codigo_postal || ''}, ${d.pais || ''}` : '';
+      const { address } = await traducirDireccion(direccionTexto, '');
+
+      const totalMedallas = grupo.miembros.filter(m => m.status === 'completed').length;
+
+      filas.push({
+        Name: grupo.comprador,
+        Units: totalMedallas,
+        Status: 'NEW ORDER',
+        'Mail address': grupo.email,
+        Address: address,
+        Country: d?.pais || '',
+        City: d?.ciudad || '',
+        'Postal code': d?.codigo_postal || '',
+        'Cel phone': d?.telefono || '',
+        Indications: '',
+        'Tracking Number': '',
+      });
+    }
+
+    const headers = ['Name', 'Units', 'Status', 'Mail address', 'Address', 'Country', 'City', 'Postal code', 'Cel phone', 'Indications', 'Tracking Number'];
+    const csvLines = [headers.join(',')];
+    for (const fila of filas) {
+      csvLines.push(headers.map(h => csvEscape(fila[h])).join(','));
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="korva_envios.csv"');
+    res.send('\uFEFF' + csvLines.join('\n'));
+  } catch (error) {
+    res.status(500).json({ error: 'Error exportando', detalle: error.message });
+  }
+});
+
 app.get('/admin/challenges-activos', async (req, res) => {
   try {
     const { data, error } = await supabase
