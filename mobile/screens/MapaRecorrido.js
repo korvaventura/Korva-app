@@ -458,7 +458,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
     <View style={styles.container}>
       <Text style={styles.titulo}>{titulo}</Text>
 
-      <View style={styles.mapaWrapper}>
+      <View style={styles.mapaWrapper} onStartShouldSetResponderCapture={() => true}>
         <ScrollView
           ref={scrollViewRef}
           horizontal
