@@ -52,6 +52,45 @@ export default function AdminScreen() {
   const [cargandoEvidencias, setCargandoEvidencias] = useState(false);
   const [metricas, setMetricas] = useState(null);
   const [cargandoMetricas, setCargandoMetricas] = useState(false);
+  const [pedidosGrupales, setPedidosGrupales] = useState([]);
+  const [cargandoGrupos, setCargandoGrupos] = useState(false);
+  const [trackingGrupo, setTrackingGrupo] = useState({});
+  const [enviandoGrupo, setEnviandoGrupo] = useState(null);
+  const [grupoExpandido, setGrupoExpandido] = useState(null);
+
+  const cargarPedidosGrupales = async () => {
+    setCargandoGrupos(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/admin/pedidos-grupales`);
+      const data = await res.json();
+      setPedidosGrupales(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error('Error cargando pedidos grupales:', e);
+    } finally {
+      setCargandoGrupos(false);
+    }
+  };
+
+  const enviarGrupo = async (grupo) => {
+    const ids = grupo.miembros.filter(m => m.status === 'completed').map(m => m.id);
+    if (ids.length === 0) return;
+    setEnviandoGrupo(grupo.group_id);
+    try {
+      const res = await fetch(`${BACKEND_URL}/admin/grupo-enviado`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_challenge_ids: ids, tracking_number: trackingGrupo[grupo.group_id] || '' })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.detalle);
+      Alert.alert('✅ Enviado', `${data.enviados} medalla(s) marcadas como enviadas.`);
+      cargarPedidosGrupales();
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo marcar el grupo como enviado.');
+    } finally {
+      setEnviandoGrupo(null);
+    }
+  };
 
   const cargarMetricas = async () => {
     setCargandoMetricas(true);
@@ -72,6 +111,9 @@ export default function AdminScreen() {
     }
     if (vista === 'metricas') {
       cargarMetricas();
+    }
+    if (vista === 'grupos') {
+      cargarPedidosGrupales();
     }
   }, [vista]);
 
@@ -395,6 +437,7 @@ export default function AdminScreen() {
 
   const MENU_OPCIONES = [
     { id: 'envios',    emoji: '📬', label: 'Envíos' },
+    { id: 'grupos',    emoji: '👥', label: 'Pedidos grupales' },
     { id: 'evidencias', emoji: '📸', label: 'Evidencias' },
     { id: 'metricas',  emoji: '📊', label: 'Métricas' },
     { id: 'editar',    emoji: '✏️', label: 'Editar retos' },
@@ -527,6 +570,129 @@ export default function AdminScreen() {
             })
           }
         </>
+      )}
+
+      {vista === 'grupos' && (
+        <View>
+          {cargandoGrupos ? (
+            <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
+          ) : pedidosGrupales.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyEmoji}>📦</Text>
+              <Text style={styles.emptyText}>Sin pedidos listos</Text>
+              <Text style={styles.emptySubtext}>Acá aparecen los grupos cuando todos los miembros completen su desafío, o pasen 2 semanas desde el primero.</Text>
+              <TouchableOpacity style={[styles.editarBtn, { marginTop: 16 }]} onPress={cargarPedidosGrupales}>
+                <Text style={styles.editarBtnText}>↻ Actualizar</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (() => {
+            const listos = pedidosGrupales.filter(g => !g.envio_parcial);
+            const parciales = pedidosGrupales.filter(g => g.envio_parcial);
+
+            return (
+              <>
+                {/* Resumen */}
+                <View style={styles.resumenRow}>
+                  <View style={[styles.resumenCard, { borderColor: '#4CAF50' }]}>
+                    <Text style={[styles.resumenNumero, { color: '#4CAF50' }]}>{listos.length}</Text>
+                    <Text style={styles.resumenLabel}>Listos</Text>
+                  </View>
+                  <View style={[styles.resumenCard, { borderColor: '#FC4C02' }]}>
+                    <Text style={[styles.resumenNumero, { color: '#FC4C02' }]}>{parciales.length}</Text>
+                    <Text style={styles.resumenLabel}>Parciales</Text>
+                  </View>
+                  <View style={[styles.resumenCard, { borderColor: '#1E6FD9' }]}>
+                    <Text style={[styles.resumenNumero, { color: '#1E6FD9' }]}>{pedidosGrupales.length}</Text>
+                    <Text style={styles.resumenLabel}>Total</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity style={[styles.editarBtn, { marginBottom: 16 }]} onPress={cargarPedidosGrupales}>
+                  <Text style={styles.editarBtnText}>↻ Actualizar</Text>
+                </TouchableOpacity>
+
+                {pedidosGrupales.map((grupo, i) => {
+                  const expandido = grupoExpandido === grupo.group_id;
+                  return (
+                    <View key={i} style={[styles.card, grupo.envio_parcial && styles.cardUrgente, { paddingBottom: expandido ? 20 : 4 }]}>
+                      {/* Header siempre visible — tocar para expandir */}
+                      <TouchableOpacity onPress={() => setGrupoExpandido(expandido ? null : grupo.group_id)}>
+                        <View style={styles.cardHeader}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.deporte}>
+                              {grupo.envio_parcial ? `⚠️ PARCIAL — hace ${grupo.dias_desde_primero}d` : '✅ LISTO'}
+                            </Text>
+                            <Text style={styles.nombre}>{grupo.comprador}</Text>
+                            <Text style={styles.challenge}>{grupo.completados} de {grupo.total_miembros} completaron</Text>
+                          </View>
+                          <Text style={{ color: '#4a6a8a', fontSize: 18 }}>{expandido ? '▲' : '▼'}</Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      {expandido && (
+                        <>
+                          <Text style={styles.email}>{grupo.email}</Text>
+                          {renderDireccion(grupo.direccion)}
+
+                          {/* Lista de miembros */}
+                          <View style={styles.sinDireccionBox}>
+                            {grupo.miembros.map((m, j) => (
+                              <View key={j} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 }}>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' }}>
+                                    {m.status === 'completed' ? '✅' : '⏳'} {m.usuario}
+                                  </Text>
+                                  <Text style={{ color: '#A8CFFF', fontSize: 11 }}>
+                                    {m.modalidad === 'run' ? '🏃' : '🚴'} {m.challenge} · {m.km_completados} km
+                                  </Text>
+                                </View>
+                                {m.status !== 'completed' && (
+                                  <Text style={{ color: '#4a6a8a', fontSize: 11 }}>pendiente</Text>
+                                )}
+                              </View>
+                            ))}
+                          </View>
+
+                          {grupo.envio_parcial && (
+                            <Text style={[styles.evidenciaAdminTap, { color: '#FC4C02', marginBottom: 10 }]}>
+                              Solo se enviarán las medallas de quienes completaron ({grupo.completados}). El resto quedará pendiente para un próximo envío.
+                            </Text>
+                          )}
+
+                          <TouchableOpacity style={styles.copiarBtn} onPress={() => copiarDireccion({
+                            direccion: grupo.direccion,
+                            usuario: grupo.comprador,
+                            email: grupo.email,
+                            challenge: grupo.miembros.map(m => `${m.usuario} (${m.challenge})`).join(', '),
+                            modalidad: 'run',
+                            km_completados: '—',
+                          })}>
+                            <Text style={styles.copiarBtnText}>📋 Copiar datos de envío</Text>
+                          </TouchableOpacity>
+
+                          <Text style={styles.label}>NUMERO DE TRACKING</Text>
+                          <TextInput
+                            style={styles.input}
+                            value={trackingGrupo[grupo.group_id] || ''}
+                            onChangeText={(val) => setTrackingGrupo(prev => ({ ...prev, [grupo.group_id]: val }))}
+                            placeholder="Ej: AR123456789"
+                            placeholderTextColor="#4a6a8a"
+                          />
+                          <TouchableOpacity style={styles.button} onPress={() => enviarGrupo(grupo)} disabled={enviandoGrupo === grupo.group_id}>
+                            {enviandoGrupo === grupo.group_id
+                              ? <ActivityIndicator color="#FFFFFF" size="small" />
+                              : <Text style={styles.buttonText}>📬 Marcar pedido como enviado y notificar</Text>
+                            }
+                          </TouchableOpacity>
+                        </>
+                      )}
+                    </View>
+                  );
+                })}
+              </>
+            );
+          })()}
+        </View>
       )}
 
       {vista === 'metricas' && (
