@@ -284,6 +284,7 @@ app.get('/perfil/:userId', async (req, res) => {
     const { data: challenges } = await supabase.from('user_challenges').select('status').eq('user_id', userId);
 
     const totalKm = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
+    const totalKmNum = totalKm;
     const activos = challenges?.filter(c => c.status === 'active').length || 0;
     const completados = challenges?.filter(c => c.status === 'completed' || c.status === 'shipped').length || 0;
 
@@ -295,11 +296,12 @@ app.get('/perfil/:userId', async (req, res) => {
       return { nombre: 'Explorador', emoji: '🌱', siguiente: 1 };
     };
 
+    const nivel = getNivel(completados);
+
     const getInsignias = (completados, totalKm, totalActividades, rachaActual, mejorRacha, semanasActivas, totalRun, totalRide, checkpointsDesbloqueados) => {
       const ganadas = [];
       const progreso = {};
 
-      // ── 🏃 DISTANCIA TOTAL ─────────────────────────────────────
       const hitos_km = [
         { km: 10,    id: 'km_10',    nombre: 'Primeros 10km',   emoji: '👟' },
         { km: 25,    id: 'km_25',    nombre: '25 km',           emoji: '🌱' },
@@ -319,7 +321,6 @@ app.get('/perfil/:userId', async (req, res) => {
       }
       progreso.distancia = proximoKm;
 
-      // ── 🔥 RACHAS (se ganan por mejor racha histórica) ──────────
       const hitos_racha = [
         { dias: 3,   id: 'racha_3',   nombre: '3 días seguidos',   emoji: '🔥' },
         { dias: 7,   id: 'racha_7',   nombre: 'Una semana',        emoji: '⚡' },
@@ -338,7 +339,6 @@ app.get('/perfil/:userId', async (req, res) => {
       }
       progreso.racha = proximaRacha;
 
-      // ── ⚡ ACTIVIDADES TOTALES ──────────────────────────────────
       const hitos_act = [
         { n: 1,   id: 'act_1',   nombre: 'Primera actividad',  emoji: '🌱' },
         { n: 5,   id: 'act_5',   nombre: '5 actividades',      emoji: '✊' },
@@ -356,7 +356,6 @@ app.get('/perfil/:userId', async (req, res) => {
       }
       progreso.actividades = proximaAct;
 
-      // ── 🏅 CHALLENGES ───────────────────────────────────────────
       const hitos_challenges = [
         { n: 1, id: 'ch_1', nombre: 'Primera medalla',      emoji: '🏅' },
         { n: 2, id: 'ch_2', nombre: 'Doble campeón',        emoji: '🥈' },
@@ -370,7 +369,6 @@ app.get('/perfil/:userId', async (req, res) => {
       }
       progreso.challenges = proximoCh;
 
-      // ── 📅 CONSISTENCIA (semanas activas en total) ──────────────
       const hitos_sem = [
         { n: 4,   id: 'sem_4',   nombre: '4 semanas activas',   emoji: '📅' },
         { n: 8,   id: 'sem_8',   nombre: '8 semanas activas',   emoji: '🗓️' },
@@ -386,7 +384,6 @@ app.get('/perfil/:userId', async (req, res) => {
       }
       progreso.consistencia = proximaSem;
 
-      // ── 🌐 MULTIDEPORTE ─────────────────────────────────────────
       if (totalRun > 0 && totalRide > 0) ganadas.push({ id: 'multideporte', nombre: 'Multideporte', emoji: '🌐', categoria: 'especial' });
       if (totalRun >= 50) ganadas.push({ id: 'corredor_pro', nombre: 'Corredor Pro', emoji: '🏃', categoria: 'especial' });
       if (totalRide >= 50) ganadas.push({ id: 'ciclista_pro', nombre: 'Ciclista Pro', emoji: '🚴', categoria: 'especial' });
@@ -395,26 +392,7 @@ app.get('/perfil/:userId', async (req, res) => {
       return { ganadas, progreso };
     };
 
-    // Calcular mejor racha histórica (días consecutivos)
-    const todasFechas = actividadesFechas.data?.map(a => a.recorded_at?.split('T')[0]) || [];
-    const diasUnicos = [...new Set(todasFechas)].sort();
-    let mejorRacha = 0, rachaTemp = 1;
-    for (let i = 1; i < diasUnicos.length; i++) {
-      const diff = (new Date(diasUnicos[i]) - new Date(diasUnicos[i-1])) / 86400000;
-      if (diff === 1) { rachaTemp++; mejorRacha = Math.max(mejorRacha, rachaTemp); }
-      else rachaTemp = 1;
-    }
-    if (diasUnicos.length > 0) mejorRacha = Math.max(mejorRacha, 1);
-
-    const { ganadas: insigniasGanadas, progreso: insigniasProgreso } = getInsignias(
-      completados, totalKmNum,
-      actividades?.length || 0,
-      racha, mejorRacha,
-      Object.keys(kmPorSemanaFull).length,
-      deporteCount.run, deporteCount.ride,
-      []
-    );
-
+    // ── Calcular todo lo necesario ANTES de usarlo ──
     const actividadesFechas = await supabase
       .from('activities').select('recorded_at').eq('user_id', userId).order('recorded_at', { ascending: false });
 
@@ -446,6 +424,25 @@ app.get('/perfil/:userId', async (req, res) => {
       : deporteCount.ride > 0
       ? 'Ciclista 🚴'
       : 'Explorador 🌱';
+
+    const todasFechas = actividadesFechas.data?.map(a => a.recorded_at?.split('T')[0]) || [];
+    const diasUnicos = [...new Set(todasFechas)].sort();
+    let mejorRacha = 0, rachaTemp = 1;
+    for (let i = 1; i < diasUnicos.length; i++) {
+      const diff = (new Date(diasUnicos[i]) - new Date(diasUnicos[i-1])) / 86400000;
+      if (diff === 1) { rachaTemp++; mejorRacha = Math.max(mejorRacha, rachaTemp); }
+      else rachaTemp = 1;
+    }
+    if (diasUnicos.length > 0) mejorRacha = Math.max(mejorRacha, 1);
+
+    const { ganadas: insigniasGanadas, progreso: insigniasProgreso } = getInsignias(
+      completados, totalKmNum,
+      actividades?.length || 0,
+      racha, mejorRacha,
+      Object.keys(kmPorSemanaFull).length,
+      deporteCount.run, deporteCount.ride,
+      []
+    );
 
     res.json({
       usuario,
