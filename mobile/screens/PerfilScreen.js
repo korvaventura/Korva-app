@@ -40,6 +40,7 @@ export default function PerfilScreen() {
   const [guardandoMeta, setGuardandoMeta] = useState({});
   const [modalStravaVisible, setModalStravaVisible] = useState(false);
   const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
+  const [modalCambioModalidad, setModalCambioModalidad] = useState(null); // { inscripcion, nuevaModalidad, nuevaData }
   const [stravaHabilitado, setStravaHabilitado] = useState(false);
   const [formDireccion, setFormDireccion] = useState({
     nombre: '', direccion: '', ciudad: '', codigo_postal: '', pais: '', telefono: '',
@@ -156,30 +157,31 @@ export default function PerfilScreen() {
     } catch (error) {}
   };
 
-  const cambiarModalidad = async (inscripcion, nuevaModalidad) => {
+  const cambiarModalidad = (inscripcion, nuevaModalidad) => {
     if (nuevaModalidad === inscripcion.modalidad) return;
-    Alert.alert('Cambiar modalidad', `¿Querés cambiar a ${nuevaModalidad === 'run' ? 'Running 🏃' : 'Ciclismo 🚴'}?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Confirmar',
-        onPress: async () => {
-          setCambiandoModalidad(true);
-          try {
-            await fetch(`${BACKEND_URL}/usuarios/modalidad`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ user_id: userId, challenge_id: inscripcion.challenge_id, modalidad: nuevaModalidad })
-            });
-            setInscripcionesActivas(prev => prev.map(i =>
-              i.challenge_id === inscripcion.challenge_id ? { ...i, modalidad: nuevaModalidad } : i
-            ));
-            Alert.alert('✅ Modalidad actualizada');
-          } catch (error) {
-            Alert.alert('Error', 'No se pudo cambiar la modalidad');
-          } finally { setCambiandoModalidad(false); }
-        }
-      }
-    ]);
+    const modalidades = inscripcion.challenges?.modalidades || [];
+    const nuevaData = modalidades.find(m => m.tipo === nuevaModalidad);
+    setModalCambioModalidad({ inscripcion, nuevaModalidad, nuevaData });
+  };
+
+  const confirmarCambioModalidad = async () => {
+    if (!modalCambioModalidad) return;
+    const { inscripcion, nuevaModalidad } = modalCambioModalidad;
+    setModalCambioModalidad(null);
+    setCambiandoModalidad(true);
+    try {
+      await fetch(`${BACKEND_URL}/usuarios/modalidad`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, challenge_id: inscripcion.challenge_id, modalidad: nuevaModalidad })
+      });
+      setInscripcionesActivas(prev => prev.map(i =>
+        i.challenge_id === inscripcion.challenge_id ? { ...i, modalidad: nuevaModalidad } : i
+      ));
+      Alert.alert('✅ Modalidad actualizada');
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo cambiar la modalidad');
+    } finally { setCambiandoModalidad(false); }
   };
 
   const guardarMeta = async (inscripcion) => {
@@ -339,6 +341,47 @@ export default function PerfilScreen() {
             </View>
             <TouchableOpacity style={styles.modalBtn} onPress={() => setModalStravaVisible(false)}>
               <Text style={styles.modalBtnText}>¡Entendido, a correr! 🚀</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal cambio de modalidad */}
+      <Modal visible={!!modalCambioModalidad} transparent animationType="fade" onRequestClose={() => setModalCambioModalidad(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalEmoji}>{modalCambioModalidad?.nuevaModalidad === 'run' ? '🏃' : '🚴'}</Text>
+            <Text style={styles.modalTitulo}>
+              {modalCambioModalidad?.nuevaModalidad === 'run' ? 'Running' : 'Ciclismo'} — {modalCambioModalidad?.nuevaData?.distancia_km} km
+            </Text>
+            <Text style={styles.modalSubtitulo}>{modalCambioModalidad?.inscripcion?.challenges?.title}</Text>
+
+            <View style={styles.confirmInfoBox}>
+              <Text style={styles.confirmInfoTexto}>
+                📏 La modalidad define tu meta personal — es un desafío contra vos mismo, no cambia tu medalla.
+              </Text>
+              <Text style={styles.confirmInfoTexto}>
+                🔄 Dentro de esta modalidad podés registrar cualquier actividad (correr, caminar, andar en bici) — todo suma hacia tus {modalCambioModalidad?.nuevaData?.distancia_km} km.
+              </Text>
+              {(() => {
+                const modalidades = modalCambioModalidad?.inscripcion?.challenges?.modalidades || [];
+                const baseRun = modalidades.find(m => m.tipo === 'run');
+                if (modalCambioModalidad?.nuevaModalidad !== 'run' && baseRun && baseRun.distancia_km !== modalCambioModalidad?.nuevaData?.distancia_km) {
+                  return (
+                    <Text style={styles.confirmInfoTexto}>
+                      🏅 Tu medalla física dirá <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>{baseRun.distancia_km}K</Text> — el diseño es el mismo para todas las modalidades del desafío.
+                    </Text>
+                  );
+                }
+                return null;
+              })()}
+            </View>
+
+            <TouchableOpacity style={styles.modalBtn} onPress={confirmarCambioModalidad}>
+              <Text style={styles.modalBtnText}>Confirmar cambio</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ alignItems: 'center', paddingVertical: 12 }} onPress={() => setModalCambioModalidad(null)}>
+              <Text style={{ color: '#4a6a8a', fontSize: 14 }}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -808,4 +851,6 @@ const styles = StyleSheet.create({
   modalPasoDesc: { fontSize: 12, color: '#A8CFFF', lineHeight: 18 },
   modalBtn: { backgroundColor: '#FC4C02', paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginTop: 8 },
   modalBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
+  confirmInfoBox: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, marginBottom: 16, gap: 12 },
+  confirmInfoTexto: { fontSize: 13, color: '#A8CFFF', lineHeight: 20 },
 });
