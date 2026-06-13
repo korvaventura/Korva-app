@@ -148,22 +148,22 @@ const CONFIGS = {
   // ── SAN ANDRÉS 27km — ARCHIPIÉLAGO SALTANDO ENTRE ISLAS ─────
   san_andres: {
     titulo: '🗺️ El Archipiélago de San Andrés',
-    distanciaFisica: 27,
+    distanciaFisica: 57,
     clima: 'caribe',
     // Ruta salta entre: isla principal → Johnny Cay → Rose Cay → Haynes Cay → Acuario → vuelta sur
     segmentos: [
       { km: 0,  x: 280, y: 160 }, // San Andrés Town (isla principal, norte)
-      { km: 3,  x: 340, y: 100 }, // Norte de la isla
-      { km: 5,  x: 420, y: 70  }, // Johnny Cay (salto al cayo)
-      { km: 7,  x: 520, y: 55  }, // Rose Cay
-      { km: 10, x: 640, y: 70  }, // Haynes Cay
-      { km: 13, x: 700, y: 130 }, // El Acuario (arrecife este)
-      { km: 16, x: 660, y: 190 }, // Cueva de Morgan (sur isla)
-      { km: 19, x: 540, y: 215 }, // El Hoyo (costa oeste)
-      { km: 21, x: 400, y: 220 }, // Costa suroeste
-      { km: 23, x: 280, y: 210 }, // La Piscinita
-      { km: 25, x: 160, y: 200 }, // Costa sur
-      { km: 27, x: 100, y: 180 }, // Punta Sur
+      { km: 6,  x: 340, y: 100 }, // Norte de la isla
+      { km: 10, x: 420, y: 70  }, // Johnny Cay (salto al cayo)
+      { km: 15, x: 520, y: 55  }, // Rose Cay
+      { km: 21, x: 640, y: 70  }, // Haynes Cay
+      { km: 27, x: 700, y: 130 }, // El Acuario (arrecife este)
+      { km: 34, x: 660, y: 190 }, // Cueva de Morgan (sur isla)
+      { km: 40, x: 540, y: 215 }, // El Hoyo (costa oeste)
+      { km: 44, x: 400, y: 220 }, // Costa suroeste
+      { km: 48, x: 280, y: 210 }, // La Piscinita
+      { km: 53, x: 160, y: 200 }, // Costa sur
+      { km: 57, x: 100, y: 180 }, // Punta Sur
     ],
     decoraciones: () => (
       <>
@@ -213,23 +213,23 @@ const CONFIGS = {
         pista: 'Esta isla tiene un mar con siete nombres. Y una identidad que ningún país supo bien qué hacer con ella.',
         desc: 'San Andrés es colombiana por decreto pero caribeña por alma. Sus habitantes originales, los raizales, son descendientes de esclavos africanos, piratas ingleses y colonos puritanos que llegaron en 1629 — antes que Colombia existiera. Hablan creole y se sienten más cercanos a Jamaica que a Bogotá. Colombia los reclamó en 1822, Nicaragua los disputó hasta 2012. La identidad raizal sobrevivió a todo.',
         datoRaro: '🌊 El "Sea of Seven Colors" no es marketing. La combinación de profundidades y refracción de luz crea literalmente siete tonos de azul y verde visibles desde el aire.' },
-      { id: 'johnny_cay', nombre: 'Johnny Cay', kmFisico: 5, emoji: '🏖️', x: 420, y: 70,
+      { id: 'johnny_cay', nombre: 'Johnny Cay', kmFisico: 11, emoji: '🏖️', x: 420, y: 70,
         pista: 'Un islote tan pequeño que podés rodearlo caminando en 10 minutos. Pero su arrecife es otro mundo.',
         desc: 'Johnny Cay es un islote coralino de apenas 4 hectáreas rodeado por uno de los arrecifes más coloridos del Caribe. Sus aguas tienen visibilidad de hasta 30 metros. Es reserva natural protegida — no se puede construir nada. La única infraestructura permitida es la que ya existía antes de la declaración de reserva.',
         datoRaro: '🐠 El pez loro come coral y lo excreta como arena blanca. El 85% de la arena blanca de las playas caribeñas es, técnicamente, excremento de pez loro.' },
-      { id: 'haynes_cay', nombre: 'Haynes Cay', kmFisico: 10, emoji: '🤿', x: 640, y: 70,
+      { id: 'haynes_cay', nombre: 'Haynes Cay', kmFisico: 21, emoji: '🤿', x: 640, y: 70,
         pista: 'Una piscina que no construyó nadie. Y que tardó miles de años en formarse.',
         desc: 'Haynes Cay y el área del Acuario forman una laguna natural protegida por la barrera de coral. Visibilidad de hasta 30 metros. Las tortugas verdes que anidan aquí hacen migraciones de hasta 2.000km para volver exactamente a la misma playa donde nacieron.',
         datoRaro: '🐢 Las tortugas marinas existen desde hace 110 millones de años. Vieron nacer y morir a los dinosaurios. Su linaje es 50 veces más antiguo que el ser humano moderno.' },
-      { id: 'cueva_morgan', nombre: 'Cueva de Morgan', kmFisico: 16, emoji: '💰', x: 660, y: 190,
+      { id: 'cueva_morgan', nombre: 'Cueva de Morgan', kmFisico: 34, emoji: '💰', x: 660, y: 190,
         pista: 'El pirata más rico de su época escondió algo acá. Cuatrocientos años después, nadie lo encontró.',
         desc: 'Henry Morgan no era un pirata común — era un corsario con patente inglesa. En 1671 saqueó Panamá City y desapareció con un botín equivalente a cientos de millones actuales. La leyenda dice que parte llegó a San Andrés. Arqueólogos exploraron la cueva varias veces. No encontraron nada. O eso dicen.',
         datoRaro: '🏴‍☠️ Morgan murió siendo el Gobernador de Jamaica, condecorado por la Corona inglesa. El rey Carlos II lo nombró caballero en 1674.' },
-      { id: 'el_hoyo', nombre: 'El Hoyo', kmFisico: 21, emoji: '🌀', x: 540, y: 215,
+      { id: 'el_hoyo', nombre: 'El Hoyo', kmFisico: 44, emoji: '🌀', x: 540, y: 215,
         pista: 'Hay un lugar en esta isla donde el mar respira. Los isleños lo saben desde siempre. La ciencia tardó en entenderlo.',
         desc: 'El Hoyo es una depresión coralina donde el agua del mar entra por grietas y emerge en burbujas y remolinos impredecibles. Los raizales lo usan como indicador meteorológico natural: cuando El Hoyo está muy activo, viene tormenta. La ciencia moderna confirmó que tienen razón.',
         datoRaro: '🌀 San Andrés tiene 27 km² de superficie pero su plataforma de coral se extiende por 300.000 km² bajo el mar. Lo que ves es menos del 0.01% de lo que realmente es la isla.' },
-      { id: 'punta_sur', nombre: 'Punta Sur', kmFisico: 27, emoji: '🌅', x: 100, y: 180,
+      { id: 'punta_sur', nombre: 'Punta Sur', kmFisico: 57, emoji: '🌅', x: 100, y: 180,
         pista: 'El punto más al sur del archipiélago. Desde acá, el siguiente país está a más de 1.000km.',
         desc: '¡Lo lograste! Punta Sur es el extremo meridional de la isla, marcado por un faro blanco. Mirando al sur no hay tierra hasta Colombia continental — a 750km. San Andrés es geográficamente más cercana a Nicaragua que a Colombia, lo que explica la disputa territorial que duró hasta 2012.',
         datoRaro: '🌅 San Andrés recibe más de un millón de turistas por año en 27 km². Es una de las densidades turísticas más altas del Caribe. Pero el 40% de la isla sigue siendo selva tropical protegida.' },
@@ -458,13 +458,18 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
     <View style={styles.container}>
       <Text style={styles.titulo}>{titulo}</Text>
 
-      <View style={styles.mapaWrapper} onStartShouldSetResponderCapture={() => true}>
+      <View
+        style={styles.mapaWrapper}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderTerminationRequest={() => false}
+      >
         <ScrollView
           ref={scrollViewRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ width: MAPA_WIDTH_VIRTUAL }}
-          onScrollBeginDrag={() => onScrollBegin && onScrollBegin()}
+          onTouchStart={() => onScrollBegin && onScrollBegin()}
           onScrollEndDrag={() => onScrollEnd && onScrollEnd()}
           onMomentumScrollEnd={() => onScrollEnd && onScrollEnd()}
         >
