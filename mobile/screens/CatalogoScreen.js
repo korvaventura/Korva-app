@@ -17,7 +17,6 @@ export default function CatalogoScreen() {
   const [challengesBloqueados, setChallengesBloqueados] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [modalModalidad, setModalModalidad] = useState(false);
-  const [modalPais, setModalPais] = useState(false);
   const [challengeSeleccionado, setChallengeSeleccionado] = useState(null);
   const [detalleVisible, setDetalleVisible] = useState(false);
   const [userId, setUserId] = useState(null);
@@ -76,23 +75,15 @@ export default function CatalogoScreen() {
         Alert.alert('Ya inscripto', data.mensaje);
         return;
       }
-      setModalPais(true);
+      const link = challengeSeleccionado?.link_shopify;
+      if (!link) {
+        Alert.alert('Link no disponible', 'El link de pago para este reto todavía no está configurado. Contactanos a korvaventura@gmail.com');
+        return;
+      }
+      Linking.openURL(link);
     } catch (error) {
       Alert.alert('Error', 'No se pudo completar la inscripción.');
     }
-  };
-
-  const elegirPais = (pais) => {
-    setModalPais(false);
-    const link = pais === 'argentina'
-      ? challengeSeleccionado?.link_mercadopago
-      : challengeSeleccionado?.link_shopify;
-
-    if (!link) {
-      Alert.alert('Link no disponible', 'El link de pago para este reto todavía no está configurado. Contactanos a korvaventura@gmail.com');
-      return;
-    }
-    Linking.openURL(link);
   };
 
   if (detalleVisible && challengeSeleccionado) {
@@ -277,31 +268,6 @@ export default function CatalogoScreen() {
         </View>
       </Modal>
 
-      <Modal visible={modalPais} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitulo}>Donde estas?</Text>
-            <Text style={styles.modalSubtitulo}>Selecciona tu metodo de pago</Text>
-            <TouchableOpacity style={styles.modalButton} onPress={() => elegirPais('argentina')}>
-              <View>
-                <Text style={styles.modalButtonTitulo}>🇦🇷 Argentina</Text>
-                <Text style={styles.modalButtonSub}>Pagar con Mercado Pago</Text>
-              </View>
-              <Ionicons name="arrow-forward" size={18} color="#1E6FD9" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalButton} onPress={() => elegirPais('internacional')}>
-              <View>
-                <Text style={styles.modalButtonTitulo}>🌍 Resto del mundo</Text>
-                <Text style={styles.modalButtonSub}>Pagar con tarjeta</Text>
-              </View>
-              <Ionicons name="arrow-forward" size={18} color="#1E6FD9" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalPais(false)}>
-              <Text style={styles.modalCancelarText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </ScrollView>
   );
 }
