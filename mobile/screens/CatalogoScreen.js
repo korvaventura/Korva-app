@@ -17,6 +17,7 @@ export default function CatalogoScreen() {
   const [challengesBloqueados, setChallengesBloqueados] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [modalModalidad, setModalModalidad] = useState(false);
+  const [modalConfirmModalidad, setModalConfirmModalidad] = useState(null); // { tipo, label, distancia_km }
   const [challengeSeleccionado, setChallengeSeleccionado] = useState(null);
   const [detalleVisible, setDetalleVisible] = useState(false);
   const [userId, setUserId] = useState(null);
@@ -253,7 +254,7 @@ export default function CatalogoScreen() {
             <Text style={styles.modalTitulo}>Elegi tu modalidad</Text>
             <Text style={styles.modalSubtitulo}>{challengeSeleccionado?.title}</Text>
             {challengeSeleccionado?.modalidades?.map((m, i) => (
-              <TouchableOpacity key={i} style={styles.modalButton} onPress={() => elegirModalidad(m.tipo)}>
+              <TouchableOpacity key={i} style={styles.modalButton} onPress={() => { setModalModalidad(false); setModalConfirmModalidad(m); }}>
                 <View>
                   <Text style={styles.modalButtonTitulo}>{m.tipo === 'run' ? '🏃' : '🚴'} {m.label}</Text>
                   <Text style={styles.modalButtonSub}>{m.distancia_km} km totales</Text>
@@ -263,6 +264,46 @@ export default function CatalogoScreen() {
             ))}
             <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalModalidad(false)}>
               <Text style={styles.modalCancelarText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!modalConfirmModalidad} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalEmojiConfirm}>{modalConfirmModalidad?.tipo === 'run' ? '🏃' : '🚴'}</Text>
+            <Text style={styles.modalTitulo}>{modalConfirmModalidad?.label} — {modalConfirmModalidad?.distancia_km} km</Text>
+            <Text style={styles.modalSubtitulo}>{challengeSeleccionado?.title}</Text>
+
+            <View style={styles.confirmInfoBox}>
+              <Text style={styles.confirmInfoTexto}>
+                📏 La modalidad define tu meta personal — es un desafío contra vos mismo, no cambia tu medalla.
+              </Text>
+              <Text style={styles.confirmInfoTexto}>
+                🔄 Dentro de esta modalidad podés registrar cualquier actividad (correr, caminar, andar en bici) — todo suma hacia tus {modalConfirmModalidad?.distancia_km} km.
+              </Text>
+              {(() => {
+                const baseRun = challengeSeleccionado?.modalidades?.find(m => m.tipo === 'run');
+                if (modalConfirmModalidad?.tipo !== 'run' && baseRun && baseRun.distancia_km !== modalConfirmModalidad?.distancia_km) {
+                  return (
+                    <Text style={styles.confirmInfoTexto}>
+                      🏅 Tu medalla física dirá <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>{baseRun.distancia_km}K</Text> — el diseño es el mismo para todas las modalidades del desafío.
+                    </Text>
+                  );
+                }
+                return null;
+              })()}
+            </View>
+
+            <TouchableOpacity style={styles.modalButton} onPress={() => { elegirModalidad(modalConfirmModalidad.tipo); setModalConfirmModalidad(null); }}>
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <Text style={styles.modalButtonTitulo}>Entendido, continuar</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={18} color="#1E6FD9" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalConfirmModalidad(null)}>
+              <Text style={styles.modalCancelarText}>Volver</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -327,4 +368,7 @@ const styles = StyleSheet.create({
   modalButtonSub: { fontSize: 12, color: '#A8CFFF' },
   modalCancelar: { marginTop: 8, alignItems: 'center', paddingVertical: 12 },
   modalCancelarText: { color: '#A8CFFF', fontSize: 15 },
+  modalEmojiConfirm: { fontSize: 40, textAlign: 'center', marginBottom: 8 },
+  confirmInfoBox: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, marginBottom: 16, gap: 12 },
+  confirmInfoTexto: { fontSize: 13, color: '#A8CFFF', lineHeight: 20 },
 });
