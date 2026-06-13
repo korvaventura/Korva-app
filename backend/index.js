@@ -295,6 +295,8 @@ app.get('/perfil/:userId', async (req, res) => {
       return { nombre: 'Explorador', emoji: '🌱', siguiente: 1 };
     };
 
+    const nivel = getNivel(completados);
+
     const getInsignias = (completados, totalKm, totalActividades, rachaActual, mejorRacha, semanasActivas, totalRun, totalRide, checkpointsDesbloqueados) => {
       const ganadas = [];
       const progreso = {};
@@ -411,15 +413,6 @@ app.get('/perfil/:userId', async (req, res) => {
     }
     if (diasUnicos.length > 0) mejorRacha = Math.max(mejorRacha, 1);
 
-    const { ganadas: insigniasGanadas, progreso: insigniasProgreso } = getInsignias(
-      completados, totalKmNum,
-      actividades?.length || 0,
-      racha, mejorRacha,
-      Object.keys(kmPorSemanaFull).length,
-      deporteCount.run, deporteCount.ride,
-      []
-    );
-
     const actividadesConKm = await supabase
       .from('activities').select('recorded_at, distance_km, sport_type').eq('user_id', userId);
 
@@ -435,9 +428,18 @@ app.get('/perfil/:userId', async (req, res) => {
       else if (a.sport_type === 'ride') deporteCount.ride++;
     });
 
+    const { ganadas: insigniasGanadas, progreso: insigniasProgreso } = getInsignias(
+      completados, totalKm,
+      actividades?.length || 0,
+      racha, mejorRacha,
+      Object.keys(kmPorSemanaFull).length,
+      deporteCount.run, deporteCount.ride,
+      []
+    );
+
     const mejorSemanaKm = Math.max(...Object.values(kmPorSemanaFull), 0);
     const totalSemanas = Object.keys(kmPorSemanaFull).length || 1;
-    const promedioSemanal = (totalKmNum / totalSemanas).toFixed(1);
+    const promedioSemanal = (totalKm / totalSemanas).toFixed(1);
 
     const perfilDeporte = deporteCount.run > 0 && deporteCount.ride > 0
       ? 'Atleta Multideporte 🌐'
