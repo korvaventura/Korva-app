@@ -281,6 +281,10 @@ export default function HomeScreen({ navigation }) {
                   a: 'Sí, desde "Mis retos activos" en el Perfil podés cambiar entre Running y Ciclismo cuando quieras.'
                 },
                 {
+                  q: '¿Puedo tener varios desafíos a la vez?',
+                  a: 'Sí. Podés inscribirte en más de un desafío al mismo tiempo — cada uno tiene su propio progreso y se completan de forma independiente. En la app vas a ver una pestaña para cada desafío activo.'
+                },
+                {
                   q: '¿Mis datos están seguros?',
                   a: 'Sí. Solo vos podés ver tu perfil, dirección y actividades. No compartimos tu información con terceros.'
                 },
