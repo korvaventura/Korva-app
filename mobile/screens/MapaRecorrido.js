@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, Animated, Dimensions } from 'react-native';
-import Svg, { Path, Circle, Rect, Text as SvgText, Defs, LinearGradient, Stop, Mask, Ellipse, Polygon } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Text as SvgText, Defs, LinearGradient, Stop, Mask, Ellipse, Polygon, G } from 'react-native-svg';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const MAPA_WIDTH_VIRTUAL = 800;
@@ -39,13 +39,13 @@ const CONFIGS = {
       { km: 103, x: 60,  y: 175 },
     ],
     decoraciones: () => (
-      <>
+      <G pointerEvents="none">
         <Path d={`M0,140 Q${MAPA_WIDTH_VIRTUAL/4},90 ${MAPA_WIDTH_VIRTUAL/2},150 T${MAPA_WIDTH_VIRTUAL},100 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#334155" opacity="0.3" />
         <Path d="M400,40 Q550,20 700,50 T800,45 L800,0 L400,0 Z" fill="#0284C7" opacity="0.35" />
         <SvgText x="550" y="25" fill="#7DD3FC" fontSize="12" textAnchor="middle">Lago Fagnano</SvgText>
         <Path d={`M0,240 Q${MAPA_WIDTH_VIRTUAL/2},220 ${MAPA_WIDTH_VIRTUAL},245 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#0284C7" opacity="0.35" />
         <SvgText x="300" y="250" fill="#7DD3FC" fontSize="12" textAnchor="middle">Canal Beagle</SvgText>
-      </>
+      </G>
     ),
     checkpoints: [
       { id: 'tolhuin', nombre: 'Tolhuin', kmFisico: 0, emoji: '🏘️', x: 720, y: 35,
@@ -97,7 +97,7 @@ const CONFIGS = {
       { km: 19.4, x: 120, y: 180 }, // Ploče Gate — cierra el circuito
     ],
     decoraciones: () => (
-      <>
+      <G pointerEvents="none">
         {/* Mar Adriático */}
         <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0c4a6e" opacity="0.25" />
         {/* Ciudad interior — piedra caliza */}
@@ -115,7 +115,7 @@ const CONFIGS = {
         <Ellipse cx="750" cy="130" rx="30" ry="15" fill="#2d5a27" opacity="0.4" />
         <SvgText x="750" y="155" fill="#86efac" fontSize="10" textAnchor="middle">Lokrum</SvgText>
         <SvgText x="60" y="30" fill="#A8CFFF" fontSize="11" textAnchor="middle">Dalmacia · Croacia</SvgText>
-      </>
+      </G>
     ),
     checkpoints: [
       { id: 'pile_gate', nombre: 'Pile Gate', kmFisico: 0, emoji: '🏰', x: 120, y: 180,
@@ -166,7 +166,7 @@ const CONFIGS = {
       { km: 57, x: 100, y: 180 }, // Punta Sur
     ],
     decoraciones: () => (
-      <>
+      <G pointerEvents="none">
         {/* Fondo mar Caribe turquesa */}
         <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0891b2" opacity="0.2" />
         {/* Isla principal San Andrés — forma irregular */}
@@ -206,7 +206,7 @@ const CONFIGS = {
         <Path d="M593,175 L586,172 L586,178 Z" fill="#F97316" opacity="0.4" />
         <Ellipse cx="720" cy="200" rx="6" ry="3" fill="#7DD3FC" opacity="0.5" />
         <Path d="M714,200 L708,197 L708,203 Z" fill="#7DD3FC" opacity="0.5" />
-      </>
+      </G>
     ),
     checkpoints: [
       { id: 'san_andres_town', nombre: 'San Andrés Town', kmFisico: 0, emoji: '🏝️', x: 280, y: 160,
