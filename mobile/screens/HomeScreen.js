@@ -57,10 +57,8 @@ export default function HomeScreen({ navigation }) {
   const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
   const [modalAyudaVisible, setModalAyudaVisible] = useState(false);
   const [faqAbierta, setFaqAbierta] = useState(null);
-  const [retoIndex, setRetoIndex] = useState(0);
-  const [mapaScrollActivo, setMapaScrollActivo] = useState(false);
+  const [retoActivoIndex, setRetoActivoIndex] = useState(0);
   const viewShotRefs = useRef([]);
-  const retosScrollRef = useRef(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -473,7 +471,7 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.emptySubtext}>Cuando quieras una medalla real, encontrá tu challenge en el Catálogo.</Text>
             </View>
           ) : challengesActivos.length === 1 ? (
-            // Un solo reto — sin scroll horizontal
+            // Un solo reto — sin selector
             <RetoCard
               item={challengesActivos[0]}
               index={0}
@@ -488,57 +486,40 @@ export default function HomeScreen({ navigation }) {
               saltarMeta={saltarMeta}
               compartirProgreso={compartirProgreso}
               viewShotRefs={viewShotRefs}
-              onMapaScrollBegin={() => {}}
-              onMapaScrollEnd={() => {}}
             />
           ) : (
-            // Múltiples retos — deslizables
+            // Múltiples retos — selector tipo tabs, una pantalla por reto
             <>
-              <ScrollView
-                ref={retosScrollRef}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                scrollEnabled={!mapaScrollActivo}
-                onMomentumScrollEnd={e => setRetoIndex(Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH))}
-                style={styles.retosScroll}
-              >
-                {challengesActivos.map((item, index) => (
-                  <View key={`activo-${index}`} style={{ width: SCREEN_WIDTH, paddingHorizontal: 24 }}>
-                    <RetoCard
-                      item={item}
-                      index={index}
-                      nombre={nombre}
-                      userId={userId}
-                      navigation={navigation}
-                      metaVisibles={metaVisibles}
-                      metaInputs={metaInputs}
-                      setMetaInputs={setMetaInputs}
-                      guardandoMeta={guardandoMeta}
-                      guardarMeta={guardarMeta}
-                      saltarMeta={saltarMeta}
-                      compartirProgreso={compartirProgreso}
-                      viewShotRefs={viewShotRefs}
-                      onMapaScrollBegin={() => setMapaScrollActivo(true)}
-                      onMapaScrollEnd={() => setMapaScrollActivo(false)}
-                    />
-                  </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.retoTabsScroll}>
+                {challengesActivos.map((item, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={[styles.retoTab, i === retoActivoIndex && styles.retoTabActivo]}
+                    onPress={() => setRetoActivoIndex(i)}
+                  >
+                    <Text style={[styles.retoTabText, i === retoActivoIndex && styles.retoTabTextActivo]}>
+                      {item.challenge}
+                    </Text>
+                    {parseFloat(item.porcentaje) >= 100 && <Text style={styles.retoTabBadge}>🏅</Text>}
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
 
-              {/* Dots */}
-              <View style={styles.dotsRow}>
-                {challengesActivos.map((_, i) => (
-                  <TouchableOpacity
-                    key={i}
-                    style={[styles.dot, i === retoIndex && styles.dotActivo]}
-                    onPress={() => {
-                      setRetoIndex(i);
-                      retosScrollRef.current?.scrollTo({ x: i * SCREEN_WIDTH, animated: true });
-                    }}
-                  />
-                ))}
-              </View>
+              <RetoCard
+                item={challengesActivos[retoActivoIndex]}
+                index={retoActivoIndex}
+                nombre={nombre}
+                userId={userId}
+                navigation={navigation}
+                metaVisibles={metaVisibles}
+                metaInputs={metaInputs}
+                setMetaInputs={setMetaInputs}
+                guardandoMeta={guardandoMeta}
+                guardarMeta={guardarMeta}
+                saltarMeta={saltarMeta}
+                compartirProgreso={compartirProgreso}
+                viewShotRefs={viewShotRefs}
+              />
             </>
           )}
         </>
@@ -556,7 +537,7 @@ export default function HomeScreen({ navigation }) {
 }
 
 // ─── Componente reto individual ──────────────────────────────────
-function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onMapaScrollBegin, onMapaScrollEnd }) {
+function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs }) {
   const pct = Math.min(parseFloat(item.porcentaje), 100);
   const estaCompletado = pct >= 100;
   const frase = getFrase(pct);
@@ -606,8 +587,6 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
         checkpointsData={item.checkpoints}
         challengeId={item.challenge_id}
         challengeTitle={item.challenge}
-        onScrollBegin={onMapaScrollBegin}
-        onScrollEnd={onMapaScrollEnd}
       />
 
       {mostrarCardMeta && (
@@ -722,10 +701,12 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 48, marginBottom: 16 },
   emptyText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   emptySubtext: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 20 },
-  retosScroll: { marginHorizontal: -24 },
-  dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12, marginBottom: 8 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2a4a6a' },
-  dotActivo: { width: 18, backgroundColor: '#FC4C02' },
+  retoTabsScroll: { marginBottom: 16 },
+  retoTab: { backgroundColor: '#1E3A5F', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8, borderWidth: 2, borderColor: 'transparent', flexDirection: 'row', alignItems: 'center', gap: 6 },
+  retoTabActivo: { borderColor: '#FC4C02' },
+  retoTabText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
+  retoTabTextActivo: { color: '#FFFFFF' },
+  retoTabBadge: { fontSize: 13 },
   shareCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 24, marginBottom: 8, borderWidth: 2 },
   shareHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   shareKorvaLogo: { fontSize: 13, fontWeight: 'bold', color: '#FC4C02', letterSpacing: 2 },
