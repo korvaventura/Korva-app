@@ -395,6 +395,11 @@ app.get('/perfil/:userId', async (req, res) => {
       return { ganadas, progreso };
     };
 
+    const actividadesFechas = await supabase
+      .from('activities').select('recorded_at').eq('user_id', userId).order('recorded_at', { ascending: false });
+
+    const racha = calcularRachaSemanal(actividadesFechas.data || []);
+
     // Calcular mejor racha histórica (días consecutivos)
     const todasFechas = actividadesFechas.data?.map(a => a.recorded_at?.split('T')[0]) || [];
     const diasUnicos = [...new Set(todasFechas)].sort();
@@ -414,11 +419,6 @@ app.get('/perfil/:userId', async (req, res) => {
       deporteCount.run, deporteCount.ride,
       []
     );
-
-    const actividadesFechas = await supabase
-      .from('activities').select('recorded_at').eq('user_id', userId).order('recorded_at', { ascending: false });
-
-    const racha = calcularRachaSemanal(actividadesFechas.data || []);
 
     const actividadesConKm = await supabase
       .from('activities').select('recorded_at, distance_km, sport_type').eq('user_id', userId);
