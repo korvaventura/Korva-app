@@ -98,22 +98,14 @@ const CONFIGS = {
     ],
     decoraciones: () => (
       <G pointerEvents="none">
-        {/* Mar Adriático */}
-        <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0c4a6e" opacity="0.25" />
-        {/* Ciudad interior — piedra caliza */}
-        <Rect x="120" y="60" width="560" height="140" fill="#78716c" opacity="0.15" rx="4" />
-        <SvgText x="400" y="140" fill="#d4a76a" fontSize="11" textAnchor="middle" opacity="0.6">Ciudad Vieja · Ragusa</SvgText>
+        {/* Fondo mar Adriático */}
+        <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0c4a6e" opacity="0.2" />
+        {/* Ciudad interior */}
+        <Rect x="120" y="60" width="560" height="140" fill="#78716c" opacity="0.12" rx="4" />
+        <SvgText x="400" y="140" fill="#d4a76a" fontSize="11" textAnchor="middle" opacity="0.5">Ciudad Vieja · Ragusa</SvgText>
         {/* Mar al sur */}
-        <Path d="M0,220 L800,220 L800,260 L0,260 Z" fill="#0284C7" opacity="0.3" />
+        <Rect x="0" y="215" width={MAPA_WIDTH_VIRTUAL} height="45" fill="#0284C7" opacity="0.25" />
         <SvgText x="400" y="248" fill="#7DD3FC" fontSize="12" textAnchor="middle">Mar Adriático</SvgText>
-        {/* Torres decorativas en las esquinas de las murallas */}
-        <Rect x="110" y="50" width="20" height="20" fill="#92400e" opacity="0.7" />
-        <Rect x="670" y="50" width="20" height="20" fill="#92400e" opacity="0.7" />
-        <Rect x="670" y="190" width="20" height="20" fill="#92400e" opacity="0.7" />
-        <Rect x="110" y="190" width="20" height="20" fill="#92400e" opacity="0.7" />
-        {/* Isla Lokrum al este */}
-        <Ellipse cx="750" cy="130" rx="30" ry="15" fill="#2d5a27" opacity="0.4" />
-        <SvgText x="750" y="155" fill="#86efac" fontSize="10" textAnchor="middle">Lokrum</SvgText>
         <SvgText x="60" y="30" fill="#A8CFFF" fontSize="11" textAnchor="middle">Dalmacia · Croacia</SvgText>
       </G>
     ),
@@ -167,45 +159,18 @@ const CONFIGS = {
     ],
     decoraciones: () => (
       <G pointerEvents="none">
-        {/* Fondo mar Caribe turquesa */}
-        <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0891b2" opacity="0.2" />
-        {/* Isla principal San Andrés — forma irregular */}
+        {/* Fondo mar Caribe */}
+        <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0891b2" opacity="0.15" />
+        {/* Isla principal San Andrés */}
         <Path d="M230,90 L260,70 L310,65 L350,70 L370,90 L375,120 L365,155 L340,175 L300,185 L265,180 L240,165 L225,140 L220,115 Z"
-          fill="#16a34a" opacity="0.45" />
+          fill="#16a34a" opacity="0.35" />
         <SvgText x="295" y="130" fill="#bbf7d0" fontSize="10" textAnchor="middle">San Andrés</SvgText>
-        {/* Johnny Cay */}
-        <Ellipse cx="420" cy="65" rx="22" ry="12" fill="#16a34a" opacity="0.5" />
+        {/* Cayos principales */}
+        <Ellipse cx="420" cy="65" rx="22" ry="12" fill="#16a34a" opacity="0.4" />
         <SvgText x="420" y="50" fill="#bbf7d0" fontSize="9" textAnchor="middle">Johnny Cay</SvgText>
-        {/* Rose Cay */}
-        <Ellipse cx="520" cy="50" rx="16" ry="9" fill="#16a34a" opacity="0.5" />
-        <SvgText x="520" y="37" fill="#bbf7d0" fontSize="9" textAnchor="middle">Rose Cay</SvgText>
-        {/* Haynes Cay */}
-        <Ellipse cx="640" cy="65" rx="20" ry="10" fill="#16a34a" opacity="0.5" />
+        <Ellipse cx="640" cy="65" rx="20" ry="10" fill="#16a34a" opacity="0.4" />
         <SvgText x="640" y="52" fill="#bbf7d0" fontSize="9" textAnchor="middle">Haynes Cay</SvgText>
-        {/* Líneas punteadas entre cayos — travesías marítimas */}
-        <Path d="M370,70 L398,68" stroke="#7DD3FC" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.5" />
-        <Path d="M442,63 L504,54" stroke="#7DD3FC" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.5" />
-        <Path d="M536,55 L620,63" stroke="#7DD3FC" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.5" />
-        {/* Mar Caribe label */}
-        <SvgText x="680" y="240" fill="#7DD3FC" fontSize="12" textAnchor="middle">Mar Caribe · Colombia</SvgText>
-        {/* Palmeras decorativas SVG */}
-        {/* Palmera izquierda */}
-        <Path d="M50,230 L55,180" stroke="#4d7c0f" strokeWidth="3" strokeLinecap="round" />
-        <Path d="M55,185 Q35,165 20,155" stroke="#4d7c0f" strokeWidth="2" strokeLinecap="round" fill="none" />
-        <Path d="M55,185 Q45,160 50,145" stroke="#4d7c0f" strokeWidth="2" strokeLinecap="round" fill="none" />
-        <Path d="M55,185 Q70,165 80,158" stroke="#4d7c0f" strokeWidth="2" strokeLinecap="round" fill="none" />
-        {/* Palmera derecha */}
-        <Path d="M755,230 L750,185" stroke="#4d7c0f" strokeWidth="3" strokeLinecap="round" />
-        <Path d="M750,190 Q730,170 715,162" stroke="#4d7c0f" strokeWidth="2" strokeLinecap="round" fill="none" />
-        <Path d="M750,190 Q760,168 775,162" stroke="#4d7c0f" strokeWidth="2" strokeLinecap="round" fill="none" />
-        <Path d="M750,190 Q745,168 748,155" stroke="#4d7c0f" strokeWidth="2" strokeLinecap="round" fill="none" />
-        {/* Peces decorativos */}
-        <Ellipse cx="160" cy="100" rx="8" ry="4" fill="#FCD34D" opacity="0.5" />
-        <Path d="M152,100 L145,96 L145,104 Z" fill="#FCD34D" opacity="0.5" />
-        <Ellipse cx="600" cy="175" rx="7" ry="3" fill="#F97316" opacity="0.4" />
-        <Path d="M593,175 L586,172 L586,178 Z" fill="#F97316" opacity="0.4" />
-        <Ellipse cx="720" cy="200" rx="6" ry="3" fill="#7DD3FC" opacity="0.5" />
-        <Path d="M714,200 L708,197 L708,203 Z" fill="#7DD3FC" opacity="0.5" />
+        <SvgText x="680" y="248" fill="#7DD3FC" fontSize="12" textAnchor="middle">Mar Caribe · Colombia</SvgText>
       </G>
     ),
     checkpoints: [
