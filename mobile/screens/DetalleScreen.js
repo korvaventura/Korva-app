@@ -10,11 +10,6 @@ const COMO_FUNCIONA = [
   { emoji: '4️⃣', titulo: 'Recibí tu medalla', desc: 'Al completar el reto, iniciamos el envío de tu medalla física.' },
 ];
 
-const TESTIMONIOS = [
-  { nombre: 'Lucía M.', texto: 'La medalla me llegó en perfectas condiciones. El reto fue brutal pero valió cada kilómetro.', pais: '🇦🇷' },
-  { nombre: 'Carlos R.', texto: 'Nunca pensé que iba a completar 103km corriendo. Korva me dio el empuje que necesitaba.', pais: '🇨🇴' },
-  { nombre: 'Ana V.', texto: 'La conexión con Strava funciona perfecta. Cada salida contaba automáticamente.', pais: '🇲🇽' },
-];
 
 export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
   const [modalFaqVisible, setModalFaqVisible] = useState(false);
@@ -116,16 +111,6 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
           </ScrollView>
         </View>
       )}
-
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>💬 Lo que dicen</Text>
-        {TESTIMONIOS.map((t, i) => (
-          <View key={i} style={styles.testimonioCard}>
-            <Text style={styles.testimonioTexto}>"{t.texto}"</Text>
-            <Text style={styles.testimonioNombre}>{t.pais} {t.nombre}</Text>
-          </View>
-        ))}
-      </View>
 
       <TouchableOpacity style={styles.faqLinkBtn} onPress={() => setModalFaqVisible(true)}>
         <View style={styles.btnRow}>
