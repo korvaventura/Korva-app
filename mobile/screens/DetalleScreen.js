@@ -102,6 +102,7 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
           porcentaje="0"
           challengeId={challenge.id}
           challengeTitle={challenge.title}
+          fullscreen={true}
         />
       </View>
 
