@@ -723,8 +723,8 @@ const styles = StyleSheet.create({
   // Mapa wrapper (modo fullscreen/DetalleScreen)
   mapaWrapper: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#334155', backgroundColor: '#0F172A', position: 'relative' },
   scrollHint: { textAlign: 'center', color: '#64748B', fontSize: 11, marginTop: 8, marginBottom: 12, fontStyle: 'italic' },
-  leyendaScroll: { marginBottom: 8, paddingHorizontal: 16 },
-  leyendaItem: { flexDirection: 'row', backgroundColor: '#1E293B', borderRadius: 12, padding: 10, marginRight: 8, alignItems: 'center', borderWidth: 1, borderColor: '#334155', minWidth: 120, maxWidth: 160 },
+  leyendaScroll: { marginBottom: 8, paddingHorizontal: 16, maxHeight: 80 },
+  leyendaItem: { flexDirection: 'row', backgroundColor: '#1E293B', borderRadius: 12, padding: 10, marginRight: 8, alignItems: 'center', borderWidth: 1, borderColor: '#334155', minWidth: 120, maxWidth: 160, height: 56 },
   leyendaItemActivo: { borderColor: '#EA580C', backgroundColor: '#0F172A' },
   leyendaEmoji: { fontSize: 16, marginRight: 8 },
   leyendaTextos: { justifyContent: 'center', flex: 1 },
