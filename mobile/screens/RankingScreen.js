@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Image, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Image, Dimensions, TextInput } from 'react-native';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../supabase';
@@ -16,6 +16,7 @@ export default function RankingScreen() {
   const [cargando, setCargando] = useState({});         // { challengeId_modalidad: bool }
   const [mostrarTodos, setMostrarTodos] = useState({});
   const [miNombre, setMiNombre] = useState('');
+  const [busqueda, setBusqueda] = useState('');
   const challengeScrollRef = useRef(null);
   const rankingScrollRefs = useRef({});
 
@@ -39,7 +40,7 @@ export default function RankingScreen() {
 
   const cargarChallenges = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/challenges`);
+      const res = await fetch(`${BACKEND_URL}/challenges/todos`);
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         setChallenges(data);
@@ -154,8 +155,28 @@ export default function RankingScreen() {
     const lista = rankings[key] || [];
     const cargandoThis = cargando[key];
     const mostrar = mostrarTodos[key];
-    const listaVisible = mostrar ? lista : lista.slice(0, TOP_VISIBLE);
     const mods = challenge.modalidades || [];
+
+    // Filtrar por búsqueda
+    const listaFiltrada = busqueda.trim()
+      ? lista.filter(r => r.nombre?.toLowerCase().includes(busqueda.toLowerCase()))
+      : lista;
+
+    const listaVisible = mostrar ? listaFiltrada : listaFiltrada.slice(0, TOP_VISIBLE);
+
+    // Encontrar posición propia
+    const miPosicion = lista.findIndex(r => esPropio(r.nombre));
+    const scrollRef = rankingScrollRefs.current[challenge.id];
+
+    const irAMiPosicion = () => {
+      if (miPosicion === -1) return;
+      // Cada card tiene ~72px de alto + gap
+      const offset = miPosicion * 80;
+      scrollRef?.scrollTo({ y: offset, animated: true });
+      if (!mostrarTodos[key]) {
+        setMostrarTodos(prev => ({ ...prev, [key]: true }));
+      }
+    };
 
     return (
       <ScrollView
@@ -189,6 +210,32 @@ export default function RankingScreen() {
           </View>
         )}
 
+        {/* Buscador + botón ir a mi posición */}
+        {!cargandoThis && lista.length > 0 && (
+          <View style={styles.buscadorRow}>
+            <View style={styles.buscadorWrapper}>
+              <Ionicons name="search-outline" size={16} color="#4a6a8a" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.buscadorInput}
+                value={busqueda}
+                onChangeText={setBusqueda}
+                placeholder="Buscar participante..."
+                placeholderTextColor="#4a6a8a"
+              />
+              {busqueda.length > 0 && (
+                <TouchableOpacity onPress={() => setBusqueda('')}>
+                  <Ionicons name="close-circle" size={16} color="#4a6a8a" />
+                </TouchableOpacity>
+              )}
+            </View>
+            {miPosicion !== -1 && (
+              <TouchableOpacity style={styles.miPosicionBtn} onPress={irAMiPosicion}>
+                <Text style={styles.miPosicionBtnText}>#{miPosicion + 1} Yo</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {cargandoThis ? (
           <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
         ) : lista.length === 0 ? (
@@ -196,6 +243,11 @@ export default function RankingScreen() {
             <Ionicons name="flag-outline" size={48} color="#4a6a8a" style={{ marginBottom: 16 }} />
             <Text style={styles.emptyText}>Sin participantes todavía</Text>
             <Text style={styles.emptySubtext}>¡Sé el primero en inscribirte!</Text>
+          </View>
+        ) : listaFiltrada.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>Sin resultados</Text>
+            <Text style={styles.emptySubtext}>No hay participantes con ese nombre</Text>
           </View>
         ) : (
           <>
@@ -205,12 +257,12 @@ export default function RankingScreen() {
               ))}
             </View>
 
-            {!mostrar && lista.length > TOP_VISIBLE && (
+            {!mostrar && listaFiltrada.length > TOP_VISIBLE && (
               <TouchableOpacity
                 style={styles.verMasBtn}
                 onPress={() => setMostrarTodos(prev => ({ ...prev, [key]: true }))}
               >
-                <Text style={styles.verMasBtnText}>Ver los {lista.length - TOP_VISIBLE} restantes ↓</Text>
+                <Text style={styles.verMasBtnText}>Ver los {listaFiltrada.length - TOP_VISIBLE} restantes ↓</Text>
               </TouchableOpacity>
             )}
 
@@ -282,6 +334,11 @@ export default function RankingScreen() {
 }
 
 const styles = StyleSheet.create({
+  buscadorRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+  buscadorWrapper: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E3A5F', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: '#2a4a6a' },
+  buscadorInput: { flex: 1, color: '#FFFFFF', fontSize: 14 },
+  miPosicionBtn: { backgroundColor: '#FC4C02', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
+  miPosicionBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
   screen: { flex: 1, backgroundColor: '#0D1B2A' },
   header: { paddingTop: 60, paddingHorizontal: 24, paddingBottom: 8, backgroundColor: '#0D1B2A' },
   titulo: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 16 },

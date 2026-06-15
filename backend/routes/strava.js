@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
+const { enviarNotificacionProgreso } = require('../routes/notificaciones');
 
 const REDIRECT_URI = 'https://korva-app-production.up.railway.app/strava/callback';
 const WEBHOOK_VERIFY_TOKEN = 'korva_webhook_secret_2024';
@@ -151,6 +152,7 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
       .eq('user_id', userId)
       .gte('recorded_at', uc.started_at);
 
+    const kmAntes = uc.km_completed || 0;
     const totalKm = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
     const porcentaje = Math.min((totalKm / modalidadElegida.distancia_km) * 100, 100);
     const yaCompletado = uc.status === 'completed';
@@ -165,25 +167,27 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
       })
       .eq('id', uc.id);
 
+    // Email al completar
     if (porcentaje >= 100 && !yaCompletado) {
       const { data: usuario } = await supabase
         .from('users')
-        .select('email, name, push_token')
+        .select('email, name')
         .eq('id', userId)
         .single();
-
       if (usuario?.email) {
         const { enviarEmailCompletado } = require('../routes/emails');
         enviarEmailCompletado(usuario.email, usuario.name, uc.challenges.title);
       }
+    }
 
-      if (usuario?.push_token) {
-        await enviarPushNotification(
-          usuario.push_token,
-          '🏅 ¡Completaste el reto!',
-          `Llegaste al fin del mundo. Tu medalla de ${uc.challenges.title} está en camino 🎉`
-        );
-      }
+    // Notificación inteligente (una sola por actividad)
+    if (!yaCompletado) {
+      await enviarNotificacionProgreso(
+        supabase, userId,
+        uc.challenge_id, uc.challenges.title,
+        kmAntes, totalKm,
+        modalidadElegida.distancia_km
+      );
     }
   }
 
@@ -223,7 +227,7 @@ router.get('/callback', async (req, res) => {
       .from('users')
       .upsert({
         email: stravaAthlete?.email || `strava_${stravaAthlete?.id}@korva.app`,
-        name: `${stravaAthlete?.firstname} ${stravaAthlete?.lastname}`,
+        name: [stravaAthlete?.firstname, stravaAthlete?.lastname].filter(Boolean).join(' ') || `Atleta ${stravaAthlete?.id}`,
         avatar_url: stravaAthlete?.profile,
         strava_token: data.access_token,
         strava_refresh_token: data.refresh_token,
@@ -235,8 +239,31 @@ router.get('/callback', async (req, res) => {
 
     if (error) throw error;
 
-    // ✅ FIX: scheme corregido de 'mobile://' a 'korva://'
-    res.redirect(`korva://strava-connected?userId=${user.id}`);
+    // Página HTML intermedia que abre el deep link — más confiable en Android
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Conectando con Strava...</title>
+          <style>
+            body { background: #0D1B2A; color: white; font-family: sans-serif;
+                   display: flex; flex-direction: column; align-items: center;
+                   justify-content: center; height: 100vh; margin: 0; }
+            p { color: #A8CFFF; font-size: 16px; }
+          </style>
+        </head>
+        <body>
+          <p>✅ Strava conectado. Volviendo a Korva...</p>
+          <script>
+            window.location.href = 'korva://strava-connected?userId=${user.id}';
+            setTimeout(() => {
+              window.location.href = 'korva://strava-connected?userId=${user.id}';
+            }, 500);
+          </script>
+        </body>
+      </html>
+    `);
   } catch (error) {
     res.json({ error: 'Error conectando con Strava', detalle: error.message });
   }

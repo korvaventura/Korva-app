@@ -1,21 +1,20 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Modal } from 'react-native';
+import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import MapaRecorrido from './MapaRecorrido';
 
 const COMO_FUNCIONA = [
   { emoji: '1️⃣', titulo: 'Inscribite', desc: 'Elegí tu modalidad y completá el pago.' },
-  { emoji: '2️⃣', titulo: 'Conectá Strava', desc: 'Tus actividades se sincronizan automáticamente.' },
-  { emoji: '3️⃣', titulo: 'Corré a tu ritmo', desc: 'Tenés tiempo para completar la distancia.' },
-  { emoji: '4️⃣', titulo: 'Recibí tu medalla', desc: 'Al completar el reto, te enviamos la medalla física a tu casa.' },
+  { emoji: '2️⃣', titulo: 'Registrá tus km', desc: 'Cargá tus actividades manualmente desde la app. Strava estará disponible próximamente.' },
+  { emoji: '3️⃣', titulo: 'Corré a tu ritmo', desc: 'No hay límite de tiempo para completar la distancia.' },
+  { emoji: '4️⃣', titulo: 'Recibí tu medalla', desc: 'Al completar el reto, iniciamos el envío de tu medalla física.' },
 ];
 
-const TESTIMONIOS = [
-  { nombre: 'Lucía M.', texto: 'La medalla me llegó en perfectas condiciones. El reto fue brutal pero valió cada kilómetro.', pais: '🇦🇷' },
-  { nombre: 'Carlos R.', texto: 'Nunca pensé que iba a completar 103km corriendo. Korva me dio el empuje que necesitaba.', pais: '🇨🇴' },
-  { nombre: 'Ana V.', texto: 'La conexión con Strava funciona perfecta. Cada salida contaba automáticamente.', pais: '🇲🇽' },
-];
 
 export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
+  const [modalFaqVisible, setModalFaqVisible] = useState(false);
+  const [faqAbierta, setFaqAbierta] = useState(null);
+
   if (!challenge) return null;
 
   const modalidades = challenge.modalidades || [];
@@ -23,6 +22,7 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
   const distanciaTotal = modalidades[0]?.distancia_km || challenge.total_distance_km || 0;
 
   return (
+    <>
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
 
       <View style={styles.heroWrapper}>
@@ -97,6 +97,7 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
           porcentaje="0"
           challengeId={challenge.id}
           challengeTitle={challenge.title}
+          fullscreen={true}
         />
       </View>
 
@@ -111,15 +112,12 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
         </View>
       )}
 
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>💬 Lo que dicen</Text>
-        {TESTIMONIOS.map((t, i) => (
-          <View key={i} style={styles.testimonioCard}>
-            <Text style={styles.testimonioTexto}>"{t.texto}"</Text>
-            <Text style={styles.testimonioNombre}>{t.pais} {t.nombre}</Text>
-          </View>
-        ))}
-      </View>
+      <TouchableOpacity style={styles.faqLinkBtn} onPress={() => setModalFaqVisible(true)}>
+        <View style={styles.btnRow}>
+          <Ionicons name="help-circle-outline" size={18} color="#1E6FD9" />
+          <Text style={styles.faqLinkText}>¿Tenés dudas? Mirá las preguntas frecuentes</Text>
+        </View>
+      </TouchableOpacity>
 
       <View style={styles.ctaWrapper}>
         <Text style={styles.ctaPrecio}>USD ${challenge.price_usd} — medalla incluida 🏅</Text>
@@ -134,6 +132,90 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
       </View>
 
     </ScrollView>
+
+      <Modal visible={modalFaqVisible} transparent animationType="slide" onRequestClose={() => setModalFaqVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={styles.modalTitulo}>❓ Preguntas frecuentes</Text>
+              <TouchableOpacity onPress={() => setModalFaqVisible(false)}>
+                <Text style={{ color: '#4a6a8a', fontSize: 18, fontWeight: 'bold' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {[
+                {
+                  q: '¿Cómo funciona Korva?',
+                  a: 'Elegís un desafío en el Catálogo y lo comprás. Una vez confirmado el pago, el desafío se activa en la app. Registrás tus km corriendo o pedaleando en el mundo real, y cuando completás la distancia total se inicia automáticamente la orden de envío de tu medalla.'
+                },
+                {
+                  q: '¿Necesito completar el desafío de una sola vez?',
+                  a: 'No. Podés salir a correr o pedalear cuando quieras — salidas cortas, largas, a tu ritmo. Los km se van acumulando hasta completar la distancia total del desafío.'
+                },
+                {
+                  q: '¿Puedo mezclar actividades?',
+                  a: 'Sí. Si elegiste Running podés sumar km corriendo, caminando, trotando o incluso en bicicleta — todo se acumula hacia tu meta. La modalidad que elegís define la distancia del desafío, no el tipo de actividad que podés registrar.'
+                },
+                {
+                  q: '¿Cómo registro mis kilómetros?',
+                  a: 'Desde la pestaña "Registrar" cargás tus km manualmente en segundos. La integración con Strava para sincronización automática estará disponible próximamente.'
+                },
+                {
+                  q: '¿Cómo cargo mi dirección de envío?',
+                  a: 'Desde la pestaña "Perfil", sección "Dirección de envío". Asegurate de tenerla cargada antes de completar el desafío para que el envío salga sin demoras.'
+                },
+                {
+                  q: '¿Cuándo llega mi medalla?',
+                  a: 'Cuando completás el 100% del desafío se inicia la orden de envío automáticamente. Los tiempos varían según tu país — podés consultar los tiempos estimados en korva.run.'
+                },
+                {
+                  q: '¿Qué son los logros?',
+                  a: 'Los logros son badges gratuitos que ganás por tu actividad — km recorridos, rachas de días activos, cantidad de salidas y más. Se acumulan siempre, tengas o no un desafío activo.'
+                },
+                {
+                  q: '¿Puedo usar la app sin comprar un desafío?',
+                  a: 'Sí. Podés registrar actividades y acumular logros sin costo. Los desafíos son para quienes quieren una meta con medalla física incluida.'
+                },
+                {
+                  q: '¿Puedo cambiar mi modalidad?',
+                  a: 'Sí, desde "Mis retos activos" en el Perfil podés cambiar entre Running y Ciclismo cuando quieras.'
+                },
+                {
+                  q: '¿Puedo tener varios desafíos a la vez?',
+                  a: 'Sí. Podés inscribirte en más de un desafío al mismo tiempo — cada uno tiene su propio progreso y se completan de forma independiente. En la app vas a ver una pestaña para cada desafío activo.'
+                },
+                {
+                  q: '¿Mis datos están seguros?',
+                  a: 'Sí. Solo vos podés ver tu perfil, dirección y actividades. No compartimos tu información con terceros.'
+                },
+                {
+                  q: '¿Necesito Strava?',
+                  a: 'No. El registro manual es suficiente para sumar tus km. Strava estará disponible próximamente como opción de sincronización automática.'
+                },
+                {
+                  q: '¿Tengo un problema o consulta?',
+                  a: 'Escribinos a korvaventura@gmail.com o por Instagram @korva.aventuras. Te respondemos a la brevedad.'
+                },
+              ].map((item, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.faqItem}
+                  onPress={() => setFaqAbierta(faqAbierta === i ? null : i)}
+                >
+                  <View style={styles.faqHeader}>
+                    <Text style={styles.faqPregunta}>{item.q}</Text>
+                    <Text style={styles.faqChevron}>{faqAbierta === i ? '▲' : '▼'}</Text>
+                  </View>
+                  {faqAbierta === i && (
+                    <Text style={styles.faqRespuesta}>{item.a}</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -178,4 +260,14 @@ const styles = StyleSheet.create({
   ctaBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 17 },
   btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   ctaSubtexto: { fontSize: 12, color: '#4a6a8a', textAlign: 'center' },
+  faqLinkBtn: { marginHorizontal: 24, marginTop: 28, backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#1E6FD9', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  faqLinkText: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 13 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalCard: { backgroundColor: '#1E3A5F', borderRadius: 24, padding: 28, width: '100%', maxHeight: '85%', borderWidth: 1, borderColor: '#FC4C02' },
+  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF' },
+  faqItem: { borderBottomWidth: 1, borderBottomColor: '#2a4a6a', paddingVertical: 14 },
+  faqHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  faqPregunta: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', flex: 1, paddingRight: 12 },
+  faqChevron: { color: '#4a6a8a', fontSize: 12 },
+  faqRespuesta: { fontSize: 13, color: '#A8CFFF', lineHeight: 20, marginTop: 10 },
 });

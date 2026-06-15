@@ -48,15 +48,15 @@ const registrarPushToken = async (userId) => {
     }
     if (finalStatus !== 'granted') return;
 
-    const token = (await Notifications.getExpoPushTokenAsync()).data;
+    const token = (await Notifications.getExpoPushTokenAsync({ projectId: 'f433761f-30a0-4bfc-8260-a18e898d2688' })).data;
 
     await fetch('https://korva-app-production.up.railway.app/usuarios/push-token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: userId, push_token: token }),
     });
-  } catch (error) {
-    console.log('Error registrando push token:', error);
+ } catch (error) {
+    console.log('Error registrando push token:', error?.message || error);
   }
 };
 

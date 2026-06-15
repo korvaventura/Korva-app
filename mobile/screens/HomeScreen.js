@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking, TextInput, Alert, Modal } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking, TextInput, Alert, Modal, Dimensions } from 'react-native';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,41 +12,27 @@ import MapaRecorrido from './MapaRecorrido';
 import { Ionicons } from '@expo/vector-icons';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
-
-const CHECKPOINTS_NOMBRES = ['Tolhuin', 'Lago Fagnano', 'Paso Garibaldi', 'Monte Olivia', 'Ushuaia'];
-const CHECKPOINTS_KM = [0, 20, 45, 80, 103];
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 const PASOS = [
-  { emoji: '🔗', titulo: 'Conectá Strava', desc: 'Sincronizá tus actividades automáticamente.' },
+  { emoji: '📝', titulo: 'Registrá tus km', desc: 'Usá la pestaña "Registrar" para cargar tus actividades manualmente.' },
   { emoji: '🏃', titulo: 'Empezá a correr', desc: 'Cada km cuenta hacia tu medalla.' },
   { emoji: '📦', titulo: 'Recibí tu medalla', desc: 'Al llegar al 100% te la enviamos a casa.' },
 ];
 
-const getFrase = (pct, modalidad) => {
-  if (pct >= 100) return '¡Llegué al fin del mundo! 🏁';
+const getFrase = (pct) => {
+  if (pct >= 100) return '¡Lo logré! 🏁';
   if (pct >= 75) return 'Ya casi llego... 💪';
   if (pct >= 50) return 'Mitad del camino recorrido 🔥';
   if (pct >= 25) return 'Arrancando fuerte ⚡';
   return 'El camino empieza con el primer paso 🌱';
 };
 
-const diasEntre = (fecha1, fecha2) => {
-  const d1 = new Date(fecha1);
-  const d2 = new Date(fecha2);
-  return Math.max(1, Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24)));
-};
-
-const getCheckpointDesbloqueado = (kmCompletados, distanciaTotal) => {
-  const DISTANCIA_FISICA = 103;
-  const factor = distanciaTotal / DISTANCIA_FISICA;
-  const kmFisicos = parseFloat(kmCompletados) / factor;
-  let ultimoDesbloqueado = null;
-  for (let i = 0; i < CHECKPOINTS_KM.length; i++) {
-    if (kmFisicos >= CHECKPOINTS_KM[i]) {
-      ultimoDesbloqueado = CHECKPOINTS_NOMBRES[i];
-    }
-  }
-  return ultimoDesbloqueado;
+const getSubtitulo = (challengeTitle) => {
+  const t = (challengeTitle || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (t.includes('dubrovnik')) return 'Pile Gate → Ploče Gate';
+  if (t.includes('andres') || t.includes('san andr')) return 'San Luis → Punta Sur';
+  return 'Tolhuin → Ushuaia';
 };
 
 const formatearFechaMeta = (fecha) => {
@@ -66,14 +52,28 @@ export default function HomeScreen({ navigation }) {
   const [metaVisibles, setMetaVisibles] = useState({});
   const [guardandoMeta, setGuardandoMeta] = useState({});
   const [stravaConectado, setStravaConectado] = useState(false);
+  const [stravaHabilitado, setStravaHabilitado] = useState(false);
   const [modalStravaVisible, setModalStravaVisible] = useState(false);
+  const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
+  const [modalAyudaVisible, setModalAyudaVisible] = useState(false);
+  const [faqAbierta, setFaqAbierta] = useState(null);
+  const [retoActivoIndex, setRetoActivoIndex] = useState(0);
   const viewShotRefs = useRef([]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user?.id) {
         setUserId(session.user.id);
-        setNombre(session.user.user_metadata?.name?.split(' ')[0] || '');
+        // Intentar nombre de user_metadata primero, si no de la tabla users
+        const metaNombre = session.user.user_metadata?.name?.split(' ')[0] || 
+                           session.user.user_metadata?.full_name?.split(' ')[0] || '';
+        if (metaNombre) {
+          setNombre(metaNombre);
+        } else {
+          // Fallback: buscar en tabla users
+          const { data } = await supabase.from('users').select('name').eq('id', session.user.id).single();
+          setNombre(data?.name?.split(' ')[0] || '');
+        }
       } else {
         setCargando(false);
       }
@@ -112,10 +112,11 @@ export default function HomeScreen({ navigation }) {
     try {
       const { data } = await supabase
         .from('users')
-        .select('strava_token')
+        .select('strava_token, strava_habilitado')
         .eq('id', userId)
         .single();
       setStravaConectado(!!data?.strava_token);
+      setStravaHabilitado(!!data?.strava_habilitado);
     } catch (e) {}
   };
 
@@ -144,7 +145,6 @@ export default function HomeScreen({ navigation }) {
       }
       setMetaVisibles(visibles);
     } catch (err) {
-      console.error('Error:', err);
       setError(true);
     } finally {
       setCargando(false);
@@ -164,7 +164,6 @@ export default function HomeScreen({ navigation }) {
     const fecha = new Date(`${partes[2]}-${partes[1]}-${partes[0]}`);
     if (isNaN(fecha.getTime())) { Alert.alert('Fecha inválida'); return; }
     if (fecha <= new Date()) { Alert.alert('La fecha debe ser futura'); return; }
-
     setGuardandoMeta(prev => ({ ...prev, [item.challenge_id]: true }));
     try {
       await supabase.from('user_challenges').update({ meta_fecha: fecha.toISOString() })
@@ -180,16 +179,28 @@ export default function HomeScreen({ navigation }) {
   };
 
   const conectarStrava = async () => {
+    if (stravaConectado) {
+      setModalStravaVisible(true);
+      return;
+    }
+    // Solo abrir OAuth si el usuario tiene Strava habilitado
+    if (stravaHabilitado) {
+      conectarStravaReal();
+    } else {
+      setModalStravaProximamente(true);
+    }
+  };
+
+  const conectarStravaReal = async () => {
+    setModalStravaProximamente(false);
     const result = await WebBrowser.openAuthSessionAsync(
       `${BACKEND_URL}/strava/auth`,
       'korva://strava-connected'
     );
     if (result.type === 'success' || result.url?.includes('strava-connected')) {
-      // Esperar que el backend termine de guardar el token en Supabase
       await new Promise(resolve => setTimeout(resolve, 1500));
       await verificarStrava();
       await cargarProgreso();
-      // Si aún no detectó el token, reintentar una vez más
       await new Promise(resolve => setTimeout(resolve, 1500));
       await verificarStrava();
       setModalStravaVisible(true);
@@ -199,10 +210,7 @@ export default function HomeScreen({ navigation }) {
   const compartirProgreso = async (index) => {
     try {
       const uri = await viewShotRefs.current[index].capture();
-      await Sharing.shareAsync(uri, {
-        mimeType: 'image/png',
-        dialogTitle: 'Compartir mi progreso en Korva',
-      });
+      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Compartir mi progreso en Korva' });
     } catch (err) {
       console.error('Error compartiendo:', err);
     }
@@ -224,19 +232,125 @@ export default function HomeScreen({ navigation }) {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
 
-      {/* Modal instructivo Strava */}
-      <Modal
-        visible={modalStravaVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalStravaVisible(false)}
-      >
+      {/* Modal FAQ / Ayuda */}
+      <Modal visible={modalAyudaVisible} transparent animationType="slide" onRequestClose={() => setModalAyudaVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxHeight: '85%' }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={styles.modalTitulo}>❓ Ayuda</Text>
+              <TouchableOpacity onPress={() => setModalAyudaVisible(false)}>
+                <Text style={{ color: '#4a6a8a', fontSize: 18, fontWeight: 'bold' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {[
+                {
+                  q: '¿Cómo funciona Korva?',
+                  a: 'Elegís un desafío en el Catálogo y lo comprás. Una vez confirmado el pago, el desafío se activa en la app. Registrás tus km corriendo o pedaleando en el mundo real, y cuando completás la distancia total se inicia automáticamente la orden de envío de tu medalla.'
+                },
+                {
+                  q: '¿Necesito completar el desafío de una sola vez?',
+                  a: 'No. Podés salir a correr o pedalear cuando quieras — salidas cortas, largas, a tu ritmo. Los km se van acumulando hasta completar la distancia total del desafío.'
+                },
+                {
+                  q: '¿Puedo mezclar actividades?',
+                  a: 'Sí. Si elegiste Running podés sumar km corriendo, caminando, trotando o incluso en bicicleta — todo se acumula hacia tu meta. La modalidad que elegís define la distancia del desafío, no el tipo de actividad que podés registrar.'
+                },
+                {
+                  q: '¿Cómo registro mis kilómetros?',
+                  a: 'Desde la pestaña "Registrar" cargás tus km manualmente en segundos. La integración con Strava para sincronización automática estará disponible próximamente.'
+                },
+                {
+                  q: '¿Cómo cargo mi dirección de envío?',
+                  a: 'Desde la pestaña "Perfil", sección "Dirección de envío". Asegurate de tenerla cargada antes de completar el desafío para que el envío salga sin demoras.'
+                },
+                {
+                  q: '¿Cuándo llega mi medalla?',
+                  a: 'Cuando completás el 100% del desafío se inicia la orden de envío automáticamente. Los tiempos varían según tu país — podés consultar los tiempos estimados en korva.run.'
+                },
+                {
+                  q: '¿Qué son los logros?',
+                  a: 'Los logros son badges gratuitos que ganás por tu actividad — km recorridos, rachas de días activos, cantidad de salidas y más. Se acumulan siempre, tengas o no un desafío activo.'
+                },
+                {
+                  q: '¿Puedo usar la app sin comprar un desafío?',
+                  a: 'Sí. Podés registrar actividades y acumular logros sin costo. Los desafíos son para quienes quieren una meta con medalla física incluida.'
+                },
+                {
+                  q: '¿Puedo cambiar mi modalidad?',
+                  a: 'Sí, desde "Mis retos activos" en el Perfil podés cambiar entre Running y Ciclismo cuando quieras.'
+                },
+                {
+                  q: '¿Puedo tener varios desafíos a la vez?',
+                  a: 'Sí. Podés inscribirte en más de un desafío al mismo tiempo — cada uno tiene su propio progreso y se completan de forma independiente. En la app vas a ver una pestaña para cada desafío activo.'
+                },
+                {
+                  q: '¿Mis datos están seguros?',
+                  a: 'Sí. Solo vos podés ver tu perfil, dirección y actividades. No compartimos tu información con terceros.'
+                },
+                {
+                  q: '¿Necesito Strava?',
+                  a: 'No. El registro manual es suficiente para sumar tus km. Strava estará disponible próximamente como opción de sincronización automática.'
+                },
+                {
+                  q: '¿Tengo un problema o consulta?',
+                  a: 'Escribinos a korvaventura@gmail.com o por Instagram @korva.aventuras. Te respondemos a la brevedad.'
+                },
+              ].map((item, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.faqItem}
+                  onPress={() => setFaqAbierta(faqAbierta === i ? null : i)}
+                >
+                  <View style={styles.faqHeader}>
+                    <Text style={styles.faqPregunta}>{item.q}</Text>
+                    <Text style={styles.faqChevron}>{faqAbierta === i ? '▲' : '▼'}</Text>
+                  </View>
+                  {faqAbierta === i && (
+                    <Text style={styles.faqRespuesta}>{item.a}</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Próximamente Strava */}
+      <Modal visible={modalStravaProximamente} transparent animationType="fade" onRequestClose={() => setModalStravaProximamente(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalEmoji}>🔗</Text>
+            <Text style={styles.modalTitulo}>Strava — Próximamente</Text>
+            <Text style={styles.modalSubtitulo}>La sincronización automática con Strava estará disponible en los próximos días.</Text>
+            <View style={styles.modalPaso}>
+              <Text style={styles.modalPasoEmoji}>📝</Text>
+              <View style={styles.modalPasoInfo}>
+                <Text style={styles.modalPasoTitulo}>Por ahora usá el registro manual</Text>
+                <Text style={styles.modalPasoDesc}>Desde la pestaña "Registrar" podés cargar tus km en segundos. Es igual de fácil y tus km se suman igual.</Text>
+              </View>
+            </View>
+            <View style={styles.modalPaso}>
+              <Text style={styles.modalPasoEmoji}>📲</Text>
+              <View style={styles.modalPasoInfo}>
+                <Text style={styles.modalPasoTitulo}>Te avisamos cuando esté listo</Text>
+                <Text style={styles.modalPasoDesc}>Cuando la integración esté disponible para vos, vas a ver el botón activo acá.</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.modalBtn} onPress={() => setModalStravaProximamente(false)}>
+              <Text style={styles.modalBtnText}>Entendido 👍</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Strava conectado */}
+      <Modal visible={modalStravaVisible} transparent animationType="fade" onRequestClose={() => setModalStravaVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalEmoji}>🎉</Text>
             <Text style={styles.modalTitulo}>¡Strava conectado!</Text>
             <Text style={styles.modalSubtitulo}>Así funciona de ahora en adelante:</Text>
-
             <View style={styles.modalPaso}>
               <Text style={styles.modalPasoEmoji}>📱</Text>
               <View style={styles.modalPasoInfo}>
@@ -244,7 +358,6 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.modalPasoDesc}>Si no lo tenés, bajalo de la App Store o Google Play</Text>
               </View>
             </View>
-
             <View style={styles.modalPaso}>
               <Text style={styles.modalPasoEmoji}>🏃</Text>
               <View style={styles.modalPasoInfo}>
@@ -252,7 +365,6 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.modalPasoDesc}>Usá Strava normalmente para trackear tu entrenamiento</Text>
               </View>
             </View>
-
             <View style={styles.modalPaso}>
               <Text style={styles.modalPasoEmoji}>✅</Text>
               <View style={styles.modalPasoInfo}>
@@ -260,7 +372,6 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.modalPasoDesc}>Cada actividad que registres en Strava se suma automáticamente a tu desafío</Text>
               </View>
             </View>
-
             <TouchableOpacity style={styles.modalBtn} onPress={() => setModalStravaVisible(false)}>
               <Text style={styles.modalBtnText}>¡Entendido, a correr! 🚀</Text>
             </TouchableOpacity>
@@ -268,23 +379,29 @@ export default function HomeScreen({ navigation }) {
         </View>
       </Modal>
 
+      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.saludo}>Hola{nombre ? `, ${nombre}` : ''}! 👋</Text>
           <Text style={styles.subtitulo}>Tus retos activos</Text>
         </View>
-
-        {stravaConectado ? (
-          <View style={styles.stravaConectadoBadge}>
-            <Text style={styles.stravaConectadoBadgeText}>✓ Strava</Text>
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.stravaBtn} onPress={conectarStrava}>
-            <Text style={styles.stravaBtnText}>Conectar Strava</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity style={styles.ayudaBtn} onPress={() => setModalAyudaVisible(true)}>
+            <Text style={styles.ayudaBtnText}>?</Text>
           </TouchableOpacity>
-        )}
+          {stravaConectado ? (
+            <View style={styles.stravaConectadoBadge}>
+              <Text style={styles.stravaConectadoBadgeText}>✓ Strava</Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.stravaProximoBtn} onPress={conectarStrava}>
+              <Text style={styles.stravaProximoBtnText}>🔗 Strava</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
+      {/* Banner pago */}
       {bannerVisible && !cargando && (
         <View style={styles.bannerCard}>
           <View style={styles.bannerHeader}>
@@ -303,17 +420,10 @@ export default function HomeScreen({ navigation }) {
               </View>
             </View>
           ))}
-          {!stravaConectado && (
-            <TouchableOpacity style={styles.bannerBtn} onPress={conectarStrava}>
-              <View style={styles.btnRow}>
-                <Text style={styles.bannerBtnText}>Conectar Strava ahora</Text>
-                <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
-              </View>
-            </TouchableOpacity>
-          )}
         </View>
       )}
 
+      {/* Strava activo */}
       {stravaConectado && !cargando && (
         <TouchableOpacity style={styles.stravaActivoCard} onPress={() => setModalStravaVisible(true)}>
           <View style={styles.stravaActivoRow}>
@@ -340,6 +450,7 @@ export default function HomeScreen({ navigation }) {
         </View>
       ) : (
         <>
+          {/* Pending */}
           {challengesPending.map((item, index) => (
             <View key={`pending-${index}`} style={styles.pendingCard}>
               <Text style={styles.pendingEmoji}>⏳</Text>
@@ -353,124 +464,67 @@ export default function HomeScreen({ navigation }) {
 
           {challengesActivos.length === 0 && challengesPending.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyEmoji}>🏁</Text>
-              <Text style={styles.emptyText}>Sin retos activos</Text>
-              <Text style={styles.emptySubtext}>Inscribite en un challenge desde el Catálogo y empezá a correr</Text>
+              <Text style={styles.emptyEmoji}>🏃</Text>
+              <Text style={styles.emptyText}>¡Empezá a moverte!</Text>
+              <Text style={styles.emptySubtext}>Registrá tus km y acumulá logros gratis — no necesitás un challenge activo para empezar.</Text>
+              <View style={styles.emptyLogrosRow}>
+                <Text style={styles.emptyLogroItem}>👟 Distancia</Text>
+                <Text style={styles.emptyLogroItem}>🔥 Rachas</Text>
+                <Text style={styles.emptyLogroItem}>⚡ Actividades</Text>
+              </View>
+              <Text style={styles.emptySubtext}>Cuando quieras una medalla real, encontrá tu challenge en el Catálogo.</Text>
             </View>
+          ) : challengesActivos.length === 1 ? (
+            // Un solo reto — sin selector
+            <RetoCard
+              item={challengesActivos[0]}
+              index={0}
+              nombre={nombre}
+              userId={userId}
+              navigation={navigation}
+              metaVisibles={metaVisibles}
+              metaInputs={metaInputs}
+              setMetaInputs={setMetaInputs}
+              guardandoMeta={guardandoMeta}
+              guardarMeta={guardarMeta}
+              saltarMeta={saltarMeta}
+              compartirProgreso={compartirProgreso}
+              viewShotRefs={viewShotRefs}
+            />
           ) : (
-            challengesActivos.map((item, index) => {
-              const pct = Math.min(parseFloat(item.porcentaje), 100);
-              const estaCompletado = pct >= 100;
-              const frase = getFrase(pct, item.modalidad);
-              const mostrarCardMeta = metaVisibles[item.challenge_id];
-              const checkpointActual = getCheckpointDesbloqueado(item.km_completados, item.distancia_total);
-              const metaFormateada = formatearFechaMeta(item.meta_fecha);
-              const bordeCard = estaCompletado ? '#FC4C02' : pct >= 75 ? '#FC4C02' : '#1E3A5F';
-
-              return (
-                <View key={`activo-${index}`}>
-                  <ViewShot
-                    ref={ref => viewShotRefs.current[index] = ref}
-                    options={{ format: 'png', quality: 1 }}
-                  >
-                    <View style={[styles.shareCard, { borderColor: bordeCard }]}>
-                      <View style={styles.shareHeader}>
-                        <Text style={styles.shareKorvaLogo}>🏅 KORVA</Text>
-                        <Text style={styles.shareDeporte}>
-                          {item.modalidad === 'Running' ? '🏃 RUNNING' : item.modalidad === 'Ciclismo' ? '🚴 CICLISMO' : '🏊 NATACIÓN'}
-                        </Text>
-                      </View>
-
-                      <View style={styles.sharePctWrapper}>
-                        <Text style={styles.sharePctNumero}>{pct.toFixed(0)}</Text>
-                        <Text style={styles.sharePctSymbol}>%</Text>
-                      </View>
-
-                      <Text style={styles.shareChallengeName}>{item.challenge}</Text>
-                      <Text style={styles.shareFrase}>{frase}</Text>
-
-                      {checkpointActual && checkpointActual !== 'Tolhuin' && (
-                        <View style={styles.shareCheckpoint}>
-                          <Text style={styles.shareCheckpointText}>📍 {checkpointActual}</Text>
-                        </View>
-                      )}
-
-                      <View style={styles.shareProgressBar}>
-                        <View style={[styles.shareProgressFill, { width: `${pct}%` }, estaCompletado && styles.shareProgressFillCompletado]} />
-                      </View>
-
-                      <View style={styles.shareKmRow}>
-                        <Text style={styles.shareKmText}>{item.km_completados} km</Text>
-                        <Text style={styles.shareKmTotal}>· Tolhuin → Ushuaia</Text>
-                        {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅</Text>}
-                      </View>
-
-                      {metaFormateada && (
-                        <Text style={styles.shareMetaText}>🎯 Meta: {metaFormateada}</Text>
-                      )}
-
-                      <View style={styles.shareFooter}>
-                        <Text style={styles.shareNombre}>{nombre}</Text>
-                        <Text style={styles.shareUrl}>korva.run</Text>
-                      </View>
-                    </View>
-                  </ViewShot>
-
-                  <MapaRecorrido
-                    kmCompletados={item.km_completados}
-                    distanciaTotal={item.distancia_total}
-                    porcentaje={item.porcentaje}
-                    checkpointsData={item.checkpoints}
-                    challengeId={item.challenge_id}
-                    challengeTitle={item.challenge}
-                  />
-
-                  {mostrarCardMeta && (
-                    <View style={styles.metaCard}>
-                      <Text style={styles.metaCardTitulo}>🎯 ¿Cuándo querés terminar?</Text>
-                      <Text style={styles.metaCardSubtitulo}>Opcional — te ayuda a planificar tu entrenamiento</Text>
-                      <View style={styles.metaInputRow}>
-                        <TextInput
-                          style={styles.metaInput}
-                          value={metaInputs[item.challenge_id] || ''}
-                          onChangeText={v => setMetaInputs(prev => ({ ...prev, [item.challenge_id]: v }))}
-                          placeholder="DD/MM/AAAA"
-                          placeholderTextColor="#4a6a8a"
-                          keyboardType="numeric"
-                        />
-                        <TouchableOpacity
-                          style={styles.metaGuardarBtn}
-                          onPress={() => guardarMeta(item)}
-                          disabled={guardandoMeta[item.challenge_id]}
-                        >
-                          {guardandoMeta[item.challenge_id]
-                            ? <ActivityIndicator color="#FFFFFF" size="small" />
-                            : <Text style={styles.metaGuardarBtnText}>Guardar</Text>
-                          }
-                        </TouchableOpacity>
-                      </View>
-                      <TouchableOpacity onPress={() => saltarMeta(item.challenge_id)} style={styles.metaSaltarBtn}>
-                        <Text style={styles.metaSaltarText}>Saltar por ahora</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
+            // Múltiples retos — selector tipo tabs, una pantalla por reto
+            <>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.retoTabsScroll}>
+                {challengesActivos.map((item, i) => (
                   <TouchableOpacity
-                    style={styles.detalleBtn}
-                    onPress={() => navigation.navigate('DetalleReto', { item, userId })}
+                    key={i}
+                    style={[styles.retoTab, i === retoActivoIndex && styles.retoTabActivo]}
+                    onPress={() => setRetoActivoIndex(i)}
                   >
-                    <View style={styles.btnRow}>
-                      <Text style={styles.detalleBtnText}>📖 Ver mi historia completa</Text>
-                      <Ionicons name="arrow-forward" size={14} color="#1E6FD9" />
-                    </View>
+                    <Text style={[styles.retoTabText, i === retoActivoIndex && styles.retoTabTextActivo]}>
+                      {item.challenge}
+                    </Text>
+                    {parseFloat(item.porcentaje) >= 100 && <Text style={styles.retoTabBadge}>🏅</Text>}
                   </TouchableOpacity>
+                ))}
+              </ScrollView>
 
-                  <TouchableOpacity style={styles.compartirBtn} onPress={() => compartirProgreso(index)}>
-                    <Text style={styles.compartirBtnText}>📤 Compartir progreso</Text>
-                  </TouchableOpacity>
-                </View>
-              );
-            })
+              <RetoCard
+                item={challengesActivos[retoActivoIndex]}
+                index={retoActivoIndex}
+                nombre={nombre}
+                userId={userId}
+                navigation={navigation}
+                metaVisibles={metaVisibles}
+                metaInputs={metaInputs}
+                setMetaInputs={setMetaInputs}
+                guardandoMeta={guardandoMeta}
+                guardarMeta={guardarMeta}
+                saltarMeta={saltarMeta}
+                compartirProgreso={compartirProgreso}
+                viewShotRefs={viewShotRefs}
+              />
+            </>
           )}
         </>
       )}
@@ -486,12 +540,111 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
+// ─── Componente reto individual ──────────────────────────────────
+function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs }) {
+  const pct = Math.min(parseFloat(item.porcentaje), 100);
+  const estaCompletado = pct >= 100;
+  const frase = getFrase(pct);
+  const mostrarCardMeta = metaVisibles[item.challenge_id];
+  const metaFormateada = formatearFechaMeta(item.meta_fecha);
+  const bordeCard = estaCompletado ? '#FC4C02' : pct >= 75 ? '#FC4C02' : '#1E3A5F';
+
+  return (
+    <View>
+      <ViewShot
+        ref={ref => viewShotRefs.current[index] = ref}
+        options={{ format: 'png', quality: 1 }}
+      >
+        <View style={[styles.shareCard, { borderColor: bordeCard }]}>
+          <View style={styles.shareHeader}>
+            <Text style={styles.shareKorvaLogo}>🏅 KORVA</Text>
+            <Text style={styles.shareDeporte}>
+              {item.modalidad === 'Running' ? '🏃 RUNNING' : item.modalidad === 'Ciclismo' ? '🚴 CICLISMO' : '🏊 NATACIÓN'}
+            </Text>
+          </View>
+          <View style={styles.sharePctWrapper}>
+            <Text style={styles.sharePctNumero}>{pct.toFixed(0)}</Text>
+            <Text style={styles.sharePctSymbol}>%</Text>
+          </View>
+          <Text style={styles.shareChallengeName}>{item.challenge}</Text>
+          <Text style={styles.shareFrase}>{frase}</Text>
+          <View style={styles.shareProgressBar}>
+            <View style={[styles.shareProgressFill, { width: `${pct}%` }, estaCompletado && styles.shareProgressFillCompletado]} />
+          </View>
+          <View style={styles.shareKmRow}>
+            <Text style={styles.shareKmText}>{item.km_completados} km</Text>
+            <Text style={styles.shareKmTotal}>· {getSubtitulo(item.challenge)}</Text>
+            {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅</Text>}
+          </View>
+          {metaFormateada && <Text style={styles.shareMetaText}>🎯 Meta: {metaFormateada}</Text>}
+          <View style={styles.shareFooter}>
+            <Text style={styles.shareNombre}>{nombre}</Text>
+            <Text style={styles.shareUrl}>korva.run</Text>
+          </View>
+        </View>
+      </ViewShot>
+
+      <MapaRecorrido
+        kmCompletados={item.km_completados}
+        distanciaTotal={item.distancia_total}
+        porcentaje={item.porcentaje}
+        checkpointsData={item.checkpoints}
+        challengeId={item.challenge_id}
+        challengeTitle={item.challenge}
+      />
+
+      {mostrarCardMeta && (
+        <View style={styles.metaCard}>
+          <Text style={styles.metaCardTitulo}>🎯 ¿Cuándo querés terminar?</Text>
+          <Text style={styles.metaCardSubtitulo}>Opcional — te ayuda a planificar tu entrenamiento</Text>
+          <View style={styles.metaInputRow}>
+            <TextInput
+              style={styles.metaInput}
+              value={metaInputs[item.challenge_id] || ''}
+              onChangeText={v => setMetaInputs(prev => ({ ...prev, [item.challenge_id]: v }))}
+              placeholder="DD/MM/AAAA"
+              placeholderTextColor="#4a6a8a"
+              keyboardType="numeric"
+            />
+            <TouchableOpacity
+              style={styles.metaGuardarBtn}
+              onPress={() => guardarMeta(item)}
+              disabled={guardandoMeta[item.challenge_id]}
+            >
+              {guardandoMeta[item.challenge_id]
+                ? <ActivityIndicator color="#FFFFFF" size="small" />
+                : <Text style={styles.metaGuardarBtnText}>Guardar</Text>
+              }
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity onPress={() => saltarMeta(item.challenge_id)} style={styles.metaSaltarBtn}>
+            <Text style={styles.metaSaltarText}>Saltar por ahora</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <TouchableOpacity style={styles.detalleBtn} onPress={() => navigation.navigate('DetalleReto', { item, userId })}>
+        <View style={styles.btnRow}>
+          <Text style={styles.detalleBtnText}>📖 Ver mi historia completa</Text>
+          <Ionicons name="arrow-forward" size={14} color="#1E6FD9" />
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.compartirBtn} onPress={() => compartirProgreso(index)}>
+        <Text style={styles.compartirBtnText}>📤 Compartir progreso</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#0D1B2A' },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 },
   saludo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
   subtitulo: { fontSize: 13, color: '#A8CFFF' },
+  stravaProximoBtn: { backgroundColor: '#1E3A5F', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2a4a6a' },
+  stravaProximoBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
   stravaBtn: { backgroundColor: '#FC4C02', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
   stravaBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
   stravaConectadoBadge: { backgroundColor: '#1a3a1a', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2a6a2a' },
@@ -539,10 +692,25 @@ const styles = StyleSheet.create({
   pendingTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
   pendingModalidad: { fontSize: 12, color: '#A8CFFF', marginBottom: 6 },
   pendingTexto: { fontSize: 12, color: '#6a8a6a', lineHeight: 18 },
-  emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 40, alignItems: 'center', marginTop: 20 },
+  ayudaBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center', justifyContent: 'center' },
+  ayudaBtnText: { color: '#A8CFFF', fontWeight: 'bold', fontSize: 15 },
+  faqItem: { borderBottomWidth: 1, borderBottomColor: '#2a4a6a', paddingVertical: 14 },
+  faqHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  faqPregunta: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', flex: 1, paddingRight: 12 },
+  faqChevron: { color: '#4a6a8a', fontSize: 12 },
+  faqRespuesta: { fontSize: 13, color: '#A8CFFF', lineHeight: 20, marginTop: 10 },
+  emptyLogrosRow: { flexDirection: 'row', gap: 8, marginVertical: 16, flexWrap: 'wrap', justifyContent: 'center' },
+  emptyLogroItem: { backgroundColor: '#1E3A5F', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, fontSize: 12, color: '#A8CFFF', fontWeight: 'bold' },
+  emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 32, alignItems: 'center', marginTop: 20, gap: 8 },
   emptyEmoji: { fontSize: 48, marginBottom: 16 },
   emptyText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   emptySubtext: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 20 },
+  retoTabsScroll: { marginBottom: 16 },
+  retoTab: { backgroundColor: '#1E3A5F', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8, borderWidth: 2, borderColor: 'transparent', flexDirection: 'row', alignItems: 'center', gap: 6 },
+  retoTabActivo: { borderColor: '#FC4C02' },
+  retoTabText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
+  retoTabTextActivo: { color: '#FFFFFF' },
+  retoTabBadge: { fontSize: 13 },
   shareCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 24, marginBottom: 8, borderWidth: 2 },
   shareHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   shareKorvaLogo: { fontSize: 13, fontWeight: 'bold', color: '#FC4C02', letterSpacing: 2 },
@@ -552,8 +720,6 @@ const styles = StyleSheet.create({
   sharePctSymbol: { fontSize: 32, fontWeight: 'bold', color: '#FC4C02', marginBottom: 12, marginLeft: 4 },
   shareChallengeName: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   shareFrase: { fontSize: 13, color: '#A8CFFF', marginBottom: 12, fontStyle: 'italic' },
-  shareCheckpoint: { backgroundColor: '#0D1B2A', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start', marginBottom: 14 },
-  shareCheckpointText: { fontSize: 12, color: '#FC4C02', fontWeight: 'bold' },
   shareProgressBar: { height: 6, backgroundColor: '#0D1B2A', borderRadius: 3, marginBottom: 12 },
   shareProgressFill: { height: 6, backgroundColor: '#1E6FD9', borderRadius: 3 },
   shareProgressFillCompletado: { backgroundColor: '#FC4C02' },

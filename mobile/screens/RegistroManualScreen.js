@@ -2,13 +2,9 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Activi
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../supabase';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
-const SUPABASE_URL = 'https://yvlpnshfqwkpcftotltb.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2bHBuc2hmcXdrcGNmdG90bHRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU4NTM5NjAsImV4cCI6MjA2MTQyOTk2MH0.HMsNKoJJHLuBtJVoaGGy4bfnPHsW2fSiGPMHHuU0PXk';
-const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const getFecha = (diasAtras) => {
   const d = new Date();
@@ -90,17 +86,29 @@ export default function RegistroManualScreen() {
   const subirEvidencia = async (uri) => {
     setSubiendoEvidencia(true);
     try {
-      const fileName = `evidencia_${userId}_${Date.now()}.jpg`;
+      // Convertir imagen a base64
       const response = await fetch(uri);
       const blob = await response.blob();
-      const { error } = await supabaseClient.storage
-        .from('korva-images')
-        .upload(`evidencias/${fileName}`, blob, { contentType: 'image/jpeg', upsert: true });
-      if (error) throw error;
-      const { data: urlData } = supabaseClient.storage
-        .from('korva-images')
-        .getPublicUrl(`evidencias/${fileName}`);
-      return urlData.publicUrl;
+      const reader = new FileReader();
+      const base64 = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      // Subir via backend (sin exponer keys en el cliente)
+      const res = await fetch(`${BACKEND_URL}/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          base64,
+          carpeta: 'evidencias',
+          nombre: `evidencia_${userId}_${Date.now()}.jpg`,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      return data.url;
     } catch (error) {
       console.error('Error subiendo evidencia:', error);
       return null;
@@ -149,7 +157,7 @@ export default function RegistroManualScreen() {
       });
       const data = await res.json();
       if (data.error) {
-        setMensaje('Error al registrar. Intenta de nuevo.');
+        setMensaje(data.error);
         setExito(false);
       } else {
         setMensaje(`${distancia} km de ${deporte === 'run' ? 'running' : 'ciclismo'} registrados!`);

@@ -58,7 +58,7 @@ const card = (contenido, borderColor = '#1E3A5F') => `
 const enviarEmailInscripcion = async (email, nombre, challenge, modalidad) => {
   try {
     await getResend().emails.send({
-      from: 'Korva <onboarding@resend.dev>',
+      from: 'Korva Aventuras <noreply@korva.run>',
       to: email,
       subject: `🏅 Inscripción confirmada — ${challenge}`,
       html: wrapper(`
@@ -68,9 +68,10 @@ const enviarEmailInscripcion = async (email, nombre, challenge, modalidad) => {
 
         ${card(`
           <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">TUS PRÓXIMOS PASOS</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">1️⃣ &nbsp; Conectá tu Strava para sincronizar automáticamente</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">2️⃣ &nbsp; O cargá tus km manualmente desde la app</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">1️⃣ &nbsp; Descargá la app Korva</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">2️⃣ &nbsp; Registrá tus km desde la pestaña "Registrar"</p>
           <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">3️⃣ &nbsp; Al llegar al 100%, tu medalla viaja a tu puerta 📦</p>
+          <p style="color: #4a6a8a; font-size: 12px; margin: 12px 0 0;">La integración con Strava estará disponible próximamente.</p>
         `, '#1E6FD9')}
 
         <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6;">Cada kilómetro cuenta. Cada salida te acerca a tu medalla. ¡A correr!</p>
@@ -97,7 +98,7 @@ const enviarEmailInvitacion = async (email, nombre, challenge, tokens) => {
     `).join('');
 
     await getResend().emails.send({
-      from: 'Korva <onboarding@resend.dev>',
+      from: 'Korva Aventuras <noreply@korva.run>',
       to: email,
       subject: `🎟️ Compartí el acceso — ${challenge}`,
       html: wrapper(`
@@ -128,7 +129,7 @@ const enviarEmailInvitacion = async (email, nombre, challenge, tokens) => {
 const enviarEmailCompletado = async (email, nombre, challenge) => {
   try {
     await getResend().emails.send({
-      from: 'Korva <onboarding@resend.dev>',
+      from: 'Korva Aventuras <noreply@korva.run>',
       to: email,
       subject: `🎉 ¡Completaste ${challenge}! Tu medalla está siendo preparada`,
       html: wrapper(`
@@ -155,7 +156,7 @@ const enviarEmailCompletado = async (email, nombre, challenge) => {
 const enviarEmailMedallaEnCamino = async (email, nombre, challenge, tracking) => {
   try {
     await getResend().emails.send({
-      from: 'Korva <onboarding@resend.dev>',
+      from: 'Korva Aventuras <noreply@korva.run>',
       to: email,
       subject: `📦 Tu medalla está en camino — ${challenge}`,
       html: wrapper(`
@@ -182,7 +183,7 @@ const enviarEmailMedallaEnCamino = async (email, nombre, challenge, tracking) =>
 const enviarEmailAdmin = async (asunto, mensaje) => {
   try {
     await getResend().emails.send({
-      from: 'Korva <onboarding@resend.dev>',
+      from: 'Korva Aventuras <noreply@korva.run>',
       to: 'korvaventura@gmail.com',
       subject: `⚠️ Korva Admin — ${asunto}`,
       html: wrapper(`
@@ -202,4 +203,72 @@ const enviarEmailAdmin = async (asunto, mensaje) => {
   }
 };
 
-module.exports = { enviarEmailInscripcion, enviarEmailInvitacion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdmin };
+const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad, dorsalPdfBase64, postalPdfBase64, bibNumber) => {
+  try {
+    await getResend().emails.send({
+      from: 'Korva Aventuras <noreply@korva.run>',
+      to: email,
+      subject: `🏅 Inscripción confirmada — ${challenge}`,
+      html: wrapper(`
+        ${badge('INSCRIPCIÓN CONFIRMADA')}
+        <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
+        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tu inscripción al desafío <strong style="color: #FFFFFF;">${challenge}</strong> en modalidad <strong style="color: #FC4C02;">${modalidad}</strong> fue confirmada. Adjunto a este email encontrás tu dorsal y tu postal de bienvenida.</p>
+
+        ${card(`
+          <p style="color: #FC4C02; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">TU DORSAL OFICIAL</p>
+          <p style="color: #FFFFFF; font-size: 32px; font-weight: bold; margin: 0 0 4px;">#${bibNumber}</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 0;">Guardalo, imprimilo o compartilo — es tuyo.</p>
+        `, '#FC4C02')}
+
+        ${card(`
+          <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 14px;">CÓMO REGISTRAR TUS KM</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 8px 0;"><strong style="color: #FFFFFF;">1.</strong> &nbsp;Ingresá a la plataforma desde tu celular o computadora:</p>
+          <div style="margin: 10px 0 16px;">
+            <a href="https://korva-aventuras.netlify.app/" style="display: inline-block; background: #FC4C02; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none;">🌐 Abrir plataforma web</a>
+          </div>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 8px 0;"><strong style="color: #FFFFFF;">2.</strong> &nbsp;Iniciá sesión con <strong style="color: #FFFFFF;">${email}</strong></p>
+          <div style="background: #2a1a0a; border-radius: 10px; padding: 12px 14px; margin: 8px 0; border-left: 3px solid #FC4C02;">
+            <p style="color: #FC4C02; font-size: 12px; font-weight: bold; margin: 0 0 4px;">⚠️ Importante</p>
+            <p style="color: #A8CFFF; font-size: 12px; margin: 0; line-height: 1.6;">Usá exactamente este email al registrarte. Si usás otro, tu desafío no va a aparecer. ¿Te equivocaste? Escribinos y lo resolvemos.</p>
+          </div>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 8px 0;"><strong style="color: #FFFFFF;">3.</strong> &nbsp;Cada vez que salgas a correr, caminar o andar en bici, registrá tus km — se van acumulando hasta completar el reto</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 8px 0;"><strong style="color: #FFFFFF;">4.</strong> &nbsp;Podés subir una foto como evidencia si querés — no es obligatorio pero suma</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 8px 0;"><strong style="color: #FFFFFF;">5.</strong> &nbsp;Seguí tu progreso y el ranking en tiempo real</p>
+          <p style="color: #4a6a8a; font-size: 12px; margin: 12px 0 0;">💡 Para guardar la web en tu celular como si fuera una app: en Instagram buscá @korva.aventuras → historias destacadas → "Registro kms".</p>
+        `, '#1E6FD9')}
+
+        ${card(`
+          <p style="color: #4a6a8a; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 10px;">SOBRE EL DESAFÍO</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">✅ &nbsp;Podés completarlo a tu ritmo — no hay límite de tiempo</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">✅ &nbsp;Podés sumar km corriendo, caminando o en bicicleta — todo cuenta</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">✅ &nbsp;Cargá tu dirección de envío en el Perfil para recibir tu medalla cuando completes el 100%</p>
+        `, '#2a4a6a')}
+
+        ${card(`
+          <p style="color: #4a6a8a; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 10px;">APP MÓVIL — PRÓXIMAMENTE</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 0; line-height: 1.8;">📱 La app nativa para Android e iOS estará disponible próximamente en Google Play y App Store. Por ahora usá la plataforma web.</p>
+        `, '#1E3A5F')}
+
+        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6; margin-top: 24px;">¿Tenés dudas? Escribinos por Instagram <a href="https://instagram.com/korva.aventuras" style="color: #1E6FD9;">@korva.aventuras</a> o al email <a href="mailto:korvaventura@gmail.com" style="color: #1E6FD9;">korvaventura@gmail.com</a></p>
+        <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 16px;">El equipo Korva 🏅</p>
+      `),
+      attachments: [
+        {
+          filename: `Dorsal_${bibNumber}_${nombre.replace(/\s/g, '_')}.pdf`,
+          content: dorsalPdfBase64,
+          content_type: 'application/pdf',
+        },
+        {
+          filename: `Postal_${challenge.replace(/\s/g, '_')}_${nombre.replace(/\s/g, '_')}.pdf`,
+          content: postalPdfBase64,
+          content_type: 'application/pdf',
+        },
+      ],
+    });
+    console.log('Email con bib enviado a:', email);
+  } catch (error) {
+    console.error('Error enviando email con bib:', error);
+  }
+};
+
+module.exports = { enviarEmailInscripcion, enviarEmailInscripcionConBib, enviarEmailInvitacion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdmin };

@@ -1,14 +1,11 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Clipboard, Alert, Image } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Clipboard, Alert, Image, Linking } from 'react-native';
 import { useState, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { createClient } from '@supabase/supabase-js';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
+import { supabase } from '../supabase';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
-const SUPABASE_URL = 'https://yvlpnshfqwkpcftotltb.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2bHBuc2hmcXdrcGNmdG90bHRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU4NTM5NjAsImV4cCI6MjA2MTQyOTk2MH0.HMsNKoJJHLuBtJVoaGGy4bfnPHsW2fSiGPMHHuU0PXk';
-const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CHECKPOINTS_DEFAULT = [
   { id: 'tolhuin', nombre: 'Tolhuin', kmFisico: 0, emoji: '🏘️', desc: 'El corazón de Tierra del Fuego.', datoRaro: '🧭 Km 0 de tu aventura.' },
@@ -50,6 +47,75 @@ export default function AdminScreen() {
 
   // Evidencia expandida
   const [evidenciaExpandida, setEvidenciaExpandida] = useState(null);
+  const [usuarioExpandido, setUsuarioExpandido] = useState(null);
+  const [evidenciasAdmin, setEvidenciasAdmin] = useState([]);
+  const [cargandoEvidencias, setCargandoEvidencias] = useState(false);
+  const [metricas, setMetricas] = useState(null);
+  const [cargandoMetricas, setCargandoMetricas] = useState(false);
+  const [pedidosGrupales, setPedidosGrupales] = useState([]);
+  const [cargandoGrupos, setCargandoGrupos] = useState(false);
+  const [trackingGrupo, setTrackingGrupo] = useState({});
+  const [enviandoGrupo, setEnviandoGrupo] = useState(null);
+  const [grupoExpandido, setGrupoExpandido] = useState(null);
+
+  const cargarPedidosGrupales = async () => {
+    setCargandoGrupos(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/admin/pedidos-grupales`);
+      const data = await res.json();
+      setPedidosGrupales(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error('Error cargando pedidos grupales:', e);
+    } finally {
+      setCargandoGrupos(false);
+    }
+  };
+
+  const enviarGrupo = async (grupo) => {
+    const ids = grupo.miembros.filter(m => m.status === 'completed').map(m => m.id);
+    if (ids.length === 0) return;
+    setEnviandoGrupo(grupo.group_id);
+    try {
+      const res = await fetch(`${BACKEND_URL}/admin/grupo-enviado`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_challenge_ids: ids, tracking_number: trackingGrupo[grupo.group_id] || '' })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.detalle);
+      Alert.alert('✅ Enviado', `${data.enviados} medalla(s) marcadas como enviadas.`);
+      cargarPedidosGrupales();
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo marcar el grupo como enviado.');
+    } finally {
+      setEnviandoGrupo(null);
+    }
+  };
+
+  const cargarMetricas = async () => {
+    setCargandoMetricas(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/admin/metricas`);
+      const data = await res.json();
+      setMetricas(data);
+    } catch (e) {
+      console.error('Error cargando métricas:', e);
+    } finally {
+      setCargandoMetricas(false);
+    }
+  };
+
+  useEffect(() => {
+    if (vista === 'evidencias' && evidenciasAdmin.length === 0) {
+      cargarEvidencias();
+    }
+    if (vista === 'metricas') {
+      cargarMetricas();
+    }
+    if (vista === 'grupos') {
+      cargarPedidosGrupales();
+    }
+  }, [vista]);
 
   useEffect(() => {
     cargarChallenges();
@@ -62,6 +128,23 @@ export default function AdminScreen() {
       cargarChallengesActivos();
     }, [])
   );
+
+  const cargarEvidencias = async () => {
+    setCargandoEvidencias(true);
+    try {
+      const { data, error } = await supabase
+        .from('activities')
+        .select('id, user_id, distance_km, sport_type, recorded_at, evidencia_url, users(name, email)')
+        .eq('source', 'manual')
+        .not('evidencia_url', 'is', null)
+        .order('recorded_at', { ascending: false });
+      if (!error) setEvidenciasAdmin(data || []);
+    } catch (e) {
+      console.error('Error cargando evidencias:', e);
+    } finally {
+      setCargandoEvidencias(false);
+    }
+  };
 
   const cargarChallenges = async () => {
     try {
@@ -99,17 +182,26 @@ export default function AdminScreen() {
       });
       if (resultado.canceled) return;
       const uri = resultado.assets[0].uri;
-      const fileName = `${carpeta}_${Date.now()}.jpg`;
+
+      // Convertir a base64
       const response = await fetch(uri);
       const blob = await response.blob();
-      const { error } = await supabaseClient.storage
-        .from('korva-images')
-        .upload(`${carpeta}/${fileName}`, blob, { contentType: 'image/jpeg', upsert: true });
-      if (error) throw error;
-      const { data: urlData } = supabaseClient.storage
-        .from('korva-images')
-        .getPublicUrl(`${carpeta}/${fileName}`);
-      onSuccess(urlData.publicUrl);
+      const reader = new FileReader();
+      const base64 = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      // Subir via backend
+      const res = await fetch(`${BACKEND_URL}/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64, carpeta, nombre: `${carpeta}_${Date.now()}.jpg` }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      onSuccess(data.url);
       Alert.alert('✅ Foto subida', 'La imagen fue cargada correctamente.');
     } catch (error) {
       Alert.alert('Error', 'No se pudo subir la foto.');
@@ -341,6 +433,17 @@ export default function AdminScreen() {
     );
   };
 
+  const [menuAbierto, setMenuAbierto] = useState(false);
+
+  const MENU_OPCIONES = [
+    { id: 'envios',    emoji: '📬', label: 'Envíos' },
+    { id: 'grupos',    emoji: '👥', label: 'Pedidos grupales' },
+    { id: 'evidencias', emoji: '📸', label: 'Evidencias' },
+    { id: 'metricas',  emoji: '📊', label: 'Métricas' },
+    { id: 'editar',    emoji: '✏️', label: 'Editar retos' },
+    { id: 'mapa',      emoji: '🗺️', label: 'Editar mapas' },
+    { id: 'crear',     emoji: '➕', label: 'Nuevo reto' },
+  ];
   const pendientes = challenges.filter(c => c.status === 'completed');
   const enviados = challenges.filter(c => c.status === 'shipped');
   const lista = filtro === 'pendientes' ? pendientes : enviados;
@@ -349,19 +452,34 @@ export default function AdminScreen() {
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>⚙️ Admin</Text>
 
-      <View style={styles.vistaRow}>
-        <TouchableOpacity style={[styles.vistaBtn, vista === 'envios' && styles.vistaBtnActivo]} onPress={() => setVista('envios')}>
-          <Text style={[styles.vistaText, vista === 'envios' && styles.vistaTextActivo]}>📬 Envíos</Text>
+      {/* Menú desplegable */}
+      <View style={styles.menuWrapper}>
+        <TouchableOpacity
+          style={styles.menuBtn}
+          onPress={() => setMenuAbierto(!menuAbierto)}
+        >
+          <Text style={styles.menuBtnEmoji}>{MENU_OPCIONES.find(o => o.id === vista)?.emoji}</Text>
+          <Text style={styles.menuBtnLabel}>{MENU_OPCIONES.find(o => o.id === vista)?.label}</Text>
+          <Text style={styles.menuBtnChevron}>{menuAbierto ? '▲' : '▼'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.vistaBtn, vista === 'editar' && styles.vistaBtnActivo]} onPress={() => setVista('editar')}>
-          <Text style={[styles.vistaText, vista === 'editar' && styles.vistaTextActivo]}>✏️ Editar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.vistaBtn, vista === 'mapa' && styles.vistaBtnActivo]} onPress={() => setVista('mapa')}>
-          <Text style={[styles.vistaText, vista === 'mapa' && styles.vistaTextActivo]}>🗺️ Mapa</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.vistaBtn, vista === 'crear' && styles.vistaBtnActivo]} onPress={() => setVista('crear')}>
-          <Text style={[styles.vistaText, vista === 'crear' && styles.vistaTextActivo]}>➕ Nuevo</Text>
-        </TouchableOpacity>
+
+        {menuAbierto && (
+          <View style={styles.menuDropdown}>
+            {MENU_OPCIONES.map((op) => (
+              <TouchableOpacity
+                key={op.id}
+                style={[styles.menuOpcion, vista === op.id && styles.menuOpcionActiva]}
+                onPress={() => { setVista(op.id); setMenuAbierto(false); }}
+              >
+                <Text style={styles.menuOpcionEmoji}>{op.emoji}</Text>
+                <Text style={[styles.menuOpcionLabel, vista === op.id && styles.menuOpcionLabelActiva]}>
+                  {op.label}
+                </Text>
+                {vista === op.id && <Text style={styles.menuOpcionCheck}>✓</Text>}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
 
       {vista === 'envios' && (
@@ -409,20 +527,22 @@ export default function AdminScreen() {
                   <Text style={styles.email}>{item.email}</Text>
                   {renderDireccion(item.direccion)}
 
-                  {/* ✅ Evidencia de km manual */}
-                  {item.evidencia_url && (
+                  {/* ✅ Evidencias de km manual */}
+                  {item.evidencias && item.evidencias.length > 0 && (
                     <View style={styles.evidenciaAdminBox}>
-                      <Text style={styles.evidenciaAdminLabel}>📸 EVIDENCIA KM MANUAL</Text>
-                      <TouchableOpacity onPress={() => setEvidenciaExpandida(evidenciaExpandida === item.id ? null : item.id)}>
-                        <Image
-                          source={{ uri: item.evidencia_url }}
-                          style={[styles.evidenciaAdminImg, evidenciaExpandida === item.id && styles.evidenciaAdminImgExpandida]}
-                          resizeMode="contain"
-                        />
-                        <Text style={styles.evidenciaAdminTap}>
-                          {evidenciaExpandida === item.id ? '↑ Reducir' : '↓ Expandir'}
-                        </Text>
-                      </TouchableOpacity>
+                      <Text style={styles.evidenciaAdminLabel}>📸 EVIDENCIAS KM MANUAL ({item.evidencias.length})</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        {item.evidencias.map((url, i) => (
+                          <TouchableOpacity key={i} onPress={() => setEvidenciaExpandida(evidenciaExpandida === `${item.id}_${i}` ? null : `${item.id}_${i}`)}>
+                            <Image
+                              source={{ uri: url }}
+                              style={[styles.evidenciaAdminImg, evidenciaExpandida === `${item.id}_${i}` && styles.evidenciaAdminImgExpandida, { marginRight: 8 }]}
+                              resizeMode="contain"
+                            />
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                      <Text style={styles.evidenciaAdminTap}>Tocá para expandir</Text>
                     </View>
                   )}
 
@@ -450,6 +570,332 @@ export default function AdminScreen() {
             })
           }
         </>
+      )}
+
+      {vista === 'grupos' && (
+        <View>
+          {cargandoGrupos ? (
+            <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
+          ) : pedidosGrupales.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyEmoji}>📦</Text>
+              <Text style={styles.emptyText}>Sin pedidos listos</Text>
+              <Text style={styles.emptySubtext}>Acá aparecen los grupos cuando todos los miembros completen su desafío, o pasen 2 semanas desde el primero.</Text>
+              <TouchableOpacity style={[styles.editarBtn, { marginTop: 16 }]} onPress={cargarPedidosGrupales}>
+                <Text style={styles.editarBtnText}>↻ Actualizar</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (() => {
+            const listos = pedidosGrupales.filter(g => !g.envio_parcial);
+            const parciales = pedidosGrupales.filter(g => g.envio_parcial);
+
+            return (
+              <>
+                {/* Resumen */}
+                <View style={styles.resumenRow}>
+                  <View style={[styles.resumenCard, { borderColor: '#4CAF50' }]}>
+                    <Text style={[styles.resumenNumero, { color: '#4CAF50' }]}>{listos.length}</Text>
+                    <Text style={styles.resumenLabel}>Listos</Text>
+                  </View>
+                  <View style={[styles.resumenCard, { borderColor: '#FC4C02' }]}>
+                    <Text style={[styles.resumenNumero, { color: '#FC4C02' }]}>{parciales.length}</Text>
+                    <Text style={styles.resumenLabel}>Parciales</Text>
+                  </View>
+                  <View style={[styles.resumenCard, { borderColor: '#1E6FD9' }]}>
+                    <Text style={[styles.resumenNumero, { color: '#1E6FD9' }]}>{pedidosGrupales.length}</Text>
+                    <Text style={styles.resumenLabel}>Total</Text>
+                  </View>
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+                  <TouchableOpacity style={[styles.editarBtn, { flex: 1 }]} onPress={cargarPedidosGrupales}>
+                    <Text style={styles.editarBtnText}>↻ Actualizar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.editarBtn, { flex: 1, borderColor: '#4CAF50' }]}
+                    onPress={() => Linking.openURL(`${BACKEND_URL}/admin/export-envios`)}
+                  >
+                    <Text style={[styles.editarBtnText, { color: '#4CAF50' }]}>⬇️ Exportar CSV</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {pedidosGrupales.map((grupo, i) => {
+                  const expandido = grupoExpandido === grupo.group_id;
+                  return (
+                    <View key={i} style={[styles.card, grupo.envio_parcial && styles.cardUrgente, { paddingBottom: expandido ? 20 : 4 }]}>
+                      {/* Header siempre visible — tocar para expandir */}
+                      <TouchableOpacity onPress={() => setGrupoExpandido(expandido ? null : grupo.group_id)}>
+                        <View style={styles.cardHeader}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.deporte}>
+                              {grupo.envio_parcial ? `⚠️ PARCIAL — hace ${grupo.dias_desde_primero}d` : '✅ LISTO'}
+                            </Text>
+                            <Text style={styles.nombre}>{grupo.comprador}</Text>
+                            <Text style={styles.challenge}>{grupo.completados} de {grupo.total_miembros} completaron</Text>
+                          </View>
+                          <Text style={{ color: '#4a6a8a', fontSize: 18 }}>{expandido ? '▲' : '▼'}</Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      {expandido && (
+                        <>
+                          <Text style={styles.email}>{grupo.email}</Text>
+                          {renderDireccion(grupo.direccion)}
+
+                          {/* Lista de miembros */}
+                          <View style={styles.sinDireccionBox}>
+                            {grupo.miembros.map((m, j) => (
+                              <View key={j} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 }}>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' }}>
+                                    {m.status === 'completed' ? '✅' : '⏳'} {m.usuario}
+                                  </Text>
+                                  <Text style={{ color: '#A8CFFF', fontSize: 11 }}>
+                                    {m.modalidad === 'run' ? '🏃' : '🚴'} {m.challenge} · {m.km_completados} km
+                                  </Text>
+                                </View>
+                                {m.status !== 'completed' && (
+                                  <Text style={{ color: '#4a6a8a', fontSize: 11 }}>pendiente</Text>
+                                )}
+                              </View>
+                            ))}
+                          </View>
+
+                          {grupo.envio_parcial && (
+                            <Text style={[styles.evidenciaAdminTap, { color: '#FC4C02', marginBottom: 10 }]}>
+                              Solo se enviarán las medallas de quienes completaron ({grupo.completados}). El resto quedará pendiente para un próximo envío.
+                            </Text>
+                          )}
+
+                          <TouchableOpacity style={styles.copiarBtn} onPress={() => copiarDireccion({
+                            direccion: grupo.direccion,
+                            usuario: grupo.comprador,
+                            email: grupo.email,
+                            challenge: grupo.miembros.map(m => `${m.usuario} (${m.challenge})`).join(', '),
+                            modalidad: 'run',
+                            km_completados: '—',
+                          })}>
+                            <Text style={styles.copiarBtnText}>📋 Copiar datos de envío</Text>
+                          </TouchableOpacity>
+
+                          <Text style={styles.label}>NUMERO DE TRACKING</Text>
+                          <TextInput
+                            style={styles.input}
+                            value={trackingGrupo[grupo.group_id] || ''}
+                            onChangeText={(val) => setTrackingGrupo(prev => ({ ...prev, [grupo.group_id]: val }))}
+                            placeholder="Ej: AR123456789"
+                            placeholderTextColor="#4a6a8a"
+                          />
+                          <TouchableOpacity style={styles.button} onPress={() => enviarGrupo(grupo)} disabled={enviandoGrupo === grupo.group_id}>
+                            {enviandoGrupo === grupo.group_id
+                              ? <ActivityIndicator color="#FFFFFF" size="small" />
+                              : <Text style={styles.buttonText}>📬 Marcar pedido como enviado y notificar</Text>
+                            }
+                          </TouchableOpacity>
+                        </>
+                      )}
+                    </View>
+                  );
+                })}
+              </>
+            );
+          })()}
+        </View>
+      )}
+
+      {vista === 'metricas' && (
+        <View>
+          {cargandoMetricas ? (
+            <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
+          ) : !metricas ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyEmoji}>📊</Text>
+              <Text style={styles.emptyText}>Sin datos</Text>
+              <TouchableOpacity style={[styles.editarBtn, { marginTop: 16 }]} onPress={cargarMetricas}>
+                <Text style={styles.editarBtnText}>↻ Cargar métricas</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <TouchableOpacity style={[styles.editarBtn, { marginBottom: 16 }]} onPress={cargarMetricas}>
+                <Text style={styles.editarBtnText}>↻ Actualizar</Text>
+              </TouchableOpacity>
+
+              {/* Usuarios */}
+              <Text style={styles.metricaSeccion}>👥 Usuarios</Text>
+              <View style={styles.metricaRow}>
+                <View style={styles.metricaCard}>
+                  <Text style={styles.metricaNumero}>{metricas.totalUsuarios}</Text>
+                  <Text style={styles.metricaLabel}>Total</Text>
+                </View>
+                <View style={styles.metricaCard}>
+                  <Text style={styles.metricaNumero}>{metricas.conStrava}</Text>
+                  <Text style={styles.metricaLabel}>Con Strava</Text>
+                </View>
+                <View style={styles.metricaCard}>
+                  <Text style={styles.metricaNumero}>{metricas.totalUsuarios > 0 ? Math.round((metricas.conStrava / metricas.totalUsuarios) * 100) : 0}%</Text>
+                  <Text style={styles.metricaLabel}>Adopción</Text>
+                </View>
+              </View>
+
+              {/* Retos */}
+              <Text style={styles.metricaSeccion}>🏅 Retos</Text>
+              <View style={styles.metricaRow}>
+                <View style={[styles.metricaCard, { borderColor: '#1E6FD9' }]}>
+                  <Text style={[styles.metricaNumero, { color: '#1E6FD9' }]}>{metricas.activos}</Text>
+                  <Text style={styles.metricaLabel}>Activos</Text>
+                </View>
+                <View style={[styles.metricaCard, { borderColor: '#FC4C02' }]}>
+                  <Text style={[styles.metricaNumero, { color: '#FC4C02' }]}>{metricas.completados}</Text>
+                  <Text style={styles.metricaLabel}>Completados</Text>
+                </View>
+                <View style={[styles.metricaCard, { borderColor: '#4CAF50' }]}>
+                  <Text style={[styles.metricaNumero, { color: '#4CAF50' }]}>{metricas.enviados}</Text>
+                  <Text style={styles.metricaLabel}>Enviados</Text>
+                </View>
+              </View>
+
+              {/* Km */}
+              <Text style={styles.metricaSeccion}>🏃 Kilómetros</Text>
+              <View style={styles.metricaRow}>
+                <View style={styles.metricaCard}>
+                  <Text style={styles.metricaNumero}>{parseFloat(metricas.kmTotales).toLocaleString('es-AR')}</Text>
+                  <Text style={styles.metricaLabel}>km totales</Text>
+                </View>
+                <View style={styles.metricaCard}>
+                  <Text style={styles.metricaNumero}>{parseFloat(metricas.kmStrava).toLocaleString('es-AR')}</Text>
+                  <Text style={styles.metricaLabel}>via Strava</Text>
+                </View>
+                <View style={styles.metricaCard}>
+                  <Text style={styles.metricaNumero}>{parseFloat(metricas.kmManual).toLocaleString('es-AR')}</Text>
+                  <Text style={styles.metricaLabel}>manual</Text>
+                </View>
+              </View>
+              <View style={styles.metricaTotalActividades}>
+                <Text style={styles.metricaTotalActividadesText}>📋 {metricas.totalActividades} actividades registradas en total</Text>
+              </View>
+
+              {/* Por challenge */}
+              <Text style={styles.metricaSeccion}>📍 Por challenge</Text>
+              {Object.entries(metricas.porChallenge).map(([titulo, datos], i) => (
+                <View key={i} style={styles.metricaChallengeCard}>
+                  <Text style={styles.metricaChallengeTitulo}>{titulo}</Text>
+                  <View style={styles.metricaRow}>
+                    <View style={styles.metricaCardSmall}>
+                      <Text style={styles.metricaNumeroSmall}>{datos.activos}</Text>
+                      <Text style={styles.metricaLabelSmall}>activos</Text>
+                    </View>
+                    <View style={styles.metricaCardSmall}>
+                      <Text style={styles.metricaNumeroSmall}>{datos.completados}</Text>
+                      <Text style={styles.metricaLabelSmall}>completados</Text>
+                    </View>
+                    <View style={styles.metricaCardSmall}>
+                      <Text style={styles.metricaNumeroSmall}>{datos.enviados}</Text>
+                      <Text style={styles.metricaLabelSmall}>enviados</Text>
+                    </View>
+                    <View style={styles.metricaCardSmall}>
+                      <Text style={styles.metricaNumeroSmall}>{parseFloat(datos.kmTotales).toFixed(0)}</Text>
+                      <Text style={styles.metricaLabelSmall}>km</Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
+        </View>
+      )}
+
+      {vista === 'evidencias' && (
+        <View>
+          {cargandoEvidencias ? (
+            <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
+          ) : evidenciasAdmin.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyEmoji}>📸</Text>
+              <Text style={styles.emptyText}>Sin evidencias todavía</Text>
+              <Text style={styles.emptySubtext}>Aparecen acá cuando usuarios suban fotos en registro manual</Text>
+              <TouchableOpacity style={[styles.editarBtn, { marginTop: 16 }]} onPress={cargarEvidencias}>
+                <Text style={styles.editarBtnText}>↻ Cargar evidencias</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (() => {
+            // Agrupar por usuario
+            const porUsuario = {};
+            evidenciasAdmin.forEach(act => {
+              const userId = act.user_id;
+              if (!porUsuario[userId]) {
+                porUsuario[userId] = {
+                  nombre: act.users?.name || 'Sin nombre',
+                  email: act.users?.email || '',
+                  actividades: [],
+                };
+              }
+              porUsuario[userId].actividades.push(act);
+            });
+
+            return (
+              <>
+                <TouchableOpacity style={[styles.editarBtn, { marginBottom: 16 }]} onPress={cargarEvidencias}>
+                  <Text style={styles.editarBtnText}>↻ Actualizar</Text>
+                </TouchableOpacity>
+                {Object.entries(porUsuario).map(([userId, datos]) => (
+                  <View key={userId} style={styles.evidenciaUsuarioCard}>
+                    <TouchableOpacity
+                      style={styles.evidenciaUsuarioHeader}
+                      onPress={() => setUsuarioExpandido(usuarioExpandido === userId ? null : userId)}
+                    >
+                      <View style={styles.evidenciaUsuarioAvatar}>
+                        <Text style={styles.evidenciaUsuarioLetra}>
+                          {datos.nombre?.charAt(0)?.toUpperCase() || '?'}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.evidenciaUsuarioNombre}>{datos.nombre}</Text>
+                        <Text style={styles.evidenciaUsuarioEmail}>{datos.email}</Text>
+                        <Text style={styles.evidenciaUsuarioCount}>{datos.actividades.length} evidencia{datos.actividades.length !== 1 ? 's' : ''}</Text>
+                      </View>
+                      <Text style={{ color: '#4a6a8a', fontSize: 18 }}>
+                        {usuarioExpandido === userId ? '▲' : '▼'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {usuarioExpandido === userId && (
+                      <View style={styles.evidenciaActividadesList}>
+                        {datos.actividades.map((act, i) => (
+                          <View key={i} style={styles.evidenciaActividadItem}>
+                            <View style={styles.evidenciaActividadInfo}>
+                              <Text style={styles.evidenciaActividadKm}>
+                                {act.sport_type === 'run' ? '🏃' : '🚴'} {parseFloat(act.distance_km).toFixed(1)} km
+                              </Text>
+                              <Text style={styles.evidenciaActividadFecha}>
+                                {new Date(act.recorded_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              onPress={() => setEvidenciaExpandida(evidenciaExpandida === `ev_${act.id}` ? null : `ev_${act.id}`)}
+                            >
+                              <Image
+                                source={{ uri: act.evidencia_url }}
+                                style={[
+                                  styles.evidenciaAdminImg,
+                                  evidenciaExpandida === `ev_${act.id}` && styles.evidenciaAdminImgExpandida
+                                ]}
+                                resizeMode="contain"
+                              />
+                              <Text style={styles.evidenciaAdminTap}>
+                                {evidenciaExpandida === `ev_${act.id}` ? '↑ Reducir' : '↓ Expandir'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </>
+            );
+          })()}
+        </View>
       )}
 
       {vista === 'editar' && (
@@ -645,7 +1091,43 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#0D1B2A' },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
   titulo: { fontSize: 26, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 16 },
-  vistaRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+  metricaSeccion: { fontSize: 13, fontWeight: 'bold', color: '#A8CFFF', letterSpacing: 1, marginBottom: 10, marginTop: 4 },
+  metricaRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  metricaCard: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#2a4a6a' },
+  metricaNumero: { fontSize: 24, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
+  metricaLabel: { fontSize: 10, color: '#A8CFFF', textAlign: 'center', letterSpacing: 0.5 },
+  metricaTotalActividades: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', marginBottom: 20 },
+  metricaTotalActividadesText: { fontSize: 13, color: '#A8CFFF', fontWeight: 'bold' },
+  metricaChallengeCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 16, marginBottom: 10 },
+  metricaChallengeTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 10 },
+  metricaCardSmall: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10, alignItems: 'center' },
+  metricaNumeroSmall: { fontSize: 18, fontWeight: 'bold', color: '#FC4C02', marginBottom: 2 },
+  metricaLabelSmall: { fontSize: 9, color: '#4a6a8a', textAlign: 'center' },
+  evidenciaUsuarioCard: { backgroundColor: '#1E3A5F', borderRadius: 16, marginBottom: 12, overflow: 'hidden' },
+  evidenciaUsuarioHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
+  evidenciaUsuarioAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center' },
+  evidenciaUsuarioLetra: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
+  evidenciaUsuarioNombre: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
+  evidenciaUsuarioEmail: { fontSize: 12, color: '#4a6a8a', marginBottom: 2 },
+  evidenciaUsuarioCount: { fontSize: 11, color: '#FC4C02', fontWeight: 'bold' },
+  evidenciaActividadesList: { borderTopWidth: 1, borderTopColor: '#0D1B2A', padding: 16, gap: 16 },
+  evidenciaActividadItem: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 12 },
+  evidenciaActividadInfo: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  evidenciaActividadKm: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF' },
+  evidenciaActividadFecha: { fontSize: 12, color: '#4a6a8a' },
+  menuWrapper: { marginBottom: 20, zIndex: 100 },
+  menuBtn: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 2, borderColor: '#FC4C02' },
+  menuBtnEmoji: { fontSize: 18 },
+  menuBtnLabel: { flex: 1, color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
+  menuBtnChevron: { color: '#FC4C02', fontSize: 14, fontWeight: 'bold' },
+  menuDropdown: { backgroundColor: '#1E3A5F', borderRadius: 14, marginTop: 4, borderWidth: 1, borderColor: '#2a4a6a', overflow: 'hidden' },
+  menuOpcion: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderBottomWidth: 1, borderBottomColor: '#2a4a6a' },
+  menuOpcionActiva: { backgroundColor: '#0D1B2A' },
+  menuOpcionEmoji: { fontSize: 18, width: 28 },
+  menuOpcionLabel: { flex: 1, color: '#A8CFFF', fontSize: 15, fontWeight: 'bold' },
+  menuOpcionLabelActiva: { color: '#FFFFFF' },
+  menuOpcionCheck: { color: '#FC4C02', fontSize: 16, fontWeight: 'bold' },
+  vistaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
   vistaBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
   vistaBtnActivo: { borderColor: '#FC4C02' },
   vistaText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 11 },
