@@ -706,6 +706,36 @@ app.get('/admin/export-envios', async (req, res) => {
   }
 });
 
+app.get('/admin/todos-inscriptos', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_challenges')
+      .select('*, challenges(*), users(*)')
+      .in('status', ['active', 'completed', 'shipped', 'pending'])
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const resultado = data.map(uc => ({
+      id: uc.id,
+      usuario: uc.users?.name,
+      email: uc.users?.email,
+      challenge: uc.challenges?.title,
+      challenge_id: uc.challenge_id,
+      modalidad: uc.modalidad,
+      km_completados: uc.km_completed?.toFixed(1) || '0.0',
+      status: uc.status,
+      started_at: uc.started_at,
+      completed_at: uc.completed_at,
+      tracking_number: uc.tracking_number,
+    }));
+
+    res.json(resultado);
+  } catch (error) {
+    res.json({ error: 'Error', detalle: error.message });
+  }
+});
+
 app.get('/admin/challenges-activos', async (req, res) => {
   try {
     const { data, error } = await supabase
