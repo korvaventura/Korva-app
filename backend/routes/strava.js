@@ -197,12 +197,15 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
 };
 
 router.get('/auth', (req, res) => {
-  const stravaAuthUrl = `https://www.strava.com/oauth/authorize?client_id=232688&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=force&scope=activity:read_all`;
+  const { userId } = req.query;
+  const state = userId || '';
+  const stravaAuthUrl = `https://www.strava.com/oauth/authorize?client_id=232688&response_type=code&redirect_uri=${REDIRECT_URI}&approval_prompt=force&scope=activity:read_all&state=${state}`;
   res.redirect(stravaAuthUrl);
 });
 
 router.get('/callback', async (req, res) => {
-  const { code } = req.query;
+  const { code, state } = req.query;
+  const userId = state || null;
   try {
     const response = await fetch('https://www.strava.com/oauth/token', {
       method: 'POST',
@@ -223,21 +226,42 @@ router.get('/callback', async (req, res) => {
     const stravaAthlete = await athleteRes.json();
 
     const supabase = getSupabase();
-    const { data: user, error } = await supabase
-      .from('users')
-      .upsert({
-        email: stravaAthlete?.email || `strava_${stravaAthlete?.id}@korva.app`,
-        name: [stravaAthlete?.firstname, stravaAthlete?.lastname].filter(Boolean).join(' ') || `Atleta ${stravaAthlete?.id}`,
-        avatar_url: stravaAthlete?.profile,
-        strava_token: data.access_token,
-        strava_refresh_token: data.refresh_token,
-        strava_token_expires_at: data.expires_at,
-        strava_athlete_id: stravaAthlete?.id
-      }, { onConflict: 'email' })
-      .select()
-      .single();
+    let user;
 
-    if (error) throw error;
+    if (userId) {
+      // Actualizar usuario existente por ID — más confiable
+      const { data: updatedUser, error } = await supabase
+        .from('users')
+        .update({
+          strava_token: data.access_token,
+          strava_refresh_token: data.refresh_token,
+          strava_token_expires_at: data.expires_at,
+          strava_athlete_id: stravaAthlete?.id,
+          avatar_url: stravaAthlete?.profile || null,
+        })
+        .eq('id', userId)
+        .select()
+        .single();
+      if (error) throw error;
+      user = updatedUser;
+    } else {
+      // Fallback: upsert por email (para casos sin userId)
+      const { data: upsertedUser, error } = await supabase
+        .from('users')
+        .upsert({
+          email: stravaAthlete?.email || `strava_${stravaAthlete?.id}@korva.app`,
+          name: [stravaAthlete?.firstname, stravaAthlete?.lastname].filter(Boolean).join(' ') || `Atleta ${stravaAthlete?.id}`,
+          avatar_url: stravaAthlete?.profile,
+          strava_token: data.access_token,
+          strava_refresh_token: data.refresh_token,
+          strava_token_expires_at: data.expires_at,
+          strava_athlete_id: stravaAthlete?.id
+        }, { onConflict: 'email' })
+        .select()
+        .single();
+      if (error) throw error;
+      user = upsertedUser;
+    }
 
     // Página HTML intermedia que abre el deep link — más confiable en Android
     res.send(`
