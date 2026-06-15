@@ -250,7 +250,7 @@ export default function PerfilScreen() {
 
   const conectarStravaReal = async () => {
     const result = await WebBrowser.openAuthSessionAsync(
-      `${BACKEND_URL}/strava/auth`,
+      `${BACKEND_URL}/strava/auth?userId=${userId}`,
       'korva://strava-connected'
     );
     if (result.type === 'success' || result.url?.includes('strava-connected')) {
