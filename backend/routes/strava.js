@@ -220,6 +220,7 @@ router.get('/callback', async (req, res) => {
     });
 
     const data = await response.json();
+    console.log('[STRAVA CALLBACK] respuesta token exchange:', JSON.stringify(data));
 
     const athleteRes = await fetch('https://www.strava.com/api/v3/athlete', {
       headers: { 'Authorization': `Bearer ${data.access_token}` }
