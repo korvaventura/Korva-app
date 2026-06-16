@@ -206,6 +206,7 @@ router.get('/auth', (req, res) => {
 router.get('/callback', async (req, res) => {
   const { code, state } = req.query;
   const userId = state || null;
+  console.log('[STRAVA CALLBACK] state recibido:', state, '| userId:', userId, '| code presente:', !!code);
   try {
     const response = await fetch('https://www.strava.com/oauth/token', {
       method: 'POST',
@@ -244,6 +245,7 @@ router.get('/callback', async (req, res) => {
         .single();
       if (error) throw error;
       user = updatedUser;
+      console.log('[STRAVA CALLBACK] Usuario actualizado:', user?.id, user?.email, '| token guardado:', !!user?.strava_token);
     } else {
       // Fallback: upsert por email (para casos sin userId)
       const { data: upsertedUser, error } = await supabase
