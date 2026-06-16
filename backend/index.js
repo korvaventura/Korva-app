@@ -959,12 +959,29 @@ app.post('/admin/challenges', async (req, res) => {
 app.get('/actividades/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
-    const { data, error } = await supabase
+    // Buscar la fecha de inscripción más antigua entre los challenges activos
+    const { data: inscripciones } = await supabase
+      .from('user_challenges')
+      .select('started_at')
+      .eq('user_id', userId)
+      .in('status', ['active', 'completed', 'shipped'])
+      .order('started_at', { ascending: true })
+      .limit(1);
+
+    const fechaCorte = inscripciones?.[0]?.started_at || null;
+
+    let query = supabase
       .from('activities')
       .select('*')
       .eq('user_id', userId)
       .order('recorded_at', { ascending: false })
       .limit(100);
+
+    if (fechaCorte) {
+      query = query.gte('recorded_at', fechaCorte);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
     res.json(data);
