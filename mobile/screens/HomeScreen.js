@@ -472,7 +472,13 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.emptyLogroItem}>🔥 Rachas</Text>
                 <Text style={styles.emptyLogroItem}>⚡ Actividades</Text>
               </View>
-              <Text style={styles.emptySubtext}>Cuando quieras una medalla real, encontrá tu challenge en el Catálogo.</Text>
+              <Text style={styles.emptySubtext}>Cuando quieras una medalla real, encontrá tu challenge acá:</Text>
+              <TouchableOpacity style={styles.irCatalogoBtn} onPress={() => navigation.navigate('Catalogo')}>
+                <View style={styles.btnRow}>
+                  <Text style={styles.irCatalogoBtnText}>Ver Catálogo</Text>
+                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
             </View>
           ) : challengesActivos.length === 1 ? (
             // Un solo reto — sin selector
@@ -705,6 +711,8 @@ const styles = StyleSheet.create({
   emptyEmoji: { fontSize: 48, marginBottom: 16 },
   emptyText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   emptySubtext: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 20 },
+  irCatalogoBtn: { backgroundColor: '#FC4C02', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 14, marginTop: 12 },
+  irCatalogoBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
   retoTabsScroll: { marginBottom: 16 },
   retoTab: { backgroundColor: '#1E3A5F', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8, borderWidth: 2, borderColor: 'transparent', flexDirection: 'row', alignItems: 'center', gap: 6 },
   retoTabActivo: { borderColor: '#FC4C02' },
