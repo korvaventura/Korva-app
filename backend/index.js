@@ -414,19 +414,32 @@ app.get('/perfil/:userId', async (req, res) => {
     if (diasUnicos.length > 0) mejorRacha = Math.max(mejorRacha, 1);
 
     const actividadesConKm = await supabase
-      .from('activities').select('recorded_at, distance_km, sport_type').eq('user_id', userId);
+      .from('activities').select('recorded_at, distance_km, sport_type, duration_seconds').eq('user_id', userId);
 
     const kmPorSemanaFull = {};
     const deporteCount = { run: 0, ride: 0 };
+    let segundosRunConTiempo = 0, kmRunConTiempo = 0;
+    let segundosRideConTiempo = 0, kmRideConTiempo = 0;
     actividadesConKm.data?.forEach(a => {
       const fecha = new Date(a.recorded_at);
       const inicio = new Date(fecha);
       inicio.setDate(fecha.getDate() - fecha.getDay());
       const semana = inicio.toISOString().split('T')[0];
       kmPorSemanaFull[semana] = (kmPorSemanaFull[semana] || 0) + a.distance_km;
-      if (a.sport_type === 'run') deporteCount.run++;
-      else if (a.sport_type === 'ride') deporteCount.ride++;
+      if (a.sport_type === 'run') {
+        deporteCount.run++;
+        if (a.duration_seconds > 0) { segundosRunConTiempo += a.duration_seconds; kmRunConTiempo += a.distance_km; }
+      } else if (a.sport_type === 'ride') {
+        deporteCount.ride++;
+        if (a.duration_seconds > 0) { segundosRideConTiempo += a.duration_seconds; kmRideConTiempo += a.distance_km; }
+      }
     });
+
+    // Ritmo promedio running: min/km. Ritmo promedio ciclismo: km/h.
+    const ritmoRun = kmRunConTiempo > 0 ? (segundosRunConTiempo / 60 / kmRunConTiempo) : null;
+    const ritmoRunMin = ritmoRun ? Math.floor(ritmoRun) : null;
+    const ritmoRunSeg = ritmoRun ? Math.round((ritmoRun - Math.floor(ritmoRun)) * 60) : null;
+    const velocidadRide = kmRideConTiempo > 0 ? (kmRideConTiempo / (segundosRideConTiempo / 3600)) : null;
 
     const { ganadas: insigniasGanadas, progreso: insigniasProgreso } = getInsignias(
       completados, totalKm,
@@ -461,6 +474,8 @@ app.get('/perfil/:userId', async (req, res) => {
         mejor_semana_km: mejorSemanaKm.toFixed(1),
         promedio_semanal_km: promedioSemanal,
         perfil_deporte: perfilDeporte,
+        ritmo_run: ritmoRunMin !== null ? `${ritmoRunMin}:${String(ritmoRunSeg).padStart(2, '0')} /km` : null,
+        velocidad_ride: velocidadRide !== null ? `${velocidadRide.toFixed(1)} km/h` : null,
       },
       nivel,
       insignias: insigniasGanadas,
@@ -472,7 +487,7 @@ app.get('/perfil/:userId', async (req, res) => {
 });
 
 app.post('/actividades/manual', async (req, res) => {
-  const { user_id, challenge_id, sport_type, distance_km, recorded_at, evidencia_url } = req.body;
+  const { user_id, challenge_id, sport_type, distance_km, recorded_at, evidencia_url, duration_seconds } = req.body;
   const distanciaFloat = parseFloat(distance_km);
 
   // Rate limiting — máximo 5 registros manuales por día por usuario
@@ -505,7 +520,7 @@ app.post('/actividades/manual', async (req, res) => {
         user_id, challenge_id, source: 'manual',
         external_id: `manual_${user_id}_${Date.now()}`,
         sport_type, distance_km: distanciaFloat,
-        duration_seconds: 0,
+        duration_seconds: duration_seconds || null,
         recorded_at: recorded_at || new Date().toISOString(),
         evidencia_url: evidencia_url || null,
       })

@@ -417,6 +417,17 @@ export default function PerfilScreen() {
         </View>
       )}
 
+      {(stats?.ritmo_run || stats?.velocidad_ride) && (
+        <View style={styles.statsRow}>
+          {stats.ritmo_run && (
+            <View style={styles.statCard}><Text style={styles.statNumero}>🏃 {stats.ritmo_run}</Text><Text style={styles.statLabel}>Ritmo running</Text></View>
+          )}
+          {stats.velocidad_ride && (
+            <View style={styles.statCard}><Text style={styles.statNumero}>🚴 {stats.velocidad_ride}</Text><Text style={styles.statLabel}>Vel. ciclismo</Text></View>
+          )}
+        </View>
+      )}
+
       {stats?.perfil_deporte && (
         <View style={styles.seccion}>
           <View style={styles.perfilDeporteCard}>

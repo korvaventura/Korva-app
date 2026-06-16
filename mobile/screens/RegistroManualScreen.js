@@ -28,6 +28,8 @@ export default function RegistroManualScreen() {
   const [evidenciaUri, setEvidenciaUri] = useState(null);
   const [subiendoEvidencia, setSubiendoEvidencia] = useState(false);
   const [evidenciaUrl, setEvidenciaUrl] = useState(null);
+  const [horas, setHoras] = useState('');
+  const [minutos, setMinutos] = useState('');
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -143,6 +145,10 @@ export default function RegistroManualScreen() {
       }
 
       const fechaActividad = getFecha(diasAtras);
+      const h = parseInt(horas) || 0;
+      const m = parseInt(minutos) || 0;
+      const duracionSegundos = (h * 3600 + m * 60) || null;
+
       const res = await fetch(`${BACKEND_URL}/actividades/manual`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -153,6 +159,7 @@ export default function RegistroManualScreen() {
           distance_km: parseFloat(distancia),
           recorded_at: fechaActividad.toISOString(),
           evidencia_url: urlEvidencia || null,
+          duration_seconds: duracionSegundos,
         })
       });
       const data = await res.json();
@@ -166,6 +173,8 @@ export default function RegistroManualScreen() {
         setDiasAtras(0);
         setEvidenciaUri(null);
         setEvidenciaUrl(null);
+        setHoras('');
+        setMinutos('');
         setTimeout(() => { setMensaje(''); setExito(false); }, 3000);
       }
     } catch (error) {
@@ -247,6 +256,38 @@ export default function RegistroManualScreen() {
         </Text>
       </View>
 
+      {/* Sección de tiempo opcional */}
+      <View style={styles.seccion}>
+        <Text style={styles.seccionTitulo}>⏱️ Tiempo <Text style={styles.opcional}>(opcional)</Text></Text>
+        <Text style={styles.evidenciaSubtitulo}>Para calcular tu ritmo promedio en el Perfil</Text>
+        <View style={styles.tiempoRow}>
+          <View style={styles.tiempoInputWrapper}>
+            <TextInput
+              style={styles.tiempoInput}
+              value={horas}
+              onChangeText={setHoras}
+              keyboardType="number-pad"
+              placeholder="0"
+              placeholderTextColor="#2a4a6a"
+              maxLength={2}
+            />
+            <Text style={styles.tiempoUnidad}>hs</Text>
+          </View>
+          <View style={styles.tiempoInputWrapper}>
+            <TextInput
+              style={styles.tiempoInput}
+              value={minutos}
+              onChangeText={setMinutos}
+              keyboardType="number-pad"
+              placeholder="0"
+              placeholderTextColor="#2a4a6a"
+              maxLength={2}
+            />
+            <Text style={styles.tiempoUnidad}>min</Text>
+          </View>
+        </View>
+      </View>
+
       {/* Sección de evidencia */}
       <View style={styles.seccion}>
         <Text style={styles.seccionTitulo}>📸 Evidencia <Text style={styles.opcional}>(opcional)</Text></Text>
@@ -326,6 +367,10 @@ const styles = StyleSheet.create({
   seccionTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4, letterSpacing: 0.5 },
   opcional: { fontSize: 12, color: '#4a6a8a', fontWeight: 'normal' },
   evidenciaSubtitulo: { fontSize: 12, color: '#4a6a8a', marginBottom: 12 },
+  tiempoRow: { flexDirection: 'row', gap: 12 },
+  tiempoInputWrapper: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  tiempoInput: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', minWidth: 40, textAlign: 'center' },
+  tiempoUnidad: { fontSize: 13, color: '#A8CFFF', fontWeight: 'bold' },
   evidenciaBotonesRow: { flexDirection: 'row', gap: 10 },
   evidenciaBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E6FD9', flexDirection: 'row', justifyContent: 'center', gap: 8 },
   evidenciaBtnText: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 14 },
