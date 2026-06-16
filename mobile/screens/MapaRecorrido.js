@@ -460,55 +460,57 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
                 <Text style={styles.cerrarBtnText}>✕</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView
-              ref={scrollViewRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ width: MAPA_WIDTH_VIRTUAL }}
-              style={{ flex: 1 }}
-            >
-              <Svg width={MAPA_WIDTH_VIRTUAL} height="100%" viewBox={`0 0 ${MAPA_WIDTH_VIRTUAL} 260`}>
-                <Defs>
-                  <LinearGradient id="gradBg" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor="#0F172A" stopOpacity="1" />
-                    <Stop offset="1" stopColor="#1E293B" stopOpacity="1" />
-                  </LinearGradient>
-                  <Mask id="fogMask">
-                    <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="white" />
-                    {kmFisicos > 0 && <Rect x={pinPos.x - 5} y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="black" />}
-                    {pathCompletado !== '' && <Path d={pathCompletado} fill="none" stroke="black" strokeWidth="22" strokeLinecap="round" strokeLinejoin="round" />}
-                    {checkpoints.filter(desbloqueado).map(cp => <Circle key={cp.id} cx={cp.x} cy={cp.y} r="20" fill="black" />)}
-                    {kmFisicos > 0 && <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={animatedRadiusSpotlight} fill="black" />}
-                  </Mask>
-                </Defs>
-                <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="url(#gradBg)" />
-                {decoraciones()}
-                <Path d={rutaBasePath} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />
-                {pathCompletado !== '' && <Path d={pathCompletado} fill="none" stroke="#EA580C" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />}
-                <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0D1B2A" opacity="0.85" mask="url(#fogMask)" />
-                {checkpoints.map((cp) => {
-                  const isDesbloqueado = desbloqueado(cp);
-                  return (
-                    <React.Fragment key={cp.id}>
-                      <Circle cx={cp.x} cy={cp.y} r={isDesbloqueado ? 12 : 10} fill={isDesbloqueado ? '#F97316' : '#334155'} stroke={isDesbloqueado ? '#FFFFFF' : '#64748B'} strokeWidth="3" onPress={() => setModalVisible(cp)} />
-                      {!isDesbloqueado && <SvgText x={cp.x} y={cp.y + 4} fill="#94A3B8" fontSize="10" textAnchor="middle">🔒</SvgText>}
-                      <SvgText x={cp.x} y={cp.y - 18} fill="#F8FAFC" fontSize="12" textAnchor="middle" fontWeight="bold">{cp.nombre}</SvgText>
-                    </React.Fragment>
-                  );
-                })}
-                {kmFisicos > 0 && <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={animatedRadiusRadar} fill="#EA580C" opacity={animatedOpacity} />}
-                {kmFisicos > 0 && (
-                  <>
-                    <Circle cx={pinPos.x} cy={pinPos.y} r={8} fill="#FFFFFF" stroke="#EA580C" strokeWidth="4" />
-                    <Rect x={pinPos.x - 24} y={pinPos.y + 16} width="48" height="20" rx="10" fill="#1E293B" />
-                    <SvgText x={pinPos.x} y={pinPos.y + 26} fill="#F97316" fontSize="11" textAnchor="middle" alignmentBaseline="middle" fontWeight="900">
-                      {(kmFisicos * factor).toFixed(0)} km
-                    </SvgText>
-                  </>
-                )}
-              </Svg>
-            </ScrollView>
-            {mostrarClima()}
+            <View style={styles.mapaScrollWrapper}>
+              <ScrollView
+                ref={scrollViewRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ width: MAPA_WIDTH_VIRTUAL }}
+                style={{ flex: 1 }}
+              >
+                <Svg width={MAPA_WIDTH_VIRTUAL} height="100%" viewBox={`0 0 ${MAPA_WIDTH_VIRTUAL} 260`}>
+                  <Defs>
+                    <LinearGradient id="gradBg" x1="0" y1="0" x2="0" y2="1">
+                      <Stop offset="0" stopColor="#0F172A" stopOpacity="1" />
+                      <Stop offset="1" stopColor="#1E293B" stopOpacity="1" />
+                    </LinearGradient>
+                    <Mask id="fogMask">
+                      <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="white" />
+                      {kmFisicos > 0 && <Rect x={pinPos.x - 5} y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="black" />}
+                      {pathCompletado !== '' && <Path d={pathCompletado} fill="none" stroke="black" strokeWidth="22" strokeLinecap="round" strokeLinejoin="round" />}
+                      {checkpoints.filter(desbloqueado).map(cp => <Circle key={cp.id} cx={cp.x} cy={cp.y} r="20" fill="black" />)}
+                      {kmFisicos > 0 && <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={animatedRadiusSpotlight} fill="black" />}
+                    </Mask>
+                  </Defs>
+                  <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="url(#gradBg)" />
+                  {decoraciones()}
+                  <Path d={rutaBasePath} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />
+                  {pathCompletado !== '' && <Path d={pathCompletado} fill="none" stroke="#EA580C" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />}
+                  <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0D1B2A" opacity="0.85" mask="url(#fogMask)" />
+                  {checkpoints.map((cp) => {
+                    const isDesbloqueado = desbloqueado(cp);
+                    return (
+                      <React.Fragment key={cp.id}>
+                        <Circle cx={cp.x} cy={cp.y} r={isDesbloqueado ? 12 : 10} fill={isDesbloqueado ? '#F97316' : '#334155'} stroke={isDesbloqueado ? '#FFFFFF' : '#64748B'} strokeWidth="3" onPress={() => setModalVisible(cp)} />
+                        {!isDesbloqueado && <SvgText x={cp.x} y={cp.y + 4} fill="#94A3B8" fontSize="10" textAnchor="middle">🔒</SvgText>}
+                        <SvgText x={cp.x} y={cp.y - 18} fill="#F8FAFC" fontSize="12" textAnchor="middle" fontWeight="bold">{cp.nombre}</SvgText>
+                      </React.Fragment>
+                    );
+                  })}
+                  {kmFisicos > 0 && <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={animatedRadiusRadar} fill="#EA580C" opacity={animatedOpacity} />}
+                  {kmFisicos > 0 && (
+                    <>
+                      <Circle cx={pinPos.x} cy={pinPos.y} r={8} fill="#FFFFFF" stroke="#EA580C" strokeWidth="4" />
+                      <Rect x={pinPos.x - 24} y={pinPos.y + 16} width="48" height="20" rx="10" fill="#1E293B" />
+                      <SvgText x={pinPos.x} y={pinPos.y + 26} fill="#F97316" fontSize="11" textAnchor="middle" alignmentBaseline="middle" fontWeight="900">
+                        {(kmFisicos * factor).toFixed(0)} km
+                      </SvgText>
+                    </>
+                  )}
+                </Svg>
+              </ScrollView>
+              {mostrarClima()}
+            </View>
             <Text style={styles.scrollHint}>👈 Desliza para explorar la ruta 👉</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
               {checkpoints.map((cp) => {
@@ -718,6 +720,7 @@ const styles = StyleSheet.create({
   fullscreenContainer: { flex: 1, backgroundColor: '#0F172A' },
   fullscreenHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 52, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#1E293B' },
   fullscreenTitulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC', flex: 1 },
+  mapaScrollWrapper: { flex: 1, position: 'relative', overflow: 'hidden' },
   cerrarBtn: { backgroundColor: '#1E293B', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   cerrarBtnText: { color: '#94A3B8', fontWeight: 'bold', fontSize: 16 },
   // Mapa wrapper (modo fullscreen/DetalleScreen)
