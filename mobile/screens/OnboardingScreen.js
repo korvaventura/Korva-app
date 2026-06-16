@@ -18,8 +18,8 @@ const SLIDES = [
   },
   {
     emoji: '📱',
-    titulo: 'Conectá Strava',
-    descripcion: 'Tu progreso se sincroniza automáticamente. También podés cargar tus km manualmente.',
+    titulo: 'Registrá tus km',
+    descripcion: 'Cargá tus actividades manualmente en segundos. La sincronización automática con Strava está en camino.',
     color: '#1E6FD9',
   },
   {
