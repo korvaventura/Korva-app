@@ -280,7 +280,20 @@ app.get('/perfil/:userId', async (req, res) => {
     const { data: usuario, error } = await supabase.from('users').select('*').eq('id', userId).single();
     if (error) throw error;
 
-    const { data: actividades } = await supabase.from('activities').select('distance_km').eq('user_id', userId);
+    // Fecha de corte: primera inscripción activa/completada — todo lo anterior no cuenta para stats
+    const { data: inscripcionesOrdenadas } = await supabase
+      .from('user_challenges')
+      .select('started_at')
+      .eq('user_id', userId)
+      .in('status', ['active', 'completed', 'shipped'])
+      .order('started_at', { ascending: true })
+      .limit(1);
+    const fechaCorte = inscripcionesOrdenadas?.[0]?.started_at || null;
+
+    let queryActividades = supabase.from('activities').select('distance_km').eq('user_id', userId);
+    if (fechaCorte) queryActividades = queryActividades.gte('recorded_at', fechaCorte);
+    const { data: actividades } = await queryActividades;
+
     const { data: challenges } = await supabase.from('user_challenges').select('status').eq('user_id', userId);
 
     const totalKm = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
@@ -397,8 +410,10 @@ app.get('/perfil/:userId', async (req, res) => {
       return { ganadas, progreso };
     };
 
-    const actividadesFechas = await supabase
+    let queryFechas = supabase
       .from('activities').select('recorded_at').eq('user_id', userId).order('recorded_at', { ascending: false });
+    if (fechaCorte) queryFechas = queryFechas.gte('recorded_at', fechaCorte);
+    const actividadesFechas = await queryFechas;
 
     const racha = calcularRachaSemanal(actividadesFechas.data || []);
 
@@ -413,8 +428,10 @@ app.get('/perfil/:userId', async (req, res) => {
     }
     if (diasUnicos.length > 0) mejorRacha = Math.max(mejorRacha, 1);
 
-    const actividadesConKm = await supabase
+    let queryConKm = supabase
       .from('activities').select('recorded_at, distance_km, sport_type, duration_seconds').eq('user_id', userId);
+    if (fechaCorte) queryConKm = queryConKm.gte('recorded_at', fechaCorte);
+    const actividadesConKm = await queryConKm;
 
     const kmPorSemanaFull = {};
     const deporteCount = { run: 0, ride: 0 };
