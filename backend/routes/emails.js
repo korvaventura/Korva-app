@@ -26,7 +26,7 @@ const footer = `
     <div style="margin-top: 16px;">
       <a href="mailto:korvaventura@gmail.com" style="color: #1E6FD9; font-size: 12px; text-decoration: none;">korvaventura@gmail.com</a>
     </div>
-    <p style="color: #2a3a4a; font-size: 11px; margin: 16px 0 0;">© ${new Date().getFullYear()} Korva Adventures LLC. Todos los derechos reservados.</p>
+    <p style="color: #4a6a8a; font-size: 11px; margin: 16px 0 0;">© ${new Date().getFullYear()} Korva Adventures LLC. Todos los derechos reservados.</p>
   </div>
 `;
 
