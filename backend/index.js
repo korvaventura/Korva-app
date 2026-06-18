@@ -6,8 +6,9 @@ const stravaRoutes = require('./routes/strava');
 const shopifyRoutes = require('./routes/shopify');
 const mercadopagoRoutes = require('./routes/mercadopago');
 const invitacionesRoutes = require('./routes/invitaciones');
-const { enviarEmailInscripcion, enviarEmailMedallaEnCamino } = require('./routes/emails');
+const { enviarEmailInscripcion, enviarEmailMedallaEnCamino, enviarEmailCompletado } = require('./routes/emails');
 const { enviarNotificacionProgreso } = require('./routes/notificaciones');
+const { generarCertificado } = require('./generador_bib');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -152,7 +153,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
     // Buscar retos active Y completed (no shipped — esos ya fueron enviados)
     let query = supabase
       .from('user_challenges')
-      .select('id, started_at, challenge_id, status, challenges(modalidades, total_distance_km)')
+      .select('id, started_at, challenge_id, status, modalidad, challenges(title, modalidades, total_distance_km)')
       .eq('user_id', user_id)
       .in('status', ['active', 'completed']);
 
@@ -169,13 +170,16 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
 
       const totalKm = todasActividades?.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
 
-      // Calcular distancia total de la modalidad del reto
+      // Calcular distancia total según la modalidad elegida por el usuario (no siempre la [0])
       const modalidades = reto.challenges?.modalidades || [];
-      const distanciaTotal = modalidades[0]?.distancia_km || reto.challenges?.total_distance_km || 100;
+      const modalidadElegida = modalidades.find(m => m.tipo === reto.modalidad) || modalidades[0];
+      const distanciaTotal = modalidadElegida?.distancia_km || reto.challenges?.total_distance_km || 100;
       const porcentaje = (totalKm / distanciaTotal) * 100;
 
       // Revertir a active si los km bajaron de 100%
+      const yaEstabaCompletado = reto.status === 'completed';
       const nuevoStatus = porcentaje >= 100 ? 'completed' : 'active';
+      const seCompletaAhora = nuevoStatus === 'completed' && !yaEstabaCompletado;
 
       await supabase
         .from('user_challenges')
@@ -183,12 +187,57 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
           km_completed: totalKm,
           status: nuevoStatus,
           // Si revierte a active, limpiar completed_at
-          completed_at: nuevoStatus === 'active' ? null : undefined,
+          completed_at: nuevoStatus === 'active' ? null : (seCompletaAhora ? new Date().toISOString() : undefined),
         })
         .eq('id', reto.id);
+
+      // Primera vez que completa este challenge: generar certificado y avisar por email
+      if (seCompletaAhora) {
+        await enviarCertificadoFinisher(user_id, reto, distanciaTotal);
+      }
     }
   } catch (error) {
     console.error('Error recalculando km:', error);
+  }
+};
+
+const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
+  try {
+    const { data: usuario } = await supabase
+      .from('users')
+      .select('email, name, bib_number')
+      .eq('id', user_id)
+      .single();
+    if (!usuario) return;
+
+    // Generar número de serie único para este certificado
+    let numeroSerie = 'KORVA-' + new Date().getFullYear() + '-0000';
+    try {
+      const { data: serie, error: errorSerie } = await supabase.rpc('get_next_certificado_serial');
+      if (!errorSerie && serie) numeroSerie = serie;
+    } catch (e) {
+      console.error('Error generando numero de serie:', e.message);
+    }
+
+    const fechaCompletado = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+    const tituloChallenge = reto.challenges?.title || 'Desafío Korva';
+
+    const certificadoPdf = await generarCertificado(
+      supabase,
+      usuario.name,
+      tituloChallenge,
+      distanciaTotal,
+      usuario.bib_number || '---',
+      fechaCompletado,
+      numeroSerie
+    );
+
+    // Guardar el número de serie en el reto, para tener trazabilidad
+    await supabase.from('user_challenges').update({ certificado_serial: numeroSerie }).eq('id', reto.id);
+
+    await enviarEmailCompletado(usuario.email, usuario.name, tituloChallenge, certificadoPdf);
+  } catch (error) {
+    console.error('Error enviando certificado finisher:', error.message);
   }
 };
 

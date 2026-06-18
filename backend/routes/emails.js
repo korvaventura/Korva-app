@@ -126,8 +126,12 @@ const enviarEmailInvitacion = async (email, nombre, challenge, tokens) => {
   }
 };
 
-const enviarEmailCompletado = async (email, nombre, challenge) => {
+const enviarEmailCompletado = async (email, nombre, challenge, certificadoPdfBase64 = null) => {
   try {
+    const certificadoTexto = certificadoPdfBase64
+      ? `Completaste el reto <strong style="color: #FFFFFF;">${challenge}</strong>. Eso requiere compromiso, constancia y mucho esfuerzo. Adjunto a este email encontrás tu certificado oficial de finalización.`
+      : `Completaste el reto <strong style="color: #FFFFFF;">${challenge}</strong>. Eso requiere compromiso, constancia y mucho esfuerzo. Mereces cada gramo de tu medalla.`;
+
     await getResend().emails.send({
       from: 'Korva Aventuras <noreply@korva.run>',
       to: email,
@@ -135,7 +139,7 @@ const enviarEmailCompletado = async (email, nombre, challenge) => {
       html: wrapper(`
         ${badge('🎉 RETO COMPLETADO', '#1E6FD9')}
         <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Lo lograste, ${nombre}!</h2>
-        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Completaste el reto <strong style="color: #FFFFFF;">${challenge}</strong>. Eso requiere compromiso, constancia y mucho esfuerzo. Mereces cada gramo de tu medalla.</p>
+        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">${certificadoTexto}</p>
 
         ${card(`
           <p style="color: #FC4C02; font-size: 36px; text-align: center; margin: 0 0 12px;">🏅</p>
@@ -145,7 +149,14 @@ const enviarEmailCompletado = async (email, nombre, challenge) => {
 
         <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6;">Asegurate de tener tu dirección de envío actualizada en la app. Si necesitás cambiarla, hacelo antes de que te avisemos del envío.</p>
         <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 24px;">El equipo Korva 🏅</p>
-      `)
+      `),
+      ...(certificadoPdfBase64 ? {
+        attachments: [{
+          filename: `Certificado_${challenge.replace(/\s/g, '_')}_${nombre.replace(/\s/g, '_')}.pdf`,
+          content: certificadoPdfBase64,
+          content_type: 'application/pdf',
+        }],
+      } : {}),
     });
     console.log('Email de completado enviado a:', email);
   } catch (error) {

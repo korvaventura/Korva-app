@@ -82,4 +82,47 @@ const asignarBibNumber = async (supabase, userId) => {
   }
 };
 
-module.exports = { generarBibYPostal, asignarBibNumber };
+const generarCertificado = async (supabase, nombre, nombreDesafio, distanciaKm, bibNumber, fechaCompletado, numeroSerie) => {
+  try {
+    const { data: certData, error: e1 } = await supabase.storage
+      .from('korva-images')
+      .download('Plantillas/Certificado_Finisher.pptx');
+    if (e1) { console.error('Error descargando certificado:', e1); throw new Error('No se pudo descargar certificado: ' + e1.message); }
+
+    const certB64 = Buffer.from(await certData.arrayBuffer()).toString('base64');
+
+    const scriptPath = path.join(__dirname, 'generar_certificado.py');
+    const input = JSON.stringify({
+      nombre,
+      nombre_desafio: nombreDesafio,
+      distancia_km: distanciaKm,
+      bib_number: bibNumber,
+      fecha_completado: fechaCompletado,
+      numero_serie: numeroSerie,
+      certificado_template: certB64,
+    });
+
+    const resultado = await new Promise((resolve, reject) => {
+      const proc = spawn('python3', [scriptPath], { timeout: 90000 });
+      let stdout = '';
+      let stderr = '';
+      proc.stdout.on('data', d => stdout += d);
+      proc.stderr.on('data', d => { stderr += d; console.error('Python stderr (certificado):', d.toString()); });
+      proc.stdin.write(input);
+      proc.stdin.end();
+      proc.on('close', (code) => {
+        if (code !== 0) reject(new Error(`Python error certificado (code ${code}): ${stderr}`));
+        else resolve(stdout);
+      });
+    });
+
+    const { certificado_pdf } = JSON.parse(resultado);
+    return certificado_pdf;
+
+  } catch (error) {
+    console.error('Error generando certificado:', error.message);
+    return null;
+  }
+};
+
+module.exports = { generarBibYPostal, asignarBibNumber, generarCertificado };
