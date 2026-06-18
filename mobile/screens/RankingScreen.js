@@ -203,7 +203,7 @@ export default function RankingScreen() {
                   style={{ marginRight: 6 }}
                 />
                 <Text style={[styles.selectorText, mod === m.tipo && styles.selectorTextActivo]}>
-                  {m.tipo === 'run' ? '🏃 Running' : '🚴 Ciclismo'} — {m.distancia_km}km
+                  {m.tipo === 'run' ? 'Running' : 'Ciclismo'} — {m.distancia_km}km
                 </Text>
               </TouchableOpacity>
             ))}
