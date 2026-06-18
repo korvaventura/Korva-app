@@ -1096,16 +1096,33 @@ app.get('/admin/metricas', async (req, res) => {
     // Inscripciones por status
     const { data: inscripciones } = await supabase
       .from('user_challenges')
-      .select('status, challenge_id, km_completed, challenges(title)');
+      .select('status, challenge_id, user_id, km_completed, started_at, challenges(title)');
 
     const activos = inscripciones?.filter(i => i.status === 'active').length || 0;
     const completados = inscripciones?.filter(i => i.status === 'completed').length || 0;
     const enviados = inscripciones?.filter(i => i.status === 'shipped').length || 0;
 
-    // Km totales
-    const { data: actividades } = await supabase
+    // Fecha de corte por usuario: la primera inscripción activa/completada/enviada de cada uno.
+    // Esto evita que actividades viejas de Strava (previas a usar Korva) infle los totales.
+    const fechaCortePorUsuario = {};
+    inscripciones?.forEach(i => {
+      if (!['active', 'completed', 'shipped'].includes(i.status)) return;
+      const actual = fechaCortePorUsuario[i.user_id];
+      if (!actual || new Date(i.started_at) < new Date(actual)) {
+        fechaCortePorUsuario[i.user_id] = i.started_at;
+      }
+    });
+
+    // Km totales — solo actividades posteriores a la fecha de corte de cada usuario
+    const { data: todasActividades } = await supabase
       .from('activities')
-      .select('distance_km, sport_type, source');
+      .select('user_id, distance_km, sport_type, source, recorded_at');
+
+    const actividades = todasActividades?.filter(a => {
+      const corte = fechaCortePorUsuario[a.user_id];
+      if (!corte) return false; // usuario sin inscripción activa/completada/enviada: no cuenta
+      return new Date(a.recorded_at) >= new Date(corte);
+    });
 
     const kmTotales = actividades?.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
     const kmStrava = actividades?.filter(a => a.source === 'strava').reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
