@@ -66,7 +66,7 @@ const CONFIGS = {
         datoRaro: '🧬 La palabra "mamihlapinatapai" — yamana — está en el Libro Guinness como la palabra más concisa del mundo. La lengua yamana tenía más de 32.000 palabras.' },
       { id: 'ushuaia', nombre: 'Ushuaia', kmFisico: 103, emoji: '🏁', x: 60, y: 175,
         pista: 'La ciudad más austral del mundo esconde una historia oscura debajo de su fama turística.',
-        desc: '¡Llegaste al fin del mundo! Ushuaia fue fundada en 1884 como presidio — una cárcel para los presos más peligrosos de Argentina. El mismo edificio que hoy es el Museo del Fin del Mundo albergó a asesinos, anarquistas y disidentes políticos hasta 1947. Hoy tiene 80.000 habitantes y es la puerta de entrada a la Antártida.',
+        desc: '¡Llegaste al fin del mundo! Ushuaia fue fundada en 1884 como subprefectura naval, cuando Argentina afirmó su soberanía en el extremo sur. A comienzos del siglo XX se construyó el famoso presidio para los reclusos más peligrosos del país. El mismo edificio que hoy es el Museo del Fin del Mundo los albergó hasta su cierre en 1947. Hoy tiene 80.000 habitantes y es la puerta de entrada a la Antártida.',
         datoRaro: '🚢 A 1.000km al sur está el continente más frío, más seco y más ventoso del planeta. Llegaste tan al sur como se puede llegar por tierra.' },
     ],
   },
@@ -112,8 +112,8 @@ const CONFIGS = {
     checkpoints: [
       { id: 'pile_gate', nombre: 'Pile Gate', kmFisico: 0, emoji: '🏰', x: 120, y: 140,
         pista: 'Por esta puerta entró y salió una república que desafió a imperios durante 450 años. ¿Cómo lo lograron?',
-        desc: 'La Puerta Pile es la entrada principal a Dubrovnik desde el siglo XV. Detrás de este arco de piedra nació la República de Ragusa. Mientras Europa se desangraba en guerras religiosas, Ragusa abolió la esclavitud en 1416 — 400 años antes que Estados Unidos — y estableció el primer sistema de cuarentena del mundo en 1377. Su secreto: nunca pelear. Pagar tributo a todos, aliarse con todos, sobrevivir a todos.',
-        datoRaro: '🏛️ Ragusa abolió la esclavitud en 1416. El primer país del mundo en hacerlo. Mientras tanto, el resto de Europa todavía la consideraba completamente normal.' },
+        desc: 'La Puerta Pile es la entrada principal a Dubrovnik desde el siglo XV. Detrás de este arco de piedra nació la República de Ragusa. Mientras Europa se desangraba en guerras religiosas, Ragusa abolió el comercio de esclavos en 1416 y estableció uno de los primeros sistemas de cuarentena del mundo en 1377. Su secreto: negociar, pagar tributo cuando hacía falta y sobrevivir sin perder su independencia.',
+        datoRaro: '🏛️ Ragusa abolió el comercio de esclavos en 1416, mucho antes que la mayoría de Europa. Mientras tanto, para gran parte del continente seguía siendo algo normal.' },
       { id: 'fort_lovrijenac', nombre: 'Fort Lovrijenac', kmFisico: 4, emoji: '⚔️', x: 120, y: 60,
         pista: 'Sus muros tienen un secreto arquitectónico. En un lado son indestructibles. En el otro, papel.',
         desc: 'La Fortaleza de San Lorenzo fue construida en 3 meses para evitar que Venecia se instalara ahí primero. Sus muros tienen hasta 12 metros de grosor mirando al mar. Pero los muros que miran hacia la ciudad miden apenas 60 centímetros — una trampa intencional: si un traidor la tomaba, los ragusanos podían destruirla sin dañar la ciudad.',
@@ -124,8 +124,8 @@ const CONFIGS = {
         datoRaro: '🌍 La piedra viene de la isla de Korčula — la misma donde nació Marco Polo. Cada vez que pisás estas piedras, pisás la misma cantera que pisó el explorador más famoso de la historia.' },
       { id: 'fort_bokar', nombre: 'Fort Bokar', kmFisico: 12, emoji: '🔭', x: 680, y: 100,
         pista: 'Es la fortaleza circular más antigua de Europa. Pero su verdadero poder no estaba en los cañones.',
-        desc: 'El Fort Bokar fue diseñado por el mismo arquitecto que construyó palacios para los Médici en Florencia. Su forma circular eliminaba los ángulos muertos. Pero el secreto de Dubrovnik no era militar: la república mantenía embajadores en Estambul, Roma, Madrid y Londres al mismo tiempo, pagando tributo a todos.',
-        datoRaro: '⚓ En 1991, la armada yugoslava bombardeó Dubrovnik. Fort Bokar, que había sobrevivido 500 años sin disparar un tiro en serio, vio caer bombas a metros de sus muros. La ciudad resistió igual.' },
+        desc: 'Fort Bokar fue diseñado por el arquitecto florentino Michelozzo, uno de los grandes maestros del Renacimiento. Su forma circular ayudaba a eliminar ángulos muertos y reforzaba la defensa de la ciudad. Pero el verdadero secreto de Dubrovnik no era solo militar: la república mantenía embajadores, negociaba con grandes potencias y pagaba tributos cuando era necesario para conservar su libertad.',
+        datoRaro: '⚓ En 1991, durante el asedio de Dubrovnik, las murallas volvieron a ser testigos de la guerra. Fort Bokar, después de siglos en pie, vio caer bombas cerca de sus muros mientras la ciudad resistía.' },
       { id: 'minceta_tower', nombre: 'Torre Minčeta', kmFisico: 16, emoji: '👑', x: 480, y: 200,
         pista: 'Desde acá arriba, una ciudad entera parece un mapa. Pero lo que ves también lo vio alguien que cambió la historia.',
         desc: 'La Torre Minčeta es el punto más alto de las murallas. Desde aquí, los vigías podían ver barcos enemigos con horas de anticipación. Esa ventaja les dio tiempo para esconder el tesoro de la república o preparar la diplomacia de emergencia. En 500 años de república, nunca necesitaron defenderse por la fuerza.',
@@ -317,18 +317,20 @@ const EfectoSolMediterraneo = () => {
 
 // Burbuja caribeña — San Andrés
 const BurbujaCaribe = ({ delay, startX }) => {
-  const translateY = useRef(new Animated.Value(260)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const tamaño = useRef(4 + Math.random() * 5).current;
   useEffect(() => {
     Animated.loop(Animated.parallel([
-      Animated.timing(translateY, { toValue: -10, duration: 3000, delay, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: -240, duration: 3500, delay, useNativeDriver: true }),
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.6, duration: 300, delay, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0, duration: 2700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.9, duration: 300, delay, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.9, duration: 2600, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
       ])
     ])).start();
   }, []);
-  return <Animated.View style={{ position: 'absolute', bottom: 0, left: startX, width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#7DD3FC', opacity, transform: [{ translateY }] }} />;
+  return <Animated.View style={{ position: 'absolute', bottom: 0, left: startX, width: tamaño, height: tamaño, borderRadius: tamaño / 2, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#7DD3FC', opacity, transform: [{ translateY }] }} />;
 };
 
 const EfectoCaribe = () => {
