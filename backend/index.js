@@ -44,6 +44,17 @@ app.get('/test/bib/:userId', async (req, res) => {
   }
 });
 
+// ─── ENDPOINT TEMPORAL DE PRUEBA — forzar recálculo de km y disparo de certificado (sacar después) ──────────────────
+app.get('/test/recalcular/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    await recalcularKmUsuario(userId);
+    res.json({ ok: true, mensaje: 'Recálculo ejecutado. Revisá email y la tabla user_challenges.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/upload', async (req, res) => {
   const { base64, carpeta, nombre } = req.body;
   if (!base64 || !carpeta) {
