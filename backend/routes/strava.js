@@ -206,7 +206,6 @@ router.get('/auth', (req, res) => {
 router.get('/callback', async (req, res) => {
   const { code, state } = req.query;
   const userId = state || null;
-  console.log('[STRAVA CALLBACK] state recibido:', state, '| userId:', userId, '| code presente:', !!code);
   try {
     const response = await fetch('https://www.strava.com/oauth/token', {
       method: 'POST',
@@ -220,7 +219,6 @@ router.get('/callback', async (req, res) => {
     });
 
     const data = await response.json();
-    console.log('[STRAVA CALLBACK] respuesta token exchange:', JSON.stringify(data));
 
     const athleteRes = await fetch('https://www.strava.com/api/v3/athlete', {
       headers: { 'Authorization': `Bearer ${data.access_token}` }
@@ -246,7 +244,6 @@ router.get('/callback', async (req, res) => {
         .single();
       if (error) throw error;
       user = updatedUser;
-      console.log('[STRAVA CALLBACK] Usuario actualizado:', user?.id, user?.email, '| token guardado:', !!user?.strava_token);
     } else {
       // Fallback: upsert por email (para casos sin userId)
       const { data: upsertedUser, error } = await supabase
@@ -339,6 +336,16 @@ router.get('/progreso/:userId', async (req, res) => {
   const supabase = getSupabase();
 
   try {
+    // Limpiar pendings abandonados (sin completar pago hace más de 5 minutos)
+    const DIEZ_MINUTOS_MS = 10 * 60 * 1000;
+    const limiteFecha = new Date(Date.now() - DIEZ_MINUTOS_MS).toISOString();
+    await supabase
+      .from('user_challenges')
+      .delete()
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .lt('started_at', limiteFecha);
+
     const { data: userChallenges, error: challengeError } = await supabase
       .from('user_challenges')
       .select('*, challenges(*)')

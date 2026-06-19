@@ -288,14 +288,24 @@ app.post('/challenges/inscribir', async (req, res) => {
   try {
     const { data: existente } = await supabase
       .from('user_challenges')
-      .select('id')
+      .select('id, status, started_at')
       .eq('user_id', user_id)
       .eq('challenge_id', challenge_id)
       .eq('modalidad', modalidad)
       .single();
 
     if (existente) {
-      return res.json({ mensaje: 'Ya estas inscripto en este challenge con esta modalidad' });
+      // Si es un pending abandonado hace más de 5 minutos (nunca completó el pago), lo borramos
+      // y dejamos que se cree uno nuevo, para no trabar al usuario que quiere reintentar.
+      const DIEZ_MINUTOS_MS = 10 * 60 * 1000;
+      const esPendingViejo = existente.status === 'pending' &&
+        (Date.now() - new Date(existente.started_at).getTime()) > DIEZ_MINUTOS_MS;
+
+      if (esPendingViejo) {
+        await supabase.from('user_challenges').delete().eq('id', existente.id);
+      } else {
+        return res.json({ mensaje: 'Ya estas inscripto en este challenge con esta modalidad' });
+      }
     }
 
     const { data, error } = await supabase
