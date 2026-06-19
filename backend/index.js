@@ -297,9 +297,9 @@ app.post('/challenges/inscribir', async (req, res) => {
     if (existente) {
       // Si es un pending abandonado hace más de 5 minutos (nunca completó el pago), lo borramos
       // y dejamos que se cree uno nuevo, para no trabar al usuario que quiere reintentar.
-      const DIEZ_MINUTOS_MS = 10 * 60 * 1000;
+      const TREINTA_MINUTOS_MS = 30 * 60 * 1000;
       const esPendingViejo = existente.status === 'pending' &&
-        (Date.now() - new Date(existente.started_at).getTime()) > DIEZ_MINUTOS_MS;
+        (Date.now() - new Date(existente.started_at).getTime()) > TREINTA_MINUTOS_MS;
 
       if (esPendingViejo) {
         await supabase.from('user_challenges').delete().eq('id', existente.id);

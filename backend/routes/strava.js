@@ -336,16 +336,6 @@ router.get('/progreso/:userId', async (req, res) => {
   const supabase = getSupabase();
 
   try {
-    // Limpiar pendings abandonados (sin completar pago hace más de 5 minutos)
-    const DIEZ_MINUTOS_MS = 10 * 60 * 1000;
-    const limiteFecha = new Date(Date.now() - DIEZ_MINUTOS_MS).toISOString();
-    await supabase
-      .from('user_challenges')
-      .delete()
-      .eq('user_id', userId)
-      .eq('status', 'pending')
-      .lt('started_at', limiteFecha);
-
     const { data: userChallenges, error: challengeError } = await supabase
       .from('user_challenges')
       .select('*, challenges(*)')
