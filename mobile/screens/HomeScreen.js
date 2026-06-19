@@ -462,7 +462,7 @@ export default function HomeScreen({ navigation }) {
             </View>
           ))}
 
-          {challengesActivos.length === 0 && challengesPending.length === 0 ? (
+          {challengesActivos.length === 0 ? (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyEmoji}>🏃</Text>
               <Text style={styles.emptyText}>¡Empezá a moverte!</Text>
@@ -472,13 +472,17 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.emptyLogroItem}>🔥 Rachas</Text>
                 <Text style={styles.emptyLogroItem}>⚡ Actividades</Text>
               </View>
-              <Text style={styles.emptySubtext}>Cuando quieras una medalla real, encontrá tu challenge acá:</Text>
-              <TouchableOpacity style={styles.irCatalogoBtn} onPress={() => navigation.navigate('Catalogo')}>
-                <View style={styles.btnRow}>
-                  <Text style={styles.irCatalogoBtnText}>Ver Catálogo</Text>
-                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-                </View>
-              </TouchableOpacity>
+              {challengesPending.length === 0 && (
+                <>
+                  <Text style={styles.emptySubtext}>Cuando quieras una medalla real, encontrá tu challenge acá:</Text>
+                  <TouchableOpacity style={styles.irCatalogoBtn} onPress={() => navigation.navigate('Catalogo')}>
+                    <View style={styles.btnRow}>
+                      <Text style={styles.irCatalogoBtnText}>Ver Catálogo</Text>
+                      <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                    </View>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           ) : challengesActivos.length === 1 ? (
             // Un solo reto — sin selector
@@ -548,6 +552,7 @@ export default function HomeScreen({ navigation }) {
 
 // ─── Componente reto individual ──────────────────────────────────
 function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs }) {
+  if (!item) return null;
   const pct = Math.min(parseFloat(item.porcentaje), 100);
   const estaCompletado = pct >= 100;
   const frase = getFrase(pct);
