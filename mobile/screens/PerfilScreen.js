@@ -243,7 +243,17 @@ export default function PerfilScreen() {
   const conectarStrava = async () => {
     if (stravaHabilitado) {
       conectarStravaReal();
-    } else {
+      return;
+    }
+    try {
+      const res = await fetch(`${BACKEND_URL}/strava-cupo`);
+      const data = await res.json();
+      if (data.disponible) {
+        conectarStravaReal();
+      } else {
+        setModalStravaProximamente(true);
+      }
+    } catch (e) {
       setModalStravaProximamente(true);
     }
   };

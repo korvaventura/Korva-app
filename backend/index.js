@@ -22,6 +22,21 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+const CUPO_STRAVA = 10;
+app.get('/strava-cupo', async (req, res) => {
+  try {
+    const { count } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .not('strava_token', 'is', null);
+
+    const conectados = count || 0;
+    res.json({ disponible: conectados < CUPO_STRAVA, conectados, cupo: CUPO_STRAVA });
+  } catch (error) {
+    res.status(500).json({ error: 'Error chequeando cupo', detalle: error.message });
+  }
+});
+
 app.use(cors());
 
 // IMPORTANTE: las rutas de Shopify se montan ANTES de express.json() global.

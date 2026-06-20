@@ -183,10 +183,21 @@ export default function HomeScreen({ navigation }) {
       setModalStravaVisible(true);
       return;
     }
-    // Solo abrir OAuth si el usuario tiene Strava habilitado
+    // Si ya está habilitado manualmente, pasa directo
     if (stravaHabilitado) {
       conectarStravaReal();
-    } else {
+      return;
+    }
+    // Si no, chequeamos si todavía hay cupo disponible (10 conexiones reales máximo)
+    try {
+      const res = await fetch(`${BACKEND_URL}/strava-cupo`);
+      const data = await res.json();
+      if (data.disponible) {
+        conectarStravaReal();
+      } else {
+        setModalStravaProximamente(true);
+      }
+    } catch (e) {
       setModalStravaProximamente(true);
     }
   };
