@@ -458,6 +458,11 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.pendingTitulo}>{item.challenge}</Text>
                 <Text style={styles.pendingModalidad}>{item.modalidad}</Text>
                 <Text style={styles.pendingTexto}>Esperando confirmación de pago. Si ya pagaste, puede demorar unos minutos.</Text>
+                {item.link_shopify && (
+                  <TouchableOpacity style={styles.pendingBtn} onPress={() => Linking.openURL(item.link_shopify)}>
+                    <Text style={styles.pendingBtnText}>¿Ya pagaste o no llegaste a pagar? Reintentar</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           ))}
@@ -703,6 +708,8 @@ const styles = StyleSheet.create({
   pendingTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
   pendingModalidad: { fontSize: 12, color: '#A8CFFF', marginBottom: 6 },
   pendingTexto: { fontSize: 12, color: '#6a8a6a', lineHeight: 18 },
+  pendingBtn: { marginTop: 10, backgroundColor: '#1E6FD9', paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+  pendingBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 },
   ayudaBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center', justifyContent: 'center' },
   ayudaBtnText: { color: '#A8CFFF', fontWeight: 'bold', fontSize: 15 },
   faqItem: { borderBottomWidth: 1, borderBottomColor: '#2a4a6a', paddingVertical: 14 },
