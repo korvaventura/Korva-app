@@ -42,7 +42,6 @@ const CONFIGS = {
       <G pointerEvents="none">
         <Path d={`M0,140 Q${MAPA_WIDTH_VIRTUAL/4},90 ${MAPA_WIDTH_VIRTUAL/2},150 T${MAPA_WIDTH_VIRTUAL},100 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#334155" opacity="0.3" />
         <Path d="M400,40 Q550,20 700,50 T800,45 L800,0 L400,0 Z" fill="#0284C7" opacity="0.35" />
-        <SvgText x="550" y="25" fill="#7DD3FC" fontSize="12" textAnchor="middle">Lago Fagnano</SvgText>
         <Path d={`M0,240 Q${MAPA_WIDTH_VIRTUAL/2},220 ${MAPA_WIDTH_VIRTUAL},245 L${MAPA_WIDTH_VIRTUAL},260 L0,260 Z`} fill="#0284C7" opacity="0.35" />
         <SvgText x="300" y="250" fill="#7DD3FC" fontSize="12" textAnchor="middle">Canal Beagle</SvgText>
       </G>
@@ -164,12 +163,9 @@ const CONFIGS = {
         {/* Isla principal San Andrés */}
         <Path d="M230,90 L260,70 L310,65 L350,70 L370,90 L375,120 L365,155 L340,175 L300,185 L265,180 L240,165 L225,140 L220,115 Z"
           fill="#16a34a" opacity="0.35" />
-        <SvgText x="295" y="130" fill="#bbf7d0" fontSize="10" textAnchor="middle">San Andrés</SvgText>
         {/* Cayos principales */}
         <Ellipse cx="420" cy="65" rx="22" ry="12" fill="#16a34a" opacity="0.4" />
-        <SvgText x="420" y="50" fill="#bbf7d0" fontSize="9" textAnchor="middle">Johnny Cay</SvgText>
         <Ellipse cx="640" cy="65" rx="20" ry="10" fill="#16a34a" opacity="0.4" />
-        <SvgText x="640" y="52" fill="#bbf7d0" fontSize="9" textAnchor="middle">Haynes Cay</SvgText>
         <SvgText x="680" y="248" fill="#7DD3FC" fontSize="12" textAnchor="middle">Mar Caribe · Colombia</SvgText>
       </G>
     ),
