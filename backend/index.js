@@ -317,11 +317,9 @@ app.post('/challenges/inscribir', async (req, res) => {
     if (error) throw error;
 
     const { data: challenge } = await supabase.from('challenges').select('title').eq('id', challenge_id).single();
-    const { data: usuario } = await supabase.from('users').select('email, name').eq('id', user_id).single();
 
-    if (usuario?.email && challenge?.title) {
-      enviarEmailInscripcion(usuario.email, usuario.name, challenge.title, modalidad === 'run' ? 'Running' : 'Ciclismo');
-    }
+    // No mandamos ningún email acá — todavía no pagó. El email real de inscripción confirmada
+    // (con dorsal y postal) se manda recién cuando el webhook de Shopify confirma el pago.
 
     res.json({ mensaje: 'Inscripcion exitosa! Ya podes empezar tu reto', id: data.id });
   } catch (error) {
