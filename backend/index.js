@@ -961,10 +961,55 @@ app.get('/admin/pedidos-grupales', async (req, res) => {
 
 app.post('/usuarios/perfil', async (req, res) => {
   const { user_id, email, name } = req.body;
+  const emailNormalizado = (email || '').trim().toLowerCase();
   try {
+    // Buscar si ya existe un usuario con este email pero OTRO id —
+    // esto pasa cuando alguien compró por Shopify primero (que crea el usuario con un id propio)
+    // y recién después se registra en la app (que genera un id de Auth nuevo y distinto).
+    // Si no fusionamos, queda un usuario "fantasma" con el desafío activo, y otro vacío con la sesión real.
+    const { data: existentePorEmail } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', emailNormalizado)
+      .neq('id', user_id)
+      .maybeSingle();
+
+    if (existentePorEmail) {
+      // Fusionar: mover todo lo que dependía del id viejo al id nuevo de Auth, y borrar el viejo.
+      const idViejo = existentePorEmail.id;
+
+      await supabase.from('user_challenges').update({ user_id }).eq('user_id', idViejo);
+      await supabase.from('user_challenges').update({ group_id: user_id }).eq('group_id', idViejo);
+      await supabase.from('activities').update({ user_id }).eq('user_id', idViejo);
+
+      // Traer los datos del usuario viejo (bib_number, shipping_address, etc.) para no perderlos
+      const { data: datosViejos } = await supabase
+        .from('users')
+        .select('bib_number, shipping_address, strava_token, strava_refresh_token, strava_token_expires_at, strava_athlete_id, strava_habilitado, avatar_url')
+        .eq('id', idViejo)
+        .single();
+
+      await supabase.from('users').delete().eq('id', idViejo);
+
+      const { data, error } = await supabase
+        .from('users')
+        .upsert({
+          id: user_id,
+          email: emailNormalizado,
+          name: name || email.split('@')[0],
+          ...datosViejos,
+        }, { onConflict: 'id' })
+        .select()
+        .single();
+
+      if (error) throw error;
+      console.log('Usuario fusionado al registrarse en la app:', emailNormalizado, idViejo, '->', user_id);
+      return res.json({ mensaje: 'Perfil fusionado con compra existente', usuario: data });
+    }
+
     const { data, error } = await supabase
       .from('users')
-      .upsert({ id: user_id, email, name: name || email.split('@')[0] }, { onConflict: 'id' })
+      .upsert({ id: user_id, email: emailNormalizado, name: name || email.split('@')[0] }, { onConflict: 'id' })
       .select()
       .single();
 

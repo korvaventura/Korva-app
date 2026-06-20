@@ -110,7 +110,7 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
   }
 
   try {
-    const email = order.email;
+    const email = (order.email || '').trim().toLowerCase();
     const cantidad = order.line_items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 1;
     const productId = String(order.line_items?.[0]?.product_id || '');
     const challengeIdFromProduct = PRODUCT_CHALLENGE_MAP[productId];
