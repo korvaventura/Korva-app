@@ -32,8 +32,14 @@ router.get('/:token', async (req, res) => {
 // POST /invitaciones/:token — procesa el registro
 router.post('/:token', async (req, res) => {
   const { token } = req.params;
-  const { nombre, email, modalidad } = req.body;
+  const { nombre, email: emailRaw, modalidad } = req.body;
+  const email = (emailRaw || '').trim().toLowerCase();
+  const nombreLimpio = (nombre || '').trim();
   const supabase = getSupabase();
+
+  if (!nombreLimpio || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.send(paginaError('Datos inválidos', 'Completá tu nombre y un email válido para continuar.'));
+  }
 
   try {
     const { data: invitacion, error } = await supabase
@@ -62,7 +68,7 @@ router.post('/:token', async (req, res) => {
     } else {
       const { data: nuevoUsuario, error: errorUsuario } = await supabase
         .from('users')
-        .insert({ email, name: nombre })
+        .insert({ email, name: nombreLimpio })
         .select()
         .single();
       if (errorUsuario) throw errorUsuario;
@@ -112,12 +118,12 @@ router.post('/:token', async (req, res) => {
     }
 
     // Generar dorsal y postal PDF
-    const pdfs = await generarBibYPostal(supabase, nombre, bibNumber, invitacion.challenge_id);
+    const pdfs = await generarBibYPostal(supabase, nombreLimpio, bibNumber, invitacion.challenge_id);
     const modalidadTexto = modalidad === 'ride' ? 'Ciclismo' : 'Running';
 
     if (pdfs) {
       await enviarEmailInscripcionConBib(
-        email, nombre,
+        email, nombreLimpio,
         invitacion.challenges.title,
         modalidadTexto,
         pdfs.dorsalPdf,
@@ -125,10 +131,10 @@ router.post('/:token', async (req, res) => {
         bibNumber
       );
     } else {
-      await enviarEmailInscripcion(email, nombre, invitacion.challenges.title, modalidadTexto);
+      await enviarEmailInscripcion(email, nombreLimpio, invitacion.challenges.title, modalidadTexto);
     }
 
-    res.send(paginaExito(nombre, invitacion.challenges.title));
+    res.send(paginaExito(nombreLimpio, invitacion.challenges.title));
 
   } catch (error) {
     console.error('Error procesando invitación:', error);
@@ -205,8 +211,8 @@ const paginaExito = (nombre, challengeTitle) => baseHtml(`
     <div class="challenge-name" style="text-align: left;">
       <p style="font-size: 14px; color: #A8CFFF; font-weight: normal; margin-bottom: 8px;">Próximos pasos:</p>
       <p style="margin: 4px 0; font-size: 14px;">1️⃣ Revisá tu email — tiene tu dorsal adjunto</p>
-      <p style="margin: 4px 0; font-size: 14px;">2️⃣ Descargá la app Korva</p>
-      <p style="margin: 4px 0; font-size: 14px;">3️⃣ Conectá Strava y empezá a correr 🏃</p>
+      <p style="margin: 4px 0; font-size: 14px;">2️⃣ <a href="https://play.google.com/apps/testing/com.korva.mobile" style="color: #1E6FD9;">Descargá la app Korva</a></p>
+      <p style="margin: 4px 0; font-size: 14px;">3️⃣ Registrá tus km y empezá a moverte 🏃</p>
     </div>
   </div>
 `);
