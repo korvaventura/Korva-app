@@ -333,9 +333,12 @@ export default function CatalogoScreen() {
               </View>
               {cantidad > 1 && (
                 <Text style={styles.cantidadAyuda}>
-                  Vas a pagar {cantidad} medallas en un solo checkout. Después de confirmar tu compra, te van a llegar {cantidad - 1} link(s) de invitación por email para compartir con quien quieras.
+                  Vas a pagar {cantidad} medallas juntas, en un solo pago. Después de pagar, te van a llegar {cantidad - 1} link(s) por email para que se los pases a quien quieras — cada uno completa sus datos y le activamos su propia cuenta.
                 </Text>
               )}
+              <Text style={styles.regaloAviso}>
+                🎁 ¿Es un regalo para otra persona? Cuando vayas a pagar, poné el email de esa persona (no el tuyo) — así la cuenta y la medalla quedan a su nombre.
+              </Text>
             </View>
 
             <TouchableOpacity style={styles.modalButton} onPress={() => { elegirModalidad(modalConfirmModalidad.tipo); setModalConfirmModalidad(null); }}>
@@ -422,4 +425,5 @@ const styles = StyleSheet.create({
   cantidadBtnText: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' },
   cantidadNumero: { color: '#FFFFFF', fontSize: 22, fontWeight: 'bold', minWidth: 32, textAlign: 'center' },
   cantidadAyuda: { fontSize: 12, color: '#A8CFFF', marginTop: 12, lineHeight: 18, textAlign: 'center' },
+  regaloAviso: { fontSize: 12, color: '#FC4C02', marginTop: 12, lineHeight: 18, textAlign: 'center', fontWeight: 'bold' },
 });
