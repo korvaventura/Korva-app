@@ -23,6 +23,13 @@ app.get('/health', (req, res) => {
 });
 
 app.use(cors());
+
+// IMPORTANTE: las rutas de Shopify se montan ANTES de express.json() global.
+// El webhook de Shopify necesita el body crudo (Buffer) para verificar la firma HMAC —
+// si express.json() global lo parsea primero, la verificación de firma explota
+// y el webhook nunca puede procesar ninguna compra.
+app.use('/shopify', shopifyRoutes);
+
 app.use(express.json({ limit: '10mb' })); // aumentar límite para imágenes base64
 
 // ─── ENDPOINT DE PRUEBA DE BIB (sacar después) ──────────────────
@@ -66,7 +73,6 @@ app.post('/upload', async (req, res) => {
   }
 });
 app.use('/strava', stravaRoutes);
-app.use('/shopify', shopifyRoutes);
 app.use('/mercadopago', mercadopagoRoutes);
 app.use('/invitaciones', invitacionesRoutes);
 
