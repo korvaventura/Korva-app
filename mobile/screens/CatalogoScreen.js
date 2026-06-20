@@ -18,6 +18,7 @@ export default function CatalogoScreen() {
   const [cargando, setCargando] = useState(true);
   const [modalModalidad, setModalModalidad] = useState(false);
   const [modalConfirmModalidad, setModalConfirmModalidad] = useState(null); // { tipo, label, distancia_km }
+  const [cantidad, setCantidad] = useState(1);
   const [challengeSeleccionado, setChallengeSeleccionado] = useState(null);
   const [detalleVisible, setDetalleVisible] = useState(false);
   const [userId, setUserId] = useState(null);
@@ -60,6 +61,7 @@ export default function CatalogoScreen() {
 
   const abrirModal = (challenge) => {
     setChallengeSeleccionado(challenge);
+    setCantidad(1);
     setModalModalidad(true);
   };
 
@@ -81,7 +83,13 @@ export default function CatalogoScreen() {
         Alert.alert('Link no disponible', 'El link de pago para este reto todavía no está configurado. Contactanos a korvaventura@gmail.com');
         return;
       }
-      Linking.openURL(link);
+      // Si el link es de carrito (/cart/VARIANT_ID:1), reemplazamos el ":1" final por la cantidad elegida.
+      // Si es otro tipo de link (checkout directo viejo), lo dejamos tal cual — no soporta cantidad.
+      let linkFinal = link;
+      if (cantidad > 1 && link.includes('/cart/')) {
+        linkFinal = link.replace(/(:\d+)(\?|$)/, `:${cantidad}$2`);
+      }
+      Linking.openURL(linkFinal);
     } catch (error) {
       Alert.alert('Error', 'No se pudo completar la inscripción.');
     }
@@ -253,6 +261,14 @@ export default function CatalogoScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitulo}>Elegi tu modalidad</Text>
             <Text style={styles.modalSubtitulo}>{challengeSeleccionado?.title}</Text>
+            <View style={styles.modalidadInfoBox}>
+              <Text style={styles.modalidadInfoTexto}>
+                📏 Es tu meta personal — podés cambiarla cuando quieras desde tu Perfil.
+              </Text>
+              <Text style={styles.modalidadInfoTexto}>
+                🔄 Elijas la que elijas, podés combinar actividades: correr, caminar o andar en bici, todo suma hacia tu distancia.
+              </Text>
+            </View>
             {challengeSeleccionado?.modalidades?.map((m, i) => (
               <TouchableOpacity key={i} style={styles.modalButton} onPress={() => { setModalModalidad(false); setModalConfirmModalidad(m); }}>
                 <View>
@@ -294,6 +310,32 @@ export default function CatalogoScreen() {
                 }
                 return null;
               })()}
+            </View>
+
+            <View style={styles.cantidadBox}>
+              <Text style={styles.cantidadLabel}>¿Para cuántas personas? (vos + invitados)</Text>
+              <View style={styles.cantidadRow}>
+                <TouchableOpacity
+                  style={styles.cantidadBtn}
+                  onPress={() => setCantidad(c => Math.max(1, c - 1))}
+                  disabled={cantidad <= 1}
+                >
+                  <Text style={styles.cantidadBtnText}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.cantidadNumero}>{cantidad}</Text>
+                <TouchableOpacity
+                  style={styles.cantidadBtn}
+                  onPress={() => setCantidad(c => Math.min(5, c + 1))}
+                  disabled={cantidad >= 5}
+                >
+                  <Text style={styles.cantidadBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+              {cantidad > 1 && (
+                <Text style={styles.cantidadAyuda}>
+                  Vas a pagar {cantidad} medallas en un solo checkout. Después de confirmar tu compra, te van a llegar {cantidad - 1} link(s) de invitación por email para compartir con quien quieras.
+                </Text>
+              )}
             </View>
 
             <TouchableOpacity style={styles.modalButton} onPress={() => { elegirModalidad(modalConfirmModalidad.tipo); setModalConfirmModalidad(null); }}>
@@ -370,5 +412,14 @@ const styles = StyleSheet.create({
   modalCancelarText: { color: '#A8CFFF', fontSize: 15 },
   modalEmojiConfirm: { fontSize: 40, textAlign: 'center', marginBottom: 8 },
   confirmInfoBox: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, marginBottom: 16, gap: 12 },
+  modalidadInfoBox: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, marginBottom: 16, gap: 10 },
+  modalidadInfoTexto: { fontSize: 13, color: '#A8CFFF', lineHeight: 19 },
   confirmInfoTexto: { fontSize: 13, color: '#A8CFFF', lineHeight: 20 },
+  cantidadBox: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, marginBottom: 16 },
+  cantidadLabel: { fontSize: 13, color: '#A8CFFF', marginBottom: 12, textAlign: 'center' },
+  cantidadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24 },
+  cantidadBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1E3A5F', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2a4a6a' },
+  cantidadBtnText: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' },
+  cantidadNumero: { color: '#FFFFFF', fontSize: 22, fontWeight: 'bold', minWidth: 32, textAlign: 'center' },
+  cantidadAyuda: { fontSize: 12, color: '#A8CFFF', marginTop: 12, lineHeight: 18, textAlign: 'center' },
 });

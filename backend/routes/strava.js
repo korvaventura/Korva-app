@@ -358,6 +358,7 @@ router.get('/progreso/:userId', async (req, res) => {
           estado: 'PENDIENTE',
           started_at: uc.started_at,
           meta_fecha: uc.meta_fecha,
+          link_shopify: uc.challenges.link_shopify || null,
           pending: true
         };
       }
