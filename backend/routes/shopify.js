@@ -93,6 +93,22 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
   console.log('Webhook Shopify verificado!', order?.email);
   const supabase = getSupabase();
 
+  // Protección contra reintentos duplicados de Shopify: si esta orden ya fue procesada, no hacer nada más.
+  // Esto evita crear dos inscripciones cuando Shopify reenvía el mismo webhook (algo que hace normalmente
+  // si la primera respuesta tarda, sin que sea un error real).
+  const orderId = String(order.id || order.order_number || '');
+  if (orderId) {
+    const { error: errorOrden } = await supabase
+      .from('shopify_orders_procesadas')
+      .insert({ order_id: orderId });
+
+    if (errorOrden) {
+      // Ya existe esa orden -> es un reintento, no procesamos de nuevo.
+      console.log('Webhook duplicado ignorado, orden ya procesada:', orderId);
+      return res.status(200).json({ mensaje: 'Orden ya procesada anteriormente' });
+    }
+  }
+
   try {
     const email = order.email;
     const cantidad = order.line_items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 1;
