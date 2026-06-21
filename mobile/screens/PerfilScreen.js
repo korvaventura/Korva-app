@@ -88,6 +88,13 @@ export default function PerfilScreen() {
     try {
       const res = await fetch(`${BACKEND_URL}/perfil/${userId}?t=${Date.now()}`);
       const data = await res.json();
+      if (data.error) {
+        console.error('Error cargando perfil:', data.error, data.detalle);
+        if (res.status === 404) {
+          Alert.alert('Sesión desactualizada', data.detalle || 'Cerrá sesión y volvé a entrar para solucionarlo.');
+        }
+        return;
+      }
       setUsuario(data.usuario);
       setStats(data.stats);
       setNivel(data.nivel);
@@ -98,7 +105,7 @@ export default function PerfilScreen() {
         .from('users')
         .select('strava_habilitado')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
       setStravaHabilitado(!!userData?.strava_habilitado);
     } catch (error) {
       console.error('Error:', error);
