@@ -57,7 +57,7 @@ router.post('/:token', async (req, res) => {
       .from('users')
       .select('id, bib_number')
       .eq('email', email)
-      .single();
+      .maybeSingle();
 
     let userId;
     let bibNumber;
@@ -81,7 +81,7 @@ router.post('/:token', async (req, res) => {
       .select('id')
       .eq('user_id', userId)
       .eq('challenge_id', invitacion.challenge_id)
-      .single();
+      .maybeSingle();
 
     if (yaInscripto) return res.send(paginaError('Ya inscripto', 'Este email ya está registrado en este desafío.'));
 
@@ -92,7 +92,7 @@ router.post('/:token', async (req, res) => {
       .select('group_id')
       .eq('user_id', invitacion.created_by)
       .eq('challenge_id', invitacion.challenge_id)
-      .single();
+      .maybeSingle();
     if (compradorUC?.group_id) groupId = compradorUC.group_id;
 
     // Inscribir en el challenge
