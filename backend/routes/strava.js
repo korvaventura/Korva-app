@@ -62,7 +62,7 @@ const verificarYEnviarNotificacionRacha = async (supabase, userId) => {
         .from('users')
         .select('push_token')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (usuario?.push_token) {
         await enviarPushNotification(usuario.push_token, mensajes[racha].title, mensajes[racha].body);
@@ -78,9 +78,11 @@ const getValidStravaToken = async (supabase, userId) => {
     .from('users')
     .select('strava_token, strava_refresh_token, strava_token_expires_at')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
+  if (!user) throw new Error('Usuario no encontrado. Tu sesión puede estar desactualizada.');
+  if (!user.strava_token) throw new Error('Este usuario no tiene Strava conectado.');
 
   const ahoraEnSegundos = Math.floor(Date.now() / 1000);
   const venceEn = user.strava_token_expires_at || 0;
@@ -392,7 +394,7 @@ router.get('/progreso/:userId', async (req, res) => {
           .from('users')
           .select('email, name, push_token')
           .eq('id', userId)
-          .single();
+          .maybeSingle();
 
         if (usuario?.email) {
           const { enviarEmailCompletado } = require('../routes/emails');
