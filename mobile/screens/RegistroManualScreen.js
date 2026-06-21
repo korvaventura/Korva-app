@@ -40,7 +40,9 @@ export default function RegistroManualScreen() {
           .select('challenge_id')
           .eq('user_id', session.user.id)
           .eq('status', 'active')
-          .single();
+          .order('started_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
         if (data?.challenge_id) setChallengeId(data.challenge_id);
       }
     });
@@ -132,6 +134,11 @@ export default function RegistroManualScreen() {
     }
     if (!userId) {
       setMensaje('Error de sesion, intenta de nuevo');
+      return;
+    }
+    if (!challengeId) {
+      setMensaje('No tenés ningún desafío activo. Cerrá sesión y volvé a entrar, o inscribite a un desafío primero.');
+      setExito(false);
       return;
     }
     setCargando(true);
