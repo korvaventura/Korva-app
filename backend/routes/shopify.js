@@ -126,8 +126,12 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
     if (usuarioExistente) {
       user = usuarioExistente;
     } else if (challengeIdFromProduct) {
-      const nombreCompleto = [order.shipping_address?.first_name, order.shipping_address?.last_name]
-        .filter(Boolean).join(' ') || email.split('@')[0];
+      // Buscar el nombre en varias fuentes posibles, en orden de confianza,
+      // antes de caer al fallback feo de usar la parte del email.
+      const nombreShipping = [order.shipping_address?.first_name, order.shipping_address?.last_name].filter(Boolean).join(' ');
+      const nombreBilling = [order.billing_address?.first_name, order.billing_address?.last_name].filter(Boolean).join(' ');
+      const nombreCustomer = [order.customer?.first_name, order.customer?.last_name].filter(Boolean).join(' ');
+      const nombreCompleto = nombreShipping || nombreBilling || nombreCustomer || email.split('@')[0];
 
       const { data: nuevoUsuario, error: errorUsuario } = await supabase
         .from('users')
