@@ -1044,12 +1044,74 @@ app.post('/usuarios/direccion', async (req, res) => {
       .update({ shipping_address })
       .eq('id', user_id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ error: 'Usuario no encontrado', detalle: 'Tu sesión puede estar desactualizada. Cerrá sesión y volvé a entrar.' });
+    }
     res.json({ mensaje: 'Direccion guardada exitosamente', usuario: data });
   } catch (error) {
     res.json({ error: 'Error guardando direccion', detalle: error.message });
+  }
+});
+
+// Proxy a Google Places Autocomplete — la API key nunca se expone en la app móvil
+app.get('/direcciones/autocomplete', async (req, res) => {
+  const { input } = req.query;
+  if (!input || input.trim().length < 3) return res.json({ predicciones: [] });
+  try {
+    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${process.env.GOOGLE_PLACES_API_KEY}&language=es`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      console.error('Error de Google Places Autocomplete:', data.status, data.error_message);
+      return res.json({ predicciones: [] });
+    }
+    const predicciones = (data.predictions || []).map(p => ({
+      place_id: p.place_id,
+      descripcion: p.description,
+    }));
+    res.json({ predicciones });
+  } catch (error) {
+    console.error('Error en autocomplete:', error.message);
+    res.json({ predicciones: [] });
+  }
+});
+
+// Proxy a Google Places Details — trae el detalle estructurado (calle, ciudad, CP, país) de un place_id elegido
+app.get('/direcciones/detalle/:placeId', async (req, res) => {
+  const { placeId } = req.params;
+  try {
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=${process.env.GOOGLE_PLACES_API_KEY}&language=es&fields=address_component,formatted_address,geometry`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data.status !== 'OK') {
+      console.error('Error de Google Places Details:', data.status, data.error_message);
+      return res.status(400).json({ error: 'No se pudo obtener el detalle de la dirección' });
+    }
+
+    const componentes = data.result?.address_components || [];
+    const buscar = (tipo) => componentes.find(c => c.types.includes(tipo))?.long_name || '';
+    const buscarCorto = (tipo) => componentes.find(c => c.types.includes(tipo))?.short_name || '';
+
+    const numero = buscar('street_number');
+    const calle = buscar('route');
+    const direccionCalle = [calle, numero].filter(Boolean).join(' ');
+
+    res.json({
+      direccion: direccionCalle || data.result?.formatted_address || '',
+      ciudad: buscar('locality') || buscar('administrative_area_level_2') || '',
+      codigo_postal: buscar('postal_code') || '',
+      pais: buscar('country') || '',
+      pais_codigo: buscarCorto('country') || '',
+      direccion_formateada: data.result?.formatted_address || '',
+      lat: data.result?.geometry?.location?.lat || null,
+      lng: data.result?.geometry?.location?.lng || null,
+    });
+  } catch (error) {
+    console.error('Error en detalle de direccion:', error.message);
+    res.status(500).json({ error: 'Error obteniendo detalle de la dirección' });
   }
 });
 

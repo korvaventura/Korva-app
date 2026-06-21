@@ -45,6 +45,10 @@ export default function PerfilScreen() {
   const [formDireccion, setFormDireccion] = useState({
     nombre: '', direccion: '', ciudad: '', codigo_postal: '', pais: '', telefono: '',
   });
+  const [busquedaDireccion, setBusquedaDireccion] = useState('');
+  const [sugerenciasDireccion, setSugerenciasDireccion] = useState([]);
+  const [buscandoDireccion, setBuscandoDireccion] = useState(false);
+  const [direccionConfirmada, setDireccionConfirmada] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -221,21 +225,67 @@ export default function PerfilScreen() {
       nombre: d?.nombre || '', direccion: d?.direccion || '', ciudad: d?.ciudad || '',
       codigo_postal: d?.codigo_postal || '', pais: d?.pais || '', telefono: d?.telefono || '',
     });
+    setBusquedaDireccion(d?.direccion || '');
+    setDireccionConfirmada(!!d?.direccion);
+    setSugerenciasDireccion([]);
     setEditandoDireccion(true);
   };
 
+  const buscarDirecciones = async (texto) => {
+    setBusquedaDireccion(texto);
+    setDireccionConfirmada(false);
+    if (texto.trim().length < 3) {
+      setSugerenciasDireccion([]);
+      return;
+    }
+    setBuscandoDireccion(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/direcciones/autocomplete?input=${encodeURIComponent(texto)}`);
+      const data = await res.json();
+      setSugerenciasDireccion(data.predicciones || []);
+    } catch (error) {
+      setSugerenciasDireccion([]);
+    } finally {
+      setBuscandoDireccion(false);
+    }
+  };
+
+  const elegirDireccion = async (sugerencia) => {
+    setBusquedaDireccion(sugerencia.descripcion);
+    setSugerenciasDireccion([]);
+    setBuscandoDireccion(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/direcciones/detalle/${sugerencia.place_id}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setFormDireccion(prev => ({
+        ...prev,
+        direccion: data.direccion || sugerencia.descripcion,
+        ciudad: data.ciudad || prev.ciudad,
+        codigo_postal: data.codigo_postal || prev.codigo_postal,
+        pais: data.pais || prev.pais,
+      }));
+      setDireccionConfirmada(true);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo cargar el detalle de esa dirección. Intentá elegir otra de la lista.');
+    } finally {
+      setBuscandoDireccion(false);
+    }
+  };
+
   const guardarDireccion = async () => {
-    const { nombre, direccion, ciudad, pais } = formDireccion;
+    const { nombre, direccion, ciudad, pais, referencia } = formDireccion;
     if (!nombre || !direccion || !ciudad || !pais) {
       Alert.alert('Faltan datos', 'Por favor completá nombre, dirección, ciudad y país.');
       return;
     }
     setGuardando(true);
     try {
+      const direccionFinal = referencia ? `${direccion}, ${referencia}` : direccion;
       const res = await fetch(`${BACKEND_URL}/usuarios/direccion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, shipping_address: formDireccion }),
+        body: JSON.stringify({ user_id: userId, shipping_address: { ...formDireccion, direccion: direccionFinal } }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.detalle);
@@ -676,8 +726,31 @@ export default function PerfilScreen() {
           <View style={styles.formCard}>
             <Text style={styles.formLabel}>Nombre completo *</Text>
             <TextInput style={styles.input} value={formDireccion.nombre} onChangeText={v => setFormDireccion(p => ({ ...p, nombre: v }))} placeholder="Juan Pérez" placeholderTextColor="#4a6a8a" />
-            <Text style={styles.formLabel}>Dirección *</Text>
-            <TextInput style={styles.input} value={formDireccion.direccion} onChangeText={v => setFormDireccion(p => ({ ...p, direccion: v }))} placeholder="Calle 123, Piso 4" placeholderTextColor="#4a6a8a" />
+            <Text style={styles.formLabel}>Dirección * <Text style={styles.opcionalTexto}>(buscá y elegí de la lista)</Text></Text>
+            <TextInput
+              style={styles.input}
+              value={busquedaDireccion}
+              onChangeText={buscarDirecciones}
+              placeholder="Empezá a escribir tu calle..."
+              placeholderTextColor="#4a6a8a"
+            />
+            {buscandoDireccion && <ActivityIndicator color="#1E6FD9" size="small" style={{ marginBottom: 12 }} />}
+            {sugerenciasDireccion.length > 0 && (
+              <View style={styles.sugerenciasBox}>
+                {sugerenciasDireccion.map((s, i) => (
+                  <TouchableOpacity key={i} style={styles.sugerenciaItem} onPress={() => elegirDireccion(s)}>
+                    <Text style={styles.sugerenciaTexto}>{s.descripcion}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            {direccionConfirmada && (
+              <View style={styles.direccionConfirmadaBox}>
+                <Text style={styles.direccionConfirmadaTexto}>✓ Dirección verificada con Google Maps</Text>
+              </View>
+            )}
+            <Text style={styles.formLabel}>Depto / Piso / Referencia (opcional)</Text>
+            <TextInput style={styles.input} value={formDireccion.referencia || ''} onChangeText={v => setFormDireccion(p => ({ ...p, referencia: v }))} placeholder="Piso 4, depto B" placeholderTextColor="#4a6a8a" />
             <Text style={styles.formLabel}>Ciudad *</Text>
             <TextInput style={styles.input} value={formDireccion.ciudad} onChangeText={v => setFormDireccion(p => ({ ...p, ciudad: v }))} placeholder="Buenos Aires" placeholderTextColor="#4a6a8a" />
             <Text style={styles.formLabel}>Código postal</Text>
@@ -845,6 +918,12 @@ const styles = StyleSheet.create({
   editarBtnText: { color: '#1E6FD9', fontSize: 13, fontWeight: 'bold' },
   formCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20 },
   formLabel: { fontSize: 12, color: '#A8CFFF', marginBottom: 6, marginTop: 12 },
+  opcionalTexto: { fontSize: 11, color: '#4a6a8a', fontWeight: 'normal' },
+  sugerenciasBox: { backgroundColor: '#0D1B2A', borderRadius: 10, borderWidth: 1, borderColor: '#2a4a6a', marginBottom: 12, overflow: 'hidden' },
+  sugerenciaItem: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1E3A5F' },
+  sugerenciaTexto: { color: '#FFFFFF', fontSize: 13 },
+  direccionConfirmadaBox: { backgroundColor: '#0a2a1a', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 12 },
+  direccionConfirmadaTexto: { color: '#4CAF50', fontSize: 12, fontWeight: 'bold' },
   input: { backgroundColor: '#0D1B2A', borderRadius: 10, borderWidth: 1, borderColor: '#2a3a4a', color: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 12, fontSize: 14 },
   formBotones: { flexDirection: 'row', gap: 10, marginTop: 20 },
   cancelarBtn: { flex: 1, borderWidth: 1, borderColor: '#2a3a4a', borderRadius: 10, padding: 12, alignItems: 'center' },
