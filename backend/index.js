@@ -604,6 +604,19 @@ app.post('/actividades/manual', async (req, res) => {
     return res.status(400).json({ error: 'Distancia inválida. Debe ser entre 0.1 y 300 km.' });
   }
 
+  // Validar que el usuario tenga ese challenge realmente asignado (evita actividades huérfanas
+  // si la sesión del celular quedó desincronizada con un user_id sin challenges reales)
+  const { data: challengeValido } = await supabase
+    .from('user_challenges')
+    .select('id')
+    .eq('user_id', user_id)
+    .eq('challenge_id', challenge_id)
+    .maybeSingle();
+
+  if (!challengeValido) {
+    return res.status(400).json({ error: 'No tenés este desafío activo. Cerrá sesión y volvé a entrar para actualizar tu cuenta.' });
+  }
+
   try {
     const { data: nuevaActividad, error: errorActividad } = await supabase
       .from('activities')
@@ -626,7 +639,7 @@ app.post('/actividades/manual', async (req, res) => {
       .select('km_completed, challenge_id, challenges(title, modalidades, total_distance_km)')
       .eq('user_id', user_id)
       .eq('challenge_id', challenge_id)
-      .single();
+      .maybeSingle();
 
     const kmAntes = ucAntes?.km_completed || 0;
 
@@ -640,7 +653,7 @@ app.post('/actividades/manual', async (req, res) => {
         .select('km_completed, status')
         .eq('user_id', user_id)
         .eq('challenge_id', challenge_id)
-        .single();
+        .maybeSingle();
 
       const modalidades = ucAntes.challenges?.modalidades || [];
       const distanciaTotal = modalidades[0]?.distancia_km || ucAntes.challenges?.total_distance_km || 100;
