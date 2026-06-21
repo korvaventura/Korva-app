@@ -337,7 +337,7 @@ export default function CatalogoScreen() {
                 </Text>
               )}
               <Text style={styles.regaloAviso}>
-                🎁 ¿Es un regalo para otra persona? Cuando vayas a pagar, poné el email de esa persona (no el tuyo) — así la cuenta y la medalla quedan a su nombre.
+                🎁 ¿Es un regalo para otra persona? Cuando vayas a pagar, completá el email Y el nombre de esa persona en los datos de envío (no los tuyos) — así la cuenta y la medalla quedan a su nombre.
               </Text>
             </View>
 
