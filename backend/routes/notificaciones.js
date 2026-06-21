@@ -26,11 +26,11 @@ const CHECKPOINTS = {
     { km: 19.4, nombre: 'Ploče Gate',      emoji: '🌊' },
   ],
   '85a362a5-eee7-456d-9027-358d44446004': [ // San Andrés
-    { km: 5,  nombre: 'Johnny Cay',      emoji: '🏖️' },
-    { km: 10, nombre: 'Haynes Cay',      emoji: '🤿' },
-    { km: 16, nombre: 'Cueva de Morgan', emoji: '💰' },
-    { km: 21, nombre: 'El Hoyo',         emoji: '🌀' },
-    { km: 27, nombre: 'Punta Sur',       emoji: '🌅' },
+    { km: 11, nombre: 'Johnny Cay',      emoji: '🏖️' },
+    { km: 21, nombre: 'Haynes Cay',      emoji: '🤿' },
+    { km: 34, nombre: 'Cueva de Morgan', emoji: '💰' },
+    { km: 44, nombre: 'El Hoyo',         emoji: '🌀' },
+    { km: 57, nombre: 'Punta Sur',       emoji: '🌅' },
   ],
 };
 
@@ -44,7 +44,7 @@ const enviarNotificacionProgreso = async (supabase, userId, challengeId, challen
       .from('users')
       .select('push_token, name')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (!usuario?.push_token) return;
 
@@ -123,7 +123,7 @@ const enviarNotificacionInactividad = async (supabase, userId, challengeTitle, d
       .from('users')
       .select('push_token, name')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (!usuario?.push_token) return;
 
