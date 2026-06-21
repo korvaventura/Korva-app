@@ -121,7 +121,7 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
       .from('users')
       .select('id, email, name, bib_number')
       .eq('email', email)
-      .single();
+      .maybeSingle();
 
     if (usuarioExistente) {
       user = usuarioExistente;
@@ -165,7 +165,7 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
       .eq('status', 'pending')
       .order('started_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (pendienteExistente) {
       pendiente = pendienteExistente;
