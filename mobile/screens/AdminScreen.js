@@ -150,7 +150,7 @@ export default function AdminScreen() {
     try {
       const res = await fetch(`${BACKEND_URL}/admin/challenges-activos`);
       const data = await res.json();
-      setChallenges(data);
+      setChallenges(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error:', error);
     } finally {
