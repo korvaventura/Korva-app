@@ -351,8 +351,11 @@ app.post('/challenges/inscribir', async (req, res) => {
 app.get('/perfil/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
-    const { data: usuario, error } = await supabase.from('users').select('*').eq('id', userId).single();
+    const { data: usuario, error } = await supabase.from('users').select('*').eq('id', userId).maybeSingle();
     if (error) throw error;
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuario no encontrado', detalle: 'Tu sesión puede estar desactualizada. Cerrá sesión y volvé a entrar.' });
+    }
 
     // Fecha de corte: primera inscripción activa/completada — todo lo anterior no cuenta para stats
     const { data: inscripcionesOrdenadas } = await supabase
@@ -1186,9 +1189,12 @@ app.put('/usuarios/modalidad', async (req, res) => {
       .eq('challenge_id', challenge_id)
       .in('status', ['active', 'pending'])
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ error: 'No tenés este desafío activo', detalle: 'Tu sesión puede estar desactualizada. Cerrá sesión y volvé a entrar.' });
+    }
 
     await recalcularKmUsuario(user_id, challenge_id);
 
