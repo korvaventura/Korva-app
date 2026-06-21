@@ -65,7 +65,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
         .select('meta_fecha')
         .eq('user_id', userId)
         .eq('challenge_id', item.challenge_id)
-        .single();
+        .maybeSingle();
       if (data?.meta_fecha) setMetaFecha(data.meta_fecha);
     } catch (error) {}
   };
@@ -109,7 +109,6 @@ export default function DetalleRetoScreen({ route, navigation }) {
     setEditandoFecha(false);
   };
 
-  // Calcular stats para challenge completado
   const calcularStats = () => {
     if (actividades.length === 0) return null;
     const fechaInicio = new Date(item.started_at || actividades[actividades.length - 1]?.recorded_at);
@@ -133,17 +132,14 @@ export default function DetalleRetoScreen({ route, navigation }) {
 
   const stats = calcularStats();
 
-  // Calcular ritmo y prediccion con descansos
   const kmRestantes = parseFloat(item.distancia_total) - parseFloat(item.km_completados);
   const diasDesdeInicio = item.started_at ? diasEntre(new Date(item.started_at), new Date()) : 1;
   const ritmoDiario = parseFloat(item.km_completados) / diasDesdeInicio;
   const diasParaTerminar = ritmoDiario > 0 ? Math.ceil(kmRestantes / ritmoDiario) : null;
   const fechaEstimada = diasParaTerminar ? new Date(Date.now() + diasParaTerminar * 86400000) : null;
 
-  // Factor de descanso: run = 60% días activos (4/7), ride = 75% (5/7)
   const factorDescanso = modalidad === 'run' ? 0.6 : 0.75;
   const sesionesporSemana = modalidad === 'run' ? 4 : 5;
-  // Calcular km acumulados por actividad para hitos
   let acumulado = 0;
   const actividadesConHito = [...actividades].reverse().map((act, i) => {
     acumulado += act.distance_km;
@@ -153,7 +149,6 @@ export default function DetalleRetoScreen({ route, navigation }) {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
 
-      {/* Header */}
       <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
         <View style={styles.backBtnRow}>
           <Ionicons name="arrow-back" size={16} color="#1E6FD9" />
@@ -164,7 +159,6 @@ export default function DetalleRetoScreen({ route, navigation }) {
       <Text style={styles.titulo}>{item.challenge}</Text>
       <Text style={styles.subtitulo}>{item.modalidad} · {item.distancia_total}km</Text>
 
-      {/* Progreso */}
       <View style={styles.progresoCard}>
         <View style={styles.progresoHeader}>
           <Text style={styles.progresoKm}>{item.km_completados} km</Text>
@@ -179,7 +173,6 @@ export default function DetalleRetoScreen({ route, navigation }) {
         )}
       </View>
 
-      {/* Stats de completado */}
       {estaCompletado && stats && (
         <View style={styles.statsCompletadoCard}>
           <Text style={styles.statsCompletadoTitulo}>🏅 Reto completado</Text>
@@ -214,7 +207,6 @@ export default function DetalleRetoScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* Prediccion y ritmo */}
       {!estaCompletado && (
         <View style={styles.ritmoCard}>
           <Text style={styles.ritmoTitulo}>📈 Tu ritmo actual</Text>
@@ -229,7 +221,6 @@ export default function DetalleRetoScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* Meta de fecha */}
       {!estaCompletado && (
         <View style={styles.metaCard}>
           <View style={styles.metaHeader}>
@@ -274,7 +265,6 @@ export default function DetalleRetoScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* Historial interactivo */}
       <View style={styles.historialSection}>
         <Text style={styles.historialTitulo}>📖 Tu historia</Text>
         {cargando ? (
@@ -378,5 +368,6 @@ const styles = StyleSheet.create({
   timelineKm: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
   timelineTipo: { fontSize: 11, color: '#A8CFFF' },
   timelineAcumulado: { fontSize: 11, color: '#4a6a8a', marginTop: 4 },
-  backBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 }, ritmoSesiones: { fontSize: 12, color: '#4a6a8a', marginBottom: 4 }, ritmoSesiones: { fontSize: 12, color: '#4a6a8a', marginBottom: 4 },
+  backBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  ritmoSesiones: { fontSize: 12, color: '#4a6a8a', marginBottom: 4 },
 });
