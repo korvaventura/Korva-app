@@ -226,3 +226,111 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
 });
 
 module.exports = router;
+
+// ─── Webhook de cancelación de orden ──────────────────────────────────
+router.post('/webhook/cancelled', express.raw({ type: 'application/json' }), async (req, res) => {
+  const hmacHeader = req.headers['x-shopify-hmac-sha256'];
+  if (!verificarFirmaShopify(req.body, hmacHeader)) {
+    console.warn('Webhook Shopify (cancelled) rechazado: firma inválida');
+    return res.status(401).json({ error: 'Firma inválida' });
+  }
+
+  let order;
+  try {
+    order = JSON.parse(req.body.toString());
+  } catch (e) {
+    return res.status(400).json({ error: 'Body inválido' });
+  }
+
+  console.log('Webhook Shopify de cancelación recibido:', order?.email);
+  const supabase = getSupabase();
+
+  try {
+    await cancelarInscripcionPorOrden(supabase, order);
+    res.status(200).json({ mensaje: 'Cancelación procesada' });
+  } catch (error) {
+    console.error('Error procesando cancelación:', error.message);
+    res.status(200).json({ error: 'Error procesando cancelación', detalle: error.message });
+  }
+});
+
+// ─── Webhook de reembolso ──────────────────────────────────────────────
+router.post('/webhook/refund', express.raw({ type: 'application/json' }), async (req, res) => {
+  const hmacHeader = req.headers['x-shopify-hmac-sha256'];
+  if (!verificarFirmaShopify(req.body, hmacHeader)) {
+    console.warn('Webhook Shopify (refund) rechazado: firma inválida');
+    return res.status(401).json({ error: 'Firma inválida' });
+  }
+
+  let refund;
+  try {
+    refund = JSON.parse(req.body.toString());
+  } catch (e) {
+    return res.status(400).json({ error: 'Body inválido' });
+  }
+
+  console.log('Webhook Shopify de reembolso recibido, order_id:', refund?.order_id);
+  const supabase = getSupabase();
+
+  try {
+    // El evento refunds/create no trae el email directamente — viene en el order asociado.
+    // Shopify incluye el "order" anidado en algunos payloads; si no está, buscamos por order_id.
+    const email = refund?.order?.email || null;
+    if (!email) {
+      console.warn('Reembolso sin email asociado directamente, no se puede identificar al usuario automáticamente. Order ID:', refund?.order_id);
+      return res.status(200).json({ mensaje: 'Reembolso recibido pero sin email para identificar usuario' });
+    }
+    await cancelarInscripcionPorOrden(supabase, { email });
+    res.status(200).json({ mensaje: 'Reembolso procesado' });
+  } catch (error) {
+    console.error('Error procesando reembolso:', error.message);
+    res.status(200).json({ error: 'Error procesando reembolso', detalle: error.message });
+  }
+});
+
+// Función compartida: borra la inscripción (pending o active) más reciente del usuario
+// asociado a este email, para el producto de esta orden. Si no encuentra el challenge exacto
+// por product_id, borra la inscripción pending/active más reciente del usuario en general
+// (mejor esfuerzo — Shopify no siempre manda el detalle completo del producto en cancelaciones/reembolsos).
+const cancelarInscripcionPorOrden = async (supabase, order) => {
+  const email = (order.email || '').trim().toLowerCase();
+  if (!email) {
+    console.warn('Cancelación/reembolso sin email, no se puede procesar.');
+    return;
+  }
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('id, name')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (!user) {
+    console.warn('Usuario no encontrado para cancelación/reembolso:', email);
+    return;
+  }
+
+  const productId = String(order.line_items?.[0]?.product_id || '');
+  const challengeIdFromProduct = PRODUCT_CHALLENGE_MAP[productId];
+
+  let query = supabase
+    .from('user_challenges')
+    .select('id, challenge_id, status')
+    .eq('user_id', user.id)
+    .in('status', ['pending', 'active'])
+    .order('started_at', { ascending: false });
+
+  if (challengeIdFromProduct) {
+    query = query.eq('challenge_id', challengeIdFromProduct);
+  }
+
+  const { data: inscripcion } = await query.limit(1).maybeSingle();
+
+  if (!inscripcion) {
+    console.log('No se encontró inscripción pending/active para cancelar:', email);
+    return;
+  }
+
+  await supabase.from('user_challenges').delete().eq('id', inscripcion.id);
+  console.log(`Inscripción cancelada/reembolsada y borrada para ${email}:`, inscripcion.id, '(estaba en', inscripcion.status + ')');
+};
