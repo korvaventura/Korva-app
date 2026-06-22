@@ -317,11 +317,8 @@ app.post('/challenges/inscribir', async (req, res) => {
 
     if (existente) {
       if (existente.status === 'pending') {
-        // Todavía no pagó — lo dejamos reintentar sin bloquear (puede querer cambiar la cantidad, por ejemplo).
-        // No creamos una fila nueva, simplemente lo mandamos de vuelta al link de pago.
         return res.json({ mensaje: 'Aguardando confirmación de pago. Te llevamos a completar tu compra.', id: existente.id, pendienteDePago: true });
       }
-      // Si ya está active/completed/shipped, sí está realmente inscripto — no permitir duplicar.
       return res.json({ mensaje: 'Ya estas inscripto en este challenge con esta modalidad' });
     }
 
@@ -338,9 +335,6 @@ app.post('/challenges/inscribir', async (req, res) => {
     if (error) throw error;
 
     const { data: challenge } = await supabase.from('challenges').select('title').eq('id', challenge_id).single();
-
-    // No mandamos ningún email acá — todavía no pagó. El email real de inscripción confirmada
-    // (con dorsal y postal) se manda recién cuando el webhook de Shopify confirma el pago.
 
     res.json({ mensaje: 'Inscripcion exitosa! Ya podes empezar tu reto', id: data.id });
   } catch (error) {
@@ -391,7 +385,6 @@ app.get('/perfil/:userId', async (req, res) => {
       const ganadas = [];
       const progreso = {};
 
-      // ── 🏃 DISTANCIA TOTAL ─────────────────────────────────────
       const hitos_km = [
         { km: 10,    id: 'km_10',    nombre: 'Primeros 10km',   emoji: '👟' },
         { km: 25,    id: 'km_25',    nombre: '25 km',           emoji: '🌱' },
@@ -411,7 +404,6 @@ app.get('/perfil/:userId', async (req, res) => {
       }
       progreso.distancia = proximoKm;
 
-      // ── 🔥 RACHAS (se ganan por mejor racha histórica) ──────────
       const hitos_racha = [
         { dias: 3,   id: 'racha_3',   nombre: '3 días seguidos',   emoji: '🔥' },
         { dias: 7,   id: 'racha_7',   nombre: 'Una semana',        emoji: '⚡' },
@@ -430,7 +422,6 @@ app.get('/perfil/:userId', async (req, res) => {
       }
       progreso.racha = proximaRacha;
 
-      // ── ⚡ ACTIVIDADES TOTALES ──────────────────────────────────
       const hitos_act = [
         { n: 1,   id: 'act_1',   nombre: 'Primera actividad',  emoji: '🌱' },
         { n: 5,   id: 'act_5',   nombre: '5 actividades',      emoji: '✊' },
@@ -448,7 +439,6 @@ app.get('/perfil/:userId', async (req, res) => {
       }
       progreso.actividades = proximaAct;
 
-      // ── 🏅 CHALLENGES ───────────────────────────────────────────
       const hitos_challenges = [
         { n: 1, id: 'ch_1', nombre: 'Primera medalla',      emoji: '🏅' },
         { n: 2, id: 'ch_2', nombre: 'Doble campeón',        emoji: '🥈' },
@@ -462,7 +452,6 @@ app.get('/perfil/:userId', async (req, res) => {
       }
       progreso.challenges = proximoCh;
 
-      // ── 📅 CONSISTENCIA (semanas activas en total) ──────────────
       const hitos_sem = [
         { n: 4,   id: 'sem_4',   nombre: '4 semanas activas',   emoji: '📅' },
         { n: 8,   id: 'sem_8',   nombre: '8 semanas activas',   emoji: '🗓️' },
@@ -478,7 +467,6 @@ app.get('/perfil/:userId', async (req, res) => {
       }
       progreso.consistencia = proximaSem;
 
-      // ── 🌐 MULTIDEPORTE ─────────────────────────────────────────
       if (totalRun > 0 && totalRide > 0) ganadas.push({ id: 'multideporte', nombre: 'Multideporte', emoji: '🌐', categoria: 'especial' });
       if (totalRun >= 50) ganadas.push({ id: 'corredor_pro', nombre: 'Corredor Pro', emoji: '🏃', categoria: 'especial' });
       if (totalRide >= 50) ganadas.push({ id: 'ciclista_pro', nombre: 'Ciclista Pro', emoji: '🚴', categoria: 'especial' });
@@ -494,7 +482,6 @@ app.get('/perfil/:userId', async (req, res) => {
 
     const racha = calcularRachaSemanal(actividadesFechas.data || []);
 
-    // Calcular mejor racha histórica (días consecutivos)
     const todasFechas = actividadesFechas.data?.map(a => a.recorded_at?.split('T')[0]) || [];
     const diasUnicos = [...new Set(todasFechas)].sort();
     let mejorRacha = 0, rachaTemp = 1;
@@ -529,7 +516,6 @@ app.get('/perfil/:userId', async (req, res) => {
       }
     });
 
-    // Ritmo promedio running: min/km. Ritmo promedio ciclismo: km/h.
     const ritmoRun = kmRunConTiempo > 0 ? (segundosRunConTiempo / 60 / kmRunConTiempo) : null;
     const ritmoRunMin = ritmoRun ? Math.floor(ritmoRun) : null;
     const ritmoRunSeg = ritmoRun ? Math.round((ritmoRun - Math.floor(ritmoRun)) * 60) : null;
@@ -607,8 +593,7 @@ app.post('/actividades/manual', async (req, res) => {
     return res.status(400).json({ error: 'Distancia inválida. Debe ser entre 0.1 y 300 km.' });
   }
 
-  // Validar que el usuario tenga ese challenge realmente asignado (evita actividades huérfanas
-  // si la sesión del celular quedó desincronizada con un user_id sin challenges reales)
+  // Validar que el usuario tenga ese challenge realmente asignado
   const { data: challengeValido } = await supabase
     .from('user_challenges')
     .select('id')
@@ -636,15 +621,39 @@ app.post('/actividades/manual', async (req, res) => {
 
     if (errorActividad) throw errorActividad;
 
-    // Guardar km antes de recalcular
+    // Guardar km y status antes de recalcular
     const { data: ucAntes } = await supabase
       .from('user_challenges')
-      .select('km_completed, challenge_id, challenges(title, modalidades, total_distance_km)')
+      .select('km_completed, status, challenge_id, challenges(title, modalidades, total_distance_km)')
       .eq('user_id', user_id)
       .eq('challenge_id', challenge_id)
       .maybeSingle();
 
     const kmAntes = ucAntes?.km_completed || 0;
+
+    // Trampa de días previos: si la actividad cargada es anterior al started_at del reto,
+    // adelantamos el corte automáticamente para que esos km cuenten.
+    // Límite: máximo 30 días hacia atrás desde la fecha de inscripción original.
+    if (recorded_at) {
+      const { data: ucCorte } = await supabase
+        .from('user_challenges')
+        .select('id, started_at')
+        .eq('user_id', user_id)
+        .eq('challenge_id', challenge_id)
+        .maybeSingle();
+
+      if (ucCorte && recorded_at < ucCorte.started_at) {
+        const limiteMinimo = new Date(ucCorte.started_at);
+        limiteMinimo.setDate(limiteMinimo.getDate() - 30);
+        const nuevoCorte = new Date(recorded_at) < limiteMinimo
+          ? limiteMinimo.toISOString()
+          : recorded_at;
+        await supabase
+          .from('user_challenges')
+          .update({ started_at: nuevoCorte })
+          .eq('id', ucCorte.id);
+      }
+    }
 
     await recalcularKmUsuario(user_id, challenge_id);
     await verificarYEnviarNotificacionRacha(user_id);
@@ -705,7 +714,6 @@ app.post('/admin/medalla-enviada', async (req, res) => {
   }
 });
 
-// Marcar todo un grupo (pedido) como enviado de una vez
 app.post('/admin/grupo-enviado', async (req, res) => {
   const { user_challenge_ids, tracking_number } = req.body;
   if (!Array.isArray(user_challenge_ids) || user_challenge_ids.length === 0) {
@@ -716,12 +724,11 @@ app.post('/admin/grupo-enviado', async (req, res) => {
       .from('user_challenges')
       .update({ status: 'shipped', tracking_number })
       .in('id', user_challenge_ids)
-      .eq('status', 'completed') // solo marcar los que ya completaron
+      .eq('status', 'completed')
       .select('*, challenges(*), users(*)');
 
     if (error) throw error;
 
-    // Enviar email y push a cada miembro que sí completó
     for (const uc of ucs) {
       await enviarEmailMedallaEnCamino(uc.users.email, uc.users.name, uc.challenges.title, tracking_number);
       if (uc.users?.push_token) {
@@ -739,10 +746,8 @@ app.post('/admin/grupo-enviado', async (req, res) => {
   }
 });
 
-// Traduce términos comunes de direcciones español -> inglés usando Claude
 const traducirDireccion = async (direccion, indicaciones) => {
   if (!process.env.ANTHROPIC_API_KEY) {
-    // Sin API key: devolver tal cual
     return { address: direccion || '', indications: indicaciones || '' };
   }
   try {
@@ -784,7 +789,6 @@ const csvEscape = (val) => {
   return str;
 };
 
-// Export CSV para el agente logístico — una fila por pedido (comprador + dirección), Units = total medallas
 app.get('/admin/export-envios', async (req, res) => {
   try {
     const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -868,7 +872,6 @@ app.get('/admin/challenges-activos', async (req, res) => {
 
     if (error) throw error;
 
-    // Para cada user_challenge, buscar evidencias de actividades manuales
     const resultado = await Promise.all(data.map(async (uc) => {
       const { data: actividades } = await supabase
         .from('activities')
@@ -900,10 +903,8 @@ app.get('/admin/challenges-activos', async (req, res) => {
   }
 });
 
-// Pedidos grupales — agrupa inscripciones por group_id y determina si están listas para enviar
 app.get('/admin/pedidos-grupales', async (req, res) => {
   try {
-    // Traer todas las inscripciones activas y completadas (no enviadas) que tengan group_id
     const { data, error } = await supabase
       .from('user_challenges')
       .select('*, challenges(*), users(*)')
@@ -912,7 +913,6 @@ app.get('/admin/pedidos-grupales', async (req, res) => {
 
     if (error) throw error;
 
-    // Agrupar por group_id
     const grupos = {};
     for (const uc of data) {
       const gid = uc.group_id;
@@ -929,10 +929,8 @@ app.get('/admin/pedidos-grupales', async (req, res) => {
       const completados = miembros.filter(m => m.status === 'completed');
       const todosCompletados = completados.length === totalMiembros;
 
-      // Si nadie completó todavía, no mostrar este grupo
       if (completados.length === 0) continue;
 
-      // Fecha del primer completado
       const primerCompletado = completados
         .map(m => new Date(m.completed_at).getTime())
         .sort((a, b) => a - b)[0];
@@ -940,10 +938,8 @@ app.get('/admin/pedidos-grupales', async (req, res) => {
       const diasDesdeElPrimero = Math.floor((ahora - primerCompletado) / (1000 * 60 * 60 * 24));
       const esEnvioParcial = !todosCompletados && (ahora - primerCompletado) >= DOS_SEMANAS_MS;
 
-      // Solo mostrar si todos completaron, o si ya pasó el tope de 2 semanas
       if (!todosCompletados && !esEnvioParcial) continue;
 
-      // El "comprador" / destinatario del envío es el miembro cuyo user_id === group_id
       const comprador = miembros.find(m => m.user_id === groupId) || miembros[0];
 
       resultado.push({
@@ -979,10 +975,6 @@ app.post('/usuarios/perfil', async (req, res) => {
   const { user_id, email, name } = req.body;
   const emailNormalizado = (email || '').trim().toLowerCase();
   try {
-    // Buscar si ya existe un usuario con este email pero OTRO id —
-    // esto pasa cuando alguien compró por Shopify primero (que crea el usuario con un id propio)
-    // y recién después se registra en la app (que genera un id de Auth nuevo y distinto).
-    // Si no fusionamos, queda un usuario "fantasma" con el desafío activo, y otro vacío con la sesión real.
     const { data: existentePorEmail } = await supabase
       .from('users')
       .select('id')
@@ -991,14 +983,12 @@ app.post('/usuarios/perfil', async (req, res) => {
       .maybeSingle();
 
     if (existentePorEmail) {
-      // Fusionar: mover todo lo que dependía del id viejo al id nuevo de Auth, y borrar el viejo.
       const idViejo = existentePorEmail.id;
 
       await supabase.from('user_challenges').update({ user_id }).eq('user_id', idViejo);
       await supabase.from('user_challenges').update({ group_id: user_id }).eq('group_id', idViejo);
       await supabase.from('activities').update({ user_id }).eq('user_id', idViejo);
 
-      // Traer los datos del usuario viejo (bib_number, shipping_address, etc.) para no perderlos
       const { data: datosViejos } = await supabase
         .from('users')
         .select('bib_number, shipping_address, strava_token, strava_refresh_token, strava_token_expires_at, strava_athlete_id, strava_habilitado, avatar_url')
@@ -1056,7 +1046,6 @@ app.post('/usuarios/direccion', async (req, res) => {
   }
 });
 
-// Proxy a Google Places Autocomplete — la API key nunca se expone en la app móvil
 app.get('/direcciones/autocomplete', async (req, res) => {
   const { input } = req.query;
   if (!input || input.trim().length < 3) return res.json({ predicciones: [] });
@@ -1079,7 +1068,6 @@ app.get('/direcciones/autocomplete', async (req, res) => {
   }
 });
 
-// Proxy a Google Places Details — trae el detalle estructurado (calle, ciudad, CP, país) de un place_id elegido
 app.get('/direcciones/detalle/:placeId', async (req, res) => {
   const { placeId } = req.params;
   try {
@@ -1188,7 +1176,6 @@ app.post('/admin/challenges', async (req, res) => {
 app.get('/actividades/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
-    // Buscar la fecha de inscripción más antigua entre los challenges activos
     const { data: inscripciones } = await supabase
       .from('user_challenges')
       .select('started_at')
@@ -1288,12 +1275,10 @@ app.delete('/actividades/:actividadId', async (req, res) => {
 
 app.get('/admin/metricas', async (req, res) => {
   try {
-    // Total usuarios
     const { count: totalUsuarios } = await supabase
       .from('users')
       .select('*', { count: 'exact', head: true });
 
-    // Inscripciones por status
     const { data: inscripciones } = await supabase
       .from('user_challenges')
       .select('status, challenge_id, user_id, km_completed, started_at, challenges(title)');
@@ -1303,7 +1288,7 @@ app.get('/admin/metricas', async (req, res) => {
     const enviados = inscripciones?.filter(i => i.status === 'shipped').length || 0;
 
     // Fecha de corte por usuario: la primera inscripción activa/completada/enviada de cada uno.
-    // Esto evita que actividades viejas de Strava (previas a usar Korva) infle los totales.
+    // Evita que actividades viejas de Strava (previas a usar Korva) inflen los totales.
     const fechaCortePorUsuario = {};
     inscripciones?.forEach(i => {
       if (!['active', 'completed', 'shipped'].includes(i.status)) return;
@@ -1313,14 +1298,13 @@ app.get('/admin/metricas', async (req, res) => {
       }
     });
 
-    // Km totales — solo actividades posteriores a la fecha de corte de cada usuario
     const { data: todasActividades } = await supabase
       .from('activities')
       .select('user_id, distance_km, sport_type, source, recorded_at');
 
     const actividades = todasActividades?.filter(a => {
       const corte = fechaCortePorUsuario[a.user_id];
-      if (!corte) return false; // usuario sin inscripción activa/completada/enviada: no cuenta
+      if (!corte) return false;
       return new Date(a.recorded_at) >= new Date(corte);
     });
 
@@ -1329,13 +1313,11 @@ app.get('/admin/metricas', async (req, res) => {
     const kmManual = actividades?.filter(a => a.source === 'manual').reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
     const totalActividades = actividades?.length || 0;
 
-    // Usuarios con Strava conectado
     const { count: conStrava } = await supabase
       .from('users')
       .select('*', { count: 'exact', head: true })
       .not('strava_token', 'is', null);
 
-    // Métricas por challenge
     const porChallenge = {};
     inscripciones?.forEach(i => {
       const titulo = i.challenges?.title || 'Sin título';
