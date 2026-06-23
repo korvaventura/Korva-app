@@ -1020,6 +1020,26 @@ app.post('/usuarios/perfil', async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // Fusionar user_challenges huerfanos creados manualmente con email pero sin usuario real
+    const { data: huerfanos } = await supabase
+      .from('user_challenges')
+      .select('id, user_id')
+      .eq('email', emailNormalizado)
+      .neq('user_id', user_id);
+
+    if (huerfanos?.length > 0) {
+      for (const h of huerfanos) {
+        await supabase.from('user_challenges')
+          .update({ user_id: user_id, email: null })
+          .eq('id', h.id);
+        await supabase.from('activities')
+          .update({ user_id: user_id })
+          .eq('user_id', h.user_id);
+      }
+      console.log('User challenges huerfanos fusionados para:', emailNormalizado, '->', user_id);
+    }
+
     res.json({ mensaje: 'Perfil creado', usuario: data });
   } catch (error) {
     res.json({ error: 'Error creando perfil', detalle: error.message });
