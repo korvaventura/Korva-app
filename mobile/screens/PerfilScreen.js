@@ -7,7 +7,7 @@ import { supabase } from '../supabase';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const CARD_WIDTH = SCREEN_WIDTH - 48; // padding 24 cada lado
+const CARD_WIDTH = SCREEN_WIDTH - 48;
 
 const formatearFecha = (fecha) => {
   if (!fecha) return '';
@@ -40,10 +40,11 @@ export default function PerfilScreen() {
   const [guardandoMeta, setGuardandoMeta] = useState({});
   const [modalStravaVisible, setModalStravaVisible] = useState(false);
   const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
-  const [modalCambioModalidad, setModalCambioModalidad] = useState(null); // { inscripcion, nuevaModalidad, nuevaData }
+  const [modalCambioModalidad, setModalCambioModalidad] = useState(null);
   const [stravaHabilitado, setStravaHabilitado] = useState(false);
+  // FIX: referencia incluida en el estado inicial
   const [formDireccion, setFormDireccion] = useState({
-    nombre: '', direccion: '', ciudad: '', codigo_postal: '', pais: '', telefono: '',
+    nombre: '', direccion: '', referencia: '', ciudad: '', codigo_postal: '', pais: '', telefono: '',
   });
   const [busquedaDireccion, setBusquedaDireccion] = useState('');
   const [sugerenciasDireccion, setSugerenciasDireccion] = useState([]);
@@ -104,7 +105,6 @@ export default function PerfilScreen() {
       setNivel(data.nivel);
       setInsignias(data.insignias || []);
       setInsigniasProgreso(data.insigniasProgreso || {});
-      // Traer strava_habilitado directamente de Supabase
       const { data: userData } = await supabase
         .from('users')
         .select('strava_habilitado')
@@ -160,7 +160,6 @@ export default function PerfilScreen() {
         .eq('status', 'active');
       if (!error && data) {
         setInscripcionesActivas(data);
-        // Inicializar metaFecha para cada reto
         const metas = {};
         data.forEach(d => { if (d.meta_fecha) metas[d.challenge_id] = d.meta_fecha; });
         setMetaFecha(metas);
@@ -221,9 +220,15 @@ export default function PerfilScreen() {
 
   const abrirEdicion = () => {
     const d = usuario?.shipping_address;
+    // FIX: referencia cargada correctamente al abrir edición
     setFormDireccion({
-      nombre: d?.nombre || '', direccion: d?.direccion || '', ciudad: d?.ciudad || '',
-      codigo_postal: d?.codigo_postal || '', pais: d?.pais || '', telefono: d?.telefono || '',
+      nombre: d?.nombre || '',
+      direccion: d?.direccion || '',
+      referencia: d?.referencia || '',
+      ciudad: d?.ciudad || '',
+      codigo_postal: d?.codigo_postal || '',
+      pais: d?.pais || '',
+      telefono: d?.telefono || '',
     });
     setBusquedaDireccion(d?.direccion || '');
     setDireccionConfirmada(!!d?.direccion);
@@ -274,22 +279,22 @@ export default function PerfilScreen() {
   };
 
   const guardarDireccion = async () => {
-    const { nombre, direccion, ciudad, pais, referencia } = formDireccion;
+    const { nombre, direccion, ciudad, pais } = formDireccion;
     if (!nombre || !direccion || !ciudad || !pais) {
       Alert.alert('Faltan datos', 'Por favor completá nombre, dirección, ciudad y país.');
       return;
     }
     setGuardando(true);
     try {
-      const direccionFinal = referencia ? `${direccion}, ${referencia}` : direccion;
+      // FIX: referencia guardada como campo separado, no concatenada en dirección
       const res = await fetch(`${BACKEND_URL}/usuarios/direccion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, shipping_address: { ...formDireccion, direccion: direccionFinal } }),
+        body: JSON.stringify({ user_id: userId, shipping_address: { ...formDireccion } }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.detalle);
-      setUsuario(prev => ({ ...prev, shipping_address: formDireccion }));
+      setUsuario(prev => ({ ...prev, shipping_address: { ...formDireccion } }));
       setEditandoDireccion(false);
       Alert.alert('✅ Dirección guardada', 'Tu dirección de envío fue actualizada.');
     } catch (error) {
@@ -422,7 +427,6 @@ export default function PerfilScreen() {
               {modalCambioModalidad?.nuevaModalidad === 'run' ? 'Running' : 'Ciclismo'} — {modalCambioModalidad?.nuevaData?.distancia_km} km
             </Text>
             <Text style={styles.modalSubtitulo}>{modalCambioModalidad?.inscripcion?.challenges?.title}</Text>
-
             <View style={styles.confirmInfoBox}>
               <Text style={styles.confirmInfoTexto}>
                 📏 La modalidad define tu meta personal — es un desafío contra vos mismo, no cambia tu medalla.
@@ -443,7 +447,6 @@ export default function PerfilScreen() {
                 return null;
               })()}
             </View>
-
             <TouchableOpacity style={styles.modalBtn} onPress={confirmarCambioModalidad}>
               <Text style={styles.modalBtnText}>Confirmar cambio</Text>
             </TouchableOpacity>
@@ -503,11 +506,10 @@ export default function PerfilScreen() {
         </View>
       )}
 
-      {/* Retos activos — deslizables */}
+      {/* Retos activos */}
       {inscripcionesActivas.length > 0 && (
         <View style={{ width: '100%', marginBottom: 20 }}>
           <Text style={[styles.seccionTitulo, { paddingHorizontal: 24 }]}>🏅 Mis retos activos</Text>
-
           <ScrollView
             horizontal
             pagingEnabled
@@ -529,8 +531,6 @@ export default function PerfilScreen() {
                 <View key={cId} style={{ width: SCREEN_WIDTH, paddingHorizontal: 24 }}>
                   <View style={styles.retoCard}>
                     <Text style={styles.retoCardTitulo}>{inscripcion.challenges?.title}</Text>
-
-                    {/* Barra de progreso */}
                     <View style={styles.retoProgressWrapper}>
                       <View style={styles.retoProgressBar}>
                         <View style={[styles.retoProgressFill, { width: `${pct}%` }]} />
@@ -538,8 +538,6 @@ export default function PerfilScreen() {
                       <Text style={styles.retoProgressPct}>{pct.toFixed(0)}%</Text>
                     </View>
                     <Text style={styles.retoKm}>{kmCompletados.toFixed(1)} km de {distanciaTotal} km</Text>
-
-                    {/* Selector modalidad */}
                     <Text style={styles.modalidadLabel}>Modalidad</Text>
                     <View style={styles.modalidadBtns}>
                       {modalidades.map((m, i) => (
@@ -555,8 +553,6 @@ export default function PerfilScreen() {
                         </TouchableOpacity>
                       ))}
                     </View>
-
-                    {/* Meta personal */}
                     <View style={styles.metaSeparador} />
                     <View style={styles.metaHeader}>
                       <Text style={styles.metaTitulo}>🎯 Meta personal</Text>
@@ -567,7 +563,6 @@ export default function PerfilScreen() {
                         <Text style={styles.metaEditarBtn}>{editandoMeta[cId] ? 'Cancelar' : mFecha ? 'Editar' : '+ Agregar'}</Text>
                       </TouchableOpacity>
                     </View>
-
                     {editandoMeta[cId] ? (
                       <View style={styles.metaInputRow}>
                         <TextInput
@@ -604,8 +599,6 @@ export default function PerfilScreen() {
               );
             })}
           </ScrollView>
-
-          {/* Dots indicadores */}
           {inscripcionesActivas.length > 1 && (
             <View style={styles.dotsRow}>
               {inscripcionesActivas.map((_, i) => (
@@ -634,7 +627,6 @@ export default function PerfilScreen() {
       {(insignias.length > 0 || Object.keys(insigniasProgreso).length > 0) && (
         <View style={styles.seccion}>
           <Text style={styles.seccionTitulo}>🏆 Logros {insignias.length > 0 ? `(${insignias.length})` : ''}</Text>
-
           {[
             { key: 'distancia',    titulo: 'DISTANCIA',    emoji: '🏃' },
             { key: 'racha',        titulo: 'RACHAS',       emoji: '🔥' },
@@ -646,10 +638,7 @@ export default function PerfilScreen() {
             const ganados = insignias.filter(i => i.categoria === key);
             const proximo = insigniasProgreso?.[key];
             if (ganados.length === 0 && !proximo) return null;
-
-            // Mostrar últimos 3 ganados + 1 bloqueado si hay próximo
             const visibles = ganados.slice(-3);
-
             return (
               <View key={key} style={styles.logroCategoria}>
                 <Text style={styles.logroCatTitulo}>{emoji} {titulo}</Text>
@@ -660,8 +649,6 @@ export default function PerfilScreen() {
                       <Text style={styles.logroNombre}>{ins.nombre}</Text>
                     </View>
                   ))}
-
-                  {/* Badge bloqueado misterioso */}
                   {proximo && (
                     <View style={styles.logroBloqueado}>
                       <Text style={styles.logroBloqueadoEmoji}>🔒</Text>
@@ -669,7 +656,6 @@ export default function PerfilScreen() {
                     </View>
                   )}
                 </ScrollView>
-
                 {proximo && (
                   <Text style={styles.logroProximo}>
                     → {proximo.nombre} · faltan {proximo.falta} {proximo.unidad}
@@ -726,6 +712,7 @@ export default function PerfilScreen() {
           <View style={styles.formCard}>
             <Text style={styles.formLabel}>Nombre completo *</Text>
             <TextInput style={styles.input} value={formDireccion.nombre} onChangeText={v => setFormDireccion(p => ({ ...p, nombre: v }))} placeholder="Juan Pérez" placeholderTextColor="#4a6a8a" />
+
             <Text style={styles.formLabel}>Dirección * <Text style={styles.opcionalTexto}>(buscá y elegí de la lista)</Text></Text>
             <TextInput
               style={styles.input}
@@ -749,8 +736,17 @@ export default function PerfilScreen() {
                 <Text style={styles.direccionConfirmadaTexto}>✓ Dirección verificada con Google Maps</Text>
               </View>
             )}
-            <Text style={styles.formLabel}>Depto / Piso / Referencia (opcional)</Text>
-            <TextInput style={styles.input} value={formDireccion.referencia || ''} onChangeText={v => setFormDireccion(p => ({ ...p, referencia: v }))} placeholder="Piso 4, depto B" placeholderTextColor="#4a6a8a" />
+
+            {/* FIX: campo referencia guardado correctamente como campo separado */}
+            <Text style={styles.formLabel}>Torre / Depto / Piso / Apto <Text style={styles.opcionalTexto}>(opcional)</Text></Text>
+            <TextInput
+              style={styles.input}
+              value={formDireccion.referencia || ''}
+              onChangeText={v => setFormDireccion(p => ({ ...p, referencia: v }))}
+              placeholder="Ej: Torre B, Apto 302 / Piso 4 Depto A"
+              placeholderTextColor="#4a6a8a"
+            />
+
             <Text style={styles.formLabel}>Ciudad *</Text>
             <TextInput style={styles.input} value={formDireccion.ciudad} onChangeText={v => setFormDireccion(p => ({ ...p, ciudad: v }))} placeholder="Buenos Aires" placeholderTextColor="#4a6a8a" />
             <Text style={styles.formLabel}>Código postal</Text>
@@ -759,6 +755,7 @@ export default function PerfilScreen() {
             <TextInput style={styles.input} value={formDireccion.pais} onChangeText={v => setFormDireccion(p => ({ ...p, pais: v }))} placeholder="Argentina" placeholderTextColor="#4a6a8a" />
             <Text style={styles.formLabel}>Teléfono (con código de país)</Text>
             <TextInput style={styles.input} value={formDireccion.telefono} onChangeText={v => setFormDireccion(p => ({ ...p, telefono: v }))} placeholder="+54 11 1234 5678" placeholderTextColor="#4a6a8a" keyboardType="phone-pad" />
+
             <View style={styles.formBotones}>
               <TouchableOpacity style={styles.cancelarBtn} onPress={() => setEditandoDireccion(false)} disabled={guardando}>
                 <Text style={styles.cancelarBtnText}>Cancelar</Text>
@@ -772,6 +769,8 @@ export default function PerfilScreen() {
           <View style={styles.direccionCard}>
             <Text style={styles.direccionNombre}>{direccion.nombre}</Text>
             <Text style={styles.direccionLinea}>🏠 {direccion.direccion}</Text>
+            {/* FIX: referencia mostrada en la vista de dirección */}
+            {direccion.referencia ? <Text style={styles.direccionLinea}>🚪 {direccion.referencia}</Text> : null}
             <Text style={styles.direccionLinea}>🏙️ {direccion.ciudad}, {direccion.codigo_postal}</Text>
             <Text style={styles.direccionLinea}>🌍 {direccion.pais}</Text>
             {direccion.telefono && <Text style={styles.direccionTel}>📞 {direccion.telefono}</Text>}
@@ -845,7 +844,6 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 10, color: '#A8CFFF', textAlign: 'center', letterSpacing: 0.5 },
   seccion: { width: '100%', paddingHorizontal: 24, marginBottom: 20 },
   seccionTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 12 },
-  // Retos deslizables
   retoCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20 },
   retoCardTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 14 },
   retoProgressWrapper: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
@@ -889,13 +887,6 @@ const styles = StyleSheet.create({
   logroBloqueadoEmoji: { fontSize: 22, marginBottom: 4, opacity: 0.4 },
   logroBloqueadoNombre: { fontSize: 9, color: '#2a4a6a', textAlign: 'center' },
   logroProximo: { fontSize: 10, color: '#4a6a8a', marginTop: 8, fontStyle: 'italic' },
-  insigniaCategoria: { marginBottom: 16 },
-  insigniaCatTitulo: { fontSize: 12, fontWeight: 'bold', color: '#A8CFFF', letterSpacing: 1, marginBottom: 10 },
-  insigniaProximo: { fontSize: 11, color: '#4a6a8a', marginTop: 8, fontStyle: 'italic' },
-  insigniasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  insigniaCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', minWidth: 80, marginRight: 8 },
-  insigniaEmoji: { fontSize: 28, marginBottom: 6 },
-  insigniaNombre: { fontSize: 11, color: '#A8CFFF', textAlign: 'center' },
   actividadRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, marginBottom: 8, gap: 12 },
   actividadEmoji: { fontSize: 22 },
   actividadInfo: { flex: 1 },
@@ -960,4 +951,11 @@ const styles = StyleSheet.create({
   modalBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
   confirmInfoBox: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, marginBottom: 16, gap: 12 },
   confirmInfoTexto: { fontSize: 13, color: '#A8CFFF', lineHeight: 20 },
+  insigniaCategoria: { marginBottom: 16 },
+  insigniaCatTitulo: { fontSize: 12, fontWeight: 'bold', color: '#A8CFFF', letterSpacing: 1, marginBottom: 10 },
+  insigniaProximo: { fontSize: 11, color: '#4a6a8a', marginTop: 8, fontStyle: 'italic' },
+  insigniasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  insigniaCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', minWidth: 80, marginRight: 8 },
+  insigniaEmoji: { fontSize: 28, marginBottom: 6 },
+  insigniaNombre: { fontSize: 11, color: '#A8CFFF', textAlign: 'center' },
 });
