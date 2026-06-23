@@ -48,6 +48,8 @@ export default function HomeScreen({ navigation }) {
   const [completado, setCompletado] = useState(null);
   const [nombre, setNombre] = useState('');
   const [bannerVisible, setBannerVisible] = useState(false);
+  const [bannerCerrado, setBannerCerrado] = useState(false); // FIX: estado separado para cerrar manualmente
+  const [stravaBannerCerrado, setStravaBannerCerrado] = useState(false); // FIX: cerrar banner Strava
   const [metaInputs, setMetaInputs] = useState({});
   const [metaVisibles, setMetaVisibles] = useState({});
   const [guardandoMeta, setGuardandoMeta] = useState({});
@@ -64,13 +66,11 @@ export default function HomeScreen({ navigation }) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user?.id) {
         setUserId(session.user.id);
-        // Intentar nombre de user_metadata primero, si no de la tabla users
         const metaNombre = session.user.user_metadata?.name?.split(' ')[0] || 
                            session.user.user_metadata?.full_name?.split(' ')[0] || '';
         if (metaNombre) {
           setNombre(metaNombre);
         } else {
-          // Fallback: buscar en tabla users
           const { data } = await supabase.from('users').select('name').eq('id', session.user.id).single();
           setNombre(data?.name?.split(' ')[0] || '');
         }
@@ -132,7 +132,8 @@ export default function HomeScreen({ navigation }) {
       setChallenges(lista);
       const activos = lista.filter(c => !c.pending);
       const sinKm = activos.some(c => parseFloat(c.km_completados) === 0);
-      setBannerVisible(sinKm);
+      // FIX: solo mostrar si no fue cerrado manualmente
+      if (sinKm && !bannerCerrado) setBannerVisible(true);
       const reto100 = lista.find(c => parseFloat(c.porcentaje) >= 100 && !c.pending);
       if (reto100) setCompletado(reto100.challenge);
 
@@ -149,6 +150,11 @@ export default function HomeScreen({ navigation }) {
     } finally {
       setCargando(false);
     }
+  };
+
+  const cerrarBanner = () => {
+    setBannerVisible(false);
+    setBannerCerrado(true); // FIX: marcar como cerrado para que no vuelva
   };
 
   const saltarMeta = async (challengeId) => {
@@ -183,12 +189,10 @@ export default function HomeScreen({ navigation }) {
       setModalStravaVisible(true);
       return;
     }
-    // Si ya está habilitado manualmente, pasa directo
     if (stravaHabilitado) {
       conectarStravaReal();
       return;
     }
-    // Si no, chequeamos si todavía hay cupo disponible (10 conexiones reales máximo)
     try {
       const res = await fetch(`${BACKEND_URL}/strava-cupo`);
       const data = await res.json();
@@ -255,71 +259,26 @@ export default function HomeScreen({ navigation }) {
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
               {[
-                {
-                  q: '¿Cómo funciona Korva?',
-                  a: 'Elegís un desafío en el Catálogo y lo comprás. Una vez confirmado el pago, el desafío se activa en la app. Registrás tus km corriendo o pedaleando en el mundo real, y cuando completás la distancia total se inicia automáticamente la orden de envío de tu medalla.'
-                },
-                {
-                  q: '¿Necesito completar el desafío de una sola vez?',
-                  a: 'No. Podés salir a correr o pedalear cuando quieras — salidas cortas, largas, a tu ritmo. Los km se van acumulando hasta completar la distancia total del desafío.'
-                },
-                {
-                  q: '¿Puedo mezclar actividades?',
-                  a: 'Sí. Si elegiste Running podés sumar km corriendo, caminando, trotando o incluso en bicicleta — todo se acumula hacia tu meta. La modalidad que elegís define la distancia del desafío, no el tipo de actividad que podés registrar.'
-                },
-                {
-                  q: '¿Cómo registro mis kilómetros?',
-                  a: 'Desde la pestaña "Registrar" cargás tus km manualmente en segundos. La integración con Strava para sincronización automática estará disponible próximamente.'
-                },
-                {
-                  q: '¿Cómo cargo mi dirección de envío?',
-                  a: 'Desde la pestaña "Perfil", sección "Dirección de envío". Asegurate de tenerla cargada antes de completar el desafío para que el envío salga sin demoras.'
-                },
-                {
-                  q: '¿Cuándo llega mi medalla?',
-                  a: 'Cuando completás el 100% del desafío se inicia la orden de envío automáticamente. Los tiempos varían según tu país — podés consultar los tiempos estimados en korva.run.'
-                },
-                {
-                  q: '¿Qué son los logros?',
-                  a: 'Los logros son badges gratuitos que ganás por tu actividad — km recorridos, rachas de días activos, cantidad de salidas y más. Se acumulan siempre, tengas o no un desafío activo.'
-                },
-                {
-                  q: '¿Puedo usar la app sin comprar un desafío?',
-                  a: 'Sí. Podés registrar actividades y acumular logros sin costo. Los desafíos son para quienes quieren una meta con medalla física incluida.'
-                },
-                {
-                  q: '¿Puedo cambiar mi modalidad?',
-                  a: 'Sí, desde "Mis retos activos" en el Perfil podés cambiar entre Running y Ciclismo cuando quieras.'
-                },
-                {
-                  q: '¿Puedo tener varios desafíos a la vez?',
-                  a: 'Sí. Podés inscribirte en más de un desafío al mismo tiempo — cada uno tiene su propio progreso y se completan de forma independiente. En la app vas a ver una pestaña para cada desafío activo.'
-                },
-                {
-                  q: '¿Mis datos están seguros?',
-                  a: 'Sí. Solo vos podés ver tu perfil, dirección y actividades. No compartimos tu información con terceros.'
-                },
-                {
-                  q: '¿Necesito Strava?',
-                  a: 'No. El registro manual es suficiente para sumar tus km. Strava estará disponible próximamente como opción de sincronización automática.'
-                },
-                {
-                  q: '¿Tengo un problema o consulta?',
-                  a: 'Escribinos a korvaventura@gmail.com o por Instagram @korva.aventuras. Te respondemos a la brevedad.'
-                },
+                { q: '¿Cómo funciona Korva?', a: 'Elegís un desafío en el Catálogo y lo comprás. Una vez confirmado el pago, el desafío se activa en la app. Registrás tus km corriendo o pedaleando en el mundo real, y cuando completás la distancia total se inicia automáticamente la orden de envío de tu medalla.' },
+                { q: '¿Necesito completar el desafío de una sola vez?', a: 'No. Podés salir a correr o pedalear cuando quieras — salidas cortas, largas, a tu ritmo. Los km se van acumulando hasta completar la distancia total del desafío.' },
+                { q: '¿Puedo mezclar actividades?', a: 'Sí. Si elegiste Running podés sumar km corriendo, caminando, trotando o incluso en bicicleta — todo se acumula hacia tu meta. La modalidad que elegís define la distancia del desafío, no el tipo de actividad que podés registrar.' },
+                { q: '¿Cómo registro mis kilómetros?', a: 'Desde la pestaña "Registrar" cargás tus km manualmente en segundos. La integración con Strava para sincronización automática estará disponible próximamente.' },
+                { q: '¿Cómo cargo mi dirección de envío?', a: 'Desde la pestaña "Perfil", sección "Dirección de envío". Asegurate de tenerla cargada antes de completar el desafío para que el envío salga sin demoras.' },
+                { q: '¿Cuándo llega mi medalla?', a: 'Cuando completás el 100% del desafío se inicia la orden de envío automáticamente. Los tiempos varían según tu país — podés consultar los tiempos estimados en korva.run.' },
+                { q: '¿Qué son los logros?', a: 'Los logros son badges gratuitos que ganás por tu actividad — km recorridos, rachas de días activos, cantidad de salidas y más. Se acumulan siempre, tengas o no un desafío activo.' },
+                { q: '¿Puedo usar la app sin comprar un desafío?', a: 'Sí. Podés registrar actividades y acumular logros sin costo. Los desafíos son para quienes quieren una meta con medalla física incluida.' },
+                { q: '¿Puedo cambiar mi modalidad?', a: 'Sí, desde "Mis retos activos" en el Perfil podés cambiar entre Running y Ciclismo cuando quieras.' },
+                { q: '¿Puedo tener varios desafíos a la vez?', a: 'Sí. Podés inscribirte en más de un desafío al mismo tiempo — cada uno tiene su propio progreso y se completan de forma independiente. En la app vas a ver una pestaña para cada desafío activo.' },
+                { q: '¿Mis datos están seguros?', a: 'Sí. Solo vos podés ver tu perfil, dirección y actividades. No compartimos tu información con terceros.' },
+                { q: '¿Necesito Strava?', a: 'No. El registro manual es suficiente para sumar tus km. Strava estará disponible próximamente como opción de sincronización automática.' },
+                { q: '¿Tengo un problema o consulta?', a: 'Escribinos a korvaventura@gmail.com o por Instagram @korva.aventuras. Te respondemos a la brevedad.' },
               ].map((item, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={styles.faqItem}
-                  onPress={() => setFaqAbierta(faqAbierta === i ? null : i)}
-                >
+                <TouchableOpacity key={i} style={styles.faqItem} onPress={() => setFaqAbierta(faqAbierta === i ? null : i)}>
                   <View style={styles.faqHeader}>
                     <Text style={styles.faqPregunta}>{item.q}</Text>
                     <Text style={styles.faqChevron}>{faqAbierta === i ? '▲' : '▼'}</Text>
                   </View>
-                  {faqAbierta === i && (
-                    <Text style={styles.faqRespuesta}>{item.a}</Text>
-                  )}
+                  {faqAbierta === i && <Text style={styles.faqRespuesta}>{item.a}</Text>}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -412,12 +371,12 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Banner pago */}
+      {/* Banner pago — FIX: usa cerrarBanner() */}
       {bannerVisible && !cargando && (
         <View style={styles.bannerCard}>
           <View style={styles.bannerHeader}>
             <Text style={styles.bannerTitulo}>🎉 Pago confirmado!</Text>
-            <TouchableOpacity onPress={() => setBannerVisible(false)}>
+            <TouchableOpacity onPress={cerrarBanner} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Text style={styles.bannerCerrar}>✕</Text>
             </TouchableOpacity>
           </View>
@@ -434,18 +393,25 @@ export default function HomeScreen({ navigation }) {
         </View>
       )}
 
-      {/* Strava activo */}
-      {stravaConectado && !cargando && (
-        <TouchableOpacity style={styles.stravaActivoCard} onPress={() => setModalStravaVisible(true)}>
-          <View style={styles.stravaActivoRow}>
+      {/* Strava activo — FIX: con botón X para cerrar */}
+      {stravaConectado && !cargando && !stravaBannerCerrado && (
+        <View style={styles.stravaActivoCard}>
+          <TouchableOpacity style={styles.stravaActivoRow} onPress={() => setModalStravaVisible(true)}>
             <Text style={styles.stravaActivoEmoji}>🟠</Text>
             <View style={styles.stravaActivoInfo}>
               <Text style={styles.stravaActivoTitulo}>Strava activo</Text>
               <Text style={styles.stravaActivoDesc}>Tus actividades se sincronizan automáticamente · Tocá para ver cómo</Text>
             </View>
             <Ionicons name="information-circle-outline" size={20} color="#A8CFFF" />
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.stravaActivoCerrar}
+            onPress={() => setStravaBannerCerrado(true)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.stravaActivoCerrarText}>✕</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {cargando ? (
@@ -500,25 +466,8 @@ export default function HomeScreen({ navigation }) {
                 </>
               )}
             </View>
-          ) : challengesActivos.length === 1 ? (
-            // Un solo reto — sin selector
-            <RetoCard
-              item={challengesActivos[0]}
-              index={0}
-              nombre={nombre}
-              userId={userId}
-              navigation={navigation}
-              metaVisibles={metaVisibles}
-              metaInputs={metaInputs}
-              setMetaInputs={setMetaInputs}
-              guardandoMeta={guardandoMeta}
-              guardarMeta={guardarMeta}
-              saltarMeta={saltarMeta}
-              compartirProgreso={compartirProgreso}
-              viewShotRefs={viewShotRefs}
-            />
           ) : (
-            // Múltiples retos — selector tipo tabs, una pantalla por reto
+            // FIX: selector siempre visible, aunque sea un solo reto
             <>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.retoTabsScroll}>
                 {challengesActivos.map((item, i) => (
@@ -575,6 +524,9 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
   const mostrarCardMeta = metaVisibles[item.challenge_id];
   const metaFormateada = formatearFechaMeta(item.meta_fecha);
   const bordeCard = estaCompletado ? '#FC4C02' : pct >= 75 ? '#FC4C02' : '#1E3A5F';
+  const modalidadLabel = item.modalidad === 'Running' ? '🏃 RUNNING'
+    : item.modalidad === 'Ciclismo' ? '🚴 CICLISMO'
+    : '🏊 NATACIÓN';
 
   return (
     <View>
@@ -583,11 +535,10 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
         options={{ format: 'png', quality: 1 }}
       >
         <View style={[styles.shareCard, { borderColor: bordeCard }]}>
+          {/* FIX: header rediseñado — sin colores que parezcan botones */}
           <View style={styles.shareHeader}>
             <Text style={styles.shareKorvaLogo}>🏅 KORVA</Text>
-            <Text style={styles.shareDeporte}>
-              {item.modalidad === 'Running' ? '🏃 RUNNING' : item.modalidad === 'Ciclismo' ? '🚴 CICLISMO' : '🏊 NATACIÓN'}
-            </Text>
+            <Text style={styles.shareDeporte}>{modalidadLabel}</Text>
           </View>
           <View style={styles.sharePctWrapper}>
             <Text style={styles.sharePctNumero}>{pct.toFixed(0)}</Text>
@@ -676,12 +627,15 @@ const styles = StyleSheet.create({
   stravaBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
   stravaConectadoBadge: { backgroundColor: '#1a3a1a', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2a6a2a' },
   stravaConectadoBadgeText: { color: '#4CAF50', fontWeight: 'bold', fontSize: 13 },
-  stravaActivoCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#FC4C02' },
-  stravaActivoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  // FIX: stravaActivoCard con posición relativa para el botón X
+  stravaActivoCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#FC4C02', position: 'relative' },
+  stravaActivoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingRight: 24 },
   stravaActivoEmoji: { fontSize: 20 },
   stravaActivoInfo: { flex: 1 },
   stravaActivoTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
   stravaActivoDesc: { fontSize: 11, color: '#A8CFFF' },
+  stravaActivoCerrar: { position: 'absolute', top: 10, right: 12 },
+  stravaActivoCerrarText: { color: '#4a6a8a', fontSize: 16, fontWeight: 'bold' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalCard: { backgroundColor: '#1E3A5F', borderRadius: 24, padding: 28, width: '100%', borderWidth: 1, borderColor: '#FC4C02' },
   modalEmoji: { fontSize: 48, textAlign: 'center', marginBottom: 12 },
@@ -697,7 +651,7 @@ const styles = StyleSheet.create({
   bannerCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#1E6FD9' },
   bannerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   bannerTitulo: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
-  bannerCerrar: { fontSize: 16, color: '#4a6a8a', paddingHorizontal: 4 },
+  bannerCerrar: { fontSize: 18, color: '#A8CFFF', paddingHorizontal: 4, paddingVertical: 2 },
   bannerSubtitulo: { fontSize: 13, color: '#A8CFFF', marginBottom: 16 },
   pasoRow: { flexDirection: 'row', gap: 12, marginBottom: 12, alignItems: 'flex-start' },
   pasoEmoji: { fontSize: 20, width: 28 },
@@ -744,8 +698,9 @@ const styles = StyleSheet.create({
   retoTabBadge: { fontSize: 13 },
   shareCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 24, marginBottom: 8, borderWidth: 2 },
   shareHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  shareKorvaLogo: { fontSize: 13, fontWeight: 'bold', color: '#FC4C02', letterSpacing: 2 },
-  shareDeporte: { fontSize: 11, fontWeight: 'bold', color: '#1E6FD9', letterSpacing: 1 },
+  // FIX: KORVA y modalidad como texto plano, sin colores de botón
+  shareKorvaLogo: { fontSize: 12, fontWeight: 'bold', color: '#A8CFFF', letterSpacing: 2, opacity: 0.7 },
+  shareDeporte: { fontSize: 11, fontWeight: '600', color: '#A8CFFF', letterSpacing: 1, opacity: 0.7 },
   sharePctWrapper: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 4 },
   sharePctNumero: { fontSize: 72, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 80 },
   sharePctSymbol: { fontSize: 32, fontWeight: 'bold', color: '#FC4C02', marginBottom: 12, marginLeft: 4 },
