@@ -867,7 +867,7 @@ app.get('/admin/todos-inscriptos', async (req, res) => {
       .from('user_challenges')
       .select('id, user_id, challenge_id, modalidad, km_completed, status, started_at, completed_at, tracking_number')
       .in('status', ['active', 'completed', 'shipped', 'pending'])
-      .order('created_at', { ascending: false });
+      .order('started_at', { ascending: false });
 
     if (error) throw error;
 
