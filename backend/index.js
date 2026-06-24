@@ -686,6 +686,25 @@ app.post('/actividades/manual', async (req, res) => {
   }
 });
 
+
+// Helper: traer usuarios por IDs (evita join — FK fue removida)
+const getUsersByIds = async (userIds) => {
+  if (!userIds || userIds.length === 0) return {};
+  const { data } = await supabase.from('users').select('id, name, email, avatar_url, shipping_address, push_token').in('id', [...new Set(userIds)]);
+  const map = {};
+  (data || []).forEach(u => { map[u.id] = u; });
+  return map;
+};
+
+// Helper: traer challenges por IDs
+const getChallengesByIds = async (challengeIds) => {
+  if (!challengeIds || challengeIds.length === 0) return {};
+  const { data } = await supabase.from('challenges').select('id, title, modalidades, total_distance_km').in('id', [...new Set(challengeIds)]);
+  const map = {};
+  (data || []).forEach(c => { map[c.id] = c; });
+  return map;
+};
+
 app.post('/admin/medalla-enviada', async (req, res) => {
   const { user_challenge_id, tracking_number } = req.body;
   try {
@@ -693,18 +712,23 @@ app.post('/admin/medalla-enviada', async (req, res) => {
       .from('user_challenges')
       .update({ status: 'shipped', tracking_number })
       .eq('id', user_challenge_id)
-      .select('*, challenges(*), users(*)')
+      .select('id, user_id, challenge_id')
       .single();
 
     if (error) throw error;
 
-    await enviarEmailMedallaEnCamino(uc.users.email, uc.users.name, uc.challenges.title, tracking_number);
+    const usuarios = await getUsersByIds([uc.user_id]);
+    const challenges = await getChallengesByIds([uc.challenge_id]);
+    const usuario = usuarios[uc.user_id];
+    const challenge = challenges[uc.challenge_id];
 
-    if (uc.users?.push_token) {
+    await enviarEmailMedallaEnCamino(usuario?.email, usuario?.name, challenge?.title, tracking_number);
+
+    if (usuario?.push_token) {
       await enviarPushNotification(
-        uc.users.push_token,
+        usuario.push_token,
         '📦 Tu medalla está en camino!',
-        `Tu medalla de ${uc.challenges.title} fue enviada. Pronto la tenés en casa 🏅`
+        `Tu medalla de ${challenge?.title} fue enviada. Pronto la tenés en casa 🏅`
       );
     }
 
@@ -725,17 +749,22 @@ app.post('/admin/grupo-enviado', async (req, res) => {
       .update({ status: 'shipped', tracking_number })
       .in('id', user_challenge_ids)
       .eq('status', 'completed')
-      .select('*, challenges(*), users(*)');
+      .select('id, user_id, challenge_id');
 
     if (error) throw error;
 
+    const usuarios = await getUsersByIds(ucs.map(u => u.user_id));
+    const challenges = await getChallengesByIds(ucs.map(u => u.challenge_id));
+
     for (const uc of ucs) {
-      await enviarEmailMedallaEnCamino(uc.users.email, uc.users.name, uc.challenges.title, tracking_number);
-      if (uc.users?.push_token) {
+      const usuario = usuarios[uc.user_id];
+      const challenge = challenges[uc.challenge_id];
+      await enviarEmailMedallaEnCamino(usuario?.email, usuario?.name, challenge?.title, tracking_number);
+      if (usuario?.push_token) {
         await enviarPushNotification(
-          uc.users.push_token,
+          usuario.push_token,
           '📦 Tu medalla está en camino!',
-          `Tu medalla de ${uc.challenges.title} fue enviada. Pronto la tenés en casa 🏅`
+          `Tu medalla de ${challenge?.title} fue enviada. Pronto la tenés en casa 🏅`
         );
       }
     }
@@ -836,17 +865,20 @@ app.get('/admin/todos-inscriptos', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('user_challenges')
-      .select('*, challenges(*), users(*)')
+      .select('id, user_id, challenge_id, modalidad, km_completed, status, started_at, completed_at, tracking_number')
       .in('status', ['active', 'completed', 'shipped', 'pending'])
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
+    const usuarios = await getUsersByIds(data.map(u => u.user_id));
+    const challenges = await getChallengesByIds(data.map(u => u.challenge_id));
+
     const resultado = data.map(uc => ({
       id: uc.id,
-      usuario: uc.users?.name,
-      email: uc.users?.email,
-      challenge: uc.challenges?.title,
+      usuario: usuarios[uc.user_id]?.name,
+      email: usuarios[uc.user_id]?.email || uc.email,
+      challenge: challenges[uc.challenge_id]?.title,
       challenge_id: uc.challenge_id,
       modalidad: uc.modalidad,
       km_completados: uc.km_completed?.toFixed(1) || '0.0',
@@ -866,11 +898,14 @@ app.get('/admin/challenges-activos', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('user_challenges')
-      .select('*, challenges(*), users(*)')
+      .select('id, user_id, challenge_id, modalidad, km_completed, tracking_number, completed_at, status')
       .in('status', ['completed', 'shipped'])
       .order('completed_at', { ascending: false });
 
     if (error) throw error;
+
+    const usuarios = await getUsersByIds(data.map(u => u.user_id));
+    const challenges = await getChallengesByIds(data.map(u => u.challenge_id));
 
     const resultado = await Promise.all(data.map(async (uc) => {
       const { data: actividades } = await supabase
@@ -882,15 +917,16 @@ app.get('/admin/challenges-activos', async (req, res) => {
         .order('recorded_at', { ascending: false })
         .limit(5);
 
+      const usuario = usuarios[uc.user_id];
       return {
         id: uc.id,
-        usuario: uc.users?.name,
-        email: uc.users?.email,
-        challenge: uc.challenges?.title,
+        usuario: usuario?.name,
+        email: usuario?.email,
+        challenge: challenges[uc.challenge_id]?.title,
         modalidad: uc.modalidad,
         km_completados: uc.km_completed,
         tracking_number: uc.tracking_number,
-        direccion: uc.users?.shipping_address,
+        direccion: usuario?.shipping_address,
         completed_at: uc.completed_at,
         status: uc.status,
         evidencias: actividades?.map(a => a.evidencia_url) || [],
@@ -907,11 +943,14 @@ app.get('/admin/pedidos-grupales', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('user_challenges')
-      .select('*, challenges(*), users(*)')
+      .select('id, user_id, challenge_id, group_id, modalidad, km_completed, status, completed_at, tracking_number')
       .in('status', ['active', 'completed'])
       .not('group_id', 'is', null);
 
     if (error) throw error;
+
+    const usuarios = await getUsersByIds(data.map(u => u.user_id));
+    const challenges = await getChallengesByIds(data.map(u => u.challenge_id));
 
     const grupos = {};
     for (const uc of data) {
@@ -941,21 +980,22 @@ app.get('/admin/pedidos-grupales', async (req, res) => {
       if (!todosCompletados && !esEnvioParcial) continue;
 
       const comprador = miembros.find(m => m.user_id === groupId) || miembros[0];
+      const compradorUsuario = usuarios[comprador.user_id];
 
       resultado.push({
         group_id: groupId,
-        comprador: comprador.users?.name,
-        email: comprador.users?.email,
-        direccion: comprador.users?.shipping_address,
+        comprador: compradorUsuario?.name,
+        email: compradorUsuario?.email,
+        direccion: compradorUsuario?.shipping_address,
         total_miembros: totalMiembros,
         completados: completados.length,
         envio_parcial: esEnvioParcial,
         dias_desde_primero: diasDesdeElPrimero,
         miembros: miembros.map(m => ({
           id: m.id,
-          usuario: m.users?.name,
-          email: m.users?.email,
-          challenge: m.challenges?.title,
+          usuario: usuarios[m.user_id]?.name,
+          email: usuarios[m.user_id]?.email,
+          challenge: challenges[m.challenge_id]?.title,
           modalidad: m.modalidad,
           km_completados: m.km_completed,
           status: m.status,
