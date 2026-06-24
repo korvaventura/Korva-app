@@ -1126,29 +1126,47 @@ app.get('/direcciones/detalle/:placeId', async (req, res) => {
 app.get('/ranking/:challengeId', async (req, res) => {
   const { challengeId } = req.params;
   try {
-    const { data, error } = await supabase
+    // Traer user_challenges sin join — la FK fue removida y Supabase perdio la relacion en cache
+    const { data: ucs, error } = await supabase
       .from('user_challenges')
-      .select('*, users(name, avatar_url), challenges(modalidades, total_distance_km)')
+      .select('user_id, km_completed, modalidad, status')
       .eq('challenge_id', challengeId)
       .in('status', ['active', 'completed', 'shipped'])
       .order('km_completed', { ascending: false });
 
     if (error) throw error;
 
-    const resultado = data.map((uc, index) => {
-      const modalidades = uc.challenges?.modalidades || [];
+    // Traer el challenge por separado
+    const { data: challenge } = await supabase
+      .from('challenges')
+      .select('modalidades, total_distance_km')
+      .eq('id', challengeId)
+      .single();
+
+    // Traer usuarios por separado
+    const userIds = [...new Set((ucs || []).map(u => u.user_id))];
+    const { data: usuarios } = userIds.length > 0
+      ? await supabase.from('users').select('id, name, avatar_url').in('id', userIds)
+      : { data: [] };
+
+    const usuariosMap = {};
+    (usuarios || []).forEach(u => { usuariosMap[u.id] = u; });
+
+    const resultado = (ucs || []).map((uc, index) => {
+      const modalidades = challenge?.modalidades || [];
       const modalidadData = modalidades.find(m => m.tipo === uc.modalidad);
-      const distancia = modalidadData?.distancia_km || uc.challenges?.total_distance_km || 100;
+      const distancia = modalidadData?.distancia_km || challenge?.total_distance_km || 100;
+      const usuario = usuariosMap[uc.user_id];
 
       return {
         posicion: index + 1,
         nombre: (() => {
-          const n = uc.users?.name || 'Anonimo';
+          const n = usuario?.name || 'Anonimo';
           const partes = n.trim().split(' ');
           if (partes.length === 1) return partes[0];
           return `${partes[0]} ${partes[1]?.charAt(0)}.`;
         })(),
-        avatar: uc.users?.avatar_url,
+        avatar: usuario?.avatar_url,
         km_completados: uc.km_completed,
         modalidad: uc.modalidad,
         porcentaje: Math.min((uc.km_completed / distancia) * 100, 100).toFixed(1)
