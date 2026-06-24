@@ -882,6 +882,7 @@ app.get('/admin/todos-inscriptos', async (req, res) => {
       challenge_id: uc.challenge_id,
       modalidad: uc.modalidad,
       km_completados: uc.km_completed?.toFixed(1) || '0.0',
+      direccion: usuarios[uc.user_id]?.shipping_address,
       status: uc.status,
       started_at: uc.started_at,
       completed_at: uc.completed_at,
