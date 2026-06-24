@@ -18,8 +18,8 @@ const SLIDES = [
   },
   {
     emoji: '📱',
-    titulo: 'Registrá tus km',
-    descripcion: 'Cargá tus actividades manualmente en segundos. La sincronización automática con Strava está en camino.',
+    titulo: 'Korva no es una app de tracking',
+    descripcion: 'Salí a correr con la app que uses — Garmin, Nike Run, Strava, la que quieras. Después volvé acá y cargá tus km en segundos.\n\n🟠 Próximamente vas a poder sincronizar automáticamente con Strava.',
     color: '#1E6FD9',
   },
   {
@@ -97,5 +97,6 @@ const styles = StyleSheet.create({
   siguienteBtn: { flex: 2, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
   siguienteText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
   empezarBtn: { flex: 1, paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
-  empezarText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }, btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  empezarText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
+  btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 });

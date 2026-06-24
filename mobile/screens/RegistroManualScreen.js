@@ -62,7 +62,7 @@ export default function RegistroManualScreen() {
       });
       if (resultado.canceled) return;
       setEvidenciaUri(resultado.assets[0].uri);
-      setEvidenciaUrl(null); // resetear URL anterior
+      setEvidenciaUrl(null);
     } catch (error) {
       Alert.alert('Error', 'No se pudo seleccionar la imagen.');
     }
@@ -90,7 +90,6 @@ export default function RegistroManualScreen() {
   const subirEvidencia = async (uri) => {
     setSubiendoEvidencia(true);
     try {
-      // Convertir imagen a base64
       const response = await fetch(uri);
       const blob = await response.blob();
       const reader = new FileReader();
@@ -99,8 +98,6 @@ export default function RegistroManualScreen() {
         reader.onerror = reject;
         reader.readAsDataURL(blob);
       });
-
-      // Subir via backend (sin exponer keys en el cliente)
       const res = await fetch(`${BACKEND_URL}/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -145,7 +142,6 @@ export default function RegistroManualScreen() {
     setMensaje('');
     setExito(false);
     try {
-      // Subir evidencia si hay una seleccionada
       let urlEvidencia = evidenciaUrl;
       if (evidenciaUri && !evidenciaUrl) {
         urlEvidencia = await subirEvidencia(evidenciaUri);
@@ -213,6 +209,18 @@ export default function RegistroManualScreen() {
       <Text style={styles.titulo}>Registrar km</Text>
       <Text style={styles.subtitulo}>Carga tus actividades manualmente</Text>
 
+      {/* Banner informativo — Korva no es app de tracking */}
+      <View style={styles.trackingBanner}>
+        <Text style={styles.trackingBannerEmoji}>💡</Text>
+        <View style={styles.trackingBannerInfo}>
+          <Text style={styles.trackingBannerTitulo}>Korva no trackea en tiempo real</Text>
+          <Text style={styles.trackingBannerDesc}>
+            Usá Garmin, Nike Run, Strava o cualquier app de tu preferencia para registrar tu actividad. Después volvé acá y cargá tus km.{'\n'}
+            <Text style={styles.trackingBannerStrava}>🟠 Próximamente: sincronización automática con Strava</Text>
+          </Text>
+        </View>
+      </View>
+
       <View style={styles.deporteContainer}>
         {deportes.map((d) => (
           <TouchableOpacity
@@ -263,7 +271,6 @@ export default function RegistroManualScreen() {
         </Text>
       </View>
 
-      {/* Sección de tiempo opcional */}
       <View style={styles.seccion}>
         <Text style={styles.seccionTitulo}>⏱️ Tiempo <Text style={styles.opcional}>(opcional)</Text></Text>
         <Text style={styles.evidenciaSubtitulo}>Para calcular tu ritmo promedio en el Perfil</Text>
@@ -295,7 +302,6 @@ export default function RegistroManualScreen() {
         </View>
       </View>
 
-      {/* Sección de evidencia */}
       <View style={styles.seccion}>
         <Text style={styles.seccionTitulo}>📸 Evidencia <Text style={styles.opcional}>(opcional)</Text></Text>
         <Text style={styles.evidenciaSubtitulo}>Captura de Strava, Garmin u otra app de entrenamiento</Text>
@@ -358,7 +364,16 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#0D1B2A' },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
   titulo: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  subtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 28 },
+  subtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 20 },
+
+  // Banner tracking
+  trackingBanner: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, marginBottom: 20, flexDirection: 'row', gap: 12, borderWidth: 1, borderColor: '#2a4a6a' },
+  trackingBannerEmoji: { fontSize: 20, marginTop: 2 },
+  trackingBannerInfo: { flex: 1 },
+  trackingBannerTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
+  trackingBannerDesc: { fontSize: 12, color: '#A8CFFF', lineHeight: 18 },
+  trackingBannerStrava: { color: '#FC4C02', fontWeight: 'bold' },
+
   deporteContainer: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   deporteBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 16, padding: 16, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
   deporteBtnActivo: { borderColor: '#1E6FD9', backgroundColor: '#162d4a' },
