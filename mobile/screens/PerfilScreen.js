@@ -391,17 +391,10 @@ export default function PerfilScreen() {
             <Text style={styles.modalTitulo}>¡Strava conectado!</Text>
             <Text style={styles.modalSubtitulo}>Así funciona de ahora en adelante:</Text>
             <View style={styles.modalPaso}>
-              <Text style={styles.modalPasoEmoji}>📱</Text>
-              <View style={styles.modalPasoInfo}>
-                <Text style={styles.modalPasoTitulo}>Descargá Strava</Text>
-                <Text style={styles.modalPasoDesc}>Si no lo tenés, bajalo de la App Store o Google Play</Text>
-              </View>
-            </View>
-            <View style={styles.modalPaso}>
               <Text style={styles.modalPasoEmoji}>🏃</Text>
               <View style={styles.modalPasoInfo}>
-                <Text style={styles.modalPasoTitulo}>Salí a correr y registrá tu actividad</Text>
-                <Text style={styles.modalPasoDesc}>Usá Strava normalmente para trackear tu entrenamiento</Text>
+                <Text style={styles.modalPasoTitulo}>Salí a correr y registrá tu actividad en Strava</Text>
+                <Text style={styles.modalPasoDesc}>Usá Strava normalmente para trackear tu entrenamiento — ya sabemos que lo tenés 😉</Text>
               </View>
             </View>
             <View style={styles.modalPaso}>
