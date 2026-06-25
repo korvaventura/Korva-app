@@ -545,7 +545,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
               {mostrarClima()}
             </View>
 
-            <Text style={styles.scrollHint}>👈 Desliza para explorar · Tocá un punto para leer su historia 👆</Text>
+            <Text style={styles.scrollHint}>👈 Desliza para explorar · Tocá un checkpoint para leer su historia 👆</Text>
 
             {/* BOTONES CHECKPOINTS */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
@@ -607,7 +607,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
         {mostrarClima()}
       </View>
 
-      <Text style={styles.scrollHint}>👈 Desliza para explorar · Tocá un punto para leer su historia 👆</Text>
+      <Text style={styles.scrollHint}>👈 Desliza para explorar · Tocá un checkpoint para leer su historia 👆</Text>
 
       {/* BOTONES CHECKPOINTS */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
@@ -671,8 +671,8 @@ const styles = StyleSheet.create({
   // Leyenda checkpoints
   leyendaScroll: { maxHeight: 72, paddingHorizontal: 16, marginBottom: 4 },
   leyendaItem: { flexDirection: 'row', backgroundColor: '#1E293B', borderRadius: 12, padding: 10, marginRight: 8, alignItems: 'center', borderWidth: 1, borderColor: '#334155', minWidth: 120, maxWidth: 160, height: 56 },
-  leyendaItemActivo: { borderColor: '#EA580C', backgroundColor: '#0F172A' },
-  leyendaItemSeleccionado: { borderColor: '#F97316', backgroundColor: '#1a1000' },
+  leyendaItemActivo: { borderColor: '#3a5a7a', backgroundColor: '#0F172A' },
+  leyendaItemSeleccionado: { borderColor: '#FFFFFF', backgroundColor: '#1a1000', borderWidth: 2 },
   leyendaEmoji: { fontSize: 16, marginRight: 8 },
   leyendaTextos: { justifyContent: 'center', flex: 1 },
   leyendaNombre: { fontSize: 11, color: '#64748B', fontWeight: 'bold' },
