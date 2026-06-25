@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
   stravaConectadoBadge: { backgroundColor: '#1a3a1a', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2a6a2a' },
   stravaConectadoBadgeText: { color: '#4CAF50', fontWeight: 'bold', fontSize: 13 },
   // FIX: stravaActivoCard con posición relativa para el botón X
-  stravaActivoCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#FC4C02', position: 'relative' },
+  stravaActivoCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#4CAF50', position: 'relative' },
   stravaActivoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingRight: 24 },
   stravaActivoEmoji: { fontSize: 20 },
   stravaActivoInfo: { flex: 1 },
