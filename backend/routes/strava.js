@@ -312,7 +312,22 @@ router.get('/actividades/:userId', async (req, res) => {
     // FIX: filtrar actividades sin distancia antes de guardar
     const actividadesConDistancia = actividades.filter(a => (a.distance || 0) > 0);
 
-    for (const actividad of actividadesConDistancia) {
+    // FIX: no importar actividades anteriores al started_at del challenge mas reciente
+    const { data: inscripciones } = await supabase
+      .from('user_challenges')
+      .select('started_at')
+      .eq('user_id', userId)
+      .in('status', ['active', 'completed'])
+      .order('started_at', { ascending: false })
+      .limit(1);
+
+    const fechaCorteImport = inscripciones?.[0]?.started_at || null;
+
+    const actividadesFiltradas = fechaCorteImport
+      ? actividadesConDistancia.filter(a => new Date(a.start_date) >= new Date(fechaCorteImport))
+      : actividadesConDistancia;
+
+    for (const actividad of actividadesFiltradas) {
       await supabase.from('activities').upsert({
         user_id: userId,
         source: 'strava',
@@ -325,8 +340,8 @@ router.get('/actividades/:userId', async (req, res) => {
     }
 
     res.json({
-      mensaje: `${actividadesConDistancia.length} actividades importadas de Strava`,
-      actividades: actividadesConDistancia.map(a => ({
+      mensaje: `${actividadesFiltradas.length} actividades importadas de Strava`,
+      actividades: actividadesFiltradas.map(a => ({
         nombre: a.name,
         tipo: a.type,
         distancia_km: (a.distance / 1000).toFixed(2)
