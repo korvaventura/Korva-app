@@ -127,12 +127,19 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
 
   if (!actividad.id) throw new Error('Actividad no encontrada en Strava');
 
+  // FIX: ignorar actividades sin distancia (workout de fuerza, gym, etc.)
+  const distanciaKm = (actividad.distance || 0) / 1000;
+  if (distanciaKm <= 0) {
+    console.log(`Actividad ${stravaActivityId} ignorada — sin distancia (tipo: ${actividad.type})`);
+    return;
+  }
+
   await supabase.from('activities').upsert({
     user_id: userId,
     source: 'strava',
     external_id: String(actividad.id),
     sport_type: normalizarSportType(actividad.type),
-    distance_km: actividad.distance / 1000,
+    distance_km: distanciaKm,
     duration_seconds: actividad.moving_time,
     recorded_at: actividad.start_date
   }, { onConflict: 'external_id' });
@@ -169,7 +176,6 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
       })
       .eq('id', uc.id);
 
-    // Email al completar
     if (porcentaje >= 100 && !yaCompletado) {
       const { data: usuario } = await supabase
         .from('users')
@@ -182,7 +188,6 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
       }
     }
 
-    // Notificación inteligente (una sola por actividad)
     if (!yaCompletado) {
       await enviarNotificacionProgreso(
         supabase, userId,
@@ -194,7 +199,6 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
   }
 
   await verificarYEnviarNotificacionRacha(supabase, userId);
-
   console.log(`Actividad ${stravaActivityId} procesada para usuario ${userId}`);
 };
 
@@ -231,7 +235,6 @@ router.get('/callback', async (req, res) => {
     let user;
 
     if (userId) {
-      // Actualizar usuario existente por ID — más confiable
       const { data: updatedUser, error } = await supabase
         .from('users')
         .update({
@@ -247,7 +250,6 @@ router.get('/callback', async (req, res) => {
       if (error) throw error;
       user = updatedUser;
     } else {
-      // Fallback: upsert por email (para casos sin userId)
       const { data: upsertedUser, error } = await supabase
         .from('users')
         .upsert({
@@ -265,7 +267,6 @@ router.get('/callback', async (req, res) => {
       user = upsertedUser;
     }
 
-    // Página HTML intermedia que abre el deep link — más confiable en Android
     res.send(`
       <!DOCTYPE html>
       <html>
@@ -308,7 +309,10 @@ router.get('/actividades/:userId', async (req, res) => {
 
     const actividades = await response.json();
 
-    for (const actividad of actividades) {
+    // FIX: filtrar actividades sin distancia antes de guardar
+    const actividadesConDistancia = actividades.filter(a => (a.distance || 0) > 0);
+
+    for (const actividad of actividadesConDistancia) {
       await supabase.from('activities').upsert({
         user_id: userId,
         source: 'strava',
@@ -321,8 +325,8 @@ router.get('/actividades/:userId', async (req, res) => {
     }
 
     res.json({
-      mensaje: `${actividades.length} actividades importadas de Strava`,
-      actividades: actividades.map(a => ({
+      mensaje: `${actividadesConDistancia.length} actividades importadas de Strava`,
+      actividades: actividadesConDistancia.map(a => ({
         nombre: a.name,
         tipo: a.type,
         distancia_km: (a.distance / 1000).toFixed(2)
@@ -428,6 +432,27 @@ router.get('/progreso/:userId', async (req, res) => {
     res.json(resultados);
   } catch (error) {
     res.json({ error: 'Error calculando progreso', detalle: error.message });
+  }
+});
+
+// FIX: endpoint para desconectar Strava
+router.post('/desconectar/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const supabase = getSupabase();
+  try {
+    await supabase
+      .from('users')
+      .update({
+        strava_token: null,
+        strava_refresh_token: null,
+        strava_token_expires_at: null,
+        strava_athlete_id: null,
+      })
+      .eq('id', userId);
+
+    res.json({ mensaje: 'Strava desconectado correctamente' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error desconectando Strava', detalle: error.message });
   }
 });
 
