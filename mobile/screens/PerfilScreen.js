@@ -238,7 +238,10 @@ export default function PerfilScreen() {
 
   const buscarDirecciones = async (texto) => {
     setBusquedaDireccion(texto);
-    setDireccionConfirmada(false);
+    // FIX: si el usuario edita el campo después de confirmar, reseteamos confirmación
+    if (direccionConfirmada) {
+      setDireccionConfirmada(false);
+    }
     if (texto.trim().length < 3) {
       setSugerenciasDireccion([]);
       return;
@@ -295,6 +298,7 @@ export default function PerfilScreen() {
       const data = await res.json();
       if (data.error) throw new Error(data.detalle);
       setUsuario(prev => ({ ...prev, shipping_address: { ...formDireccion } }));
+      setSugerenciasDireccion([]);
       setEditandoDireccion(false);
       Alert.alert('✅ Dirección guardada', 'Tu dirección de envío fue actualizada.');
     } catch (error) {
@@ -332,6 +336,27 @@ export default function PerfilScreen() {
       await cargarPerfil();
       setModalStravaVisible(true);
     }
+  };
+
+  const desconectarStrava = async () => {
+    Alert.alert(
+      'Desconectar Strava',
+      '¿Estás seguro? Tus actividades ya registradas no se van a borrar, pero las nuevas no se sincronizarán automáticamente.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Desconectar', style: 'destructive',
+          onPress: async () => {
+            try {
+              await fetch(`${BACKEND_URL}/strava/desconectar/${userId}`, { method: 'POST' });
+              await cargarPerfil();
+            } catch (e) {
+              Alert.alert('Error', 'No se pudo desconectar Strava.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const cerrarSesion = async () => { await supabase.auth.signOut(); };
@@ -391,10 +416,17 @@ export default function PerfilScreen() {
             <Text style={styles.modalTitulo}>¡Strava conectado!</Text>
             <Text style={styles.modalSubtitulo}>Así funciona de ahora en adelante:</Text>
             <View style={styles.modalPaso}>
+              <Text style={styles.modalPasoEmoji}>📱</Text>
+              <View style={styles.modalPasoInfo}>
+                <Text style={styles.modalPasoTitulo}>Descargá Strava</Text>
+                <Text style={styles.modalPasoDesc}>Si no lo tenés, bajalo de la App Store o Google Play</Text>
+              </View>
+            </View>
+            <View style={styles.modalPaso}>
               <Text style={styles.modalPasoEmoji}>🏃</Text>
               <View style={styles.modalPasoInfo}>
-                <Text style={styles.modalPasoTitulo}>Salí a correr y registrá tu actividad en Strava</Text>
-                <Text style={styles.modalPasoDesc}>Usá Strava normalmente para trackear tu entrenamiento — ya sabemos que lo tenés 😉</Text>
+                <Text style={styles.modalPasoTitulo}>Salí a correr y registrá tu actividad</Text>
+                <Text style={styles.modalPasoDesc}>Usá Strava normalmente para trackear tu entrenamiento</Text>
               </View>
             </View>
             <View style={styles.modalPaso}>
@@ -750,7 +782,7 @@ export default function PerfilScreen() {
             <TextInput style={styles.input} value={formDireccion.telefono} onChangeText={v => setFormDireccion(p => ({ ...p, telefono: v }))} placeholder="+54 11 1234 5678" placeholderTextColor="#4a6a8a" keyboardType="phone-pad" />
 
             <View style={styles.formBotones}>
-              <TouchableOpacity style={styles.cancelarBtn} onPress={() => setEditandoDireccion(false)} disabled={guardando}>
+              <TouchableOpacity style={styles.cancelarBtn} onPress={() => { setEditandoDireccion(false); setSugerenciasDireccion([]); }} disabled={guardando}>
                 <Text style={styles.cancelarBtnText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.guardarBtn} onPress={guardarDireccion} disabled={guardando}>
@@ -799,6 +831,9 @@ export default function PerfilScreen() {
             </View>
             <TouchableOpacity style={styles.stravaInstructivoBtn} onPress={() => setModalStravaVisible(true)}>
               <Text style={styles.stravaInstructivoBtnText}>📖 ¿Cómo funciona la sincronización?</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={desconectarStrava} style={{ alignItems: 'center', paddingVertical: 8 }}>
+              <Text style={{ color: '#2a4a6a', fontSize: 11 }}>Desconectar Strava</Text>
             </TouchableOpacity>
           </>
         ) : stravaHabilitado ? (
