@@ -253,8 +253,12 @@ export default function HomeScreen({ navigation }) {
           <View style={[styles.modalCard, { maxHeight: '85%' }]}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <Text style={styles.modalTitulo}>❓ Ayuda</Text>
-              <TouchableOpacity onPress={() => setModalAyudaVisible(false)}>
-                <Text style={{ color: '#4a6a8a', fontSize: 18, fontWeight: 'bold' }}>✕</Text>
+              <TouchableOpacity 
+                onPress={() => setModalAyudaVisible(false)}
+                hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+                style={{ backgroundColor: '#2a3a4a', borderRadius: 18, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' }}>✕</Text>
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -575,7 +579,7 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
               onChangeText={v => setMetaInputs(prev => ({ ...prev, [item.challenge_id]: v }))}
               placeholder="DD/MM/AAAA"
               placeholderTextColor="#4a6a8a"
-              keyboardType="numeric"
+              keyboardType="default"
             />
             <TouchableOpacity
               style={styles.metaGuardarBtn}
