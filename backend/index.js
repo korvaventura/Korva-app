@@ -557,7 +557,7 @@ app.get('/perfil/:userId', async (req, res) => {
         mejor_racha: mejorRacha,
         mejor_semana_km: mejorSemanaKm.toFixed(1),
         promedio_semanal_km: promedioSemanal,
-        perfil_deporte: perfilDeporte,
+        // perfil_deporte removido — redundante con sistema de niveles
         ritmo_run: ritmoRunMin !== null ? `${ritmoRunMin}:${String(ritmoRunSeg).padStart(2, '0')} /km` : null,
         velocidad_ride: velocidadRide !== null ? `${velocidadRide.toFixed(1)} km/h` : null,
       },
