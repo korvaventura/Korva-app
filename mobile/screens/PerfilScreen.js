@@ -631,7 +631,10 @@ export default function PerfilScreen() {
             <Text style={styles.nivelEmoji}>{nivel.emoji}</Text>
             <View style={styles.nivelInfo}>
               <Text style={styles.nivelNombre}>{nivel.nombre}</Text>
-              {nivel.siguiente ? <Text style={styles.nivelSiguiente}>Proximo nivel: {nivel.siguiente} retos completados</Text> : <Text style={styles.nivelSiguiente}>Nivel maximo alcanzado 🔥</Text>}
+              {nivel.siguiente 
+                ? <Text style={styles.nivelSiguiente}>Falta{nivel.faltanParaSiguiente === 1 ? '' : 'n'} {nivel.faltanParaSiguiente} desafío{nivel.faltanParaSiguiente === 1 ? '' : 's'} para {nivel.siguiente === 2 ? 'Activado ⚡' : nivel.siguiente === 3 ? 'Atleta 💪' : nivel.siguiente === 5 ? 'Forjado en fuego 🔥' : nivel.siguiente === 7 ? 'Explorador sin límites 🗺️' : nivel.siguiente === 10 ? 'Expedicionista 🏔️' : nivel.siguiente === 15 ? 'Elite Korva 👑' : 'Leyenda Viviente 🐐'}</Text>
+                : <Text style={styles.nivelSiguiente}>Nivel máximo alcanzado — sos una leyenda 🐐</Text>
+              }
             </View>
           </View>
         </View>

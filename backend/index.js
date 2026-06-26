@@ -372,11 +372,15 @@ app.get('/perfil/:userId', async (req, res) => {
     const completados = challenges?.filter(c => c.status === 'completed' || c.status === 'shipped').length || 0;
 
     const getNivel = (retos) => {
-      if (retos >= 7) return { nombre: 'Leyenda Korva', emoji: '🔥', siguiente: null };
-      if (retos >= 4) return { nombre: 'Nomada', emoji: '🧭', siguiente: 7 };
-      if (retos >= 2) return { nombre: 'Expedicionario', emoji: '🗺️', siguiente: 4 };
-      if (retos >= 1) return { nombre: 'Aventurero', emoji: '🥾', siguiente: 2 };
-      return { nombre: 'Explorador', emoji: '🌱', siguiente: 1 };
+      if (retos >= 20) return { nombre: 'Leyenda Viviente', emoji: '🐐', siguiente: null, faltanParaSiguiente: 0 };
+      if (retos >= 15) return { nombre: 'Elite Korva', emoji: '👑', siguiente: 20, faltanParaSiguiente: 20 - retos };
+      if (retos >= 10) return { nombre: 'Expedicionista', emoji: '🏔️', siguiente: 15, faltanParaSiguiente: 15 - retos };
+      if (retos >= 7)  return { nombre: 'Explorador sin límites', emoji: '🗺️', siguiente: 10, faltanParaSiguiente: 10 - retos };
+      if (retos >= 5)  return { nombre: 'Competidor nato', emoji: '🎯', siguiente: 7, faltanParaSiguiente: 7 - retos };
+      if (retos >= 3)  return { nombre: 'Forjado en fuego', emoji: '🔥', siguiente: 5, faltanParaSiguiente: 5 - retos };
+      if (retos >= 2)  return { nombre: 'Atleta', emoji: '💪', siguiente: 3, faltanParaSiguiente: 3 - retos };
+      if (retos >= 1)  return { nombre: 'Activado', emoji: '⚡', siguiente: 2, faltanParaSiguiente: 2 - retos };
+      return { nombre: 'Rookie', emoji: '🌱', siguiente: 1, faltanParaSiguiente: 1 };
     };
 
     const nivel = getNivel(completados);
