@@ -351,6 +351,37 @@ const EfectoCieloEstrellado = () => {
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
+
+// ─── SCROLL HINT ANIMADO ─────────────────────────────────────────
+function ScrollHintAnimado() {
+  const flechaIzq = useRef(new Animated.Value(0)).current;
+  const flechaDer = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(flechaIzq, { toValue: -6, duration: 400, useNativeDriver: true }),
+        Animated.timing(flechaIzq, { toValue: 0, duration: 400, useNativeDriver: true }),
+      ])
+    ).start();
+    Animated.loop(
+      Animated.sequence([
+        Animated.delay(200),
+        Animated.timing(flechaDer, { toValue: 6, duration: 400, useNativeDriver: true }),
+        Animated.timing(flechaDer, { toValue: 0, duration: 400, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, gap: 8 }}>
+      <Animated.Text style={{ color: '#EA580C', fontSize: 16, transform: [{ translateX: flechaIzq }] }}>👈</Animated.Text>
+      <Text style={{ color: '#94A3B8', fontSize: 11, fontStyle: 'italic' }}>Deslizá para explorar</Text>
+      <Animated.Text style={{ color: '#EA580C', fontSize: 16, transform: [{ translateX: flechaDer }] }}>👉</Animated.Text>
+    </View>
+  );
+}
+
 // ─── COMPONENTE HISTORIA INLINE ──────────────────────────────────
 // Aparece debajo del mapa al tocar un checkpoint, sin modal
 function HistoriaInline({ cp, factor, distanciaTotal, estaDesbloqueado, esInicio, esFin, onCerrar }) {
@@ -545,7 +576,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
               {mostrarClima()}
             </View>
 
-            <Text style={styles.scrollHint}>👈 Desliza para explorar · Tocá un checkpoint para leer su historia 👆</Text>
+            <ScrollHintAnimado />
 
             {/* BOTONES CHECKPOINTS */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
@@ -607,7 +638,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
         {mostrarClima()}
       </View>
 
-      <Text style={styles.scrollHint}>👈 Desliza para explorar · Tocá un checkpoint para leer su historia 👆</Text>
+      <ScrollHintAnimado />
 
       {/* BOTONES CHECKPOINTS */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
