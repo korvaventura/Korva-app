@@ -88,40 +88,38 @@ const enviarEmailInscripcion = async (email, nombre, challenge, modalidad) => {
 const enviarEmailInvitacion = async (email, nombre, challenge, tokens) => {
   try {
     const linksHtml = tokens.map((token, i) => `
-      <div style="margin: 12px 0;">
-        <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 6px;">Persona ${i + 2}:</p>
+      <div style="background: #1E3A5F; border-radius: 14px; padding: 18px 20px; margin: 16px 0; border-left: 4px solid #FC4C02;">
+        <p style="color: #A8CFFF; font-size: 12px; font-weight: bold; letter-spacing: 1px; margin: 0 0 12px;">PARTICIPANTE ${i + 2}</p>
         <a href="${BACKEND_URL}/invitaciones/${token}"
-           style="display: inline-block; background: #FC4C02; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none; word-break: break-all;">
-          Activar mi lugar en ${challenge}
+           style="display: block; background: #FC4C02; color: #FFFFFF; font-size: 15px; font-weight: bold; padding: 14px 20px; border-radius: 12px; text-decoration: none; text-align: center;">
+          Registrarme en Korva →
         </a>
-        <p style="color: #4a6a8a; font-size: 11px; margin: 6px 0 0;">Link válido por 30 días</p>
+        <p style="color: #4a6a8a; font-size: 12px; margin: 12px 0 4px;">📋 O copiá este link y mandáselo por WhatsApp:</p>
+        <p style="color: #A8CFFF; font-size: 12px; margin: 0; word-break: break-all;">${BACKEND_URL}/invitaciones/${token}</p>
       </div>
     `).join('');
 
     await getResend().emails.send({
       from: 'Korva Aventuras <noreply@korva.run>',
       to: email,
-      subject: `🎟️ Compartí el acceso — ${challenge}`,
+      subject: `🎟️ Tus invitaciones para ${challenge}`,
       html: wrapper(`
-        ${badge('🎟️ ACCESOS PARA COMPARTIR')}
+        ${badge('🎟️ INSCRIPCIÓN GRUPAL')}
         <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
-        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Compraste <strong style="color: #FFFFFF;">${tokens.length + 1} lugares</strong> para el reto <strong style="color: #FFFFFF;">${challenge}</strong>. Tu inscripción ya está activa.</p>
-        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Compartí estos links con las personas que van a correr con vos:</p>
+        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.7; margin-bottom: 8px;">Compraste <strong style="color: #FFFFFF;">${tokens.length + 1} lugares</strong> en <strong style="color: #FC4C02;">${challenge}</strong>. Tu inscripción ya está activa 🎉</p>
+        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.7;">Abajo encontrás los links para que cada participante se registre:</p>
 
-        ${card(linksHtml, '#FC4C02')}
+        ${linksHtml}
 
-        ${card(`
-          <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">CÓMO FUNCIONA</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">1️⃣ &nbsp; Mandales el link a cada persona</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">2️⃣ &nbsp; Entran al link, eligen su modalidad y se registran</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">3️⃣ &nbsp; Descargan la app y arrancan a correr 🏃</p>
-        `, '#1E6FD9')}
+        <div style="background: #1E3A5F; border-radius: 14px; padding: 18px 20px; margin-top: 24px; border: 1px solid #2a4a6a;">
+          <p style="color: #A8CFFF; font-size: 14px; margin: 0 0 8px; line-height: 1.7;">Una vez registrados, que descarguen la app Korva en Android.</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 0; line-height: 1.7;">¿Necesitan ayuda? Que nos escriban por WhatsApp al <strong style="color: #FFFFFF;">+61474024238</strong> y los guiamos.</p>
+        </div>
 
-        <p style="color: #4a6a8a; font-size: 13px;">Cada link es de uso único y válido por 30 días.</p>
-        <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 24px;">El equipo Korva 🏅</p>
+        <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 24px;">¡A correr todos juntos! 🏅</p>
       `)
     });
-    console.log('Email de invitacion enviado a:', email);
+    console.log('Email de invitacion grupal enviado a:', email, '- tokens:', tokens.length);
   } catch (error) {
     console.error('Error enviando email de invitacion:', error);
   }
