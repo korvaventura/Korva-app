@@ -120,7 +120,7 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
       </TouchableOpacity>
 
       <View style={styles.ctaWrapper}>
-        <Text style={styles.ctaPrecio}>USD ${challenge.price_usd} — medalla incluida 🏅</Text>
+        <Text style={styles.ctaPrecio}>USD ${challenge.price_usd} — Medalla incluida 🏅</Text>
         {challenge.price_ars && <Text style={styles.ctaPrecioArs}>$ {challenge.price_ars.toLocaleString('es-AR')} ARS</Text>}
         <TouchableOpacity style={styles.ctaBtn} onPress={onInscribir}>
           <View style={styles.btnRow}>

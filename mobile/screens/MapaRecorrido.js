@@ -513,6 +513,14 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
     }
   }, [kmFisicos]);
 
+  // FIX: cuando se abre el modal fullscreen, scrollear al punto del usuario
+  useEffect(() => {
+    if (modalMapaVisible && scrollViewRef.current) {
+      const scrollToX = Math.max(0, pinPos.x - (SCREEN_WIDTH / 2));
+      setTimeout(() => { scrollViewRef.current.scrollTo({ x: scrollToX, y: 0, animated: false }); }, 350);
+    }
+  }, [modalMapaVisible]);
+
   const desbloqueado = (cp) => kmFisicos >= cp.kmFisico;
   const esInicio = cpSeleccionado?.id === checkpoints[0]?.id;
   const esFin = cpSeleccionado?.id === checkpoints[checkpoints.length - 1]?.id;
@@ -539,18 +547,25 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
       <View style={styles.container}>
         <Text style={styles.titulo}>{titulo}</Text>
         <TouchableOpacity style={styles.previewWrapper} onPress={() => setModalMapaVisible(true)} activeOpacity={0.85}>
-          <Svg width="100%" height={180} viewBox={`0 0 ${MAPA_WIDTH_VIRTUAL} 260`}>
-            <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0F172A" />
-            {decoraciones()}
-            <Path d={rutaBasePath} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />
-            {pathCompletado !== '' && <Path d={pathCompletado} fill="none" stroke="#EA580C" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />}
-            {checkpoints.map((cp) => (
-              <Circle key={cp.id} cx={cp.x} cy={cp.y} r={desbloqueado(cp) ? 10 : 8}
-                fill={desbloqueado(cp) ? '#F97316' : '#334155'}
-                stroke={desbloqueado(cp) ? '#FFFFFF' : '#64748B'} strokeWidth="2" />
-            ))}
-            {kmFisicos > 0 && <Circle cx={pinPos.x} cy={pinPos.y} r={8} fill="#FFFFFF" stroke="#EA580C" strokeWidth="4" />}
-          </Svg>
+          {/* FIX: viewBox centrado en la posición actual del usuario */}
+          {(() => {
+            const previewW = 360; // ancho virtual del viewport del preview
+            const viewX = Math.max(0, Math.min(pinPos.x - previewW / 2, MAPA_WIDTH_VIRTUAL - previewW));
+            return (
+              <Svg width="100%" height={180} viewBox={`${viewX} 0 ${previewW} 260`}>
+                <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0F172A" />
+                {decoraciones()}
+                <Path d={rutaBasePath} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />
+                {pathCompletado !== '' && <Path d={pathCompletado} fill="none" stroke="#EA580C" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />}
+                {checkpoints.map((cp) => (
+                  <Circle key={cp.id} cx={cp.x} cy={cp.y} r={desbloqueado(cp) ? 10 : 8}
+                    fill={desbloqueado(cp) ? '#F97316' : '#334155'}
+                    stroke={desbloqueado(cp) ? '#FFFFFF' : '#64748B'} strokeWidth="2" />
+                ))}
+                {kmFisicos > 0 && <Circle cx={pinPos.x} cy={pinPos.y} r={8} fill="#FFFFFF" stroke="#EA580C" strokeWidth="4" />}
+              </Svg>
+            );
+          })()}
           <View style={styles.previewOverlay}>
             <View style={styles.previewBtn}>
               <Text style={styles.previewBtnText}>🗺️ Explorar ruta</Text>

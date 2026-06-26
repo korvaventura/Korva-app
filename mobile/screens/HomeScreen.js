@@ -390,7 +390,7 @@ export default function HomeScreen({ navigation }) {
       {stravaConectado && !cargando && !stravaBannerCerrado && (
         <View style={styles.stravaActivoCard}>
           <TouchableOpacity style={styles.stravaActivoRow} onPress={() => setModalStravaVisible(true)}>
-            <Text style={styles.stravaActivoEmoji}>🟠</Text>
+            <Text style={styles.stravaActivoEmoji}>🟢</Text>
             <View style={styles.stravaActivoInfo}>
               <Text style={styles.stravaActivoTitulo}>Strava activo</Text>
               <Text style={styles.stravaActivoDesc}>Tus actividades se sincronizan automáticamente · Tocá para ver cómo</Text>

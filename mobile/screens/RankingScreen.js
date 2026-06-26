@@ -8,7 +8,7 @@ const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 const TOP_VISIBLE = 10;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-export default function RankingScreen() {
+export default function RankingScreen({ navigation }) {
   const [challenges, setChallenges] = useState([]);
   const [challengeIndex, setChallengeIndex] = useState(0);
   const [modalidades, setModalidades] = useState({});   // { challengeId: 'run' | 'ride' }
@@ -210,6 +210,20 @@ export default function RankingScreen() {
           </View>
         )}
 
+        {/* Banner no inscripto */}
+        {!cargandoThis && lista.length > 0 && miPosicion === -1 && (
+          <View style={styles.noInscriptoCard}>
+            <Text style={styles.noInscriptoEmoji}>🏅</Text>
+            <View style={styles.noInscriptoInfo}>
+              <Text style={styles.noInscriptoTitulo}>¿Querés aparecer acá?</Text>
+              <Text style={styles.noInscriptoSubtitulo}>Inscribite al desafío y empezá a acumular km</Text>
+            </View>
+            <TouchableOpacity style={styles.noInscriptoBtn} onPress={() => navigation?.navigate('Catalogo')}>
+              <Text style={styles.noInscriptoBtnText}>Ver desafíos</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Buscador + botón ir a mi posición */}
         {!cargandoThis && lista.length > 0 && (
           <View style={styles.buscadorRow}>
@@ -378,4 +392,11 @@ const styles = StyleSheet.create({
   emptySubtext: { fontSize: 14, color: '#A8CFFF' },
   verMasBtn: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#2a4a6a', marginTop: 8 },
   verMasBtnText: { color: '#A8CFFF', fontWeight: 'bold', fontSize: 13 },
+  noInscriptoCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: '#FC4C02' },
+  noInscriptoEmoji: { fontSize: 24 },
+  noInscriptoInfo: { flex: 1 },
+  noInscriptoTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
+  noInscriptoSubtitulo: { fontSize: 11, color: '#A8CFFF' },
+  noInscriptoBtn: { backgroundColor: '#FC4C02', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  noInscriptoBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 },
 });
