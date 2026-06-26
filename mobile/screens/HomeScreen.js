@@ -353,9 +353,9 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.ayudaBtnText}>?</Text>
           </TouchableOpacity>
           {stravaConectado ? (
-            <View style={styles.stravaConectadoBadge}>
+            <TouchableOpacity style={styles.stravaConectadoBadge} onPress={() => setModalStravaVisible(true)}>
               <Text style={styles.stravaConectadoBadgeText}>✓ Strava</Text>
-            </View>
+            </TouchableOpacity>
           ) : (
             <TouchableOpacity style={styles.stravaProximoBtn} onPress={conectarStrava}>
               <Text style={styles.stravaProximoBtnText}>🔗 Strava</Text>

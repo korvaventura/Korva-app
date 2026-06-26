@@ -32,6 +32,7 @@ export default function PerfilScreen() {
   const [editandoDireccion, setEditandoDireccion] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [inscripcionesActivas, setInscripcionesActivas] = useState([]);
+  const [desafiosCompletados, setDesafiosCompletados] = useState([]);
   const [retoIndex, setRetoIndex] = useState(0);
   const [cambiandoModalidad, setCambiandoModalidad] = useState(false);
   const [metaFecha, setMetaFecha] = useState({});
@@ -155,7 +156,7 @@ export default function PerfilScreen() {
     try {
       const { data, error } = await supabase
         .from('user_challenges')
-        .select('id, modalidad, challenge_id, meta_fecha, km_completed, challenges(title, modalidades)')
+        .select('id, modalidad, challenge_id, meta_fecha, km_completed, completed_at, challenges(title, modalidades, medal_image_url)')
         .eq('user_id', userId)
         .eq('status', 'active');
       if (!error && data) {
@@ -164,6 +165,14 @@ export default function PerfilScreen() {
         data.forEach(d => { if (d.meta_fecha) metas[d.challenge_id] = d.meta_fecha; });
         setMetaFecha(metas);
       }
+
+      // Cargar desafíos completados para el medallero
+      const { data: completados } = await supabase
+        .from('user_challenges')
+        .select('id, modalidad, challenge_id, km_completed, completed_at, challenges(title, medal_image_url)')
+        .eq('user_id', userId)
+        .in('status', ['completed', 'shipped']);
+      setDesafiosCompletados(completados || []);
     } catch (error) {}
   };
 
@@ -238,10 +247,7 @@ export default function PerfilScreen() {
 
   const buscarDirecciones = async (texto) => {
     setBusquedaDireccion(texto);
-    // FIX: si el usuario edita el campo después de confirmar, reseteamos confirmación
-    if (direccionConfirmada) {
-      setDireccionConfirmada(false);
-    }
+    setDireccionConfirmada(false);
     if (texto.trim().length < 3) {
       setSugerenciasDireccion([]);
       return;
@@ -298,7 +304,6 @@ export default function PerfilScreen() {
       const data = await res.json();
       if (data.error) throw new Error(data.detalle);
       setUsuario(prev => ({ ...prev, shipping_address: { ...formDireccion } }));
-      setSugerenciasDireccion([]);
       setEditandoDireccion(false);
       Alert.alert('✅ Dirección guardada', 'Tu dirección de envío fue actualizada.');
     } catch (error) {
@@ -336,27 +341,6 @@ export default function PerfilScreen() {
       await cargarPerfil();
       setModalStravaVisible(true);
     }
-  };
-
-  const desconectarStrava = async () => {
-    Alert.alert(
-      'Desconectar Strava',
-      '¿Estás seguro? Tus actividades ya registradas no se van a borrar, pero las nuevas no se sincronizarán automáticamente.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Desconectar', style: 'destructive',
-          onPress: async () => {
-            try {
-              await fetch(`${BACKEND_URL}/strava/desconectar/${userId}`, { method: 'POST' });
-              await cargarPerfil();
-            } catch (e) {
-              Alert.alert('Error', 'No se pudo desconectar Strava.');
-            }
-          }
-        }
-      ]
-    );
   };
 
   const cerrarSesion = async () => { await supabase.auth.signOut(); };
@@ -416,17 +400,10 @@ export default function PerfilScreen() {
             <Text style={styles.modalTitulo}>¡Strava conectado!</Text>
             <Text style={styles.modalSubtitulo}>Así funciona de ahora en adelante:</Text>
             <View style={styles.modalPaso}>
-              <Text style={styles.modalPasoEmoji}>📱</Text>
-              <View style={styles.modalPasoInfo}>
-                <Text style={styles.modalPasoTitulo}>Descargá Strava</Text>
-                <Text style={styles.modalPasoDesc}>Si no lo tenés, bajalo de la App Store o Google Play</Text>
-              </View>
-            </View>
-            <View style={styles.modalPaso}>
               <Text style={styles.modalPasoEmoji}>🏃</Text>
               <View style={styles.modalPasoInfo}>
-                <Text style={styles.modalPasoTitulo}>Salí a correr y registrá tu actividad</Text>
-                <Text style={styles.modalPasoDesc}>Usá Strava normalmente para trackear tu entrenamiento</Text>
+                <Text style={styles.modalPasoTitulo}>Salí a correr y registrá tu actividad en Strava</Text>
+                <Text style={styles.modalPasoDesc}>Usá Strava normalmente para trackear tu entrenamiento — ya sabemos que lo tenés 😉</Text>
               </View>
             </View>
             <View style={styles.modalPaso}>
@@ -634,6 +611,26 @@ export default function PerfilScreen() {
         </View>
       )}
 
+      {/* Medallero */}
+      {desafiosCompletados.length > 0 && (
+        <View style={styles.seccion}>
+          <Text style={styles.seccionTitulo}>🏅 Medallero ({desafiosCompletados.length})</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {desafiosCompletados.map((d, i) => (
+              <View key={i} style={styles.medallaCard}>
+                <Text style={styles.medallaEmoji}>🏅</Text>
+                <Text style={styles.medallaTitulo} numberOfLines={2}>{d.challenges?.title}</Text>
+                <Text style={styles.medallaModalidad}>{d.modalidad === 'run' ? '🏃 Running' : '🚴 Ciclismo'}</Text>
+                <Text style={styles.medallaKm}>{parseFloat(d.km_completed || 0).toFixed(0)} km</Text>
+                {d.completed_at && (
+                  <Text style={styles.medallaFecha}>{new Date(d.completed_at).toLocaleDateString('es-AR', { month: 'short', year: 'numeric' })}</Text>
+                )}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       {/* Nivel */}
       {nivel && (
         <View style={styles.seccion}>
@@ -782,7 +779,7 @@ export default function PerfilScreen() {
             <TextInput style={styles.input} value={formDireccion.telefono} onChangeText={v => setFormDireccion(p => ({ ...p, telefono: v }))} placeholder="+54 11 1234 5678" placeholderTextColor="#4a6a8a" keyboardType="phone-pad" />
 
             <View style={styles.formBotones}>
-              <TouchableOpacity style={styles.cancelarBtn} onPress={() => { setEditandoDireccion(false); setSugerenciasDireccion([]); }} disabled={guardando}>
+              <TouchableOpacity style={styles.cancelarBtn} onPress={() => setEditandoDireccion(false)} disabled={guardando}>
                 <Text style={styles.cancelarBtnText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.guardarBtn} onPress={guardarDireccion} disabled={guardando}>
@@ -831,9 +828,6 @@ export default function PerfilScreen() {
             </View>
             <TouchableOpacity style={styles.stravaInstructivoBtn} onPress={() => setModalStravaVisible(true)}>
               <Text style={styles.stravaInstructivoBtnText}>📖 ¿Cómo funciona la sincronización?</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={desconectarStrava} style={{ alignItems: 'center', paddingVertical: 8 }}>
-              <Text style={{ color: '#2a4a6a', fontSize: 11 }}>Desconectar Strava</Text>
             </TouchableOpacity>
           </>
         ) : stravaHabilitado ? (
@@ -884,7 +878,7 @@ const styles = StyleSheet.create({
   dotActivo: { width: 18, backgroundColor: '#FC4C02' },
   modalidadLabel: { fontSize: 12, color: '#A8CFFF', marginBottom: 10 },
   modalidadBtns: { flexDirection: 'row', gap: 10 },
-  modalidadBtn: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  modalidadBtn: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#1a2a3a' },
   modalidadBtnActivo: { borderColor: '#FC4C02' },
   modalidadBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
   modalidadBtnTextActivo: { color: '#FFFFFF' },
@@ -983,6 +977,12 @@ const styles = StyleSheet.create({
   insigniaCatTitulo: { fontSize: 12, fontWeight: 'bold', color: '#A8CFFF', letterSpacing: 1, marginBottom: 10 },
   insigniaProximo: { fontSize: 11, color: '#4a6a8a', marginTop: 8, fontStyle: 'italic' },
   insigniasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  medallaCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, alignItems: 'center', width: 110, marginRight: 10, borderWidth: 1, borderColor: '#FC4C02' },
+  medallaEmoji: { fontSize: 32, marginBottom: 6 },
+  medallaTitulo: { fontSize: 11, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', marginBottom: 4 },
+  medallaModalidad: { fontSize: 10, color: '#A8CFFF', marginBottom: 4 },
+  medallaKm: { fontSize: 13, fontWeight: 'bold', color: '#FC4C02', marginBottom: 2 },
+  medallaFecha: { fontSize: 10, color: '#4a6a8a' },
   insigniaCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', minWidth: 80, marginRight: 8 },
   insigniaEmoji: { fontSize: 28, marginBottom: 6 },
   insigniaNombre: { fontSize: 11, color: '#A8CFFF', textAlign: 'center' },

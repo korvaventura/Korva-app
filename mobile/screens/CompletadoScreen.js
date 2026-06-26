@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
+import * as Sharing from 'expo-sharing';
 import { useState } from 'react';
 import { supabase } from '../supabase';
 
@@ -39,6 +40,7 @@ export default function CompletadoScreen({ challenge, userId, onVolver }) {
   const [codigoManual, setCodigoManual] = useState('');
   const [telefono, setTelefono] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [modalCompartirVisible, setModalCompartirVisible] = useState(false);
 
   const codigoFinal = codigoSeleccionado?.nombre === 'Otro' ? codigoManual : codigoSeleccionado?.codigo;
 
@@ -76,13 +78,50 @@ export default function CompletadoScreen({ challenge, userId, onVolver }) {
   if (paso === 1) {
     return (
       <View style={styles.container}>
+
+        {/* Modal compartir */}
+        <Modal visible={modalCompartirVisible} transparent animationType="fade" onRequestClose={() => setModalCompartirVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalEmoji}>📸</Text>
+              <Text style={styles.modalTitulo}>¡Compartí tu logro!</Text>
+              <Text style={styles.modalDesc}>Contale al mundo que completaste {challenge} 🏅</Text>
+              <View style={styles.mensajeCompartir}>
+                <Text style={styles.mensajeCompartirTexto}>
+                  "¡Completé el desafío {challenge} en Korva Aventuras! 🏅{' '}
+                  Después de kilómetros de esfuerzo, la medalla está en camino 🎉{' '}
+                  #KorvaAventuras #FinDelMundo #Running"
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.button} onPress={async () => {
+                setModalCompartirVisible(false);
+                try {
+                  await Sharing.shareAsync('', {
+                    dialogTitle: '¡Completé mi desafío Korva!',
+                    mimeType: 'text/plain',
+                    UTI: 'public.plain-text',
+                  });
+                } catch (e) {}
+              }}>
+                <Text style={styles.buttonText}>📤 Compartir</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.buttonSecundario} onPress={() => setModalCompartirVisible(false)}>
+                <Text style={styles.buttonSecundarioText}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
         <Text style={styles.emoji}>🏅</Text>
-        <Text style={styles.titulo}>Felicitaciones!</Text>
+        <Text style={styles.titulo}>¡Felicitaciones!</Text>
         <Text style={styles.subtitulo}>Completaste el reto</Text>
         <Text style={styles.challenge}>{challenge}</Text>
         <Text style={styles.descripcion}>
           Mereces cada gramo de esta medalla. Ahora necesitamos saber donde enviartela.
         </Text>
+        <TouchableOpacity style={styles.compartirBtn} onPress={() => setModalCompartirVisible(true)}>
+          <Text style={styles.compartirBtnText}>📸 Compartir mi logro</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.button} onPress={() => setPaso(2)}>
           <Text style={styles.buttonText}>Cargar mi direccion de envio</Text>
         </TouchableOpacity>
@@ -213,4 +252,13 @@ const styles = StyleSheet.create({
   buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
   buttonSecundario: { paddingVertical: 14, width: '100%', alignItems: 'center' },
   buttonSecundarioText: { color: '#A8CFFF', fontSize: 15 },
+  compartirBtn: { backgroundColor: '#1E3A5F', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#FC4C02' },
+  compartirBtnText: { color: '#FC4C02', fontWeight: 'bold', fontSize: 15 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalCard: { backgroundColor: '#1E3A5F', borderRadius: 24, padding: 28, width: '100%', borderWidth: 1, borderColor: '#FC4C02', alignItems: 'center' },
+  modalEmoji: { fontSize: 48, marginBottom: 12 },
+  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', marginBottom: 8 },
+  modalDesc: { fontSize: 13, color: '#A8CFFF', textAlign: 'center', marginBottom: 16 },
+  mensajeCompartir: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 16, width: '100%' },
+  mensajeCompartirTexto: { color: '#E2E8F0', fontSize: 13, lineHeight: 20, fontStyle: 'italic' },
 });
