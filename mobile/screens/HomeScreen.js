@@ -167,7 +167,9 @@ export default function HomeScreen({ navigation }) {
     if (!input) { saltarMeta(item.challenge_id); return; }
     const partes = input.split('/');
     if (partes.length !== 3) { Alert.alert('Formato inválido', 'Usá DD/MM/AAAA'); return; }
-    const fecha = new Date(`${partes[2]}-${partes[1]}-${partes[0]}`);
+    const [dia, mes, anio] = partes.map(Number);
+    // FIX timezone: construir fecha local para evitar que UTC reste un día
+    const fecha = new Date(anio, mes - 1, dia, 12, 0, 0);
     if (isNaN(fecha.getTime())) { Alert.alert('Fecha inválida'); return; }
     if (fecha <= new Date()) { Alert.alert('La fecha debe ser futura'); return; }
     setGuardandoMeta(prev => ({ ...prev, [item.challenge_id]: true }));
