@@ -1412,6 +1412,9 @@ app.get('/admin/metricas', async (req, res) => {
     const kmManual = actividades?.filter(a => a.source === 'manual').reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
     const totalActividades = actividades?.length || 0;
 
+    // KM reales: suma de km_completed en user_challenges (incluye migrados del sistema viejo)
+    const kmReales = inscripciones?.reduce((sum, i) => sum + (parseFloat(i.km_completed) || 0), 0) || 0;
+
     const { count: conStrava } = await supabase
       .from('users')
       .select('*', { count: 'exact', head: true })
@@ -1435,7 +1438,8 @@ app.get('/admin/metricas', async (req, res) => {
       activos,
       completados,
       enviados,
-      kmTotales: kmTotales.toFixed(1),
+      kmTotales: kmReales.toFixed(1),
+      kmTotalesActividades: kmTotales.toFixed(1),
       kmStrava: kmStrava.toFixed(1),
       kmManual: kmManual.toFixed(1),
       totalActividades,
