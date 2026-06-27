@@ -821,9 +821,7 @@ export default function PerfilScreen() {
                 <Text style={styles.stravaConectadoText}>✅ Strava conectado</Text>
                 <Text style={styles.stravaConectadoDesc}>Tus actividades se sincronizan automáticamente</Text>
               </View>
-              <TouchableOpacity onPress={conectarStravaReal}>
-                <Text style={styles.stravaReconectarText}>Reconectar</Text>
-              </TouchableOpacity>
+
             </View>
             <TouchableOpacity style={styles.stravaInstructivoBtn} onPress={() => setModalStravaVisible(true)}>
               <Text style={styles.stravaInstructivoBtnText}>📖 ¿Cómo funciona la sincronización?</Text>
