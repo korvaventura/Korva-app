@@ -216,6 +216,22 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
       if (seCompletaAhora) {
         await enviarCertificadoFinisher(user_id, reto, distanciaTotal);
       }
+
+      // Notificación para cargar dirección cuando llega al 75%
+      if (porcentaje >= 75 && !yaEstabaCompletado) {
+        const { data: usuario } = await supabase
+          .from('users')
+          .select('push_token, shipping_address')
+          .eq('id', user_id)
+          .maybeSingle();
+        if (usuario?.push_token && !usuario?.shipping_address) {
+          await enviarPushNotification(
+            usuario.push_token,
+            '📦 ¡Ya casi llegás!',
+            'Acordate de cargar tu dirección de envío en el Perfil para que tu medalla salga sin demoras 🏅'
+          );
+        }
+      }
     }
   } catch (error) {
     console.error('Error recalculando km:', error);
