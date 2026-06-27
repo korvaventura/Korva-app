@@ -154,7 +154,23 @@ export default function HomeScreen({ navigation }) {
 
   const cerrarBanner = () => {
     setBannerVisible(false);
-    setBannerCerrado(true); // FIX: marcar como cerrado para que no vuelva
+    setBannerCerrado(true);
+  };
+
+  const cancelarPending = async (challengeId) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) return;
+      await supabase
+        .from('user_challenges')
+        .delete()
+        .eq('user_id', session.user.id)
+        .eq('challenge_id', challengeId)
+        .eq('status', 'pending');
+      await cargarProgreso();
+    } catch (e) {
+      console.error('Error cancelando pending:', e);
+    }
   };
 
   const saltarMeta = async (challengeId) => {
@@ -431,7 +447,16 @@ export default function HomeScreen({ navigation }) {
             <View key={`pending-${index}`} style={styles.pendingCard}>
               <Text style={styles.pendingEmoji}>⏳</Text>
               <View style={styles.pendingInfo}>
-                <Text style={styles.pendingTitulo}>{item.challenge}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Text style={[styles.pendingTitulo, { flex: 1 }]}>{item.challenge}</Text>
+                  <TouchableOpacity
+                    onPress={() => cancelarPending(item.challenge_id)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={{ backgroundColor: '#2a1a1a', borderRadius: 8, padding: 6, marginLeft: 8 }}
+                  >
+                    <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 12 }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
                 <Text style={styles.pendingModalidad}>{item.modalidad}</Text>
                 <Text style={styles.pendingTexto}>Esperando confirmación de pago. Si ya pagaste, puede demorar unos minutos.</Text>
                 {item.link_shopify && (
