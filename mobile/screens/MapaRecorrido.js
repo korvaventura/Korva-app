@@ -506,6 +506,11 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
     ])).start();
   }, []);
 
+  // FIX: limpiar checkpoint seleccionado cuando cambia el desafío
+  useEffect(() => {
+    setCpSeleccionado(null);
+  }, [challengeId]);
+
   useEffect(() => {
     if (scrollViewRef.current) {
       const scrollToX = Math.max(0, pinPos.x - (SCREEN_WIDTH / 2));
