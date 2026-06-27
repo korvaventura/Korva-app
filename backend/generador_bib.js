@@ -3,9 +3,9 @@ const path = require('path');
 
 // Mapa de plantillas por challenge_id
 const PLANTILLAS = {
-  'ae54af78-dc6f-4cf5-af31-2c077ba58048': { dorsal: 'Dorsales.pptx', postal: 'Postales.pptx' },     // Fin del Mundo
-  '85a362a5-eee7-456d-9027-358d44446004': { dorsal: 'Dorsales.pptx', postal: 'Postales.pptx' },     // San Andrés (mismo diseño por ahora)
-  '64442b1d-12b8-4a58-a951-50ea10cb2131': { dorsal: 'Dorsales.pptx', postal: 'Postales.pptx' },     // Dubrovnik (mismo diseño por ahora)
+  'ae54af78-dc6f-4cf5-af31-2c077ba58048': { dorsal: 'Dorsales.pptx',           postal: 'Postales.pptx' },           // Fin del Mundo
+  '85a362a5-eee7-456d-9027-358d44446004': { dorsal: 'Dorsales_SanAndres.pptx', postal: 'Postales_SanAndres.pptx' }, // San Andrés
+  '64442b1d-12b8-4a58-a951-50ea10cb2131': { dorsal: 'Dorsales_Dubrovnik.pptx', postal: 'Postales_Dubrovnik.pptx' }, // Dubrovnik
 };
 
 const DEFAULT_PLANTILLAS = { dorsal: 'Dorsales.pptx', postal: 'Postales.pptx' };
