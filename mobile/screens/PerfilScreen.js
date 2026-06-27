@@ -571,7 +571,11 @@ export default function PerfilScreen() {
                     <View style={styles.metaHeader}>
                       <Text style={styles.metaTitulo}>🎯 Meta personal</Text>
                       <TouchableOpacity onPress={() => {
-                        setInputMeta(prev => ({ ...prev, [cId]: mFecha ? new Date(mFecha).toLocaleDateString('es-AR') : '' }));
+                        setInputMeta(prev => {
+                        const d = mFecha ? new Date(mFecha) : null;
+                        const formatted = d ? `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` : '';
+                        return { ...prev, [cId]: formatted };
+                      });
                         setEditandoMeta(prev => ({ ...prev, [cId]: !prev[cId] }));
                       }}>
                         <Text style={styles.metaEditarBtn}>{editandoMeta[cId] ? 'Cancelar' : mFecha ? 'Editar' : '+ Agregar'}</Text>
