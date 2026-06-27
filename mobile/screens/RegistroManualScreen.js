@@ -13,11 +13,10 @@ const getFecha = (diasAtras) => {
 };
 
 const formatearFecha = (date) => {
-  const str = date.toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  return str.charAt(0).toUpperCase() + str.slice(1);
+  return date.toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 };
 
-export default function RegistroManualScreen() {
+export default function RegistroManualScreen({ navigation }) {
   const [deporte, setDeporte] = useState('run');
   const [distancia, setDistancia] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -214,6 +213,20 @@ export default function RegistroManualScreen() {
       <Text style={styles.titulo}>Registrar km</Text>
       <Text style={styles.subtitulo}>Carga tus actividades manualmente</Text>
 
+      {!challengeId && userId && (
+        <TouchableOpacity
+          style={styles.bannerSinReto}
+          onPress={() => navigation?.navigate('Catalogo')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.bannerSinRetoEmoji}>🏅</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bannerSinRetoTitulo}>Tus km se guardan, pero no avanzan en ningún desafío</Text>
+            <Text style={styles.bannerSinRetoDesc}>Inscribite en un reto para que cada km cuente hacia tu medalla → Ver catálogo</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
       <View style={styles.deporteContainer}>
         {deportes.map((d) => (
           <TouchableOpacity
@@ -402,4 +415,8 @@ const styles = StyleSheet.create({
   buttonDisabled: { backgroundColor: '#2a3a4a' },
   buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
   btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  bannerSinReto: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, marginBottom: 20, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#1E6FD9' },
+  bannerSinRetoEmoji: { fontSize: 28 },
+  bannerSinRetoTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
+  bannerSinRetoDesc: { fontSize: 12, color: '#1E6FD9', lineHeight: 18 },
 });
