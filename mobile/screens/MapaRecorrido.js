@@ -70,34 +70,39 @@ const CONFIGS = {
     ],
   },
 
-  // ── DUBROVNIK 19.4km ─────────────────────────────────────────
+  // ── DUBROVNIK 19.4km — MURALLAS CON SEGMENTOS RECTOS ─────────
   dubrovnik: {
     titulo: '🗺️ Las Murallas de Dubrovnik',
     distanciaFisica: 19.4,
     clima: 'sol_mediterraneo',
+    // Ruta sigue el perímetro de las murallas: segmentos RECTOS entre torres
+    // Empieza en Pile Gate (oeste), sube al norte, cruza al este, baja al sur, vuelve al oeste
     segmentos: [
-      { km: 0,    x: 120, y: 140 },
-      { km: 1.5,  x: 120, y: 100 },
-      { km: 3.5,  x: 120, y: 60  },
-      { km: 5,    x: 220, y: 60  },
-      { km: 6.5,  x: 320, y: 60  },
-      { km: 8,    x: 420, y: 60  },
-      { km: 9.5,  x: 520, y: 60  },
-      { km: 11,   x: 620, y: 60  },
-      { km: 12,   x: 680, y: 100 },
-      { km: 13,   x: 680, y: 150 },
-      { km: 14,   x: 680, y: 200 },
-      { km: 15.5, x: 580, y: 200 },
-      { km: 16.5, x: 480, y: 200 },
-      { km: 17.5, x: 360, y: 200 },
-      { km: 18.5, x: 250, y: 220 },
-      { km: 19.4, x: 120, y: 230 },
+      { km: 0,    x: 120, y: 140 }, // Pile Gate (oeste, inicio)
+      { km: 1.5,  x: 120, y: 100 }, // Torre noroeste
+      { km: 3.5,  x: 120, y: 60  }, // Fort Lovrijenac área norte
+      { km: 5,    x: 220, y: 60  }, // Torre norte-1
+      { km: 6.5,  x: 320, y: 60  }, // Torre norte-2
+      { km: 8,    x: 420, y: 60  }, // Stradun / torre norte-3
+      { km: 9.5,  x: 520, y: 60  }, // Torre norte-4
+      { km: 11,   x: 620, y: 60  }, // Torre noreste
+      { km: 12,   x: 680, y: 100 }, // Fort Bokar área este
+      { km: 13,   x: 680, y: 150 }, // Torre este-1
+      { km: 14,   x: 680, y: 200 }, // Torre este-2 — Minčeta area
+      { km: 15.5, x: 580, y: 200 }, // Torre sur-1
+      { km: 16.5, x: 480, y: 200 }, // Torre sur-2
+      { km: 17.5, x: 360, y: 200 }, // Torre sur-3
+      { km: 18.5, x: 250, y: 220 }, // Torre suroeste
+      { km: 19.4, x: 120, y: 230 }, // Ploče Gate — abajo, bien separado de Pile Gate
     ],
     decoraciones: () => (
       <G pointerEvents="none">
+        {/* Fondo mar Adriático */}
         <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0c4a6e" opacity="0.2" />
+        {/* Ciudad interior */}
         <Rect x="120" y="60" width="560" height="140" fill="#78716c" opacity="0.12" rx="4" />
         <SvgText x="400" y="140" fill="#d4a76a" fontSize="11" textAnchor="middle" opacity="0.5">Ciudad Vieja · Ragusa</SvgText>
+        {/* Mar al sur */}
         <Rect x="0" y="215" width={MAPA_WIDTH_VIRTUAL} height="45" fill="#0284C7" opacity="0.25" />
         <SvgText x="400" y="248" fill="#7DD3FC" fontSize="12" textAnchor="middle">Mar Adriático</SvgText>
         <SvgText x="60" y="30" fill="#A8CFFF" fontSize="11" textAnchor="middle">Dalmacia · Croacia</SvgText>
@@ -131,29 +136,34 @@ const CONFIGS = {
     ],
   },
 
-  // ── SAN ANDRÉS 57km ──────────────────────────────────────────
+  // ── SAN ANDRÉS 27km — ARCHIPIÉLAGO SALTANDO ENTRE ISLAS ─────
   san_andres: {
     titulo: '🗺️ El Archipiélago de San Andrés',
     distanciaFisica: 57,
     clima: 'caribe',
+    // Ruta salta entre: isla principal → Johnny Cay → Rose Cay → Haynes Cay → Acuario → vuelta sur
     segmentos: [
-      { km: 0,  x: 280, y: 160 },
-      { km: 6,  x: 340, y: 100 },
-      { km: 10, x: 420, y: 70  },
-      { km: 15, x: 520, y: 55  },
-      { km: 21, x: 640, y: 70  },
-      { km: 27, x: 700, y: 130 },
-      { km: 34, x: 660, y: 190 },
-      { km: 40, x: 540, y: 215 },
-      { km: 44, x: 400, y: 220 },
-      { km: 48, x: 280, y: 210 },
-      { km: 53, x: 160, y: 200 },
-      { km: 57, x: 100, y: 180 },
+      { km: 0,  x: 280, y: 160 }, // San Andrés Town (isla principal, norte)
+      { km: 6,  x: 340, y: 100 }, // Norte de la isla
+      { km: 10, x: 420, y: 70  }, // Johnny Cay (salto al cayo)
+      { km: 15, x: 520, y: 55  }, // Rose Cay
+      { km: 21, x: 640, y: 70  }, // Haynes Cay
+      { km: 27, x: 700, y: 130 }, // El Acuario (arrecife este)
+      { km: 34, x: 660, y: 190 }, // Cueva de Morgan (sur isla)
+      { km: 40, x: 540, y: 215 }, // El Hoyo (costa oeste)
+      { km: 44, x: 400, y: 220 }, // Costa suroeste
+      { km: 48, x: 280, y: 210 }, // La Piscinita
+      { km: 53, x: 160, y: 200 }, // Costa sur
+      { km: 57, x: 100, y: 180 }, // Punta Sur
     ],
     decoraciones: () => (
       <G pointerEvents="none">
+        {/* Fondo mar Caribe */}
         <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0891b2" opacity="0.15" />
-        <Path d="M230,90 L260,70 L310,65 L350,70 L370,90 L375,120 L365,155 L340,175 L300,185 L265,180 L240,165 L225,140 L220,115 Z" fill="#16a34a" opacity="0.35" />
+        {/* Isla principal San Andrés */}
+        <Path d="M230,90 L260,70 L310,65 L350,70 L370,90 L375,120 L365,155 L340,175 L300,185 L265,180 L240,165 L225,140 L220,115 Z"
+          fill="#16a34a" opacity="0.35" />
+        {/* Cayos principales */}
         <Ellipse cx="420" cy="65" rx="22" ry="12" fill="#16a34a" opacity="0.4" />
         <Ellipse cx="640" cy="65" rx="20" ry="10" fill="#16a34a" opacity="0.4" />
         <SvgText x="680" y="248" fill="#7DD3FC" fontSize="12" textAnchor="middle">Mar Caribe · Colombia</SvgText>
@@ -167,7 +177,7 @@ const CONFIGS = {
       { id: 'johnny_cay', nombre: 'Johnny Cay', kmFisico: 11, emoji: '🏖️', x: 420, y: 70,
         pista: 'Un islote tan pequeño que podés rodearlo caminando en 10 minutos. Pero su arrecife es otro mundo.',
         desc: 'Johnny Cay es un islote coralino de apenas 4 hectáreas rodeado por uno de los arrecifes más coloridos del Caribe. Sus aguas tienen visibilidad de hasta 30 metros. Es reserva natural protegida — no se puede construir nada. La única infraestructura permitida es la que ya existía antes de la declaración de reserva.',
-        datoRaro: '🐠 Gran parte de la arena blanca de muchas playas del Caribe proviene del pez loro, que tritura coral y lo transforma en arena fina.' },
+        datoRaro: '🐠 El pez loro come coral y lo excreta como arena blanca. El 85% de la arena blanca de las playas caribeñas es, técnicamente, excremento de pez loro.' },
       { id: 'haynes_cay', nombre: 'Haynes Cay', kmFisico: 21, emoji: '🤿', x: 640, y: 70,
         pista: 'Una piscina que no construyó nadie. Y que tardó miles de años en formarse.',
         desc: 'Haynes Cay y el área del Acuario forman una laguna natural protegida por la barrera de coral. Visibilidad de hasta 30 metros. Las tortugas verdes que anidan aquí hacen migraciones de hasta 2.000km para volver exactamente a la misma playa donde nacieron.',
@@ -191,8 +201,10 @@ const CONFIGS = {
 // ─── HELPERS ────────────────────────────────────────────────────
 
 const getConfig = (challengeId, challengeTitle) => {
+  // Primero por ID exacto (más confiable)
   if (challengeId === '64442b1d-12b8-4a58-a951-50ea10cb2131') return CONFIGS.dubrovnik;
   if (challengeId === '85a362a5-eee7-456d-9027-358d44446004') return CONFIGS.san_andres;
+  // Fallback por título normalizado
   const titulo = normalizar(challengeTitle);
   if (titulo.includes('dubrovnik')) return CONFIGS.dubrovnik;
   if (titulo.includes('andres') || titulo.includes('san andr')) return CONFIGS.san_andres;
@@ -278,6 +290,7 @@ const EfectoLluvia = ({ tropical = false }) => {
   );
 };
 
+// Destello dorado — Dubrovnik sol mediterráneo
 const DestelloDorado = ({ delay, startX, startY }) => {
   const opacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -298,6 +311,7 @@ const EfectoSolMediterraneo = () => {
   );
 };
 
+// Burbuja caribeña — San Andrés
 const BurbujaCaribe = ({ delay, startX }) => {
   const translateY = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -324,6 +338,7 @@ const EfectoCaribe = () => {
   );
 };
 
+// ─── ESTRELLA FUGAZ ─────────────────────────────────────────────
 const Estrella = ({ delay, startX, startY }) => {
   const opacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -340,7 +355,10 @@ const Estrella = ({ delay, startX, startY }) => {
 
 const EfectoCieloEstrellado = () => {
   const estrellas = useRef(Array.from({ length: 40 }).map((_, i) => ({
-    id: i, startX: Math.random() * SCREEN_WIDTH, startY: Math.random() * 180, delay: Math.random() * 4000,
+    id: i,
+    startX: Math.random() * SCREEN_WIDTH,
+    startY: Math.random() * 180,
+    delay: Math.random() * 4000,
   }))).current;
   return (
     <View style={[StyleSheet.absoluteFill, { zIndex: 20 }]} pointerEvents="none">
@@ -351,141 +369,8 @@ const EfectoCieloEstrellado = () => {
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-
-// ─── SCROLL HINT ANIMADO ─────────────────────────────────────────
-function ScrollHintAnimado() {
-  const flechaIzq = useRef(new Animated.Value(0)).current;
-  const flechaDer = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(flechaIzq, { toValue: -6, duration: 400, useNativeDriver: true }),
-        Animated.timing(flechaIzq, { toValue: 0, duration: 400, useNativeDriver: true }),
-      ])
-    ).start();
-    Animated.loop(
-      Animated.sequence([
-        Animated.delay(200),
-        Animated.timing(flechaDer, { toValue: 6, duration: 400, useNativeDriver: true }),
-        Animated.timing(flechaDer, { toValue: 0, duration: 400, useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
-
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, gap: 8 }}>
-      <Animated.Text style={{ color: '#EA580C', fontSize: 16, transform: [{ translateX: flechaIzq }] }}>👈</Animated.Text>
-      <Text style={{ color: '#94A3B8', fontSize: 11, fontStyle: 'italic' }}>Deslizá para explorar</Text>
-      <Animated.Text style={{ color: '#EA580C', fontSize: 16, transform: [{ translateX: flechaDer }] }}>👉</Animated.Text>
-    </View>
-  );
-}
-
-// ─── COMPONENTE HISTORIA INLINE ──────────────────────────────────
-// Aparece debajo del mapa al tocar un checkpoint, sin modal
-function HistoriaInline({ cp, factor, distanciaTotal, estaDesbloqueado, esInicio, esFin, onCerrar }) {
-  if (!cp) return null;
-  return (
-    <View style={styles.historiaContainer}>
-      <View style={styles.historiaHeader}>
-        <Text style={styles.historiaEmoji}>{estaDesbloqueado ? cp.emoji : '🔒'}</Text>
-        <View style={styles.historiaTituloWrap}>
-          <Text style={styles.historiaNombre}>{cp.nombre}</Text>
-          <Text style={styles.historiaKm}>{((cp.kmFisico || 0) * factor).toFixed(0)} km de {distanciaTotal} km</Text>
-        </View>
-        <TouchableOpacity onPress={onCerrar} style={styles.historiaCerrarBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Text style={styles.historiaCerrarText}>✕</Text>
-        </TouchableOpacity>
-      </View>
-
-      {estaDesbloqueado ? (
-        <ScrollView style={styles.historiaScroll} showsVerticalScrollIndicator={false}>
-          {(esInicio || esFin) && (
-            <View style={styles.mensajeEspecialBox}>
-              <Text style={styles.mensajeEspecial}>
-                {esInicio ? '🚀 ¡Bienvenido al desafío! Cada paso te acerca a tu medalla.' : '🏅 ¡Lo lograste! Tu medalla está en camino.'}
-              </Text>
-            </View>
-          )}
-          <Text style={styles.historiaDesc}>{cp.desc}</Text>
-          {cp.datoRaro && (
-            <View style={styles.datoRaroBox}>
-              <Text style={styles.datoRaroTexto}>{cp.datoRaro}</Text>
-            </View>
-          )}
-        </ScrollView>
-      ) : (
-        <>
-          <View style={styles.pistaBox}>
-            <Text style={styles.pistaTexto}>💭 {cp.pista}</Text>
-          </View>
-          <View style={styles.desbloqueoBox}>
-            <Text style={styles.desbloqueoTexto}>
-              🔒 Llegá a {((cp.kmFisico || 0) * factor).toFixed(0)}km para descubrir la historia completa
-            </Text>
-          </View>
-        </>
-      )}
-    </View>
-  );
-}
-
-// ─── COMPONENTE MAPA SVG (reutilizable) ─────────────────────────
-function MapaSVG({ config, kmFisicos, pinPos, rutaBasePath, pathCompletado, pulseAnim, onCheckpointPress }) {
-  const { segmentos, checkpoints, decoraciones } = config;
-  const animatedRadiusRadar = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 28] });
-  const animatedRadiusSpotlight = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 32] });
-  const animatedOpacity = pulseAnim.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.6, 0.1, 0] });
-
-  const desbloqueado = (cp) => kmFisicos >= cp.kmFisico;
-
-  return (
-    <Svg width={MAPA_WIDTH_VIRTUAL} height={260} viewBox={`0 0 ${MAPA_WIDTH_VIRTUAL} 260`}>
-      <Defs>
-        <LinearGradient id="gradBg" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#0F172A" stopOpacity="1" />
-          <Stop offset="1" stopColor="#1E293B" stopOpacity="1" />
-        </LinearGradient>
-        <Mask id="fogMask">
-          <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="white" />
-          {kmFisicos > 0 && <Rect x={pinPos.x - 5} y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="black" />}
-          {pathCompletado !== '' && <Path d={pathCompletado} fill="none" stroke="black" strokeWidth="22" strokeLinecap="round" strokeLinejoin="round" />}
-          {checkpoints.filter(desbloqueado).map(cp => <Circle key={cp.id} cx={cp.x} cy={cp.y} r="20" fill="black" />)}
-          {kmFisicos > 0 && <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={animatedRadiusSpotlight} fill="black" />}
-        </Mask>
-      </Defs>
-      <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="url(#gradBg)" />
-      {decoraciones()}
-      <Path d={rutaBasePath} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />
-      {pathCompletado !== '' && <Path d={pathCompletado} fill="none" stroke="#EA580C" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />}
-      <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0D1B2A" opacity="0.85" mask="url(#fogMask)" />
-      {checkpoints.map((cp) => {
-        const isDesbloqueado = desbloqueado(cp);
-        return (
-          <React.Fragment key={cp.id}>
-            <Circle cx={cp.x} cy={cp.y} r={isDesbloqueado ? 12 : 10} fill={isDesbloqueado ? '#F97316' : '#334155'} stroke={isDesbloqueado ? '#FFFFFF' : '#64748B'} strokeWidth="3" onPress={() => onCheckpointPress(cp)} />
-            {!isDesbloqueado && <SvgText x={cp.x} y={cp.y + 4} fill="#94A3B8" fontSize="10" textAnchor="middle">🔒</SvgText>}
-            <SvgText x={cp.x} y={cp.y - 18} fill="#F8FAFC" fontSize="12" textAnchor="middle" fontWeight="bold">{cp.nombre}</SvgText>
-          </React.Fragment>
-        );
-      })}
-      {kmFisicos > 0 && <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={animatedRadiusRadar} fill="#EA580C" opacity={animatedOpacity} />}
-      {kmFisicos > 0 && (
-        <>
-          <Circle cx={pinPos.x} cy={pinPos.y} r={8} fill="#FFFFFF" stroke="#EA580C" strokeWidth="4" />
-          <Rect x={pinPos.x - 24} y={pinPos.y + 16} width="48" height="20" rx="10" fill="#1E293B" />
-          <SvgText x={pinPos.x} y={pinPos.y + 26} fill="#F97316" fontSize="11" textAnchor="middle" alignmentBaseline="middle" fontWeight="900">
-            {(kmFisicos).toFixed(0)} km
-          </SvgText>
-        </>
-      )}
-    </Svg>
-  );
-}
-
 export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, onScrollBegin, onScrollEnd, fullscreen = false }) {
-  const [cpSeleccionado, setCpSeleccionado] = useState(null);
+  const [modalVisible, setModalVisible] = useState(null);
   const [modalMapaVisible, setModalMapaVisible] = useState(false);
   const scrollViewRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -506,10 +391,9 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
     ])).start();
   }, []);
 
-  // FIX: limpiar checkpoint seleccionado cuando cambia el desafío
-  useEffect(() => {
-    setCpSeleccionado(null);
-  }, [challengeId]);
+  const animatedRadiusRadar = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 28] });
+  const animatedRadiusSpotlight = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 32] });
+  const animatedOpacity = pulseAnim.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.6, 0.1, 0] });
 
   useEffect(() => {
     if (scrollViewRef.current) {
@@ -518,18 +402,10 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
     }
   }, [kmFisicos]);
 
-  // FIX: cuando se abre el modal fullscreen, scrollear al punto del usuario
-  useEffect(() => {
-    if (modalMapaVisible && scrollViewRef.current) {
-      const scrollToX = Math.max(0, pinPos.x - (SCREEN_WIDTH / 2));
-      setTimeout(() => { scrollViewRef.current.scrollTo({ x: scrollToX, y: 0, animated: false }); }, 350);
-    }
-  }, [modalMapaVisible]);
-
   const desbloqueado = (cp) => kmFisicos >= cp.kmFisico;
-  const esInicio = cpSeleccionado?.id === checkpoints[0]?.id;
-  const esFin = cpSeleccionado?.id === checkpoints[checkpoints.length - 1]?.id;
-  const estaDesbloqueado = cpSeleccionado ? desbloqueado(cpSeleccionado) : false;
+  const esInicio = modalVisible?.id === checkpoints[0]?.id;
+  const esFin = modalVisible?.id === checkpoints[checkpoints.length - 1]?.id;
+  const estaDesbloqueado = modalVisible ? desbloqueado(modalVisible) : false;
 
   const mostrarClima = () => {
     if (clima === 'sol_mediterraneo') return <EfectoSolMediterraneo />;
@@ -542,35 +418,30 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
     return null;
   };
 
-  const handleCheckpointPress = (cp) => {
-    setCpSeleccionado(prev => prev?.id === cp.id ? null : cp);
-  };
-
-  // ── MODO PREVIEW (HomeScreen) ────────────────────────────────
+  // ── MODO PREVIEW (en HomeScreen) ────────────────────────────
   if (!fullscreen) {
     return (
       <View style={styles.container}>
         <Text style={styles.titulo}>{titulo}</Text>
-        <TouchableOpacity style={styles.previewWrapper} onPress={() => setModalMapaVisible(true)} activeOpacity={0.85}>
-          {/* FIX: viewBox centrado en la posición actual del usuario */}
-          {(() => {
-            const previewW = 360; // ancho virtual del viewport del preview
-            const viewX = Math.max(0, Math.min(pinPos.x - previewW / 2, MAPA_WIDTH_VIRTUAL - previewW));
-            return (
-              <Svg width="100%" height={180} viewBox={`${viewX} 0 ${previewW} 260`}>
-                <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0F172A" />
-                {decoraciones()}
-                <Path d={rutaBasePath} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />
-                {pathCompletado !== '' && <Path d={pathCompletado} fill="none" stroke="#EA580C" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />}
-                {checkpoints.map((cp) => (
-                  <Circle key={cp.id} cx={cp.x} cy={cp.y} r={desbloqueado(cp) ? 10 : 8}
-                    fill={desbloqueado(cp) ? '#F97316' : '#334155'}
-                    stroke={desbloqueado(cp) ? '#FFFFFF' : '#64748B'} strokeWidth="2" />
-                ))}
-                {kmFisicos > 0 && <Circle cx={pinPos.x} cy={pinPos.y} r={8} fill="#FFFFFF" stroke="#EA580C" strokeWidth="4" />}
-              </Svg>
-            );
-          })()}
+        <TouchableOpacity
+          style={styles.previewWrapper}
+          onPress={() => setModalMapaVisible(true)}
+          activeOpacity={0.85}
+        >
+          {/* Preview estática — SVG simplificado sin scroll */}
+          <Svg width="100%" height={180} viewBox={`0 0 ${MAPA_WIDTH_VIRTUAL} 260`}>
+            <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0F172A" />
+            {decoraciones()}
+            <Path d={rutaBasePath} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />
+            {pathCompletado !== '' && <Path d={pathCompletado} fill="none" stroke="#EA580C" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />}
+            {checkpoints.map((cp) => (
+              <Circle key={cp.id} cx={cp.x} cy={cp.y} r={desbloqueado(cp) ? 10 : 8}
+                fill={desbloqueado(cp) ? '#F97316' : '#334155'}
+                stroke={desbloqueado(cp) ? '#FFFFFF' : '#64748B'} strokeWidth="2" />
+            ))}
+            {kmFisicos > 0 && <Circle cx={pinPos.x} cy={pinPos.y} r={8} fill="#FFFFFF" stroke="#EA580C" strokeWidth="4" />}
+          </Svg>
+          {/* Overlay con botón explorar */}
           <View style={styles.previewOverlay}>
             <View style={styles.previewBtn}>
               <Text style={styles.previewBtnText}>🗺️ Explorar ruta</Text>
@@ -578,7 +449,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
           </View>
         </TouchableOpacity>
 
-        {/* Modal fullscreen del mapa desde preview */}
+        {/* Modal fullscreen del mapa */}
         <Modal visible={modalMapaVisible} transparent={false} animationType="slide" onRequestClose={() => setModalMapaVisible(false)}>
           <View style={styles.fullscreenContainer}>
             <View style={styles.fullscreenHeader}>
@@ -587,24 +458,63 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
                 <Text style={styles.cerrarBtnText}>✕</Text>
               </TouchableOpacity>
             </View>
-
-            {/* MAPA ARRIBA — altura fija */}
-            <View style={styles.mapaFijoWrapper}>
-              <ScrollView ref={scrollViewRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ width: MAPA_WIDTH_VIRTUAL }} style={{ flex: 1 }}>
-                <MapaSVG config={config} kmFisicos={kmFisicos} pinPos={pinPos} rutaBasePath={rutaBasePath} pathCompletado={pathCompletado} pulseAnim={pulseAnim} onCheckpointPress={handleCheckpointPress} />
+            <View style={styles.mapaScrollWrapper}>
+              <ScrollView
+                ref={scrollViewRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ width: MAPA_WIDTH_VIRTUAL }}
+                style={{ flex: 1 }}
+              >
+                <Svg width={MAPA_WIDTH_VIRTUAL} height="100%" viewBox={`0 0 ${MAPA_WIDTH_VIRTUAL} 260`}>
+                  <Defs>
+                    <LinearGradient id="gradBg" x1="0" y1="0" x2="0" y2="1">
+                      <Stop offset="0" stopColor="#0F172A" stopOpacity="1" />
+                      <Stop offset="1" stopColor="#1E293B" stopOpacity="1" />
+                    </LinearGradient>
+                    <Mask id="fogMask">
+                      <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="white" />
+                      {kmFisicos > 0 && <Rect x={pinPos.x - 5} y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="black" />}
+                      {pathCompletado !== '' && <Path d={pathCompletado} fill="none" stroke="black" strokeWidth="22" strokeLinecap="round" strokeLinejoin="round" />}
+                      {checkpoints.filter(desbloqueado).map(cp => <Circle key={cp.id} cx={cp.x} cy={cp.y} r="20" fill="black" />)}
+                      {kmFisicos > 0 && <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={animatedRadiusSpotlight} fill="black" />}
+                    </Mask>
+                  </Defs>
+                  <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="url(#gradBg)" />
+                  {decoraciones()}
+                  <Path d={rutaBasePath} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />
+                  {pathCompletado !== '' && <Path d={pathCompletado} fill="none" stroke="#EA580C" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />}
+                  <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0D1B2A" opacity="0.85" mask="url(#fogMask)" />
+                  {checkpoints.map((cp) => {
+                    const isDesbloqueado = desbloqueado(cp);
+                    return (
+                      <React.Fragment key={cp.id}>
+                        <Circle cx={cp.x} cy={cp.y} r={isDesbloqueado ? 12 : 10} fill={isDesbloqueado ? '#F97316' : '#334155'} stroke={isDesbloqueado ? '#FFFFFF' : '#64748B'} strokeWidth="3" onPress={() => setModalVisible(cp)} />
+                        {!isDesbloqueado && <SvgText x={cp.x} y={cp.y + 4} fill="#94A3B8" fontSize="10" textAnchor="middle">🔒</SvgText>}
+                        <SvgText x={cp.x} y={cp.y - 18} fill="#F8FAFC" fontSize="12" textAnchor="middle" fontWeight="bold">{cp.nombre}</SvgText>
+                      </React.Fragment>
+                    );
+                  })}
+                  {kmFisicos > 0 && <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={animatedRadiusRadar} fill="#EA580C" opacity={animatedOpacity} />}
+                  {kmFisicos > 0 && (
+                    <>
+                      <Circle cx={pinPos.x} cy={pinPos.y} r={8} fill="#FFFFFF" stroke="#EA580C" strokeWidth="4" />
+                      <Rect x={pinPos.x - 24} y={pinPos.y + 16} width="48" height="20" rx="10" fill="#1E293B" />
+                      <SvgText x={pinPos.x} y={pinPos.y + 26} fill="#F97316" fontSize="11" textAnchor="middle" alignmentBaseline="middle" fontWeight="900">
+                        {`${(kmFisicos * factor).toFixed(0)} km`}
+                      </SvgText>
+                    </>
+                  )}
+                </Svg>
               </ScrollView>
               {mostrarClima()}
             </View>
-
-            <ScrollHintAnimado />
-
-            {/* BOTONES CHECKPOINTS */}
+            <Text style={styles.scrollHint}>👈 Desliza para explorar la ruta 👉</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
               {checkpoints.map((cp) => {
                 const bloqueado = !desbloqueado(cp);
-                const seleccionado = cpSeleccionado?.id === cp.id;
                 return (
-                  <TouchableOpacity key={cp.id} style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo, seleccionado && styles.leyendaItemSeleccionado]} onPress={() => handleCheckpointPress(cp)}>
+                  <TouchableOpacity key={cp.id} style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo]} onPress={() => setModalVisible(cp)}>
                     <Text style={styles.leyendaEmoji}>{bloqueado ? '🔒' : cp.emoji}</Text>
                     <View style={styles.leyendaTextos}>
                       <Text style={[styles.leyendaNombre, !bloqueado && styles.leyendaNombreActivo]}>{cp.nombre}</Text>
@@ -614,36 +524,63 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
                 );
               })}
             </ScrollView>
-
-            {/* HISTORIA INLINE — aparece debajo al tocar */}
-            {cpSeleccionado ? (
-              <HistoriaInline
-                cp={cpSeleccionado}
-                factor={factor}
-                distanciaTotal={distanciaTotal}
-                estaDesbloqueado={estaDesbloqueado}
-                esInicio={esInicio}
-                esFin={esFin}
-                onCerrar={() => setCpSeleccionado(null)}
-              />
-            ) : (
-              <View style={styles.historiaPlaceholder}>
-                <Text style={styles.historiaPlaceholderText}>Tocá un punto del mapa o un checkpoint para leer su historia</Text>
-              </View>
-            )}
           </View>
+        </Modal>
+
+        {/* Modal de checkpoint */}
+        <Modal visible={!!modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(null)}>
+          <TouchableOpacity style={styles.modalOverlay} onPress={() => setModalVisible(null)}>
+            <View style={[styles.modalCard, esInicio && styles.modalCardInicio, esFin && styles.modalCardFin, !estaDesbloqueado && styles.modalCardBloqueado]}>
+              <Text style={styles.modalEmoji}>{estaDesbloqueado ? modalVisible?.emoji : '🔒'}</Text>
+              <Text style={styles.modalNombre}>{modalVisible?.nombre}</Text>
+              <Text style={styles.modalKm}>{((modalVisible?.kmFisico || 0) * factor).toFixed(0)} km de {distanciaTotal} km</Text>
+              {estaDesbloqueado ? (
+                <>
+                  {(esInicio || esFin) && (
+                    <View style={styles.mensajeEspecialBox}>
+                      <Text style={styles.mensajeEspecial}>
+                        {esInicio ? '🚀 ¡Bienvenido al desafío! Cada paso te acerca a tu medalla.' : '🏅 ¡Lo lograste! Tu medalla está en camino.'}
+                      </Text>
+                    </View>
+                  )}
+                  <Text style={styles.modalDesc}>{modalVisible?.desc}</Text>
+                  {modalVisible?.datoRaro && (
+                    <View style={styles.datoRaroBox}>
+                      <Text style={styles.datoRaroTexto}>{modalVisible.datoRaro}</Text>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <>
+                  <View style={styles.pistaBox}>
+                    <Text style={styles.pistaTexto}>💭 {modalVisible?.pista}</Text>
+                  </View>
+                  <View style={styles.difuminadoWrapper}>
+                    <Text style={styles.difuminadoTexto}>{modalVisible?.desc}</Text>
+                    <View style={styles.difuminadoOverlay} />
+                  </View>
+                  <View style={styles.desbloqueoBox}>
+                    <Text style={styles.desbloqueoTexto}>
+                      🔒 Llegá a {((modalVisible?.kmFisico || 0) * factor).toFixed(0)}km para descubrir la historia completa
+                    </Text>
+                  </View>
+                </>
+              )}
+              <TouchableOpacity style={styles.modalBtn} onPress={() => setModalVisible(null)}>
+                <Text style={styles.modalBtnText}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
         </Modal>
       </View>
     );
   }
 
-  // ── MODO FULLSCREEN (DetalleScreen) ─────────────────────────
+  // ── MODO FULLSCREEN (en DetalleScreen) ──────────────────────
   return (
     <View style={styles.container}>
       <Text style={styles.titulo}>{titulo}</Text>
-
-      {/* MAPA ARRIBA — altura fija */}
-      <View style={styles.mapaFijoWrapper}>
+      <View style={styles.mapaWrapper}>
         <ScrollView
           ref={scrollViewRef}
           horizontal
@@ -653,20 +590,60 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
           onScrollEndDrag={() => onScrollEnd && onScrollEnd()}
           onMomentumScrollEnd={() => onScrollEnd && onScrollEnd()}
         >
-          <MapaSVG config={config} kmFisicos={kmFisicos} pinPos={pinPos} rutaBasePath={rutaBasePath} pathCompletado={pathCompletado} pulseAnim={pulseAnim} onCheckpointPress={handleCheckpointPress} />
+          <Svg width={MAPA_WIDTH_VIRTUAL} height={260} viewBox={`0 0 ${MAPA_WIDTH_VIRTUAL} 260`}>
+            <Defs>
+              <LinearGradient id="gradBg" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#0F172A" stopOpacity="1" />
+                <Stop offset="1" stopColor="#1E293B" stopOpacity="1" />
+              </LinearGradient>
+              <Mask id="fogMask">
+                <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="white" />
+                {kmFisicos > 0 && <Rect x={pinPos.x - 5} y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="black" />}
+                {pathCompletado !== '' && <Path d={pathCompletado} fill="none" stroke="black" strokeWidth="22" strokeLinecap="round" strokeLinejoin="round" />}
+                {checkpoints.filter(desbloqueado).map(cp => <Circle key={cp.id} cx={cp.x} cy={cp.y} r="20" fill="black" />)}
+                {kmFisicos > 0 && <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={animatedRadiusSpotlight} fill="black" />}
+              </Mask>
+            </Defs>
+
+            <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="url(#gradBg)" />
+            {decoraciones()}
+            <Path d={rutaBasePath} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />
+            {pathCompletado !== '' && <Path d={pathCompletado} fill="none" stroke="#EA580C" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />}
+            <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0D1B2A" opacity="0.85" mask="url(#fogMask)" />
+
+            {checkpoints.map((cp) => {
+              const isDesbloqueado = desbloqueado(cp);
+              return (
+                <React.Fragment key={cp.id}>
+                  <Circle cx={cp.x} cy={cp.y} r={isDesbloqueado ? 12 : 10} fill={isDesbloqueado ? '#F97316' : '#334155'} stroke={isDesbloqueado ? '#FFFFFF' : '#64748B'} strokeWidth="3" onPress={() => setModalVisible(cp)} />
+                  {!isDesbloqueado && <SvgText x={cp.x} y={cp.y + 4} fill="#94A3B8" fontSize="10" textAnchor="middle">🔒</SvgText>}
+                  <SvgText x={cp.x} y={cp.y - 18} fill="#F8FAFC" fontSize="12" textAnchor="middle" fontWeight="bold">{cp.nombre}</SvgText>
+                </React.Fragment>
+              );
+            })}
+
+            {kmFisicos > 0 && <AnimatedCircle cx={pinPos.x} cy={pinPos.y} r={animatedRadiusRadar} fill="#EA580C" opacity={animatedOpacity} />}
+            {kmFisicos > 0 && (
+              <>
+                <Circle cx={pinPos.x} cy={pinPos.y} r={8} fill="#FFFFFF" stroke="#EA580C" strokeWidth="4" />
+                <Rect x={pinPos.x - 24} y={pinPos.y + 16} width="48" height="20" rx="10" fill="#1E293B" />
+                <SvgText x={pinPos.x} y={pinPos.y + 26} fill="#F97316" fontSize="11" textAnchor="middle" alignmentBaseline="middle" fontWeight="900">
+                  {(kmFisicos * factor).toFixed(0)} km
+                </SvgText>
+              </>
+            )}
+          </Svg>
         </ScrollView>
         {mostrarClima()}
       </View>
 
-      <ScrollHintAnimado />
+      <Text style={styles.scrollHint}>👈 Desliza para explorar la ruta 👉</Text>
 
-      {/* BOTONES CHECKPOINTS */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
         {checkpoints.map((cp) => {
           const bloqueado = !desbloqueado(cp);
-          const seleccionado = cpSeleccionado?.id === cp.id;
           return (
-            <TouchableOpacity key={cp.id} style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo, seleccionado && styles.leyendaItemSeleccionado]} onPress={() => handleCheckpointPress(cp)}>
+            <TouchableOpacity key={cp.id} style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo]} onPress={() => setModalVisible(cp)}>
               <Text style={styles.leyendaEmoji}>{bloqueado ? '🔒' : cp.emoji}</Text>
               <View style={styles.leyendaTextos}>
                 <Text style={[styles.leyendaNombre, !bloqueado && styles.leyendaNombreActivo]}>{cp.nombre}</Text>
@@ -677,80 +654,104 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
         })}
       </ScrollView>
 
-      {/* HISTORIA INLINE — aparece debajo al tocar */}
-      {cpSeleccionado ? (
-        <HistoriaInline
-          cp={cpSeleccionado}
-          factor={factor}
-          distanciaTotal={distanciaTotal}
-          estaDesbloqueado={estaDesbloqueado}
-          esInicio={esInicio}
-          esFin={esFin}
-          onCerrar={() => setCpSeleccionado(null)}
-        />
-      ) : (
-        <View style={styles.historiaPlaceholder}>
-          <Text style={styles.historiaPlaceholderText}>Tocá un punto del mapa o un checkpoint para leer su historia</Text>
-        </View>
-      )}
+      <Modal visible={!!modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(null)}>
+        <TouchableOpacity style={styles.modalOverlay} onPress={() => setModalVisible(null)}>
+          <View style={[styles.modalCard, esInicio && styles.modalCardInicio, esFin && styles.modalCardFin, !estaDesbloqueado && styles.modalCardBloqueado]}>
+            <Text style={styles.modalEmoji}>{estaDesbloqueado ? modalVisible?.emoji : '🔒'}</Text>
+            <Text style={styles.modalNombre}>{modalVisible?.nombre}</Text>
+            <Text style={styles.modalKm}>{((modalVisible?.kmFisico || 0) * factor).toFixed(0)} km de {distanciaTotal} km</Text>
+
+            {estaDesbloqueado ? (
+              <>
+                {(esInicio || esFin) && (
+                  <View style={styles.mensajeEspecialBox}>
+                    <Text style={styles.mensajeEspecial}>
+                      {esInicio ? '🚀 ¡Bienvenido al desafío! Cada paso te acerca a tu medalla.' : '🏅 ¡Lo lograste! Tu medalla está en camino.'}
+                    </Text>
+                  </View>
+                )}
+                <Text style={styles.modalDesc}>{modalVisible?.desc}</Text>
+                {modalVisible?.datoRaro && (
+                  <View style={styles.datoRaroBox}>
+                    <Text style={styles.datoRaroTexto}>{modalVisible.datoRaro}</Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <>
+                <View style={styles.pistaBox}>
+                  <Text style={styles.pistaTexto}>💭 {modalVisible?.pista}</Text>
+                </View>
+                <View style={styles.difuminadoWrapper}>
+                  <Text style={styles.difuminadoTexto}>{modalVisible?.desc}</Text>
+                  <View style={styles.difuminadoOverlay} />
+                </View>
+                <View style={styles.desbloqueoBox}>
+                  <Text style={styles.desbloqueoTexto}>
+                    🔒 Llegá a {((modalVisible?.kmFisico || 0) * factor).toFixed(0)}km para descubrir la historia completa
+                  </Text>
+                </View>
+              </>
+            )}
+
+            <TouchableOpacity style={styles.modalBtn} onPress={() => setModalVisible(null)}>
+              <Text style={styles.modalBtnText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
 
+
+
 const styles = StyleSheet.create({
   container: { marginBottom: 16 },
   titulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 12 },
-
-  // Preview (HomeScreen — sin fullscreen)
+  // Preview
   previewWrapper: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#334155', backgroundColor: '#0F172A', position: 'relative', height: 180 },
   previewOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center', paddingBottom: 12, backgroundColor: 'rgba(13,27,42,0.5)' },
   previewBtn: { backgroundColor: '#EA580C', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20 },
   previewBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
-
-  // Fullscreen modal (preview → modal)
+  // Fullscreen modal
   fullscreenContainer: { flex: 1, backgroundColor: '#0F172A' },
   fullscreenHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 52, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#1E293B' },
   fullscreenTitulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC', flex: 1 },
+  mapaScrollWrapper: { flex: 1, position: 'relative', overflow: 'hidden' },
   cerrarBtn: { backgroundColor: '#1E293B', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   cerrarBtnText: { color: '#94A3B8', fontWeight: 'bold', fontSize: 16 },
-
-  // Mapa fijo arriba — misma altura en todos los modos
-  mapaFijoWrapper: { height: 260, position: 'relative', overflow: 'hidden', borderBottomWidth: 1, borderBottomColor: '#1E293B' },
-
-  scrollHint: { textAlign: 'center', color: '#64748B', fontSize: 11, marginTop: 8, marginBottom: 8, fontStyle: 'italic' },
-
-  // Leyenda checkpoints
-  leyendaScroll: { maxHeight: 72, paddingHorizontal: 16, marginBottom: 4 },
+  // Mapa wrapper (modo fullscreen/DetalleScreen)
+  mapaWrapper: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#334155', backgroundColor: '#0F172A', position: 'relative' },
+  scrollHint: { textAlign: 'center', color: '#64748B', fontSize: 11, marginTop: 8, marginBottom: 12, fontStyle: 'italic' },
+  leyendaScroll: { marginBottom: 8, paddingHorizontal: 16, maxHeight: 80 },
   leyendaItem: { flexDirection: 'row', backgroundColor: '#1E293B', borderRadius: 12, padding: 10, marginRight: 8, alignItems: 'center', borderWidth: 1, borderColor: '#334155', minWidth: 120, maxWidth: 160, height: 56 },
-  leyendaItemActivo: { borderColor: '#3a5a7a', backgroundColor: '#0F172A' },
-  leyendaItemSeleccionado: { borderColor: '#FFFFFF', backgroundColor: '#1a1000', borderWidth: 2 },
+  leyendaItemActivo: { borderColor: '#EA580C', backgroundColor: '#0F172A' },
   leyendaEmoji: { fontSize: 16, marginRight: 8 },
   leyendaTextos: { justifyContent: 'center', flex: 1 },
   leyendaNombre: { fontSize: 11, color: '#64748B', fontWeight: 'bold' },
   leyendaNombreActivo: { color: '#F8FAFC' },
   leyendaKm: { fontSize: 10, color: '#94A3B8', marginTop: 2 },
-
-  // Historia inline
-  historiaContainer: { backgroundColor: '#1E293B', borderRadius: 16, marginHorizontal: 16, marginTop: 4, marginBottom: 8, padding: 16, borderWidth: 1, borderColor: '#334155', maxHeight: 280 },
-  historiaHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  historiaEmoji: { fontSize: 28, marginRight: 12 },
-  historiaTituloWrap: { flex: 1 },
-  historiaNombre: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 2 },
-  historiaKm: { fontSize: 12, color: '#94A3B8' },
-  historiaCerrarBtn: { padding: 4 },
-  historiaCerrarText: { color: '#64748B', fontSize: 16, fontWeight: 'bold' },
-  historiaScroll: { maxHeight: 180 },
-  historiaDesc: { fontSize: 14, color: '#E2E8F0', lineHeight: 22, marginBottom: 12 },
-  historiaPlaceholder: { marginHorizontal: 16, marginTop: 4, marginBottom: 8, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#1E293B', borderStyle: 'dashed', alignItems: 'center' },
-  historiaPlaceholderText: { color: '#475569', fontSize: 13, textAlign: 'center', fontStyle: 'italic' },
-
-  // Mensajes especiales y datos raros
-  mensajeEspecialBox: { backgroundColor: '#0F172A', borderRadius: 12, padding: 12, marginBottom: 12 },
-  mensajeEspecial: { fontSize: 13, color: '#EA580C', textAlign: 'center', fontWeight: 'bold', lineHeight: 20 },
-  datoRaroBox: { backgroundColor: '#0F172A', borderRadius: 10, padding: 12, marginTop: 8, borderLeftWidth: 3, borderLeftColor: '#3B82F6' },
-  datoRaroTexto: { fontSize: 12, color: '#3B82F6', fontStyle: 'italic', lineHeight: 18 },
-  pistaBox: { backgroundColor: '#0F172A', borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#334155' },
-  pistaTexto: { fontSize: 13, color: '#CBD5E1', fontStyle: 'italic', lineHeight: 20 },
-  desbloqueoBox: { backgroundColor: '#0F172A', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#EA580C' },
-  desbloqueoTexto: { fontSize: 12, color: '#EA580C', textAlign: 'center', fontWeight: 'bold' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalCard: { backgroundColor: '#1E293B', borderRadius: 24, padding: 28, alignItems: 'center', width: '100%', borderColor: '#334155', borderWidth: 1 },
+  modalCardInicio: { borderColor: '#3B82F6' },
+  modalCardFin: { borderColor: '#EA580C' },
+  modalCardBloqueado: { borderColor: '#334155' },
+  modalEmoji: { fontSize: 48, marginBottom: 12 },
+  modalNombre: { fontSize: 24, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 4 },
+  modalKm: { fontSize: 14, color: '#94A3B8', marginBottom: 20 },
+  mensajeEspecialBox: { backgroundColor: '#0F172A', borderRadius: 12, padding: 14, marginBottom: 16, width: '100%' },
+  mensajeEspecial: { fontSize: 14, color: '#EA580C', textAlign: 'center', fontWeight: 'bold', lineHeight: 22 },
+  modalDesc: { fontSize: 14, color: '#E2E8F0', textAlign: 'center', lineHeight: 24, marginBottom: 16 },
+  datoRaroBox: { backgroundColor: '#0F172A', borderRadius: 10, padding: 12, marginBottom: 20, width: '100%', borderLeftWidth: 3, borderLeftColor: '#3B82F6' },
+  datoRaroTexto: { fontSize: 13, color: '#3B82F6', textAlign: 'center', fontStyle: 'italic' },
+  pistaBox: { backgroundColor: '#0F172A', borderRadius: 12, padding: 14, marginBottom: 16, width: '100%', borderWidth: 1, borderColor: '#334155' },
+  pistaTexto: { fontSize: 14, color: '#CBD5E1', textAlign: 'center', fontStyle: 'italic', lineHeight: 22 },
+  difuminadoWrapper: { width: '100%', marginBottom: 16, overflow: 'hidden', borderRadius: 10, maxHeight: 40 },
+  difuminadoTexto: { fontSize: 13, color: '#475569', textAlign: 'center', lineHeight: 22, opacity: 0.3 },
+  difuminadoOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: '#1E293B', opacity: 0.85 },
+  desbloqueoBox: { backgroundColor: '#0F172A', borderRadius: 12, padding: 14, marginBottom: 20, width: '100%', borderWidth: 1, borderColor: '#EA580C' },
+  desbloqueoTexto: { fontSize: 13, color: '#EA580C', textAlign: 'center', fontWeight: 'bold' },
+  modalBtn: { backgroundColor: '#EA580C', paddingVertical: 14, paddingHorizontal: 36, borderRadius: 12, width: '100%', alignItems: 'center' },
+  modalBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
 });
