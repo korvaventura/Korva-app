@@ -40,13 +40,8 @@ export default function CatalogoScreen() {
       const activos = await res.json();
       setChallenges(Array.isArray(activos) ? activos : []);
 
-      const { data: bloqueados } = await supabase
-        .from('challenges')
-        .select('*')
-        .eq('is_active', false)
-        .order('created_at', { ascending: true });
-
-      setChallengesBloqueados(bloqueados || []);
+      // Bloqueados ocultos — no mostrar próximamente hasta lanzamiento oficial
+      setChallengesBloqueados([]);
     } catch (error) {
       console.error('Error:', error);
     } finally {
