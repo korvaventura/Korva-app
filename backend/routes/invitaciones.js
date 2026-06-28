@@ -1,5 +1,8 @@
 const express = require('express');
 const router = express.Router();
+
+// Parsear body de forms HTML (application/x-www-form-urlencoded)
+router.use(express.urlencoded({ extended: true }));
 const { createClient } = require('@supabase/supabase-js');
 const { enviarEmailInscripcionConBib, enviarEmailInscripcion } = require('../routes/emails');
 const { generarBibYPostal, asignarBibNumber } = require('../generador_bib');
