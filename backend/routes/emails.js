@@ -231,35 +231,32 @@ const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad,
         `, '#FC4C02')}
 
         ${card(`
-          <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 14px;">CÓMO REGISTRAR TUS KM</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 8px 0;"><strong style="color: #FFFFFF;">1.</strong> &nbsp;Ingresá a la plataforma desde tu celular o computadora:</p>
-          <div style="margin: 10px 0 16px;">
-            <a href="https://korva-aventuras.netlify.app/" style="display: inline-block; background: #FC4C02; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none;">🌐 Abrir plataforma web</a>
+          <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 14px;">CÓMO EMPEZAR</p>
+
+          <p style="color: #FFFFFF; font-size: 14px; font-weight: bold; margin: 0 0 6px;">📱 ¿Tenés Android?</p>
+          <div style="margin: 8px 0 16px;">
+            <a href="https://play.google.com/store/apps/details?id=com.korva.mobile" style="display: inline-block; background: #FC4C02; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none;">Descargar app Korva en Google Play →</a>
           </div>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 8px 0;"><strong style="color: #FFFFFF;">2.</strong> &nbsp;Iniciá sesión con <strong style="color: #FFFFFF;">${email}</strong></p>
-          <div style="background: #2a1a0a; border-radius: 10px; padding: 12px 14px; margin: 8px 0; border-left: 3px solid #FC4C02;">
+
+          <p style="color: #FFFFFF; font-size: 14px; font-weight: bold; margin: 16px 0 6px;">🍎 ¿Tenés iPhone?</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 6px; line-height: 1.6;">Por ahora la app está disponible solo para Android. Podés usar la versión web desde tu celular — funciona igual de bien.</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 0; line-height: 1.6;">📖 En nuestras historias destacadas de Instagram (<a href="https://instagram.com/korva.aventuras" style="color: #1E6FD9;">@korva.aventuras</a>) hay un tutorial rápido de cómo dejar la app web en la pantalla de inicio de tu iPhone.</p>
+
+          <div style="background: #2a1a0a; border-radius: 10px; padding: 12px 14px; margin: 16px 0 8px; border-left: 3px solid #FC4C02;">
             <p style="color: #FC4C02; font-size: 12px; font-weight: bold; margin: 0 0 4px;">⚠️ Importante</p>
-            <p style="color: #A8CFFF; font-size: 12px; margin: 0; line-height: 1.6;">Usá exactamente este email al registrarte. Si usás otro, tu desafío no va a aparecer. ¿Te equivocaste? Escribinos y lo resolvemos.</p>
+            <p style="color: #A8CFFF; font-size: 12px; margin: 0; line-height: 1.6;">Al registrarte en la app usá exactamente este email: <strong style="color: #FFFFFF;">${email}</strong> — así tu desafío aparece automáticamente.</p>
           </div>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 8px 0;"><strong style="color: #FFFFFF;">3.</strong> &nbsp;Cada vez que salgas a correr, caminar o andar en bici, registrá tus km — se van acumulando hasta completar el reto</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 8px 0;"><strong style="color: #FFFFFF;">4.</strong> &nbsp;Podés subir una foto como evidencia si querés — no es obligatorio pero suma</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 8px 0;"><strong style="color: #FFFFFF;">5.</strong> &nbsp;Seguí tu progreso y el ranking en tiempo real</p>
-          <p style="color: #4a6a8a; font-size: 12px; margin: 12px 0 0;">💡 Para guardar la web en tu celular como si fuera una app: en Instagram buscá @korva.aventuras → historias destacadas → "Registro kms".</p>
         `, '#1E6FD9')}
 
         ${card(`
-          <p style="color: #4a6a8a; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 10px;">SOBRE EL DESAFÍO</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">✅ &nbsp;Podés completarlo a tu ritmo — no hay límite de tiempo</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">✅ &nbsp;Podés sumar km corriendo, caminando o en bicicleta — todo cuenta</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">✅ &nbsp;Cargá tu dirección de envío en el Perfil para recibir tu medalla cuando completes el 100%</p>
+          <p style="color: #4a6a8a; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 10px;">CÓMO FUNCIONA</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">🏃 &nbsp;Con la primera carga de km empezás a acumular historial — cada vez que entres y registres se va sumando</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">📈 &nbsp;Seguí tu progreso en tiempo real hasta completar el reto</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">📦 &nbsp;Al completar el 100%, el sistema te va a pedir que cargues tu dirección de envío — asegurate de tenerla lista</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">🏅 &nbsp;Tu medalla sale en camino automáticamente</p>
         `, '#2a4a6a')}
 
-        ${card(`
-          <p style="color: #4a6a8a; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 10px;">APP MÓVIL — PRÓXIMAMENTE</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 0; line-height: 1.8;">📱 La app nativa para Android e iOS estará disponible próximamente en Google Play y App Store. Por ahora usá la plataforma web.</p>
-        `, '#1E3A5F')}
-
-        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6; margin-top: 24px;">¿Tenés dudas? Escribinos por Instagram <a href="https://instagram.com/korva.aventuras" style="color: #1E6FD9;">@korva.aventuras</a> o al email <a href="mailto:korvaventura@gmail.com" style="color: #1E6FD9;">korvaventura@gmail.com</a></p>
+        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6; margin-top: 24px;">¿Tenés dudas? Escribinos por Instagram <a href="https://instagram.com/korva.aventuras" style="color: #1E6FD9;">@korva.aventuras</a>, al email <a href="mailto:korvaventura@gmail.com" style="color: #1E6FD9;">korvaventura@gmail.com</a> o por WhatsApp al <strong style="color: #FFFFFF;">+61474024238</strong></p>
         <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 16px;">El equipo Korva 🏅</p>
       `),
       attachments: [
