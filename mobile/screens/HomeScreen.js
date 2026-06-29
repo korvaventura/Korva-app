@@ -67,6 +67,7 @@ export default function HomeScreen({ navigation }) {
   const [modalAyudaVisible, setModalAyudaVisible] = useState(false);
   const [faqAbierta, setFaqAbierta] = useState(null);
   const [retoActivoIndex, setRetoActivoIndex] = useState(0);
+  const [modalModalidadVisible, setModalModalidadVisible] = useState(false);
   const viewShotRefs = useRef([]);
 
   useEffect(() => {
@@ -397,7 +398,7 @@ export default function HomeScreen({ navigation }) {
       {stravaConectado && !cargando && !stravaBannerCerrado && (
         <View style={styles.stravaActivoCard}>
           <TouchableOpacity style={styles.stravaActivoRow} onPress={() => setModalStravaVisible(true)}>
-            <Text style={styles.stravaActivoEmoji}>🟠</Text>
+            <Text style={styles.stravaActivoEmoji}>🟢</Text>
             <View style={styles.stravaActivoInfo}>
               <Text style={styles.stravaActivoTitulo}>Strava activo</Text>
               <Text style={styles.stravaActivoDesc}>Tus actividades se sincronizan automáticamente · Tocá para ver cómo</Text>
@@ -432,7 +433,16 @@ export default function HomeScreen({ navigation }) {
             <View key={`pending-${index}`} style={styles.pendingCard}>
               <Text style={styles.pendingEmoji}>⏳</Text>
               <View style={styles.pendingInfo}>
-                <Text style={styles.pendingTitulo}>{item.challenge}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Text style={[styles.pendingTitulo, { flex: 1 }]}>{item.challenge}</Text>
+                  <TouchableOpacity
+                    onPress={() => cancelarPending(item.challenge_id)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    style={{ backgroundColor: '#2a1a1a', borderRadius: 8, padding: 6, marginLeft: 8 }}
+                  >
+                    <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 12 }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
                 <Text style={styles.pendingModalidad}>{item.modalidad}</Text>
                 <Text style={styles.pendingTexto}>Esperando confirmación de pago. Si ya pagaste, puede demorar unos minutos.</Text>
                 {item.link_shopify && (
@@ -498,6 +508,7 @@ export default function HomeScreen({ navigation }) {
                 saltarMeta={saltarMeta}
                 compartirProgreso={compartirProgreso}
                 viewShotRefs={viewShotRefs}
+                onModalidadPress={() => setModalModalidadVisible(true)}
               />
             </>
           )}
@@ -510,13 +521,41 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       )}
 
+      {/* Modal info modalidad */}
+      <Modal visible={modalModalidadVisible} transparent animationType="fade" onRequestClose={() => setModalModalidadVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalEmoji}>🏃</Text>
+            <Text style={styles.modalTitulo}>Tu modalidad activa</Text>
+            <Text style={styles.modalSubtitulo}>Así funciona el sistema de modalidades en Korva:</Text>
+            <View style={styles.modalPaso}>
+              <Text style={styles.modalPasoEmoji}>✅</Text>
+              <View style={styles.modalPasoInfo}>
+                <Text style={styles.modalPasoTitulo}>Todo suma hacia tu meta</Text>
+                <Text style={styles.modalPasoDesc}>Dentro de tu modalidad podés registrar cualquier actividad — correr, caminar o andar en bici. Todo se acumula hacia tu distancia total.</Text>
+              </View>
+            </View>
+            <View style={styles.modalPaso}>
+              <Text style={styles.modalPasoEmoji}>🔄</Text>
+              <View style={styles.modalPasoInfo}>
+                <Text style={styles.modalPasoTitulo}>¿Querés cambiar de modalidad?</Text>
+                <Text style={styles.modalPasoDesc}>Podés cambiar entre Running y Ciclismo desde la pestaña Perfil → Mis retos activos.</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.modalBtn} onPress={() => setModalModalidadVisible(false)}>
+              <Text style={styles.modalBtnText}>Entendido 👍</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <StatusBar style="light" />
     </ScrollView>
   );
 }
 
 // ─── Componente reto individual ──────────────────────────────────
-function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs }) {
+function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress }) {
   if (!item) return null;
   const pct = Math.min(parseFloat(item.porcentaje), 100);
   const estaCompletado = pct >= 100;
@@ -538,7 +577,9 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
           {/* FIX: header rediseñado — sin colores que parezcan botones */}
           <View style={styles.shareHeader}>
             <Text style={styles.shareKorvaLogo}>🏅 KORVA</Text>
-            <Text style={styles.shareDeporte}>{modalidadLabel}</Text>
+            <TouchableOpacity onPress={onModalidadPress}>
+              <Text style={[styles.shareDeporte, { opacity: 1, color: '#FC4C02' }]}>{modalidadLabel} ℹ️</Text>
+            </TouchableOpacity>
           </View>
           <View style={styles.sharePctWrapper}>
             <Text style={styles.sharePctNumero}>{pct.toFixed(0)}</Text>
