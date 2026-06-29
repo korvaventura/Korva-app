@@ -619,7 +619,10 @@ export default function PerfilScreen() {
             <Text style={styles.nivelEmoji}>{nivel.emoji}</Text>
             <View style={styles.nivelInfo}>
               <Text style={styles.nivelNombre}>{nivel.nombre}</Text>
-              {nivel.siguiente ? <Text style={styles.nivelSiguiente}>Proximo nivel: {nivel.siguiente} retos completados</Text> : <Text style={styles.nivelSiguiente}>Nivel maximo alcanzado 🔥</Text>}
+              {nivel.siguiente 
+                ? <Text style={styles.nivelSiguiente}>Completá {nivel.faltanParaSiguiente === 1 ? '1 desafío más' : `${nivel.faltanParaSiguiente} desafíos más`} para subir de nivel</Text>
+                : <Text style={styles.nivelSiguiente}>Nivel máximo alcanzado — sos una leyenda 🐐</Text>
+              }
             </View>
           </View>
         </View>
