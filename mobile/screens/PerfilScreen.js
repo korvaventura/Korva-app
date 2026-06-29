@@ -194,6 +194,14 @@ export default function PerfilScreen() {
     } finally { setCambiandoModalidad(false); }
   };
 
+  const aplicarMascaraFecha = (texto) => {
+    // Solo números
+    const numeros = texto.replace(/\D/g, '');
+    if (numeros.length <= 2) return numeros;
+    if (numeros.length <= 4) return `${numeros.slice(0,2)}/${numeros.slice(2)}`;
+    return `${numeros.slice(0,2)}/${numeros.slice(2,4)}/${numeros.slice(4,8)}`;
+  };
+
   const guardarMeta = async (inscripcion) => {
     const cId = inscripcion.challenge_id;
     const input = inputMeta[cId] || '';
@@ -205,9 +213,7 @@ export default function PerfilScreen() {
     }
     const partes = input.split('/');
     if (partes.length !== 3) { Alert.alert('Formato inválido', 'Usá DD/MM/AAAA'); return; }
-    const [dia, mes, anio] = partes.map(Number);
-    // FIX timezone: construir fecha local para evitar que UTC reste un día
-    const fecha = new Date(anio, mes - 1, dia, 12, 0, 0);
+    const fecha = new Date(`${partes[2]}-${partes[1]}-${partes[0]}`);
     if (isNaN(fecha.getTime())) { Alert.alert('Fecha inválida'); return; }
     if (fecha <= new Date()) { Alert.alert('La fecha debe ser futura'); return; }
     setGuardandoMeta(prev => ({ ...prev, [cId]: true }));
@@ -334,27 +340,6 @@ export default function PerfilScreen() {
       await cargarPerfil();
       setModalStravaVisible(true);
     }
-  };
-
-  const desconectarStrava = async () => {
-    Alert.alert(
-      'Desconectar Strava',
-      '¿Estás seguro? Tus actividades ya registradas no se van a borrar, pero las nuevas no se sincronizarán automáticamente.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Desconectar', style: 'destructive',
-          onPress: async () => {
-            try {
-              await fetch(`${BACKEND_URL}/strava/desconectar/${userId}`, { method: 'POST' });
-              await cargarPerfil();
-            } catch (e) {
-              Alert.alert('Error', 'No se pudo desconectar Strava.');
-            }
-          }
-        }
-      ]
-    );
   };
 
   const cerrarSesion = async () => { await supabase.auth.signOut(); };
@@ -573,11 +558,7 @@ export default function PerfilScreen() {
                     <View style={styles.metaHeader}>
                       <Text style={styles.metaTitulo}>🎯 Meta personal</Text>
                       <TouchableOpacity onPress={() => {
-                        setInputMeta(prev => {
-                        const d = mFecha ? new Date(mFecha) : null;
-                        const formatted = d ? `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` : '';
-                        return { ...prev, [cId]: formatted };
-                      });
+                        setInputMeta(prev => ({ ...prev, [cId]: mFecha ? new Date(mFecha).toLocaleDateString('es-AR') : '' }));
                         setEditandoMeta(prev => ({ ...prev, [cId]: !prev[cId] }));
                       }}>
                         <Text style={styles.metaEditarBtn}>{editandoMeta[cId] ? 'Cancelar' : mFecha ? 'Editar' : '+ Agregar'}</Text>
@@ -588,10 +569,11 @@ export default function PerfilScreen() {
                         <TextInput
                           style={styles.metaInput}
                           value={inputMeta[cId] || ''}
-                          onChangeText={v => setInputMeta(prev => ({ ...prev, [cId]: v }))}
+                          onChangeText={v => setInputMeta(prev => ({ ...prev, [cId]: aplicarMascaraFecha(v) }))}
                           placeholder="DD/MM/AAAA"
                           placeholderTextColor="#4a6a8a"
-                          keyboardType="default"
+                          keyboardType="numeric"
+                          maxLength={10}
                         />
                         <TouchableOpacity style={styles.metaGuardarBtn} onPress={() => guardarMeta(inscripcion)} disabled={guardandoMeta[cId]}>
                           {guardandoMeta[cId] ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.metaGuardarBtnText}>Guardar</Text>}
@@ -637,10 +619,7 @@ export default function PerfilScreen() {
             <Text style={styles.nivelEmoji}>{nivel.emoji}</Text>
             <View style={styles.nivelInfo}>
               <Text style={styles.nivelNombre}>{nivel.nombre}</Text>
-              {nivel.siguiente 
-                ? <Text style={styles.nivelSiguiente}>Completá {nivel.faltanParaSiguiente === 1 ? '1 desafío más' : `${nivel.faltanParaSiguiente} desafíos más`} para subir de nivel</Text>
-                : <Text style={styles.nivelSiguiente}>Nivel máximo alcanzado — sos una leyenda 🐐</Text>
-              }
+              {nivel.siguiente ? <Text style={styles.nivelSiguiente}>Proximo nivel: {nivel.siguiente} retos completados</Text> : <Text style={styles.nivelSiguiente}>Nivel maximo alcanzado 🔥</Text>}
             </View>
           </View>
         </View>
@@ -823,13 +802,12 @@ export default function PerfilScreen() {
                 <Text style={styles.stravaConectadoText}>✅ Strava conectado</Text>
                 <Text style={styles.stravaConectadoDesc}>Tus actividades se sincronizan automáticamente</Text>
               </View>
-
+              <TouchableOpacity onPress={conectarStravaReal}>
+                <Text style={styles.stravaReconectarText}>Reconectar</Text>
+              </TouchableOpacity>
             </View>
             <TouchableOpacity style={styles.stravaInstructivoBtn} onPress={() => setModalStravaVisible(true)}>
               <Text style={styles.stravaInstructivoBtnText}>📖 ¿Cómo funciona la sincronización?</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={desconectarStrava} style={{ alignItems: 'center', paddingVertical: 8 }}>
-              <Text style={{ color: '#2a4a6a', fontSize: 11 }}>Desconectar Strava</Text>
             </TouchableOpacity>
           </>
         ) : stravaHabilitado ? (

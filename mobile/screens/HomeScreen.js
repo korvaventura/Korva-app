@@ -12,6 +12,13 @@ import MapaRecorrido from './MapaRecorrido';
 import { Ionicons } from '@expo/vector-icons';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
+
+const aplicarMascaraFecha = (texto) => {
+  const numeros = texto.replace(/[^0-9]/g, '');
+  if (numeros.length <= 2) return numeros;
+  if (numeros.length <= 4) return `${numeros.slice(0,2)}/${numeros.slice(2)}`;
+  return `${numeros.slice(0,2)}/${numeros.slice(2,4)}/${numeros.slice(4,8)}`;
+};
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 const PASOS = [
@@ -154,23 +161,7 @@ export default function HomeScreen({ navigation }) {
 
   const cerrarBanner = () => {
     setBannerVisible(false);
-    setBannerCerrado(true);
-  };
-
-  const cancelarPending = async (challengeId) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.id) return;
-      await supabase
-        .from('user_challenges')
-        .delete()
-        .eq('user_id', session.user.id)
-        .eq('challenge_id', challengeId)
-        .eq('status', 'pending');
-      await cargarProgreso();
-    } catch (e) {
-      console.error('Error cancelando pending:', e);
-    }
+    setBannerCerrado(true); // FIX: marcar como cerrado para que no vuelva
   };
 
   const saltarMeta = async (challengeId) => {
@@ -183,9 +174,7 @@ export default function HomeScreen({ navigation }) {
     if (!input) { saltarMeta(item.challenge_id); return; }
     const partes = input.split('/');
     if (partes.length !== 3) { Alert.alert('Formato inválido', 'Usá DD/MM/AAAA'); return; }
-    const [dia, mes, anio] = partes.map(Number);
-    // FIX timezone: construir fecha local para evitar que UTC reste un día
-    const fecha = new Date(anio, mes - 1, dia, 12, 0, 0);
+    const fecha = new Date(`${partes[2]}-${partes[1]}-${partes[0]}`);
     if (isNaN(fecha.getTime())) { Alert.alert('Fecha inválida'); return; }
     if (fecha <= new Date()) { Alert.alert('La fecha debe ser futura'); return; }
     setGuardandoMeta(prev => ({ ...prev, [item.challenge_id]: true }));
@@ -271,12 +260,8 @@ export default function HomeScreen({ navigation }) {
           <View style={[styles.modalCard, { maxHeight: '85%' }]}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <Text style={styles.modalTitulo}>❓ Ayuda</Text>
-              <TouchableOpacity 
-                onPress={() => setModalAyudaVisible(false)}
-                hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-                style={{ backgroundColor: '#2a3a4a', borderRadius: 18, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
-              >
-                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' }}>✕</Text>
+              <TouchableOpacity onPress={() => setModalAyudaVisible(false)}>
+                <Text style={{ color: '#4a6a8a', fontSize: 18, fontWeight: 'bold' }}>✕</Text>
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -412,7 +397,7 @@ export default function HomeScreen({ navigation }) {
       {stravaConectado && !cargando && !stravaBannerCerrado && (
         <View style={styles.stravaActivoCard}>
           <TouchableOpacity style={styles.stravaActivoRow} onPress={() => setModalStravaVisible(true)}>
-            <Text style={styles.stravaActivoEmoji}>🟢</Text>
+            <Text style={styles.stravaActivoEmoji}>🟠</Text>
             <View style={styles.stravaActivoInfo}>
               <Text style={styles.stravaActivoTitulo}>Strava activo</Text>
               <Text style={styles.stravaActivoDesc}>Tus actividades se sincronizan automáticamente · Tocá para ver cómo</Text>
@@ -447,16 +432,7 @@ export default function HomeScreen({ navigation }) {
             <View key={`pending-${index}`} style={styles.pendingCard}>
               <Text style={styles.pendingEmoji}>⏳</Text>
               <View style={styles.pendingInfo}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Text style={[styles.pendingTitulo, { flex: 1 }]}>{item.challenge}</Text>
-                  <TouchableOpacity
-                    onPress={() => cancelarPending(item.challenge_id)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    style={{ backgroundColor: '#2a1a1a', borderRadius: 8, padding: 6, marginLeft: 8 }}
-                  >
-                    <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 12 }}>✕</Text>
-                  </TouchableOpacity>
-                </View>
+                <Text style={styles.pendingTitulo}>{item.challenge}</Text>
                 <Text style={styles.pendingModalidad}>{item.modalidad}</Text>
                 <Text style={styles.pendingTexto}>Esperando confirmación de pago. Si ya pagaste, puede demorar unos minutos.</Text>
                 {item.link_shopify && (
@@ -603,10 +579,11 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
             <TextInput
               style={styles.metaInput}
               value={metaInputs[item.challenge_id] || ''}
-              onChangeText={v => setMetaInputs(prev => ({ ...prev, [item.challenge_id]: v }))}
+              onChangeText={v => setMetaInputs(prev => ({ ...prev, [item.challenge_id]: aplicarMascaraFecha(v) }))}
               placeholder="DD/MM/AAAA"
               placeholderTextColor="#4a6a8a"
-              keyboardType="default"
+              keyboardType="numeric"
+              maxLength={10}
             />
             <TouchableOpacity
               style={styles.metaGuardarBtn}
