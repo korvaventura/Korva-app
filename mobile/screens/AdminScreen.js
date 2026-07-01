@@ -57,6 +57,21 @@ export default function AdminScreen() {
   const [trackingGrupo, setTrackingGrupo] = useState({});
   const [enviandoGrupo, setEnviandoGrupo] = useState(null);
   const [grupoExpandido, setGrupoExpandido] = useState(null);
+  const [registroGrupos, setRegistroGrupos] = useState([]);
+  const [cargandoRegistro, setCargandoRegistro] = useState(false);
+
+  const cargarRegistroGrupos = async () => {
+    setCargandoRegistro(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/admin/registro-grupos`);
+      const data = await res.json();
+      setRegistroGrupos(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error('Error cargando registro grupos:', e);
+    } finally {
+      setCargandoRegistro(false);
+    }
+  };
 
   const cargarPedidosGrupales = async () => {
     setCargandoGrupos(true);
@@ -114,6 +129,9 @@ export default function AdminScreen() {
     }
     if (vista === 'grupos') {
       cargarPedidosGrupales();
+    }
+    if (vista === 'registro_grupos') {
+      cargarRegistroGrupos();
     }
   }, [vista]);
 
@@ -443,6 +461,7 @@ export default function AdminScreen() {
     { id: 'editar',    emoji: '✏️', label: 'Editar retos' },
     { id: 'mapa',      emoji: '🗺️', label: 'Editar mapas' },
     { id: 'crear',     emoji: '➕', label: 'Nuevo reto' },
+    { id: 'registro_grupos', emoji: '📋', label: 'Registro grupos' },
   ];
   const pendientes = challenges.filter(c => c.status === 'completed');
   const enviados = challenges.filter(c => c.status === 'shipped');
@@ -1042,6 +1061,85 @@ export default function AdminScreen() {
                 </TouchableOpacity>
               </View>
             ))
+          )}
+        </View>
+      )}
+
+      {vista === 'registro_grupos' && (
+        <View>
+          {cargandoRegistro ? (
+            <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
+          ) : registroGrupos.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyEmoji}>📋</Text>
+              <Text style={styles.emptyText}>Sin grupos registrados</Text>
+              <TouchableOpacity style={[styles.editarBtn, { marginTop: 16 }]} onPress={cargarRegistroGrupos}>
+                <Text style={styles.editarBtnText}>↻ Actualizar</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <View style={styles.resumenRow}>
+                <View style={[styles.resumenCard, { borderColor: '#1E6FD9' }]}>
+                  <Text style={[styles.resumenNumero, { color: '#1E6FD9' }]}>{registroGrupos.length}</Text>
+                  <Text style={styles.resumenLabel}>Grupos</Text>
+                </View>
+                <View style={[styles.resumenCard, { borderColor: '#FC4C02' }]}>
+                  <Text style={[styles.resumenNumero, { color: '#FC4C02' }]}>{registroGrupos.reduce((s, g) => s + g.total_miembros, 0)}</Text>
+                  <Text style={styles.resumenLabel}>Inscriptos</Text>
+                </View>
+                <View style={[styles.resumenCard, { borderColor: '#4CAF50' }]}>
+                  <Text style={[styles.resumenNumero, { color: '#4CAF50' }]}>{registroGrupos.reduce((s, g) => s + g.completados, 0)}</Text>
+                  <Text style={styles.resumenLabel}>Completados</Text>
+                </View>
+              </View>
+              <TouchableOpacity style={[styles.editarBtn, { marginBottom: 16 }]} onPress={cargarRegistroGrupos}>
+                <Text style={styles.editarBtnText}>↻ Actualizar</Text>
+              </TouchableOpacity>
+              {registroGrupos.map((grupo, i) => (
+                <View key={i} style={styles.card}>
+                  <TouchableOpacity onPress={() => setGrupoExpandido(grupoExpandido === `reg_${grupo.group_id}` ? null : `reg_${grupo.group_id}`)}>
+                    <View style={styles.cardHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.deporte}>👑 COMPRADOR</Text>
+                        <Text style={styles.nombre}>{grupo.comprador}</Text>
+                        <Text style={styles.email}>{grupo.email}</Text>
+                        <Text style={styles.challenge}>{grupo.total_miembros} persona{grupo.total_miembros !== 1 ? 's' : ''} · {grupo.completados} completado{grupo.completados !== 1 ? 's' : ''}</Text>
+                      </View>
+                      <Text style={{ color: '#4a6a8a', fontSize: 18 }}>{grupoExpandido === `reg_${grupo.group_id}` ? '▲' : '▼'}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  {grupoExpandido === `reg_${grupo.group_id}` && (
+                    <View style={styles.sinDireccionBox}>
+                      {grupo.miembros.map((m, j) => (
+                        <View key={j} style={{ paddingVertical: 8, borderBottomWidth: j < grupo.miembros.length - 1 ? 1 : 0, borderBottomColor: '#1E3A5F' }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' }}>
+                                {m.es_comprador ? '👑 ' : '🎟️ '}{m.usuario || 'Sin nombre'}
+                                {m.es_comprador ? ' (comprador)' : ''}
+                              </Text>
+                              <Text style={{ color: '#A8CFFF', fontSize: 12, marginTop: 2 }}>{m.email}</Text>
+                              <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 2 }}>
+                                {m.modalidad === 'run' ? '🏃' : '🚴'} {m.challenge} · {parseFloat(m.km_completados || 0).toFixed(1)} km
+                              </Text>
+                            </View>
+                            <View style={{ alignItems: 'flex-end' }}>
+                              <Text style={{ 
+                                color: m.status === 'shipped' ? '#4CAF50' : m.status === 'completed' ? '#FC4C02' : '#4a6a8a',
+                                fontWeight: 'bold', fontSize: 11
+                              }}>
+                                {m.status === 'shipped' ? '✅ enviado' : m.status === 'completed' ? '🏅 completado' : '⏳ activo'}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ))}
+            </>
           )}
         </View>
       )}
