@@ -253,8 +253,15 @@ export default function HomeScreen({ navigation }) {
   const challengesPending = challenges.filter(c => c.pending);
   const challengesActivos = challenges.filter(c => !c.pending);
 
+  const scrollRef = useRef(null);
+
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+    <ScrollView
+      ref={scrollRef}
+      style={styles.scroll}
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+    >
 
       {/* Modal FAQ / Ayuda */}
       <Modal visible={modalAyudaVisible} transparent animationType="slide" onRequestClose={() => setModalAyudaVisible(false)}>
@@ -300,20 +307,20 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalEmoji}>🔗</Text>
-            <Text style={styles.modalTitulo}>Strava — Próximamente</Text>
-            <Text style={styles.modalSubtitulo}>La sincronización automática con Strava estará disponible en los próximos días.</Text>
+            <Text style={styles.modalTitulo}>Strava — En proceso</Text>
+            <Text style={styles.modalSubtitulo}>Ya solicitamos ampliar el acceso a Strava. Mientras tanto podés seguir sumando km normalmente.</Text>
             <View style={styles.modalPaso}>
-              <Text style={styles.modalPasoEmoji}>📝</Text>
+              <Text style={styles.modalPasoEmoji}>⚙️</Text>
               <View style={styles.modalPasoInfo}>
-                <Text style={styles.modalPasoTitulo}>Por ahora usá el registro manual</Text>
-                <Text style={styles.modalPasoDesc}>Desde la pestaña "Registrar" podés cargar tus km en segundos. Es igual de fácil y tus km se suman igual.</Text>
+                <Text style={styles.modalPasoTitulo}>Límite temporal de Strava</Text>
+                <Text style={styles.modalPasoDesc}>Strava limita la cantidad de usuarios por app en fase de revisión. Ya solicitamos ampliar el cupo — es un trámite de Strava, no un problema de Korva.</Text>
               </View>
             </View>
             <View style={styles.modalPaso}>
-              <Text style={styles.modalPasoEmoji}>📲</Text>
+              <Text style={styles.modalPasoEmoji}>📝</Text>
               <View style={styles.modalPasoInfo}>
-                <Text style={styles.modalPasoTitulo}>Te avisamos cuando esté listo</Text>
-                <Text style={styles.modalPasoDesc}>Cuando la integración esté disponible para vos, vas a ver el botón activo acá.</Text>
+                <Text style={styles.modalPasoTitulo}>Registrá tus km manualmente mientras tanto</Text>
+                <Text style={styles.modalPasoDesc}>Desde la pestaña "Registrar" cargás tus km en segundos. Tus medallas y logros se acumulan igual.</Text>
               </View>
             </View>
             <TouchableOpacity style={styles.modalBtn} onPress={() => setModalStravaProximamente(false)}>
@@ -510,6 +517,7 @@ export default function HomeScreen({ navigation }) {
                 compartirProgreso={compartirProgreso}
                 viewShotRefs={viewShotRefs}
                 onModalidadPress={() => setModalModalidadVisible(true)}
+                scrollRef={scrollRef}
               />
             </>
           )}
@@ -556,7 +564,7 @@ export default function HomeScreen({ navigation }) {
 }
 
 // ─── Componente reto individual ──────────────────────────────────
-function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress }) {
+function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress, scrollRef }) {
   if (!item) return null;
   const pct = Math.min(parseFloat(item.porcentaje), 100);
   const estaCompletado = pct >= 100;
@@ -614,36 +622,39 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
       />
 
       {mostrarCardMeta && (
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <View style={styles.metaCard}>
-            <Text style={styles.metaCardTitulo}>🎯 ¿Cuándo querés terminar?</Text>
-            <Text style={styles.metaCardSubtitulo}>Opcional — te ayuda a planificar tu entrenamiento</Text>
-            <View style={styles.metaInputRow}>
-              <TextInput
-                style={styles.metaInput}
-                value={metaInputs[item.challenge_id] || ''}
-                onChangeText={v => setMetaInputs(prev => ({ ...prev, [item.challenge_id]: aplicarMascaraFecha(v) }))}
-                placeholder="DD/MM/AAAA"
-                placeholderTextColor="#4a6a8a"
-                keyboardType="numeric"
-                maxLength={10}
-              />
-              <TouchableOpacity
-                style={styles.metaGuardarBtn}
-                onPress={() => guardarMeta(item)}
-                disabled={guardandoMeta[item.challenge_id]}
-              >
-                {guardandoMeta[item.challenge_id]
-                  ? <ActivityIndicator color="#FFFFFF" size="small" />
-                  : <Text style={styles.metaGuardarBtnText}>Guardar</Text>
-                }
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity onPress={() => saltarMeta(item.challenge_id)} style={styles.metaSaltarBtn}>
-              <Text style={styles.metaSaltarText}>Saltar por ahora</Text>
+        <View style={styles.metaCard}>
+          <Text style={styles.metaCardTitulo}>🎯 ¿Cuándo querés terminar?</Text>
+          <Text style={styles.metaCardSubtitulo}>Opcional — te ayuda a planificar tu entrenamiento</Text>
+          <View style={styles.metaInputRow}>
+            <TextInput
+              style={styles.metaInput}
+              value={metaInputs[item.challenge_id] || ''}
+              onChangeText={v => setMetaInputs(prev => ({ ...prev, [item.challenge_id]: aplicarMascaraFecha(v) }))}
+              placeholder="DD/MM/AAAA"
+              placeholderTextColor="#4a6a8a"
+              keyboardType="number-pad"
+              maxLength={10}
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollRef?.current?.scrollToEnd({ animated: true });
+                }, 300);
+              }}
+            />
+            <TouchableOpacity
+              style={styles.metaGuardarBtn}
+              onPress={() => guardarMeta(item)}
+              disabled={guardandoMeta[item.challenge_id]}
+            >
+              {guardandoMeta[item.challenge_id]
+                ? <ActivityIndicator color="#FFFFFF" size="small" />
+                : <Text style={styles.metaGuardarBtnText}>Guardar</Text>
+              }
             </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
+          <TouchableOpacity onPress={() => saltarMeta(item.challenge_id)} style={styles.metaSaltarBtn}>
+            <Text style={styles.metaSaltarText}>Saltar por ahora</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       <TouchableOpacity style={styles.detalleBtn} onPress={() => navigation.navigate('DetalleReto', { item, userId })}>
