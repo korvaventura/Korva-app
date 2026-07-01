@@ -213,7 +213,8 @@ export default function PerfilScreen() {
     }
     const partes = input.split('/');
     if (partes.length !== 3) { Alert.alert('Formato inválido', 'Usá DD/MM/AAAA'); return; }
-    const fecha = new Date(`${partes[2]}-${partes[1]}-${partes[0]}`);
+    const [dia, mes, anio] = partes.map(Number);
+    const fecha = new Date(anio, mes - 1, dia, 12, 0, 0);
     if (isNaN(fecha.getTime())) { Alert.alert('Fecha inválida'); return; }
     if (fecha <= new Date()) { Alert.alert('La fecha debe ser futura'); return; }
     setGuardandoMeta(prev => ({ ...prev, [cId]: true }));
@@ -368,20 +369,20 @@ export default function PerfilScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalEmoji}>🔗</Text>
-            <Text style={styles.modalTitulo}>Strava — Próximamente</Text>
-            <Text style={styles.modalSubtitulo}>La sincronización automática con Strava estará disponible en los próximos días.</Text>
+            <Text style={styles.modalTitulo}>Strava — En proceso</Text>
+            <Text style={styles.modalSubtitulo}>Ya solicitamos ampliar el acceso a Strava. Mientras tanto podés seguir sumando km normalmente.</Text>
             <View style={styles.modalPaso}>
-              <Text style={styles.modalPasoEmoji}>📝</Text>
+              <Text style={styles.modalPasoEmoji}>⚙️</Text>
               <View style={styles.modalPasoInfo}>
-                <Text style={styles.modalPasoTitulo}>Por ahora usá el registro manual</Text>
-                <Text style={styles.modalPasoDesc}>Desde la pestaña "Registrar" podés cargar tus km en segundos. Es igual de fácil y tus km se suman igual.</Text>
+                <Text style={styles.modalPasoTitulo}>Límite temporal de Strava</Text>
+                <Text style={styles.modalPasoDesc}>Strava limita la cantidad de usuarios por app en fase de revisión. Ya solicitamos ampliar el cupo — es un trámite de Strava, no un problema de Korva.</Text>
               </View>
             </View>
             <View style={styles.modalPaso}>
-              <Text style={styles.modalPasoEmoji}>📲</Text>
+              <Text style={styles.modalPasoEmoji}>📝</Text>
               <View style={styles.modalPasoInfo}>
-                <Text style={styles.modalPasoTitulo}>Te avisamos cuando esté listo</Text>
-                <Text style={styles.modalPasoDesc}>Cuando la integración esté disponible para vos, vas a ver el botón activo acá.</Text>
+                <Text style={styles.modalPasoTitulo}>Registrá tus km manualmente mientras tanto</Text>
+                <Text style={styles.modalPasoDesc}>Desde la pestaña "Registrar" cargás tus km en segundos. Tus medallas y logros se acumulan igual.</Text>
               </View>
             </View>
             <TouchableOpacity style={styles.modalBtn} onPress={() => setModalStravaProximamente(false)}>
@@ -819,8 +820,8 @@ export default function PerfilScreen() {
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={styles.stravaProximoCard} onPress={() => setModalStravaProximamente(true)}>
-            <Text style={styles.stravaProximoTitulo}>🔗 Strava — Próximamente</Text>
-            <Text style={styles.stravaProximoDesc}>La sincronización automática estará disponible pronto. Por ahora registrá tus km manualmente. Tocá para más info.</Text>
+            <Text style={styles.stravaProximoTitulo}>🔗 Strava — En proceso</Text>
+            <Text style={styles.stravaProximoDesc}>Ya solicitamos ampliar el cupo a Strava. Por ahora registrá tus km manualmente. Tocá para más info.</Text>
           </TouchableOpacity>
         )}
       </View>
