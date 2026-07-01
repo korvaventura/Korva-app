@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking, TextInput, Alert, Modal, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking, TextInput, Alert, Modal, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -175,7 +175,8 @@ export default function HomeScreen({ navigation }) {
     if (!input) { saltarMeta(item.challenge_id); return; }
     const partes = input.split('/');
     if (partes.length !== 3) { Alert.alert('Formato inválido', 'Usá DD/MM/AAAA'); return; }
-    const fecha = new Date(`${partes[2]}-${partes[1]}-${partes[0]}`);
+    const [dia, mes, anio] = partes.map(Number);
+    const fecha = new Date(anio, mes - 1, dia, 12, 0, 0);
     if (isNaN(fecha.getTime())) { Alert.alert('Fecha inválida'); return; }
     if (fecha <= new Date()) { Alert.alert('La fecha debe ser futura'); return; }
     setGuardandoMeta(prev => ({ ...prev, [item.challenge_id]: true }));
@@ -578,7 +579,7 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
           <View style={styles.shareHeader}>
             <Text style={styles.shareKorvaLogo}>🏅 KORVA</Text>
             <TouchableOpacity onPress={onModalidadPress}>
-              <Text style={[styles.shareDeporte, { opacity: 1, color: '#FC4C02' }]}>{modalidadLabel} ℹ️</Text>
+              <Text style={[styles.shareDeporte, { opacity: 1, color: '#1E6FD9' }]}>{modalidadLabel} ℹ️</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.sharePctWrapper}>
@@ -613,34 +614,36 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
       />
 
       {mostrarCardMeta && (
-        <View style={styles.metaCard}>
-          <Text style={styles.metaCardTitulo}>🎯 ¿Cuándo querés terminar?</Text>
-          <Text style={styles.metaCardSubtitulo}>Opcional — te ayuda a planificar tu entrenamiento</Text>
-          <View style={styles.metaInputRow}>
-            <TextInput
-              style={styles.metaInput}
-              value={metaInputs[item.challenge_id] || ''}
-              onChangeText={v => setMetaInputs(prev => ({ ...prev, [item.challenge_id]: aplicarMascaraFecha(v) }))}
-              placeholder="DD/MM/AAAA"
-              placeholderTextColor="#4a6a8a"
-              keyboardType="numeric"
-              maxLength={10}
-            />
-            <TouchableOpacity
-              style={styles.metaGuardarBtn}
-              onPress={() => guardarMeta(item)}
-              disabled={guardandoMeta[item.challenge_id]}
-            >
-              {guardandoMeta[item.challenge_id]
-                ? <ActivityIndicator color="#FFFFFF" size="small" />
-                : <Text style={styles.metaGuardarBtnText}>Guardar</Text>
-              }
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={styles.metaCard}>
+            <Text style={styles.metaCardTitulo}>🎯 ¿Cuándo querés terminar?</Text>
+            <Text style={styles.metaCardSubtitulo}>Opcional — te ayuda a planificar tu entrenamiento</Text>
+            <View style={styles.metaInputRow}>
+              <TextInput
+                style={styles.metaInput}
+                value={metaInputs[item.challenge_id] || ''}
+                onChangeText={v => setMetaInputs(prev => ({ ...prev, [item.challenge_id]: aplicarMascaraFecha(v) }))}
+                placeholder="DD/MM/AAAA"
+                placeholderTextColor="#4a6a8a"
+                keyboardType="numeric"
+                maxLength={10}
+              />
+              <TouchableOpacity
+                style={styles.metaGuardarBtn}
+                onPress={() => guardarMeta(item)}
+                disabled={guardandoMeta[item.challenge_id]}
+              >
+                {guardandoMeta[item.challenge_id]
+                  ? <ActivityIndicator color="#FFFFFF" size="small" />
+                  : <Text style={styles.metaGuardarBtnText}>Guardar</Text>
+                }
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity onPress={() => saltarMeta(item.challenge_id)} style={styles.metaSaltarBtn}>
+              <Text style={styles.metaSaltarText}>Saltar por ahora</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={() => saltarMeta(item.challenge_id)} style={styles.metaSaltarBtn}>
-            <Text style={styles.metaSaltarText}>Saltar por ahora</Text>
-          </TouchableOpacity>
-        </View>
+        </KeyboardAvoidingView>
       )}
 
       <TouchableOpacity style={styles.detalleBtn} onPress={() => navigation.navigate('DetalleReto', { item, userId })}>
