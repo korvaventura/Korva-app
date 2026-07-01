@@ -960,6 +960,59 @@ app.get('/admin/challenges-activos', async (req, res) => {
   }
 });
 
+// Registro completo de grupos — todos los grupos sin filtrar por status
+app.get('/admin/registro-grupos', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_challenges')
+      .select('id, user_id, challenge_id, group_id, modalidad, km_completed, status, completed_at, started_at')
+      .not('group_id', 'is', null)
+      .order('started_at', { ascending: false });
+
+    if (error) throw error;
+
+    const usuarios = await getUsersByIds(data.map(u => u.user_id));
+    const challenges = await getChallengesByIds(data.map(u => u.challenge_id));
+
+    const grupos = {};
+    for (const uc of data) {
+      const gid = uc.group_id;
+      if (!grupos[gid]) grupos[gid] = [];
+      grupos[gid].push(uc);
+    }
+
+    const resultado = [];
+    for (const [groupId, miembros] of Object.entries(grupos)) {
+      const comprador = miembros.find(m => m.user_id === groupId) || miembros[0];
+      const compradorUsuario = usuarios[comprador.user_id];
+      const completados = miembros.filter(m => m.status === 'completed' || m.status === 'shipped').length;
+
+      resultado.push({
+        group_id: groupId,
+        comprador: compradorUsuario?.name,
+        email: compradorUsuario?.email,
+        fecha_compra: comprador.started_at,
+        total_miembros: miembros.length,
+        completados,
+        miembros: miembros.map(m => ({
+          id: m.id,
+          usuario: usuarios[m.user_id]?.name,
+          email: usuarios[m.user_id]?.email,
+          challenge: challenges[m.challenge_id]?.title,
+          modalidad: m.modalidad,
+          km_completados: m.km_completed,
+          status: m.status,
+          es_comprador: m.user_id === groupId,
+        })),
+      });
+    }
+
+    res.json(resultado);
+  } catch (error) {
+    res.json({ error: 'Error', detalle: error.message });
+  }
+});
+
 app.get('/admin/pedidos-grupales', async (req, res) => {
   try {
     const { data, error } = await supabase
