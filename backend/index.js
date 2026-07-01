@@ -1098,33 +1098,47 @@ app.post('/usuarios/perfil', async (req, res) => {
 
     if (existentePorEmail) {
       const idViejo = existentePorEmail.id;
+      console.log('Fusionando usuario:', emailNormalizado, idViejo, '->', user_id);
 
-      await supabase.from('user_challenges').update({ user_id }).eq('user_id', idViejo);
-      await supabase.from('user_challenges').update({ group_id: user_id }).eq('group_id', idViejo);
-      await supabase.from('activities').update({ user_id }).eq('user_id', idViejo);
+      try {
+        await supabase.from('invitations').update({ created_by: user_id }).eq('created_by', idViejo);
+        await supabase.from('user_challenges').update({ user_id }).eq('user_id', idViejo);
+        await supabase.from('user_challenges').update({ group_id: user_id }).eq('group_id', idViejo);
+        await supabase.from('activities').update({ user_id }).eq('user_id', idViejo);
 
-      const { data: datosViejos } = await supabase
-        .from('users')
-        .select('bib_number, shipping_address, strava_token, strava_refresh_token, strava_token_expires_at, strava_athlete_id, strava_habilitado, avatar_url')
-        .eq('id', idViejo)
-        .single();
+        const { data: datosViejos } = await supabase
+          .from('users')
+          .select('bib_number, shipping_address, strava_token, strava_refresh_token, strava_token_expires_at, strava_athlete_id, strava_habilitado, avatar_url')
+          .eq('id', idViejo)
+          .single();
 
-      await supabase.from('users').delete().eq('id', idViejo);
+        await supabase.from('users').delete().eq('id', idViejo);
 
-      const { data, error } = await supabase
-        .from('users')
-        .upsert({
-          id: user_id,
-          email: emailNormalizado,
-          name: name || email.split('@')[0],
-          ...datosViejos,
-        }, { onConflict: 'id' })
-        .select()
-        .single();
+        const { data, error } = await supabase
+          .from('users')
+          .upsert({
+            id: user_id,
+            email: emailNormalizado,
+            name: name || email.split('@')[0],
+            ...datosViejos,
+          }, { onConflict: 'id' })
+          .select()
+          .single();
 
-      if (error) throw error;
-      console.log('Usuario fusionado al registrarse en la app:', emailNormalizado, idViejo, '->', user_id);
-      return res.json({ mensaje: 'Perfil fusionado con compra existente', usuario: data });
+        if (error) throw error;
+        console.log('Usuario fusionado OK:', emailNormalizado, idViejo, '->', user_id);
+        return res.json({ mensaje: 'Perfil fusionado con compra existente', usuario: data });
+      } catch (fusionError) {
+        console.error('Error en fusion automatica:', fusionError.message, emailNormalizado);
+        // Si falla la fusión, al menos crear el usuario nuevo
+        const { data, error } = await supabase
+          .from('users')
+          .upsert({ id: user_id, email: emailNormalizado, name: name || email.split('@')[0] }, { onConflict: 'id' })
+          .select()
+          .single();
+        if (error) throw error;
+        return res.json({ mensaje: 'Perfil creado (fusion pendiente manual)', usuario: data });
+      }
     }
 
     const { data, error } = await supabase
