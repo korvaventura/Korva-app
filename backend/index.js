@@ -6,7 +6,7 @@ const stravaRoutes = require('./routes/strava');
 const shopifyRoutes = require('./routes/shopify');
 const mercadopagoRoutes = require('./routes/mercadopago');
 const invitacionesRoutes = require('./routes/invitaciones');
-const { enviarEmailInscripcion, enviarEmailMedallaEnCamino, enviarEmailCompletado } = require('./routes/emails');
+const { enviarEmailInscripcion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdminMedallaLista } = require('./routes/emails');
 const { enviarNotificacionProgreso } = require('./routes/notificaciones');
 const { generarCertificado } = require('./generador_bib');
 
@@ -39,15 +39,10 @@ app.get('/strava-cupo', async (req, res) => {
 
 app.use(cors());
 
-// IMPORTANTE: las rutas de Shopify se montan ANTES de express.json() global.
-// El webhook de Shopify necesita el body crudo (Buffer) para verificar la firma HMAC —
-// si express.json() global lo parsea primero, la verificación de firma explota
-// y el webhook nunca puede procesar ninguna compra.
 app.use('/shopify', shopifyRoutes);
 
-app.use(express.json({ limit: '10mb' })); // aumentar límite para imágenes base64
+app.use(express.json({ limit: '10mb' }));
 
-// ─── ENDPOINT DE PRUEBA DE BIB (sacar después) ──────────────────
 app.get('/test/bib/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
@@ -87,6 +82,7 @@ app.post('/upload', async (req, res) => {
     res.status(500).json({ error: 'Error subiendo imagen', detalle: error.message });
   }
 });
+
 app.use('/strava', stravaRoutes);
 app.use('/mercadopago', mercadopagoRoutes);
 app.use('/invitaciones', invitacionesRoutes);
@@ -171,7 +167,6 @@ const verificarYEnviarNotificacionRacha = async (userId) => {
 
 const recalcularKmUsuario = async (user_id, challenge_id = null) => {
   try {
-    // Buscar retos active Y completed (no shipped — esos ya fueron enviados)
     let query = supabase
       .from('user_challenges')
       .select('id, started_at, challenge_id, status, modalidad, challenges(title, modalidades, total_distance_km)')
@@ -191,13 +186,11 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
 
       const totalKm = todasActividades?.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
 
-      // Calcular distancia total según la modalidad elegida por el usuario (no siempre la [0])
       const modalidades = reto.challenges?.modalidades || [];
       const modalidadElegida = modalidades.find(m => m.tipo === reto.modalidad) || modalidades[0];
       const distanciaTotal = modalidadElegida?.distancia_km || reto.challenges?.total_distance_km || 100;
       const porcentaje = (totalKm / distanciaTotal) * 100;
 
-      // Revertir a active si los km bajaron de 100%
       const yaEstabaCompletado = reto.status === 'completed';
       const nuevoStatus = porcentaje >= 100 ? 'completed' : 'active';
       const seCompletaAhora = nuevoStatus === 'completed' && !yaEstabaCompletado;
@@ -207,17 +200,14 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
         .update({
           km_completed: totalKm,
           status: nuevoStatus,
-          // Si revierte a active, limpiar completed_at
           completed_at: nuevoStatus === 'active' ? null : (seCompletaAhora ? new Date().toISOString() : undefined),
         })
         .eq('id', reto.id);
 
-      // Primera vez que completa este challenge: generar certificado y avisar por email
       if (seCompletaAhora) {
         await enviarCertificadoFinisher(user_id, reto, distanciaTotal);
       }
 
-      // Notificación para cargar dirección cuando llega al 75%
       if (porcentaje >= 75 && !yaEstabaCompletado) {
         const { data: usuario } = await supabase
           .from('users')
@@ -242,12 +232,12 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
   try {
     const { data: usuario } = await supabase
       .from('users')
-      .select('email, name, bib_number')
+      .select('email, name, bib_number, shipping_address')
       .eq('id', user_id)
       .single();
     if (!usuario) return;
 
-    // Generar número de serie único para este certificado
+    // Número de serie
     let numeroSerie = 'KORVA-' + new Date().getFullYear() + '-0000';
     try {
       const { data: serie, error: errorSerie } = await supabase.rpc('get_next_certificado_serial');
@@ -269,10 +259,77 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
       numeroSerie
     );
 
-    // Guardar el número de serie en el reto, para tener trazabilidad
     await supabase.from('user_challenges').update({ certificado_serial: numeroSerie }).eq('id', reto.id);
 
-    await enviarEmailCompletado(usuario.email, usuario.name, tituloChallenge, certificadoPdf);
+    // Determinar contexto: individual, comprador grupal o invitado grupal
+    const { data: ucCompleto } = await supabase
+      .from('user_challenges')
+      .select('group_id')
+      .eq('id', reto.id)
+      .maybeSingle();
+
+    const groupId = ucCompleto?.group_id;
+    const esGrupo = !!groupId;
+    const esComprador = esGrupo && (groupId === user_id);
+    const tieneDir = !!usuario.shipping_address;
+
+    if (esGrupo && !esComprador) {
+      // Invitado: email simple, sin aviso a Korva
+      const { data: comprador } = await supabase
+        .from('users').select('name').eq('id', groupId).maybeSingle();
+      await enviarEmailCompletado(usuario.email, usuario.name, tituloChallenge, certificadoPdf, {
+        tieneDir, esGrupo: true, esComprador: false, nombreComprador: comprador?.name || '',
+      });
+      return;
+    }
+
+    // Individual o comprador grupal — armar lista de miembros si es grupo
+    let miembros = [];
+    if (esGrupo) {
+      const { data: miembrosUC } = await supabase
+        .from('user_challenges')
+        .select('user_id, status, km_completed')
+        .eq('group_id', groupId)
+        .eq('challenge_id', reto.challenge_id);
+
+      const userIds = (miembrosUC || []).map(m => m.user_id);
+      const { data: usuariosMiembros } = userIds.length > 0
+        ? await supabase.from('users').select('id, name, email').in('id', userIds)
+        : { data: [] };
+
+      miembros = (miembrosUC || []).map(m => {
+        const u = (usuariosMiembros || []).find(u => u.id === m.user_id);
+        return {
+          nombre: u?.name,
+          email: u?.email,
+          status: m.status,
+          km: m.km_completed,
+          esComprador: m.user_id === groupId,
+        };
+      });
+
+      // Si ya hay otro miembro del grupo que completó antes, no mandar email a Korva
+      const otrosCompletados = (miembrosUC || []).filter(m =>
+        m.user_id !== user_id && (m.status === 'completed' || m.status === 'shipped')
+      );
+      if (otrosCompletados.length > 0) {
+        await enviarEmailCompletado(usuario.email, usuario.name, tituloChallenge, certificadoPdf, {
+          tieneDir, esGrupo: true, esComprador: true, miembros,
+        });
+        return;
+      }
+    }
+
+    // Email al usuario (individual o primer completado del grupo)
+    await enviarEmailCompletado(usuario.email, usuario.name, tituloChallenge, certificadoPdf, {
+      tieneDir, esGrupo, esComprador: true, miembros,
+    });
+
+    // Email a Korva
+    await enviarEmailAdminMedallaLista(
+      usuario.name, usuario.email, tituloChallenge, tieneDir, esGrupo, miembros
+    );
+
   } catch (error) {
     console.error('Error enviando certificado finisher:', error.message);
   }
@@ -306,7 +363,6 @@ app.get('/challenges', async (req, res) => {
   }
 });
 
-// Todos los challenges para ranking (incluyendo inactivos)
 app.get('/challenges/todos', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -349,9 +405,6 @@ app.post('/challenges/inscribir', async (req, res) => {
       .single();
 
     if (error) throw error;
-
-    const { data: challenge } = await supabase.from('challenges').select('title').eq('id', challenge_id).single();
-
     res.json({ mensaje: 'Inscripcion exitosa! Ya podes empezar tu reto', id: data.id });
   } catch (error) {
     res.json({ error: 'Error al inscribirse', detalle: error.message });
@@ -367,7 +420,6 @@ app.get('/perfil/:userId', async (req, res) => {
       return res.status(404).json({ error: 'Usuario no encontrado', detalle: 'Tu sesión puede estar desactualizada. Cerrá sesión y volvé a entrar.' });
     }
 
-    // Fecha de corte: primera inscripción activa/completada — todo lo anterior no cuenta para stats
     const { data: inscripcionesOrdenadas } = await supabase
       .from('user_challenges')
       .select('started_at')
@@ -401,7 +453,7 @@ app.get('/perfil/:userId', async (req, res) => {
 
     const nivel = getNivel(completados);
 
-    const getInsignias = (completados, totalKm, totalActividades, rachaActual, mejorRacha, semanasActivas, totalRun, totalRide, checkpointsDesbloqueados) => {
+    const getInsignias = (completados, totalKm, totalActividades, rachaActual, mejorRacha, semanasActivas, totalRun, totalRide) => {
       const ganadas = [];
       const progreso = {};
 
@@ -546,21 +598,12 @@ app.get('/perfil/:userId', async (req, res) => {
       actividades?.length || 0,
       racha, mejorRacha,
       Object.keys(kmPorSemanaFull).length,
-      deporteCount.run, deporteCount.ride,
-      []
+      deporteCount.run, deporteCount.ride
     );
 
     const mejorSemanaKm = Math.max(...Object.values(kmPorSemanaFull), 0);
     const totalSemanas = Object.keys(kmPorSemanaFull).length || 1;
     const promedioSemanal = (totalKm / totalSemanas).toFixed(1);
-
-    const perfilDeporte = deporteCount.run > 0 && deporteCount.ride > 0
-      ? 'Atleta Multideporte 🌐'
-      : deporteCount.run > deporteCount.ride
-      ? 'Corredor 🏃'
-      : deporteCount.ride > 0
-      ? 'Ciclista 🚴'
-      : 'Explorador 🌱';
 
     res.json({
       usuario,
@@ -573,7 +616,6 @@ app.get('/perfil/:userId', async (req, res) => {
         mejor_racha: mejorRacha,
         mejor_semana_km: mejorSemanaKm.toFixed(1),
         promedio_semanal_km: promedioSemanal,
-        // perfil_deporte removido — redundante con sistema de niveles
         ritmo_run: ritmoRunMin !== null ? `${ritmoRunMin}:${String(ritmoRunSeg).padStart(2, '0')} /km` : null,
         velocidad_ride: velocidadRide !== null ? `${velocidadRide.toFixed(1)} km/h` : null,
       },
@@ -590,7 +632,6 @@ app.post('/actividades/manual', async (req, res) => {
   const { user_id, challenge_id, sport_type, distance_km, recorded_at, evidencia_url, duration_seconds } = req.body;
   const distanciaFloat = parseFloat(distance_km);
 
-  // Rate limiting — máximo 5 registros manuales por día por usuario
   try {
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
@@ -608,12 +649,10 @@ app.post('/actividades/manual', async (req, res) => {
     console.error('Error verificando rate limit:', e);
   }
 
-  // Validar distancia máxima razonable (300km por actividad)
   if (isNaN(distanciaFloat) || distanciaFloat <= 0 || distanciaFloat > 300) {
     return res.status(400).json({ error: 'Distancia inválida. Debe ser entre 0.1 y 300 km.' });
   }
 
-  // Validar que el usuario tenga ese challenge realmente asignado
   const { data: challengeValido } = await supabase
     .from('user_challenges')
     .select('id')
@@ -641,7 +680,6 @@ app.post('/actividades/manual', async (req, res) => {
 
     if (errorActividad) throw errorActividad;
 
-    // Guardar km y status antes de recalcular
     const { data: ucAntes } = await supabase
       .from('user_challenges')
       .select('km_completed, status, challenge_id, challenges(title, modalidades, total_distance_km)')
@@ -651,9 +689,6 @@ app.post('/actividades/manual', async (req, res) => {
 
     const kmAntes = ucAntes?.km_completed || 0;
 
-    // Trampa de días previos: si la actividad cargada es anterior al started_at del reto,
-    // adelantamos el corte automáticamente para que esos km cuenten.
-    // Límite: máximo 30 días hacia atrás desde la fecha de inscripción original.
     if (recorded_at) {
       const { data: ucCorte } = await supabase
         .from('user_challenges')
@@ -678,7 +713,6 @@ app.post('/actividades/manual', async (req, res) => {
     await recalcularKmUsuario(user_id, challenge_id);
     await verificarYEnviarNotificacionRacha(user_id);
 
-    // Notificación inteligente post-registro
     if (ucAntes) {
       const { data: ucDespues } = await supabase
         .from('user_challenges')
@@ -706,8 +740,6 @@ app.post('/actividades/manual', async (req, res) => {
   }
 });
 
-
-// Helper: traer usuarios por IDs (evita join — FK fue removida)
 const getUsersByIds = async (userIds) => {
   if (!userIds || userIds.length === 0) return {};
   const { data } = await supabase.from('users').select('id, name, email, avatar_url, shipping_address, push_token').in('id', [...new Set(userIds)]);
@@ -716,7 +748,6 @@ const getUsersByIds = async (userIds) => {
   return map;
 };
 
-// Helper: traer challenges por IDs
 const getChallengesByIds = async (challengeIds) => {
   if (!challengeIds || challengeIds.length === 0) return {};
   const { data } = await supabase.from('challenges').select('id, title, modalidades, total_distance_km').in('id', [...new Set(challengeIds)]);
@@ -849,9 +880,7 @@ app.get('/admin/export-envios', async (req, res) => {
       const d = grupo.direccion;
       const direccionTexto = d ? `${d.direccion || ''}, ${d.ciudad || ''}, ${d.codigo_postal || ''}, ${d.pais || ''}` : '';
       const { address } = await traducirDireccion(direccionTexto, '');
-
       const totalMedallas = grupo.miembros.filter(m => m.status === 'completed').length;
-
       filas.push({
         Name: grupo.comprador,
         Units: totalMedallas,
@@ -960,7 +989,6 @@ app.get('/admin/challenges-activos', async (req, res) => {
   }
 });
 
-// Registro completo de grupos — todos los grupos sin filtrar por status
 app.get('/admin/registro-grupos', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -1130,7 +1158,6 @@ app.post('/usuarios/perfil', async (req, res) => {
         return res.json({ mensaje: 'Perfil fusionado con compra existente', usuario: data });
       } catch (fusionError) {
         console.error('Error en fusion automatica:', fusionError.message, emailNormalizado);
-        // Si falla la fusión, al menos crear el usuario nuevo
         const { data, error } = await supabase
           .from('users')
           .upsert({ id: user_id, email: emailNormalizado, name: name || email.split('@')[0] }, { onConflict: 'id' })
@@ -1149,7 +1176,6 @@ app.post('/usuarios/perfil', async (req, res) => {
 
     if (error) throw error;
 
-    // Fusionar user_challenges huerfanos creados manualmente con email pero sin usuario real
     const { data: huerfanos } = await supabase
       .from('user_challenges')
       .select('id, user_id')
@@ -1254,7 +1280,6 @@ app.get('/direcciones/detalle/:placeId', async (req, res) => {
 app.get('/ranking/:challengeId', async (req, res) => {
   const { challengeId } = req.params;
   try {
-    // Traer user_challenges sin join — la FK fue removida y Supabase perdio la relacion en cache
     const { data: ucs, error } = await supabase
       .from('user_challenges')
       .select('user_id, km_completed, modalidad, status')
@@ -1264,14 +1289,12 @@ app.get('/ranking/:challengeId', async (req, res) => {
 
     if (error) throw error;
 
-    // Traer el challenge por separado
     const { data: challenge } = await supabase
       .from('challenges')
       .select('modalidades, total_distance_km')
       .eq('id', challengeId)
       .single();
 
-    // Traer usuarios por separado
     const userIds = [...new Set((ucs || []).map(u => u.user_id))];
     const { data: usuarios } = userIds.length > 0
       ? await supabase.from('users').select('id, name, avatar_url').in('id', userIds)
@@ -1364,7 +1387,6 @@ app.get('/actividades/:userId', async (req, res) => {
     }
 
     const { data, error } = await query;
-
     if (error) throw error;
     res.json(data);
   } catch (error) {
@@ -1412,7 +1434,6 @@ app.put('/usuarios/modalidad', async (req, res) => {
     }
 
     await recalcularKmUsuario(user_id, challenge_id);
-
     res.json({ mensaje: 'Modalidad actualizada y kilómetros recalculados', data });
   } catch (error) {
     res.status(500).json({ error: 'Error actualizando modalidad', detalle: error.message });
@@ -1430,9 +1451,7 @@ app.delete('/actividades/:actividadId', async (req, res) => {
       .eq('user_id', user_id);
 
     if (error) throw error;
-
     await recalcularKmUsuario(user_id);
-
     res.json({ mensaje: 'Actividad eliminada y km recalculados' });
   } catch (error) {
     res.json({ error: 'Error eliminando actividad', detalle: error.message });
@@ -1453,8 +1472,6 @@ app.get('/admin/metricas', async (req, res) => {
     const completados = inscripciones?.filter(i => i.status === 'completed').length || 0;
     const enviados = inscripciones?.filter(i => i.status === 'shipped').length || 0;
 
-    // Fecha de corte por usuario: la primera inscripción activa/completada/enviada de cada uno.
-    // Evita que actividades viejas de Strava (previas a usar Korva) inflen los totales.
     const fechaCortePorUsuario = {};
     inscripciones?.forEach(i => {
       if (!['active', 'completed', 'shipped'].includes(i.status)) return;
@@ -1479,7 +1496,6 @@ app.get('/admin/metricas', async (req, res) => {
     const kmManual = actividades?.filter(a => a.source === 'manual').reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
     const totalActividades = actividades?.length || 0;
 
-    // KM reales: suma de km_completed en user_challenges (incluye migrados del sistema viejo)
     const kmReales = inscripciones?.reduce((sum, i) => sum + (parseFloat(i.km_completed) || 0), 0) || 0;
 
     const { count: conStrava } = await supabase
