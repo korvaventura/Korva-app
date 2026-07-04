@@ -64,6 +64,8 @@ export default function HomeScreen({ navigation }) {
   const [stravaHabilitado, setStravaHabilitado] = useState(false);
   const [modalStravaVisible, setModalStravaVisible] = useState(false);
   const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
+  const [modalStravaInfoVisible, setModalStravaInfoVisible] = useState(false);
+  const [bannerStravaVisible, setBannerStravaVisible] = useState(false);
   const [modalAyudaVisible, setModalAyudaVisible] = useState(false);
   const [faqAbierta, setFaqAbierta] = useState(null);
   const [retoActivoIndex, setRetoActivoIndex] = useState(0);
@@ -114,6 +116,30 @@ export default function HomeScreen({ navigation }) {
     });
     return () => subscription.remove();
   }, []);
+
+  useEffect(() => {
+    const checkBannerStrava = async () => {
+      try {
+        const visto = await AsyncStorage.getItem('banner_strava_visto');
+        if (visto) return;
+        const res = await fetch(`${BACKEND_URL}/strava-cupo?userId=${userId}`);
+        const data = await res.json();
+        if (data.disponible) setBannerStravaVisible(true);
+      } catch (e) {}
+    };
+    if (userId) checkBannerStrava();
+  }, [userId]);
+
+  const cerrarBannerStrava = async () => {
+    setBannerStravaVisible(false);
+    await AsyncStorage.setItem('banner_strava_visto', 'true');
+  };
+
+  const abrirTutorialStrava = async () => {
+    setBannerStravaVisible(false);
+    await AsyncStorage.setItem('banner_strava_visto', 'true');
+    setModalStravaInfoVisible(true);
+  };
 
   const verificarStrava = async () => {
     if (!userId) return;
@@ -198,21 +224,27 @@ export default function HomeScreen({ navigation }) {
       setModalStravaVisible(true);
       return;
     }
-    if (stravaHabilitado) {
-      conectarStravaReal();
-      return;
-    }
     try {
-      const res = await fetch(`${BACKEND_URL}/strava-cupo`);
+      const res = await fetch(`${BACKEND_URL}/strava-cupo?userId=${userId}`);
       const data = await res.json();
       if (data.disponible) {
-        conectarStravaReal();
+        setModalStravaInfoVisible(true);
+      } else if (data.motivo === 'sin_reto') {
+        Alert.alert(
+          '🔗 Strava disponible',
+          'La sincronización con Strava está disponible para atletas con un desafío activo. ¡Inscribite en un desafío desde el Catálogo para conectarla! 🏅'
+        );
       } else {
         setModalStravaProximamente(true);
       }
     } catch (e) {
       setModalStravaProximamente(true);
     }
+  };
+
+  const conectarStravaConfirmado = () => {
+    setModalStravaInfoVisible(false);
+    conectarStravaReal();
   };
 
   const conectarStravaReal = async () => {
@@ -262,6 +294,21 @@ export default function HomeScreen({ navigation }) {
       contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
     >
+      {/* Banner Strava — aparece una sola vez para activos sin Strava */}
+      {bannerStravaVisible && !stravaConectado && (
+        <View style={styles.bannerStrava}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bannerStravaTitulo}>🔗 ¡Strava ya está disponible!</Text>
+            <Text style={styles.bannerStravaDesc}>Conectá tu cuenta y cada actividad que registres en Strava se carga automáticamente a tu desafío.</Text>
+            <TouchableOpacity onPress={abrirTutorialStrava}>
+              <Text style={styles.bannerStravaBtn}>Ver cómo conectarla →</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity onPress={cerrarBannerStrava} style={{ padding: 4 }}>
+            <Text style={{ color: '#4a6a8a', fontSize: 18 }}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Modal FAQ / Ayuda */}
       <Modal visible={modalAyudaVisible} transparent animationType="slide" onRequestClose={() => setModalAyudaVisible(false)}>
@@ -303,6 +350,46 @@ export default function HomeScreen({ navigation }) {
       </Modal>
 
       {/* Modal Próximamente Strava */}
+      {/* Modal Strava Info — Qué es Strava y cómo conectarlo */}
+      <Modal visible={modalStravaInfoVisible} transparent animationType="fade" onRequestClose={() => setModalStravaInfoVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalEmoji}>🏃</Text>
+              <Text style={styles.modalTitulo}>Conectá Strava con Korva</Text>
+              <Text style={styles.modalSubtitulo}>Strava es una app gratuita para registrar entrenamientos. Cada actividad que registres en Strava se carga automáticamente a tu desafío Korva.</Text>
+              <View style={styles.modalPaso}>
+                <Text style={styles.modalPasoEmoji}>📱</Text>
+                <View style={styles.modalPasoInfo}>
+                  <Text style={styles.modalPasoTitulo}>¿No tenés Strava?</Text>
+                  <Text style={styles.modalPasoDesc}>Descargala gratis en Google Play o App Store. Registrá tus salidas con el GPS del teléfono y listo.</Text>
+                </View>
+              </View>
+              <View style={styles.modalPaso}>
+                <Text style={styles.modalPasoEmoji}>🔗</Text>
+                <View style={styles.modalPasoInfo}>
+                  <Text style={styles.modalPasoTitulo}>¿Cómo funciona la sincronización?</Text>
+                  <Text style={styles.modalPasoDesc}>Conectás tu cuenta de Strava una sola vez. Cada actividad que hagas en Strava se importa sola a Korva y suma al progreso de tu desafío.</Text>
+                </View>
+              </View>
+              <View style={styles.modalPaso}>
+                <Text style={styles.modalPasoEmoji}>✅</Text>
+                <View style={styles.modalPasoInfo}>
+                  <Text style={styles.modalPasoTitulo}>Solo para atletas activos</Text>
+                  <Text style={styles.modalPasoDesc}>Necesitás tener un desafío activo para conectar Strava — que ya tenés 🎉</Text>
+                </View>
+              </View>
+              <TouchableOpacity style={styles.modalBtn} onPress={conectarStravaConfirmado}>
+                <Text style={styles.modalBtnText}>Conectar Strava 🔗</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ alignItems: 'center', paddingVertical: 12 }} onPress={() => setModalStravaInfoVisible(false)}>
+                <Text style={{ color: '#4a6a8a', fontSize: 14 }}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
       <Modal visible={modalStravaProximamente} transparent animationType="fade" onRequestClose={() => setModalStravaProximamente(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -677,6 +764,34 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 },
   saludo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
   subtitulo: { fontSize: 13, color: '#A8CFFF' },
+  bannerStrava: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#0D2A1A',
+    borderRadius: 14,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FC4C02',
+    padding: 16,
+    marginBottom: 16,
+    gap: 12,
+  },
+  bannerStravaTitulo: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  bannerStravaDesc: {
+    color: '#A8CFFF',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  bannerStravaBtn: {
+    color: '#FC4C02',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
   stravaProximoBtn: { backgroundColor: '#1E3A5F', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2a4a6a' },
   stravaProximoBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
   stravaBtn: { backgroundColor: '#FC4C02', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },

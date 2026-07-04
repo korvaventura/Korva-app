@@ -40,6 +40,7 @@ export default function PerfilScreen() {
   const [guardandoMeta, setGuardandoMeta] = useState({});
   const [modalStravaVisible, setModalStravaVisible] = useState(false);
   const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
+  const [modalStravaInfoVisible, setModalStravaInfoVisible] = useState(false);
   const [modalCambioModalidad, setModalCambioModalidad] = useState(null);
   const [stravaHabilitado, setStravaHabilitado] = useState(false);
   // FIX: referencia incluida en el estado inicial
@@ -312,21 +313,27 @@ export default function PerfilScreen() {
   };
 
   const conectarStrava = async () => {
-    if (stravaHabilitado) {
-      conectarStravaReal();
-      return;
-    }
     try {
-      const res = await fetch(`${BACKEND_URL}/strava-cupo`);
+      const res = await fetch(`${BACKEND_URL}/strava-cupo?userId=${userId}`);
       const data = await res.json();
       if (data.disponible) {
-        conectarStravaReal();
+        setModalStravaInfoVisible(true);
+      } else if (data.motivo === 'sin_reto') {
+        Alert.alert(
+          '🔗 Strava disponible',
+          'La sincronización con Strava está disponible para atletas con un desafío activo. ¡Inscribite en un desafío para conectarla! 🏅'
+        );
       } else {
         setModalStravaProximamente(true);
       }
     } catch (e) {
       setModalStravaProximamente(true);
     }
+  };
+
+  const conectarStravaConfirmado = () => {
+    setModalStravaInfoVisible(false);
+    conectarStravaReal();
   };
 
   const conectarStravaReal = async () => {
@@ -365,6 +372,46 @@ export default function PerfilScreen() {
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
 
       {/* Modal Próximamente Strava */}
+      {/* Modal Strava Info */}
+      <Modal visible={modalStravaInfoVisible} transparent animationType="fade" onRequestClose={() => setModalStravaInfoVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalEmoji}>🏃</Text>
+              <Text style={styles.modalTitulo}>Conectá Strava con Korva</Text>
+              <Text style={styles.modalSubtitulo}>Strava es una app gratuita para registrar entrenamientos. Cada actividad que registres en Strava se carga automáticamente a tu desafío Korva.</Text>
+              <View style={styles.modalPaso}>
+                <Text style={styles.modalPasoEmoji}>📱</Text>
+                <View style={styles.modalPasoInfo}>
+                  <Text style={styles.modalPasoTitulo}>¿No tenés Strava?</Text>
+                  <Text style={styles.modalPasoDesc}>Descargala gratis en Google Play o App Store. Registrá tus salidas con el GPS del teléfono y listo.</Text>
+                </View>
+              </View>
+              <View style={styles.modalPaso}>
+                <Text style={styles.modalPasoEmoji}>🔗</Text>
+                <View style={styles.modalPasoInfo}>
+                  <Text style={styles.modalPasoTitulo}>¿Cómo funciona?</Text>
+                  <Text style={styles.modalPasoDesc}>Conectás tu cuenta de Strava una sola vez. Cada actividad que hagas en Strava se importa sola a Korva y suma al progreso de tu desafío.</Text>
+                </View>
+              </View>
+              <View style={styles.modalPaso}>
+                <Text style={styles.modalPasoEmoji}>✅</Text>
+                <View style={styles.modalPasoInfo}>
+                  <Text style={styles.modalPasoTitulo}>Solo para atletas activos</Text>
+                  <Text style={styles.modalPasoDesc}>Necesitás tener un desafío activo para conectar Strava — que ya tenés 🎉</Text>
+                </View>
+              </View>
+              <TouchableOpacity style={styles.modalBtn} onPress={conectarStravaConfirmado}>
+                <Text style={styles.modalBtnText}>Conectar Strava 🔗</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ alignItems: 'center', paddingVertical: 12 }} onPress={() => setModalStravaInfoVisible(false)}>
+                <Text style={{ color: '#4a6a8a', fontSize: 14 }}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
       <Modal visible={modalStravaProximamente} transparent animationType="fade" onRequestClose={() => setModalStravaProximamente(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>

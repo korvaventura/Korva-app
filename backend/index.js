@@ -22,9 +22,24 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-const CUPO_STRAVA = 10;
+const CUPO_STRAVA = 999;
 app.get('/strava-cupo', async (req, res) => {
+  const { userId } = req.query;
   try {
+    if (userId) {
+      const { data: retoActivo } = await supabase
+        .from('user_challenges')
+        .select('id')
+        .eq('user_id', userId)
+        .in('status', ['active', 'completed', 'shipped'])
+        .limit(1)
+        .maybeSingle();
+
+      if (!retoActivo) {
+        return res.json({ disponible: false, motivo: 'sin_reto', conectados: 0, cupo: CUPO_STRAVA });
+      }
+    }
+
     const { count } = await supabase
       .from('users')
       .select('*', { count: 'exact', head: true })
