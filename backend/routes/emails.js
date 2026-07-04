@@ -65,7 +65,7 @@ const enviarEmailInscripcion = async (email, nombre, challenge, modalidad) => {
       html: wrapper(`
         ${badge('INSCRIPCIÓN CONFIRMADA')}
         <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
-        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tu inscripción al reto <strong style="color: #FFFFFF;">${challenge}</strong> en modalidad <strong style="color: #FC4C02;">${modalidad}</strong> fue confirmada.</p>
+        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tu inscripción al reto <strong style="color: #FFFFFF;">${challenge}</strong> fue confirmada.</p>
 
         ${card(`
           <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">TUS PRÓXIMOS PASOS</p>
@@ -321,7 +321,7 @@ const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad,
       html: wrapper(`
         ${badge('INSCRIPCIÓN CONFIRMADA')}
         <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
-        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tu inscripción al desafío <strong style="color: #FFFFFF;">${challenge}</strong> en modalidad <strong style="color: #FC4C02;">${modalidad}</strong> fue confirmada. Adjunto a este email encontrás tu dorsal y tu postal de bienvenida.</p>
+        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tu inscripción al desafío <strong style="color: #FFFFFF;">${challenge}</strong> fue confirmada. Adjunto encontrás tu dorsal y tu postal de bienvenida.</p>
 
         ${card(`
           <p style="color: #FC4C02; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">TU DORSAL OFICIAL</p>
