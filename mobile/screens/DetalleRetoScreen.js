@@ -92,11 +92,11 @@ export default function DetalleRetoScreen({ route, navigation }) {
     if (isNaN(fecha.getTime())) { Alert.alert('Fecha inválida'); return; }
     if (fecha <= new Date()) { Alert.alert('La fecha debe ser futura'); return; }
 
-    const kmRestantes = parseFloat(item.distancia_total) - parseFloat(item.km_completados);
-    const diasRestantes = diasEntre(new Date(), fecha);
+    const kmRestantes = Math.max(0, parseFloat(item.distancia_total || 0) - parseFloat(item.km_completados || 0));
+    const diasRestantes = Math.max(1, diasEntre(new Date(), fecha));
     const kmPorDia = kmRestantes / diasRestantes;
 
-    if (kmPorDia > limiteDiario) {
+    if (isFinite(kmPorDia) && kmPorDia > limiteDiario) {
       Alert.alert(
         '⚠️ Ritmo elevado',
         `Para llegar a tiempo necesitarías ${kmPorDia.toFixed(1)}km por día.\n\nLas guías de actividad física recomiendan no superar los ${limiteDiario}km diarios para ${modalidad === 'run' ? 'running' : 'ciclismo'} sin entrenamiento previo.\n\n¿Querés guardar igual?`,
@@ -233,7 +233,20 @@ export default function DetalleRetoScreen({ route, navigation }) {
         <View style={styles.metaCard}>
           <View style={styles.metaHeader}>
             <Text style={styles.metaTitulo}>🎯 Tu meta personal</Text>
-            <TouchableOpacity onPress={() => { setInputFecha(metaFecha ? new Date(metaFecha).toLocaleDateString('es-AR') : ''); setEditandoFecha(!editandoFecha); }}>
+            <TouchableOpacity onPress={() => {
+              if (metaFecha) {
+                try {
+                  const d = new Date(metaFecha);
+                  const dia = String(d.getDate()).padStart(2, '0');
+                  const mes = String(d.getMonth() + 1).padStart(2, '0');
+                  const anio = d.getFullYear();
+                  setInputFecha(`${dia}/${mes}/${anio}`);
+                } catch (e) { setInputFecha(''); }
+              } else {
+                setInputFecha('');
+              }
+              setEditandoFecha(!editandoFecha);
+            }}>
               <Text style={styles.metaEditarBtn}>{editandoFecha ? 'Cancelar' : metaFecha ? 'Editar' : '+ Agregar'}</Text>
             </TouchableOpacity>
           </View>
