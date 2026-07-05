@@ -336,6 +336,32 @@ export default function PerfilScreen() {
     conectarStravaReal();
   };
 
+  const desconectarStrava = async () => {
+    Alert.alert(
+      'Desconectar Strava',
+      '¿Seguro que querés desconectar Strava? Tus actividades anteriores quedan guardadas pero no se sincronizarán nuevas.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Desconectar', style: 'destructive', onPress: async () => {
+          try {
+            const { error } = await supabase.from('users').update({
+              strava_token: null,
+              strava_refresh_token: null,
+              strava_athlete_id: null,
+              strava_token_expires_at: null,
+              strava_habilitado: false,
+            }).eq('id', userId);
+            if (error) throw error;
+            setUsuario(prev => ({ ...prev, strava_token: null, strava_habilitado: false }));
+            Alert.alert('✅ Strava desconectada', 'Tu cuenta de Strava fue desvinculada exitosamente.');
+          } catch (e) {
+            Alert.alert('Error', 'No se pudo desconectar. Intentá de nuevo.');
+          }
+        }},
+      ]
+    );
+  };
+
   const conectarStravaReal = async () => {
     const result = await WebBrowser.openAuthSessionAsync(
       `${BACKEND_URL}/strava/auth?userId=${userId}`,
@@ -853,22 +879,22 @@ export default function PerfilScreen() {
                 <Text style={styles.stravaConectadoText}>✅ Strava conectado</Text>
                 <Text style={styles.stravaConectadoDesc}>Tus actividades se sincronizan automáticamente</Text>
               </View>
-              <TouchableOpacity onPress={conectarStravaReal}>
-                <Text style={styles.stravaReconectarText}>Reconectar</Text>
-              </TouchableOpacity>
+              <View style={{ gap: 8, alignItems: 'flex-end' }}>
+                <TouchableOpacity onPress={conectarStravaReal}>
+                  <Text style={styles.stravaReconectarText}>Reconectar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={desconectarStrava}>
+                  <Text style={{ color: '#FF5555', fontSize: 12 }}>Desconectar</Text>
+                </TouchableOpacity>
+              </View>
             </View>
             <TouchableOpacity style={styles.stravaInstructivoBtn} onPress={() => setModalStravaVisible(true)}>
               <Text style={styles.stravaInstructivoBtnText}>📖 ¿Cómo funciona la sincronización?</Text>
             </TouchableOpacity>
           </>
-        ) : stravaHabilitado ? (
+        ) : (
           <TouchableOpacity style={styles.stravaButton} onPress={conectarStrava}>
             <Text style={styles.stravaButtonText}>🔗 Conectar con Strava</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={styles.stravaProximoCard} onPress={() => setModalStravaProximamente(true)}>
-            <Text style={styles.stravaProximoTitulo}>🔗 Strava — En proceso</Text>
-            <Text style={styles.stravaProximoDesc}>Ya solicitamos ampliar el cupo a Strava. Por ahora registrá tus km manualmente. Tocá para más info.</Text>
           </TouchableOpacity>
         )}
       </View>

@@ -673,9 +673,7 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
           {/* FIX: header rediseñado — sin colores que parezcan botones */}
           <View style={styles.shareHeader}>
             <Text style={styles.shareKorvaLogo}>🏅 KORVA</Text>
-            <TouchableOpacity onPress={onModalidadPress}>
-              <Text style={[styles.shareDeporte, { opacity: 1, color: '#1E6FD9' }]}>{modalidadLabel} ℹ️</Text>
-            </TouchableOpacity>
+            <Text style={[styles.shareDeporte, { opacity: 1, color: '#A8CFFF' }]}>{modalidadLabel}</Text>
           </View>
           <View style={styles.sharePctWrapper}>
             <Text style={styles.sharePctNumero}>{pct.toFixed(0)}</Text>
@@ -724,7 +722,7 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
               onFocus={() => {
                 setTimeout(() => {
                   scrollRef?.current?.scrollToEnd({ animated: true });
-                }, 300);
+                }, 500);
               }}
             />
             <TouchableOpacity

@@ -2,6 +2,13 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Alert,
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { Ionicons } from '@expo/vector-icons';
+
+const aplicarMascaraFecha = (texto) => {
+  const numeros = texto.replace(/[^0-9]/g, '');
+  if (numeros.length <= 2) return numeros;
+  if (numeros.length <= 4) return `${numeros.slice(0,2)}/${numeros.slice(2)}`;
+  return `${numeros.slice(0,2)}/${numeros.slice(2,4)}/${numeros.slice(4,8)}`;
+};
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
 const LIMITE_KM_DIA_RUN = 15;
@@ -80,7 +87,8 @@ export default function DetalleRetoScreen({ route, navigation }) {
     }
     const partes = inputFecha.split('/');
     if (partes.length !== 3) { Alert.alert('Formato inválido', 'Usá DD/MM/AAAA'); return; }
-    const fecha = new Date(`${partes[2]}-${partes[1]}-${partes[0]}`);
+    const [dia, mes, anio] = partes.map(Number);
+    const fecha = new Date(anio, mes - 1, dia, 12, 0, 0);
     if (isNaN(fecha.getTime())) { Alert.alert('Fecha inválida'); return; }
     if (fecha <= new Date()) { Alert.alert('La fecha debe ser futura'); return; }
 
@@ -231,19 +239,22 @@ export default function DetalleRetoScreen({ route, navigation }) {
           </View>
 
           {editandoFecha ? (
-            <View style={styles.metaInputRow}>
-              <TextInput
-                style={styles.metaInput}
-                value={inputFecha}
-                onChangeText={setInputFecha}
-                placeholder="DD/MM/AAAA"
-                placeholderTextColor="#4a6a8a"
-                keyboardType="numeric"
-              />
-              <TouchableOpacity style={styles.metaGuardarBtn} onPress={guardarMeta}>
-                <Text style={styles.metaGuardarBtnText}>Guardar</Text>
-              </TouchableOpacity>
-            </View>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+              <View style={styles.metaInputRow}>
+                <TextInput
+                  style={styles.metaInput}
+                  value={inputFecha}
+                  onChangeText={v => setInputFecha(aplicarMascaraFecha(v))}
+                  placeholder="DD/MM/AAAA"
+                  placeholderTextColor="#4a6a8a"
+                  keyboardType="number-pad"
+                  maxLength={10}
+                />
+                <TouchableOpacity style={styles.metaGuardarBtn} onPress={guardarMeta}>
+                  <Text style={styles.metaGuardarBtnText}>Guardar</Text>
+                </TouchableOpacity>
+              </View>
+            </KeyboardAvoidingView>
           ) : metaFecha ? (
             <>
               <Text style={styles.metaFecha}>📅 {formatearFecha(metaFecha)}</Text>
