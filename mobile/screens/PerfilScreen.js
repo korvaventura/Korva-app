@@ -289,9 +289,13 @@ export default function PerfilScreen() {
   };
 
   const guardarDireccion = async () => {
-    const { nombre, direccion, ciudad, pais } = formDireccion;
+    const { nombre, direccion, ciudad, pais, telefono } = formDireccion;
     if (!nombre || !direccion || !ciudad || !pais) {
       Alert.alert('Faltan datos', 'Por favor completá nombre, dirección, ciudad y país.');
+      return;
+    }
+    if (!telefono || telefono.trim().length < 7) {
+      Alert.alert('Teléfono requerido', 'Ingresá tu número de celular con código de país (ej: +54 11 1234 5678). Lo necesitamos para coordinar el envío de tu medalla.');
       return;
     }
     setGuardando(true);
@@ -832,8 +836,9 @@ export default function PerfilScreen() {
             <TextInput style={styles.input} value={formDireccion.codigo_postal} onChangeText={v => setFormDireccion(p => ({ ...p, codigo_postal: v }))} placeholder="1425" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
             <Text style={styles.formLabel}>País *</Text>
             <TextInput style={styles.input} value={formDireccion.pais} onChangeText={v => setFormDireccion(p => ({ ...p, pais: v }))} placeholder="Argentina" placeholderTextColor="#4a6a8a" />
-            <Text style={styles.formLabel}>Teléfono (con código de país)</Text>
+            <Text style={styles.formLabel}>Teléfono * (con código de país)</Text>
             <TextInput style={styles.input} value={formDireccion.telefono} onChangeText={v => setFormDireccion(p => ({ ...p, telefono: v }))} placeholder="+54 11 1234 5678" placeholderTextColor="#4a6a8a" keyboardType="phone-pad" />
+            <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: -8, marginBottom: 8 }}>Lo necesitamos para coordinar el envío con el correo</Text>
 
             <View style={styles.formBotones}>
               <TouchableOpacity style={styles.cancelarBtn} onPress={() => setEditandoDireccion(false)} disabled={guardando}>
