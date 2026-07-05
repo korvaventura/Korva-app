@@ -673,7 +673,9 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
           {/* FIX: header rediseñado — sin colores que parezcan botones */}
           <View style={styles.shareHeader}>
             <Text style={styles.shareKorvaLogo}>🏅 KORVA</Text>
-            <Text style={[styles.shareDeporte, { opacity: 1, color: '#A8CFFF' }]}>{modalidadLabel}</Text>
+            <TouchableOpacity onPress={onModalidadPress}>
+              <Text style={[styles.shareDeporte, { opacity: 1, color: '#1E6FD9' }]}>{modalidadLabel}</Text>
+            </TouchableOpacity>
           </View>
           <View style={styles.sharePctWrapper}>
             <Text style={styles.sharePctNumero}>{pct.toFixed(0)}</Text>
