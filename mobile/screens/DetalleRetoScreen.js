@@ -40,8 +40,8 @@ export default function DetalleRetoScreen({ route, navigation }) {
   const [actividades, setActividades] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [metaFecha, setMetaFecha] = useState('');
-  const [editandoFecha, setEditandoFecha] = useState(false);
-  const [inputFecha, setInputFecha] = useState('');
+
+
 
   const pct = Math.min(parseFloat(item.porcentaje), 100);
   const estaCompletado = pct >= 100;
@@ -233,42 +233,12 @@ export default function DetalleRetoScreen({ route, navigation }) {
         <View style={styles.metaCard}>
           <View style={styles.metaHeader}>
             <Text style={styles.metaTitulo}>🎯 Tu meta personal</Text>
-            <TouchableOpacity onPress={() => {
-              if (metaFecha) {
-                try {
-                  const d = new Date(metaFecha);
-                  const dia = String(d.getDate()).padStart(2, '0');
-                  const mes = String(d.getMonth() + 1).padStart(2, '0');
-                  const anio = d.getFullYear();
-                  setInputFecha(`${dia}/${mes}/${anio}`);
-                } catch (e) { setInputFecha(''); }
-              } else {
-                setInputFecha('');
-              }
-              setEditandoFecha(!editandoFecha);
-            }}>
-              <Text style={styles.metaEditarBtn}>{editandoFecha ? 'Cancelar' : metaFecha ? 'Editar' : '+ Agregar'}</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Perfil')}>
+              <Text style={styles.metaEditarBtn}>{metaFecha ? 'Editar ✏️' : '+ Agregar'}</Text>
             </TouchableOpacity>
           </View>
 
-          {editandoFecha ? (
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-              <View style={styles.metaInputRow}>
-                <TextInput
-                  style={styles.metaInput}
-                  value={inputFecha}
-                  onChangeText={v => setInputFecha(aplicarMascaraFecha(v))}
-                  placeholder="DD/MM/AAAA"
-                  placeholderTextColor="#4a6a8a"
-                  keyboardType="number-pad"
-                  maxLength={10}
-                />
-                <TouchableOpacity style={styles.metaGuardarBtn} onPress={guardarMeta}>
-                  <Text style={styles.metaGuardarBtnText}>Guardar</Text>
-                </TouchableOpacity>
-              </View>
-            </KeyboardAvoidingView>
-          ) : metaFecha ? (
+          {metaFecha ? (
             <>
               <Text style={styles.metaFecha}>📅 {formatearFecha(metaFecha)}</Text>
               <Text style={styles.metaDias}>
