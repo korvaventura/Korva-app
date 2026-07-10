@@ -181,7 +181,7 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
         .from('users')
         .select('email, name')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
       if (usuario?.email) {
         const { enviarEmailCompletado } = require('../routes/emails');
         enviarEmailCompletado(usuario.email, usuario.name, uc.challenges.title);
@@ -246,7 +246,7 @@ router.get('/callback', async (req, res) => {
         })
         .eq('id', userId)
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
       user = updatedUser;
     } else {
@@ -262,7 +262,7 @@ router.get('/callback', async (req, res) => {
           strava_athlete_id: stravaAthlete?.id
         }, { onConflict: 'email' })
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
       user = upsertedUser;
     }
