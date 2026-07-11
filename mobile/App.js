@@ -106,6 +106,18 @@ export default function App() {
     const handleDeepLink = async (url) => {
       if (!url) return;
       if (url.includes('reset-password') || url.includes('type=recovery')) {
+        // Extraer token del URL para pasarlo a Supabase
+        try {
+          const parsed = new URL(url);
+          const token = parsed.searchParams.get('token') || parsed.searchParams.get('token_hash');
+          const type = parsed.searchParams.get('type') || 'recovery';
+          if (token) {
+            // Verificar el token con Supabase para establecer la sesión
+            await supabase.auth.verifyOtp({ token_hash: token, type });
+          }
+        } catch (e) {
+          console.log('Error parseando token de reset:', e.message);
+        }
         setMostrarReset(true);
       }
     };

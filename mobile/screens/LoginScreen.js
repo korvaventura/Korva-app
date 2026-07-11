@@ -102,7 +102,7 @@ export default function LoginScreen({ onLogin }) {
     setCargando(true); setMensaje('');
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'korva://reset-password',
+        redirectTo: 'https://korva-app-production.up.railway.app/auth/reset',
       });
       if (error) throw error;
       setResetEnviado(true);

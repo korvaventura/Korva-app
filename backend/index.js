@@ -350,6 +350,20 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
   }
 };
 
+// Redirect intermedio para recovery de contraseña
+// Gmail escanea links pero no sigue redirects 302 — así el token no se consume
+app.get('/auth/reset', (req, res) => {
+  const { token, type, token_hash } = req.query;
+  // Construir el deep link con los parámetros
+  const params = new URLSearchParams();
+  if (token) params.set('token', token);
+  if (token_hash) params.set('token_hash', token_hash);
+  if (type) params.set('type', type);
+  const deepLink = `korva://reset-password?${params.toString()}`;
+  // Redirect 302 — Gmail no lo sigue, pero el celu sí
+  res.redirect(302, deepLink);
+});
+
 app.get('/', (req, res) => {
   res.json({ mensaje: 'Bienvenido al backend de Korva 🏅', estado: 'funcionando' });
 });
