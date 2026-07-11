@@ -1,6 +1,8 @@
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Animated } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { Ionicons } from '@expo/vector-icons';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
@@ -15,6 +17,10 @@ export default function LoginScreen({ onLogin }) {
   const [resetMode, setResetMode] = useState(false);
   const [resetEnviado, setResetEnviado] = useState(false);
   const [verPassword, setVerPassword] = useState(false);
+  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [verPasswordConfirm, setVerPasswordConfirm] = useState(false);
+  const [biometriaDisponible, setBiometriaDisponible] = useState(false);
+  const [savedPassword, setSavedPassword] = useState('');
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -24,6 +30,17 @@ export default function LoginScreen({ onLogin }) {
       Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
     ]).start();
+    // Cargar email guardado
+    AsyncStorage.getItem('ultimo_email').then(e => { if (e) setEmail(e); });
+    // Verificar si biometría disponible y hay credenciales guardadas
+    const checkBiometria = async () => {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      const pass = await AsyncStorage.getItem('saved_password');
+      setBiometriaDisponible(compatible && enrolled && !!pass);
+      if (pass) setSavedPassword(pass);
+    };
+    checkBiometria();
   }, []);
 
   const handleLogin = async () => {
@@ -32,6 +49,10 @@ export default function LoginScreen({ onLogin }) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      await AsyncStorage.setItem('ultimo_email', email);
+      await AsyncStorage.setItem('saved_password', password);
+      setSavedPassword(password);
+      setBiometriaDisponible(true);
       onLogin(data.user);
     } catch (error) {
       setMensaje('Email o contraseña incorrectos');
@@ -40,7 +61,10 @@ export default function LoginScreen({ onLogin }) {
 
   const handleRegistro = async () => {
     if (!email || !password || !nombre) { setMensaje('Completá todos los campos'); return; }
-    if (password.length < 6) { setMensaje('La contraseña debe tener al menos 6 caracteres'); return; }
+    if (password.length < 8) { setMensaje('La contraseña debe tener al menos 8 caracteres'); return; }
+    if (!/[A-Z]/.test(password)) { setMensaje('La contraseña debe tener al menos una mayúscula'); return; }
+    if (!/[0-9]/.test(password)) { setMensaje('La contraseña debe tener al menos un número'); return; }
+    if (password !== passwordConfirm) { setMensaje('Las contraseñas no coinciden'); return; }
     setCargando(true); setMensaje('');
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -52,6 +76,7 @@ export default function LoginScreen({ onLogin }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: data.user.id, email, name: nombre })
       });
+      await AsyncStorage.setItem('ultimo_email', email);
       onLogin(data.user);
     } catch (error) {
       setMensaje(error.message || 'Error al registrarse');
@@ -69,6 +94,27 @@ export default function LoginScreen({ onLogin }) {
       setResetEnviado(true);
     } catch (error) {
       setMensaje('Error al enviar el email. Intentá de nuevo.');
+    } finally { setCargando(false); }
+  };
+
+  const loginConBiometria = async () => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Usá tu huella para entrar a Korva',
+        cancelLabel: 'Cancelar',
+        fallbackLabel: 'Usar contraseña',
+      });
+      if (result.success) {
+        const savedEmail = await AsyncStorage.getItem('ultimo_email');
+        const savedPass = await AsyncStorage.getItem('saved_password');
+        if (!savedEmail || !savedPass) { setMensaje('No hay credenciales guardadas'); return; }
+        setCargando(true);
+        const { data, error } = await supabase.auth.signInWithPassword({ email: savedEmail, password: savedPass });
+        if (error) throw error;
+        onLogin(data.user);
+      }
+    } catch (e) {
+      setMensaje('No se pudo autenticar con biometría');
     } finally { setCargando(false); }
   };
 
@@ -172,7 +218,44 @@ export default function LoginScreen({ onLogin }) {
                   <Text style={{ fontSize: 18 }}>{verPassword ? '🙈' : '👁️'}</Text>
                 </TouchableOpacity>
               </View>
+              {modo === 'registro' && password.length > 0 && (
+                <View style={styles.verificadorBox}>
+                  <Text style={[styles.verificadorItem, password.length >= 8 && styles.verificadorOk]}>
+                    {password.length >= 8 ? '✅' : '❌'} 8 caracteres mínimo
+                  </Text>
+                  <Text style={[styles.verificadorItem, /[A-Z]/.test(password) && styles.verificadorOk]}>
+                    {/[A-Z]/.test(password) ? '✅' : '❌'} Una mayúscula
+                  </Text>
+                  <Text style={[styles.verificadorItem, /[0-9]/.test(password) && styles.verificadorOk]}>
+                    {/[0-9]/.test(password) ? '✅' : '❌'} Un número
+                  </Text>
+                </View>
+              )}
             </View>
+
+            {modo === 'registro' && (
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>CONFIRMAR CONTRASEÑA</Text>
+                <View style={styles.inputRow}>
+                  <TextInput
+                    style={[styles.input, { flex: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0 }]}
+                    value={passwordConfirm}
+                    onChangeText={setPasswordConfirm}
+                    placeholder="••••••••"
+                    placeholderTextColor="#4a6a8a"
+                    secureTextEntry={!verPasswordConfirm}
+                  />
+                  <TouchableOpacity style={styles.ojito} onPress={() => setVerPasswordConfirm(!verPasswordConfirm)}>
+                    <Text style={{ fontSize: 18 }}>{verPasswordConfirm ? '🙈' : '👁️'}</Text>
+                  </TouchableOpacity>
+                </View>
+                {passwordConfirm.length > 0 && (
+                  <Text style={[styles.verificadorItem, password === passwordConfirm ? styles.verificadorOk : styles.verificadorError, { marginTop: 6 }]}>
+                    {password === passwordConfirm ? '✅ Las contraseñas coinciden' : '❌ Las contraseñas no coinciden'}
+                  </Text>
+                )}
+              </View>
+            )}
 
             {mensaje ? (
               <View style={styles.mensajeBox}>
@@ -196,6 +279,12 @@ export default function LoginScreen({ onLogin }) {
                 </View>
               )}
             </TouchableOpacity>
+
+            {modo === 'login' && biometriaDisponible && (
+              <TouchableOpacity style={styles.biometriaBtn} onPress={loginConBiometria}>
+                <Text style={styles.biometriaBtnText}>🔑 Entrar con huella / Face ID</Text>
+              </TouchableOpacity>
+            )}
 
             {modo === 'login' && (
               <TouchableOpacity onPress={() => setResetMode(true)} style={styles.olvideBtnContainer}>
@@ -299,4 +388,10 @@ const styles = StyleSheet.create({
   resetEmoji: { fontSize: 48, marginBottom: 16 },
   resetTitulo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 12 },
   resetTexto: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+  verificadorBox: { marginTop: 8, gap: 4 },
+  verificadorItem: { fontSize: 12, color: '#4a6a8a' },
+  verificadorOk: { color: '#4CAF50' },
+  verificadorError: { color: '#FC4C02' },
+  biometriaBtn: { backgroundColor: '#1E3A5F', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#1E6FD9' },
+  biometriaBtnText: { color: '#A8CFFF', fontWeight: 'bold', fontSize: 14 },
 });
