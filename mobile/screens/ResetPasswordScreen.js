@@ -12,7 +12,9 @@ export default function ResetPasswordScreen({ onVolver }) {
 
   const handleReset = async () => {
     if (!password || !confirmar) { setMensaje('Completá todos los campos'); return; }
-    if (password.length < 6) { setMensaje('La contraseña debe tener al menos 6 caracteres'); return; }
+    if (password.length < 8) { setMensaje('La contraseña debe tener al menos 8 caracteres'); return; }
+    if (!/[A-Z]/.test(password)) { setMensaje('La contraseña debe tener al menos una mayúscula'); return; }
+    if (!/[0-9]/.test(password)) { setMensaje('La contraseña debe tener al menos un número'); return; }
     if (password !== confirmar) { setMensaje('Las contraseñas no coinciden'); return; }
     setCargando(true); setMensaje('');
     try {
@@ -59,6 +61,19 @@ export default function ResetPasswordScreen({ onVolver }) {
             placeholderTextColor="#4a6a8a"
             secureTextEntry
           />
+          {password.length > 0 && (
+            <View style={{ marginTop: 8, gap: 4 }}>
+              <Text style={{ fontSize: 12, color: password.length >= 8 ? '#4CAF50' : '#4a6a8a' }}>
+                {password.length >= 8 ? '✅' : '❌'} 8 caracteres mínimo
+              </Text>
+              <Text style={{ fontSize: 12, color: /[A-Z]/.test(password) ? '#4CAF50' : '#4a6a8a' }}>
+                {/[A-Z]/.test(password) ? '✅' : '❌'} Una mayúscula
+              </Text>
+              <Text style={{ fontSize: 12, color: /[0-9]/.test(password) ? '#4CAF50' : '#4a6a8a' }}>
+                {/[0-9]/.test(password) ? '✅' : '❌'} Un número
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.inputContainer}>
