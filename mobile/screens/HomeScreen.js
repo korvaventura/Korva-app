@@ -66,6 +66,7 @@ export default function HomeScreen({ navigation }) {
   const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
   const [modalStravaInfoVisible, setModalStravaInfoVisible] = useState(false);
   const [bannerStravaVisible, setBannerStravaVisible] = useState(false);
+  const [cargandoBib, setCargandoBib] = useState(false);
   const [modalAyudaVisible, setModalAyudaVisible] = useState(false);
   const [faqAbierta, setFaqAbierta] = useState(null);
   const [retoActivoIndex, setRetoActivoIndex] = useState(0);
@@ -219,6 +220,21 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
+  const descargarBib = async (tipo) => {
+    setCargandoBib(tipo);
+    try {
+      const res = await fetch(`${BACKEND_URL}/usuarios/bib/${userId}`);
+      const data = await res.json();
+      if (data.error) { Alert.alert('Error', data.error); return; }
+      const url = tipo === 'dorsal' ? data.dorsal_url : data.postal_url;
+      await Linking.openURL(url);
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo abrir el archivo.');
+    } finally {
+      setCargandoBib(false);
+    }
+  };
+
   const conectarStrava = async () => {
     if (stravaConectado) {
       setModalStravaVisible(true);
@@ -305,6 +321,8 @@ export default function HomeScreen({ navigation }) {
   }
 
   const challengesPending = challenges.filter(c => c.pending);
+  const challengesEnCurso = challenges.filter(c => !c.pending && parseFloat(c.porcentaje) < 100);
+  const challengesCompletados = challenges.filter(c => !c.pending && (parseFloat(c.porcentaje) >= 100 || c.status === 'shipped'));
   const challengesActivos = challenges.filter(c => !c.pending);
 
   const scrollRef = useRef(null);
@@ -666,10 +684,35 @@ export default function HomeScreen({ navigation }) {
                 viewShotRefs={viewShotRefs}
                 onModalidadPress={() => setModalModalidadVisible(true)}
                 scrollRef={scrollRef}
+                descargarBib={descargarBib}
+                cargandoBib={cargandoBib}
               />
             </>
           )}
         </>
+      )}
+
+      {/* Retos completados — solo lectura */}
+      {!error && challengesCompletados.length > 0 && (
+        <View style={{ marginTop: 8, marginBottom: 8 }}>
+          <Text style={[styles.seccionTitulo, { marginHorizontal: 20, marginBottom: 12 }]}>🏅 Completados</Text>
+          {challengesCompletados.map((item, i) => (
+            <TouchableOpacity
+              key={i}
+              style={styles.completadoCard}
+              onPress={() => navigation.navigate('DetalleReto', { item, userId })}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.completadoChallenge}>{item.challenge}</Text>
+                <Text style={styles.completadoKm}>{item.km_completados} km · {item.modalidad}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                <Text style={styles.completadoBadge}>{item.status === 'shipped' ? '📦 Enviado' : '🏅 Completado'}</Text>
+                <Text style={{ color: '#1E6FD9', fontSize: 12 }}>Ver historia →</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
       )}
 
       {!error && (
@@ -712,7 +755,7 @@ export default function HomeScreen({ navigation }) {
 }
 
 // ─── Componente reto individual ──────────────────────────────────
-function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress, scrollRef }) {
+function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress, scrollRef, descargarBib, cargandoBib }) {
   if (!item) return null;
   const pct = Math.min(parseFloat(item.porcentaje), 100);
   const estaCompletado = pct >= 100;
@@ -811,6 +854,15 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
           <Ionicons name="arrow-forward" size={14} color="#1E6FD9" />
         </View>
       </TouchableOpacity>
+
+      <View style={styles.bibRow}>
+        <TouchableOpacity style={styles.bibBtn} onPress={() => descargarBib('dorsal')} disabled={!!cargandoBib}>
+          {cargandoBib === 'dorsal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.bibBtnText}>📄 Mi dorsal</Text>}
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.bibBtn, styles.bibBtnSecundario]} onPress={() => descargarBib('postal')} disabled={!!cargandoBib}>
+          {cargandoBib === 'postal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={[styles.bibBtnText, { color: '#A8CFFF' }]}>🖼️ Mi postal</Text>}
+        </TouchableOpacity>
+      </View>
 
       <TouchableOpacity style={styles.compartirBtn} onPress={() => compartirProgreso(index)}>
         <Text style={styles.compartirBtnText}>📤 Compartir progreso</Text>
@@ -953,6 +1005,15 @@ const styles = StyleSheet.create({
   detalleBtnText: { color: '#1E6FD9', fontSize: 13, fontWeight: 'bold' },
   compartirBtn: { backgroundColor: '#0D1B2A', borderWidth: 1, borderColor: '#2a4a6a', paddingVertical: 10, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
   compartirBtnText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
+  bibRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  bibBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 12, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: '#FC4C02' },
+  bibBtnSecundario: { borderColor: '#1E6FD9' },
+  bibBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 },
+  completadoCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 16, marginHorizontal: 20, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderLeftWidth: 4, borderLeftColor: '#FC4C02' },
+  completadoChallenge: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
+  completadoKm: { fontSize: 13, color: '#A8CFFF' },
+  completadoBadge: { fontSize: 12, color: '#4CAF50', fontWeight: 'bold' },
+  seccionTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
   storyCard: { backgroundColor: '#0D1B2A', borderRadius: 20, padding: 28, width: 300, borderWidth: 2, borderColor: '#FC4C02', alignItems: 'center' },
   storyHeader: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 24 },
   storyLogo: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },

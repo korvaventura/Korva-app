@@ -22,7 +22,7 @@
         "backgroundColor": "#0D1B2A"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.korva.mobile",
+      "package": "com.korva.mobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
