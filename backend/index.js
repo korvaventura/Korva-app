@@ -221,6 +221,19 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
 
       if (seCompletaAhora) {
         await enviarCertificadoFinisher(user_id, reto, distanciaTotal);
+        // Push notification al completar
+        const { data: usuarioPush } = await supabase
+          .from('users')
+          .select('push_token')
+          .eq('id', user_id)
+          .maybeSingle();
+        if (usuarioPush?.push_token) {
+          await enviarPushNotification(
+            usuarioPush.push_token,
+            '🏅 ¡Lo lograste!',
+            `Completaste ${reto.challenges?.title}. Tu medalla está siendo preparada 📦`
+          );
+        }
       }
 
       if (porcentaje >= 75 && !yaEstabaCompletado) {
