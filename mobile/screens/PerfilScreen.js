@@ -3,8 +3,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
 
@@ -44,6 +42,7 @@ export default function PerfilScreen() {
   const [modalStravaVisible, setModalStravaVisible] = useState(false);
   const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
   const [cargandoBib, setCargandoBib] = useState(false);
+
   const [modalStravaInfoVisible, setModalStravaInfoVisible] = useState(false);
   const [modalCambioModalidad, setModalCambioModalidad] = useState(null);
   const [stravaHabilitado, setStravaHabilitado] = useState(false);
@@ -344,22 +343,17 @@ export default function PerfilScreen() {
     conectarStravaReal();
   };
 
-  const descargarBibYPostal = async (tipo) => {
-    setCargandoBib(true);
+
+  const descargarBib = async (tipo) => {
+    setCargandoBib(tipo);
     try {
       const res = await fetch(`${BACKEND_URL}/usuarios/bib/${userId}`);
       const data = await res.json();
       if (data.error) { Alert.alert('Error', data.error); return; }
-
       const url = tipo === 'dorsal' ? data.dorsal_url : data.postal_url;
-      const nombre = tipo === 'dorsal' ? `Dorsal_${data.bib_number}_Korva.pdf` : `Postal_Korva.pdf`;
-      
-      // Descargar desde la URL al cache local y compartir
-      const uri = FileSystem.cacheDirectory + nombre;
-      const download = await FileSystem.downloadAsync(url, uri);
-      await Sharing.shareAsync(download.uri, { mimeType: 'application/pdf', dialogTitle: nombre });
+      await Linking.openURL(url);
     } catch (e) {
-      Alert.alert('Error', 'No se pudo descargar. Intentá de nuevo.');
+      Alert.alert('Error', 'No se pudo abrir el archivo.');
     } finally {
       setCargandoBib(false);
     }
@@ -622,25 +616,7 @@ export default function PerfilScreen() {
         <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.medallas || 0}</Text><Text style={styles.statLabel}>Medallas</Text></View>
       </View>
 
-      {/* Dorsal y Postal */}
-      {usuario?.bib_number && (
-        <View style={styles.bibRow}>
-          <TouchableOpacity
-            style={[styles.bibBtn, cargandoBib && { opacity: 0.6 }]}
-            onPress={() => descargarBibYPostal('dorsal')}
-            disabled={cargandoBib}
-          >
-            {cargandoBib ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.bibBtnText}>📄 Mi dorsal #{usuario.bib_number}</Text>}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.bibBtn, styles.bibBtnSecundario, cargandoBib && { opacity: 0.6 }]}
-            onPress={() => descargarBibYPostal('postal')}
-            disabled={cargandoBib}
-          >
-            <Text style={[styles.bibBtnText, { color: '#A8CFFF' }]}>🖼️ Mi postal</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+
 
       {stats && (
         <View style={styles.statsRow}>
@@ -758,6 +734,15 @@ export default function PerfilScreen() {
                     ) : (
                       <Text style={styles.metaVacio}>Sin meta definida. Opcional.</Text>
                     )}
+                    <View style={styles.metaSeparador} />
+                    <View style={styles.bibRow}>
+                      <TouchableOpacity style={styles.bibBtn} onPress={() => descargarBib('dorsal')} disabled={!!cargandoBib}>
+                        {cargandoBib === 'dorsal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.bibBtnText}>📄 Mi dorsal</Text>}
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.bibBtn, styles.bibBtnSecundario]} onPress={() => descargarBib('postal')} disabled={!!cargandoBib}>
+                        {cargandoBib === 'postal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={[styles.bibBtnText, { color: '#A8CFFF' }]}>🖼️ Mi postal</Text>}
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               );
@@ -1005,10 +990,11 @@ const styles = StyleSheet.create({
   avatarPlaceholder: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FC4C02' },
   avatarLetra: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF' },
   avatarCamara: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#FC4C02', borderRadius: 12, padding: 4, borderWidth: 2, borderColor: '#0D1B2A' },
-  bibRow: { flexDirection: 'row', gap: 8, marginHorizontal: 24, marginBottom: 16 },
-  bibBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 12, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: '#FC4C02' },
+  bibRow: { flexDirection: 'row', gap: 8 },
+  bibBtn: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: '#FC4C02' },
   bibBtnSecundario: { borderColor: '#1E6FD9' },
-  bibBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
+  bibBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 },
+
   nombre: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   email: { fontSize: 13, color: '#A8CFFF' },
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 24, width: '100%', paddingHorizontal: 24 },
