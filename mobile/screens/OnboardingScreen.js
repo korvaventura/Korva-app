@@ -19,7 +19,7 @@ const SLIDES = [
   {
     emoji: '📱',
     titulo: 'Korva no es una app de tracking',
-    descripcion: 'Salí a correr con la app que uses — Garmin, Nike Run, Strava, la que quieras. Después volvé acá y cargá tus km en segundos.\n\n🟠 Próximamente vas a poder sincronizar automáticamente con Strava.',
+    descripcion: 'Salí a correr con la app que uses — Garmin, Nike Run, Strava, la que quieras. Después volvé acá y cargá tus km en segundos.\n\n🟢 Ya podés sincronizar automáticamente con Strava desde el Perfil.',
     color: '#1E6FD9',
   },
   {
