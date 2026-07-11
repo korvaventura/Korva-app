@@ -242,6 +242,20 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
+  const cancelarPending = async (challengeId) => {
+    try {
+      await supabase
+        .from('user_challenges')
+        .delete()
+        .eq('user_id', userId)
+        .eq('challenge_id', challengeId)
+        .eq('status', 'pending');
+      setChallenges(prev => prev.filter(c => !(c.challenge_id === challengeId && c.pending)));
+    } catch (e) {
+      console.error('Error cancelando pending:', e);
+    }
+  };
+
   const conectarStravaConfirmado = () => {
     setModalStravaInfoVisible(false);
     conectarStravaReal();
