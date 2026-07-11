@@ -277,10 +277,18 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
+  const [modalCompartirItem, setModalCompartirItem] = useState(null);
+  const shareCardRef = useRef(null);
+
   const compartirProgreso = async (index) => {
+    setModalCompartirItem(challengesActivos[index]);
+  };
+
+  const ejecutarCompartir = async () => {
     try {
-      const uri = await viewShotRefs.current[index].capture();
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Compartir mi progreso en Korva' });
+      const uri = await shareCardRef.current.capture();
+      setModalCompartirItem(null);
+      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: '¡Compartí tu progreso en Korva!' });
     } catch (err) {
       console.error('Error compartiendo:', err);
     }
@@ -364,6 +372,45 @@ export default function HomeScreen({ navigation }) {
       </Modal>
 
       {/* Modal Próximamente Strava */}
+      {/* Modal Compartir Progreso */}
+      <Modal visible={!!modalCompartirItem} transparent animationType="fade" onRequestClose={() => setModalCompartirItem(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={{ width: '100%', alignItems: 'center' }}>
+            {modalCompartirItem && (
+              <ViewShot ref={shareCardRef} options={{ format: 'png', quality: 1 }}>
+                <View style={styles.storyCard}>
+                  <View style={styles.storyHeader}>
+                    <Text style={styles.storyLogo}>🏅 KORVA</Text>
+                    <Text style={styles.storyTagline}>AVENTURAS</Text>
+                  </View>
+                  <View style={styles.storyPctWrapper}>
+                    <Text style={styles.storyPctNumero}>{Math.min(parseFloat(modalCompartirItem.porcentaje), 100).toFixed(0)}</Text>
+                    <Text style={styles.storyPctSymbol}>%</Text>
+                  </View>
+                  <Text style={styles.storyChallenge}>{modalCompartirItem.challenge}</Text>
+                  <View style={styles.storyBar}>
+                    <View style={[styles.storyBarFill, { width: `${Math.min(parseFloat(modalCompartirItem.porcentaje), 100)}%` }]} />
+                  </View>
+                  <Text style={styles.storyKm}>{modalCompartirItem.km_completados} km completados</Text>
+                  <View style={styles.storyFooter}>
+                    <Text style={styles.storyNombre}>{nombre}</Text>
+                    <Text style={styles.storyUrl}>korva.run</Text>
+                  </View>
+                </View>
+              </ViewShot>
+            )}
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+              <TouchableOpacity style={[styles.modalBtn, { flex: 1, backgroundColor: '#1E3A5F' }]} onPress={() => setModalCompartirItem(null)}>
+                <Text style={[styles.modalBtnText, { color: '#A8CFFF' }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, { flex: 1 }]} onPress={ejecutarCompartir}>
+                <Text style={styles.modalBtnText}>📤 Compartir</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modal Strava Info — Qué es Strava y cómo conectarlo */}
       <Modal visible={modalStravaInfoVisible} transparent animationType="fade" onRequestClose={() => setModalStravaInfoVisible(false)}>
         <View style={styles.modalOverlay}>
@@ -906,6 +953,20 @@ const styles = StyleSheet.create({
   detalleBtnText: { color: '#1E6FD9', fontSize: 13, fontWeight: 'bold' },
   compartirBtn: { backgroundColor: '#0D1B2A', borderWidth: 1, borderColor: '#2a4a6a', paddingVertical: 10, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
   compartirBtnText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
+  storyCard: { backgroundColor: '#0D1B2A', borderRadius: 20, padding: 28, width: 300, borderWidth: 2, borderColor: '#FC4C02', alignItems: 'center' },
+  storyHeader: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 24 },
+  storyLogo: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
+  storyTagline: { fontSize: 12, color: '#FC4C02', fontWeight: 'bold', letterSpacing: 2 },
+  storyPctWrapper: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
+  storyPctNumero: { fontSize: 72, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 80 },
+  storyPctSymbol: { fontSize: 28, fontWeight: 'bold', color: '#FC4C02', marginTop: 16 },
+  storyChallenge: { fontSize: 16, fontWeight: 'bold', color: '#A8CFFF', marginBottom: 16, textAlign: 'center' },
+  storyBar: { height: 6, backgroundColor: '#1E3A5F', borderRadius: 3, width: '100%', marginBottom: 8 },
+  storyBarFill: { height: 6, backgroundColor: '#FC4C02', borderRadius: 3 },
+  storyKm: { fontSize: 13, color: '#A8CFFF', marginBottom: 24 },
+  storyFooter: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', borderTopWidth: 1, borderTopColor: '#1E3A5F', paddingTop: 12 },
+  storyNombre: { fontSize: 13, color: '#FFFFFF', fontWeight: 'bold' },
+  storyUrl: { fontSize: 13, color: '#FC4C02' },
   actualizarBtn: { marginTop: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center' },
   actualizarBtnText: { color: '#A8CFFF', fontSize: 14 },
   metaCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 18, marginBottom: 8, borderWidth: 1, borderColor: '#FC4C02' },
