@@ -79,14 +79,23 @@ app.get('/test/bib/:userId', async (req, res) => {
 app.get('/usuarios/bib/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
-    const { data: user } = await supabase.from('users').select('id, name, email, bib_number').eq('id', userId).single();
+    const { data: user } = await supabase.from('users').select('id, name, email, bib_number, dorsal_url, postal_url').eq('id', userId).single();
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    // Si ya están guardados, devolverlos directo
+    if (user.dorsal_url && user.postal_url) {
+      return res.json({
+        bib_number: user.bib_number,
+        nombre: user.name,
+        dorsal_url: user.dorsal_url,
+        postal_url: user.postal_url,
+      });
+    }
 
     const { generarBibYPostal, asignarBibNumber } = require('./generador_bib');
     let bibNumber = user.bib_number;
     if (!bibNumber) bibNumber = await asignarBibNumber(supabase, userId);
 
-    // Obtener challenge del usuario para el título
     const { data: uc } = await supabase
       .from('user_challenges')
       .select('challenge_id, challenges(title)')
@@ -96,16 +105,36 @@ app.get('/usuarios/bib/:userId', async (req, res) => {
       .maybeSingle();
 
     const challengeTitle = uc?.challenges?.title || 'Desafío Korva';
+    const challengeId = uc?.challenge_id || 'ae54af78-dc6f-4cf5-af31-2c077ba58048';
 
-    const pdfs = await generarBibYPostal(supabase, user.name, bibNumber, uc?.challenge_id || 'ae54af78-dc6f-4cf5-af31-2c077ba58048');
+    const pdfs = await generarBibYPostal(supabase, user.name, bibNumber, challengeId);
     if (!pdfs) return res.status(500).json({ error: 'No se pudieron generar los PDFs' });
+
+    // Guardar en Supabase Storage
+    const dorsalBuffer = Buffer.from(pdfs.dorsalPdf, 'base64');
+    const postalBuffer = Buffer.from(pdfs.postalPdf, 'base64');
+
+    const dorsalPath = `dorsales/dorsal_${bibNumber}.pdf`;
+    const postalPath = `postales/postal_${bibNumber}.pdf`;
+
+    await supabase.storage.from('korva-images').upload(dorsalPath, dorsalBuffer, { contentType: 'application/pdf', upsert: true });
+    await supabase.storage.from('korva-images').upload(postalPath, postalBuffer, { contentType: 'application/pdf', upsert: true });
+
+    const { data: dorsalUrl } = supabase.storage.from('korva-images').getPublicUrl(dorsalPath);
+    const { data: postalUrl } = supabase.storage.from('korva-images').getPublicUrl(postalPath);
+
+    // Guardar URLs en el usuario
+    await supabase.from('users').update({
+      dorsal_url: dorsalUrl.publicUrl,
+      postal_url: postalUrl.publicUrl,
+    }).eq('id', userId);
 
     res.json({
       bib_number: bibNumber,
       nombre: user.name,
       challenge: challengeTitle,
-      dorsal_pdf: pdfs.dorsalPdf,
-      postal_pdf: pdfs.postalPdf,
+      dorsal_url: dorsalUrl.publicUrl,
+      postal_url: postalUrl.publicUrl,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

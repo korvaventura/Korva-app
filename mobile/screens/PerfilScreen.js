@@ -351,11 +351,13 @@ export default function PerfilScreen() {
       const data = await res.json();
       if (data.error) { Alert.alert('Error', data.error); return; }
 
-      const base64 = tipo === 'dorsal' ? data.dorsal_pdf : data.postal_pdf;
-      const nombre = tipo === 'dorsal' ? `Dorsal_${data.bib_number}_Korva.pdf` : `Postal_${data.challenge}_Korva.pdf`;
+      const url = tipo === 'dorsal' ? data.dorsal_url : data.postal_url;
+      const nombre = tipo === 'dorsal' ? `Dorsal_${data.bib_number}_Korva.pdf` : `Postal_Korva.pdf`;
+      
+      // Descargar desde la URL al cache local y compartir
       const uri = FileSystem.cacheDirectory + nombre;
-      await FileSystem.writeAsStringAsync(uri, base64, { encoding: FileSystem.EncodingType.Base64 });
-      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: nombre });
+      const download = await FileSystem.downloadAsync(url, uri);
+      await Sharing.shareAsync(download.uri, { mimeType: 'application/pdf', dialogTitle: nombre });
     } catch (e) {
       Alert.alert('Error', 'No se pudo descargar. Intentá de nuevo.');
     } finally {
