@@ -1310,12 +1310,10 @@ app.get('/ranking/:challengeId', async (req, res) => {
       .eq('id', challengeId)
       .single();
 
-    const userIds = [...new Set((ucs || []).map(u => u.user_id))];
-    console.log('Ranking userIds count:', userIds.length);
-    const { data: usuarios, error: errorUsuarios } = userIds.length > 0
+    const userIds = [...new Set((ucs || []).map(u => u.user_id))].filter(id => id && id !== 'null');
+    const { data: usuarios } = userIds.length > 0
       ? await supabase.from('users').select('id, name, avatar_url').in('id', userIds)
       : { data: [] };
-    console.log('Ranking usuarios count:', usuarios?.length, 'error:', errorUsuarios?.message);
 
     const usuariosMap = {};
     (usuarios || []).forEach(u => { usuariosMap[u.id] = u; });
