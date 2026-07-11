@@ -2,6 +2,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput,
 import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
+import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
 
@@ -340,6 +341,42 @@ export default function PerfilScreen() {
     conectarStravaReal();
   };
 
+  const subirFoto = async () => {
+    try {
+      const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permiso.granted) {
+        Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería para subir la foto.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
+      if (result.canceled) return;
+      const base64 = result.assets[0].base64;
+      const res = await fetch(`${BACKEND_URL}/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          base64,
+          carpeta: 'avatars',
+          nombre: `avatar_${userId}_${Date.now()}.jpg`,
+        }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        await supabase.from('users').update({ avatar_url: data.url }).eq('id', userId);
+        setUsuario(prev => ({ ...prev, avatar_url: data.url }));
+        Alert.alert('✅ Foto actualizada');
+      }
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo subir la foto. Intentá de nuevo.');
+    }
+  };
+
   const desconectarStrava = async () => {
     Alert.alert(
       'Desconectar Strava',
@@ -538,7 +575,7 @@ export default function PerfilScreen() {
 
       {/* Hero */}
       <View style={styles.heroBg}>
-        <View style={styles.avatarWrapper}>
+        <TouchableOpacity style={styles.avatarWrapper} onPress={subirFoto}>
           {usuario?.avatar_url ? (
             <Image source={{ uri: usuario.avatar_url }} style={styles.avatar} />
           ) : (
@@ -546,7 +583,10 @@ export default function PerfilScreen() {
               <Text style={styles.avatarLetra}>{inicial}</Text>
             </View>
           )}
-        </View>
+          <View style={styles.avatarCamara}>
+            <Text style={{ fontSize: 14 }}>📷</Text>
+          </View>
+        </TouchableOpacity>
         <Text style={styles.nombre}>{usuario?.name || 'Cargando...'}</Text>
         <Text style={styles.email}>{usuario?.email}</Text>
       </View>
@@ -916,10 +956,11 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#0D1B2A' },
   container: { paddingBottom: 40, alignItems: 'center' },
   heroBg: { width: '100%', backgroundColor: '#1E3A5F', alignItems: 'center', paddingTop: 60, paddingBottom: 28, marginBottom: 24 },
-  avatarWrapper: { marginBottom: 12 },
+  avatarWrapper: { marginBottom: 12, position: 'relative' },
   avatar: { width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: '#1E6FD9' },
   avatarPlaceholder: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FC4C02' },
   avatarLetra: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF' },
+  avatarCamara: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#FC4C02', borderRadius: 12, padding: 4, borderWidth: 2, borderColor: '#0D1B2A' },
   nombre: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   email: { fontSize: 13, color: '#A8CFFF' },
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 24, width: '100%', paddingHorizontal: 24 },
