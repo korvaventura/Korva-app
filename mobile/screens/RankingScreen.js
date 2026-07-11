@@ -17,6 +17,7 @@ export default function RankingScreen({ navigation }) {
   const [mostrarTodos, setMostrarTodos] = useState({});
   const [miNombre, setMiNombre] = useState('');
   const [busqueda, setBusqueda] = useState('');
+  const [tabActivo, setTabActivo] = useState('en_curso'); // 'en_curso' | 'finishers'
   const challengeScrollRef = useRef(null);
   const rankingScrollRefs = useRef({});
 
@@ -157,15 +158,26 @@ export default function RankingScreen({ navigation }) {
     const mostrar = mostrarTodos[key];
     const mods = challenge.modalidades || [];
 
+    // Separar en curso y finishers
+    const listaEnCurso = lista.filter(r => parseFloat(r.porcentaje) < 100);
+    const listaFinishers = (() => {
+      const finishers = lista.filter(r => parseFloat(r.porcentaje) >= 100);
+      const propio = finishers.find(r => esPropio(r.nombre));
+      const resto = finishers.filter(r => !esPropio(r.nombre));
+      return propio ? [propio, ...resto] : finishers;
+    })();
+
+    const listaBase = tabActivo === 'finishers' ? listaFinishers : listaEnCurso;
+
     // Filtrar por búsqueda
     const listaFiltrada = busqueda.trim()
-      ? lista.filter(r => r.nombre?.toLowerCase().includes(busqueda.toLowerCase()))
-      : lista;
+      ? listaBase.filter(r => r.nombre?.toLowerCase().includes(busqueda.toLowerCase()))
+      : listaBase;
 
     const listaVisible = mostrar ? listaFiltrada : listaFiltrada.slice(0, TOP_VISIBLE);
 
     // Encontrar posición propia
-    const miPosicion = lista.findIndex(r => esPropio(r.nombre));
+    const miPosicion = listaBase.findIndex(r => esPropio(r.nombre));
     const scrollRef = rankingScrollRefs.current[challenge.id];
 
     const irAMiPosicion = () => {
@@ -220,6 +232,28 @@ export default function RankingScreen({ navigation }) {
             </View>
             <TouchableOpacity style={styles.noInscriptoBtn} onPress={() => navigation?.navigate('Catalogo')}>
               <Text style={styles.noInscriptoBtnText}>Ver desafíos</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Tabs En curso / Muro de Finishers */}
+        {!cargandoThis && lista.length > 0 && (
+          <View style={styles.tabsVistaRow}>
+            <TouchableOpacity
+              style={[styles.tabVista, tabActivo === 'en_curso' && styles.tabVistaActivo]}
+              onPress={() => { setTabActivo('en_curso'); setBusqueda(''); }}
+            >
+              <Text style={[styles.tabVistaText, tabActivo === 'en_curso' && styles.tabVistaTextActivo]}>
+                🏃 En curso ({listaEnCurso.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabVista, tabActivo === 'finishers' && styles.tabVistaActivo]}
+              onPress={() => { setTabActivo('finishers'); setBusqueda(''); }}
+            >
+              <Text style={[styles.tabVistaText, tabActivo === 'finishers' && styles.tabVistaTextActivo]}>
+                🏅 Finishers ({listaFinishers.length})
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -399,4 +433,9 @@ const styles = StyleSheet.create({
   noInscriptoSubtitulo: { fontSize: 11, color: '#A8CFFF' },
   noInscriptoBtn: { backgroundColor: '#FC4C02', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
   noInscriptoBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 },
+  tabsVistaRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  tabVista: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 12, paddingVertical: 10, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  tabVistaActivo: { borderColor: '#FC4C02' },
+  tabVistaText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
+  tabVistaTextActivo: { color: '#FFFFFF' },
 });
