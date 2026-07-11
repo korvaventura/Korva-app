@@ -41,6 +41,23 @@ export default function CompletadoScreen({ challenge, userId, onVolver }) {
   const [telefono, setTelefono] = useState('');
   const [cargando, setCargando] = useState(false);
   const [modalCompartirVisible, setModalCompartirVisible] = useState(false);
+  const [tieneDireccion, setTieneDireccion] = useState(false);
+  const [checkandoDireccion, setCheckandoDireccion] = useState(true);
+
+  useState(() => {
+    const checkDireccion = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const { data } = await supabase.from('users').select('shipping_address').eq('id', session.user.id).maybeSingle();
+        if (data?.shipping_address?.direccion) {
+          setTieneDireccion(true);
+          setPaso(3); // Ya tiene dirección, ir directo al paso 3
+        }
+      } catch (e) {} finally { setCheckandoDireccion(false); }
+    };
+    checkDireccion();
+  });
 
   const codigoFinal = codigoSeleccionado?.nombre === 'Otro' ? codigoManual : codigoSeleccionado?.codigo;
 
@@ -212,16 +229,47 @@ export default function CompletadoScreen({ challenge, userId, onVolver }) {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.emoji}>📦</Text>
-      <Text style={styles.titulo}>Listo!</Text>
-      <Text style={styles.descripcion}>
-        Tu direccion fue guardada. En breve te avisamos cuando tu medalla este en camino.
-      </Text>
+    <ScrollView style={styles.scroll} contentContainerStyle={[styles.containerScroll, { alignItems: 'center' }]}>
+      <Text style={styles.emoji}>🏅</Text>
+      <Text style={styles.titulo}>¡Todo listo!</Text>
+      <Text style={styles.subtitulo}>{challenge}</Text>
+
+      <View style={styles.card}>
+        <Text style={[styles.label, { fontSize: 13, color: '#FC4C02', marginBottom: 16 }]}>¿QUÉ VIENE AHORA?</Text>
+
+        <View style={styles.pasoGuia}>
+          <Text style={styles.pasoGuiaEmoji}>📧</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.pasoGuiaTitulo}>Revisá tu email</Text>
+            <Text style={styles.pasoGuiaDesc}>Te enviamos tu certificado oficial de finalización. Mirá en tu bandeja de entrada.</Text>
+          </View>
+        </View>
+
+        <View style={styles.pasoGuia}>
+          <Text style={styles.pasoGuiaEmoji}>{tieneDireccion ? '✅' : '⚠️'}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.pasoGuiaTitulo}>{tieneDireccion ? 'Dirección guardada' : 'Cargá tu dirección'}</Text>
+            <Text style={styles.pasoGuiaDesc}>
+              {tieneDireccion
+                ? 'Tu dirección de envío está guardada correctamente.'
+                : 'Todavía no tenemos tu dirección. Andá al Perfil y cargala para que podamos enviarte la medalla.'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.pasoGuia}>
+          <Text style={styles.pasoGuiaEmoji}>📦</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.pasoGuiaTitulo}>Esperá el número de seguimiento</Text>
+            <Text style={styles.pasoGuiaDesc}>Cuando tu medalla sea despachada, te avisamos por email con el número de tracking. No hace falta que nos escribas.</Text>
+          </View>
+        </View>
+      </View>
+
       <TouchableOpacity style={styles.button} onPress={onVolver}>
         <Text style={styles.buttonText}>Volver a mis retos</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -254,6 +302,10 @@ const styles = StyleSheet.create({
   buttonSecundarioText: { color: '#A8CFFF', fontSize: 15 },
   compartirBtn: { backgroundColor: '#1E3A5F', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#FC4C02' },
   compartirBtnText: { color: '#FC4C02', fontWeight: 'bold', fontSize: 15 },
+  pasoGuia: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginBottom: 20 },
+  pasoGuiaEmoji: { fontSize: 24, marginTop: 2 },
+  pasoGuiaTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
+  pasoGuiaDesc: { fontSize: 13, color: '#A8CFFF', lineHeight: 18 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalCard: { backgroundColor: '#1E3A5F', borderRadius: 24, padding: 28, width: '100%', borderWidth: 1, borderColor: '#FC4C02', alignItems: 'center' },
   modalEmoji: { fontSize: 48, marginBottom: 12 },
