@@ -23,10 +23,6 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.korva.mobile",
-      "permissions": [
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_IMAGES"
-      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
