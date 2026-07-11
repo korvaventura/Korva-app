@@ -76,6 +76,42 @@ app.get('/test/bib/:userId', async (req, res) => {
   }
 });
 
+app.get('/usuarios/bib/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const { data: user } = await supabase.from('users').select('id, name, email, bib_number').eq('id', userId).single();
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    const { generarBibYPostal, asignarBibNumber } = require('./generador_bib');
+    let bibNumber = user.bib_number;
+    if (!bibNumber) bibNumber = await asignarBibNumber(supabase, userId);
+
+    // Obtener challenge del usuario para el título
+    const { data: uc } = await supabase
+      .from('user_challenges')
+      .select('challenge_id, challenges(title)')
+      .eq('user_id', userId)
+      .in('status', ['active', 'completed', 'shipped'])
+      .limit(1)
+      .maybeSingle();
+
+    const challengeTitle = uc?.challenges?.title || 'Desafío Korva';
+
+    const pdfs = await generarBibYPostal(supabase, user.name, bibNumber, uc?.challenge_id || 'ae54af78-dc6f-4cf5-af31-2c077ba58048');
+    if (!pdfs) return res.status(500).json({ error: 'No se pudieron generar los PDFs' });
+
+    res.json({
+      bib_number: bibNumber,
+      nombre: user.name,
+      challenge: challengeTitle,
+      dorsal_pdf: pdfs.dorsalPdf,
+      postal_pdf: pdfs.postalPdf,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/upload', async (req, res) => {
   const { base64, carpeta, nombre } = req.body;
   if (!base64 || !carpeta) {
