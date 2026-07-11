@@ -39,7 +39,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
   const { item, userId } = route.params;
   const [actividades, setActividades] = useState([]);
   const [cargando, setCargando] = useState(true);
-  const [metaFecha, setMetaFecha] = useState('');
+  const [metaFecha, setMetaFecha] = useState(item?.meta_fecha || '');
 
 
 
@@ -73,7 +73,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
         .eq('user_id', userId)
         .eq('challenge_id', item.challenge_id)
         .maybeSingle();
-      if (data?.meta_fecha) setMetaFecha(data.meta_fecha);
+      setMetaFecha(data?.meta_fecha || item?.meta_fecha || '');
     } catch (error) {}
   };
 
