@@ -66,6 +66,7 @@ export default function HomeScreen({ navigation }) {
   const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
   const [modalStravaInfoVisible, setModalStravaInfoVisible] = useState(false);
   const [bannerStravaVisible, setBannerStravaVisible] = useState(false);
+  const [bannerDireccionVisible, setBannerDireccionVisible] = useState(false);
   const [cargandoBib, setCargandoBib] = useState(false);
   const [modalAyudaVisible, setModalAyudaVisible] = useState(false);
   const [faqAbierta, setFaqAbierta] = useState(null);
@@ -180,6 +181,18 @@ export default function HomeScreen({ navigation }) {
         }
       }
       setMetaVisibles(visibles);
+
+      // Mostrar banner si tiene un reto completado pero sin dirección
+      const tieneCompletado = lista.some(c => parseFloat(c.porcentaje) >= 100 && !c.pending);
+      if (tieneCompletado && userId) {
+        try {
+          const resUser = await fetch(`${BACKEND_URL}/perfil/${userId}`);
+          const dataUser = await resUser.json();
+          if (!dataUser?.usuario?.shipping_address) {
+            setBannerDireccionVisible(true);
+          }
+        } catch (e) {}
+      }
     } catch (err) {
       setError(true);
     } finally {
@@ -334,6 +347,22 @@ export default function HomeScreen({ navigation }) {
       contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
     >
+      {/* Banner dirección — para completados sin dirección */}
+      {bannerDireccionVisible && (
+        <View style={[styles.bannerStrava, { borderLeftColor: '#FC4C02', backgroundColor: '#1A0D00' }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bannerStravaTitulo}>📦 ¡Cargá tu dirección!</Text>
+            <Text style={styles.bannerStravaDesc}>Completaste tu desafío pero falta tu dirección de envío. Cargala en el Perfil para que podamos enviarte tu medalla.</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Perfil')}>
+              <Text style={styles.bannerStravaBtn}>Ir al Perfil →</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity onPress={() => setBannerDireccionVisible(false)} style={{ padding: 4 }}>
+            <Text style={{ color: '#4a6a8a', fontSize: 18 }}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Banner Strava — aparece una sola vez para activos sin Strava */}
       {bannerStravaVisible && !stravaConectado && (
         <View style={styles.bannerStrava}>

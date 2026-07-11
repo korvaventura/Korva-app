@@ -1693,6 +1693,48 @@ app.get('/admin/metricas', async (req, res) => {
   }
 });
 
+// ── CRON: recordatorio de dirección cada 24hs ─────────────────
+const recordarDireccion = async () => {
+  try {
+    console.log('Cron: verificando usuarios completados sin dirección...');
+    const { data: sinDir } = await supabase
+      .from('user_challenges')
+      .select('user_id, challenges(title)')
+      .in('status', ['completed'])
+      .not('user_id', 'is', null);
+
+    if (!sinDir?.length) return;
+
+    const userIds = [...new Set(sinDir.map(u => u.user_id))];
+    const { data: usuarios } = await supabase
+      .from('users')
+      .select('id, push_token, shipping_address')
+      .in('id', userIds)
+      .is('shipping_address', null);
+
+    let enviados = 0;
+    for (const usuario of (usuarios || [])) {
+      if (usuario.push_token) {
+        const reto = sinDir.find(r => r.user_id === usuario.id);
+        await enviarPushNotification(
+          usuario.push_token,
+          '📦 Falta tu dirección de envío',
+          `¡Completaste ${reto?.challenges?.title || 'tu desafío'}! Cargá tu dirección en el Perfil para que podamos enviarte tu medalla 🏅`
+        );
+        enviados++;
+      }
+    }
+    console.log(`Cron dirección: ${enviados} recordatorios enviados`);
+  } catch (error) {
+    console.error('Error en cron de dirección:', error.message);
+  }
+};
+
+// Correr cada 24 horas
+setInterval(recordarDireccion, 24 * 60 * 60 * 1000);
+// También correr al iniciar (después de 1 minuto para que el servidor esté listo)
+setTimeout(recordarDireccion, 60 * 1000);
+
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
