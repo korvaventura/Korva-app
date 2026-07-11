@@ -1173,13 +1173,66 @@ app.post('/usuarios/perfil', async (req, res) => {
         return res.json({ mensaje: 'Perfil fusionado con compra existente', usuario: data });
       } catch (fusionError) {
         console.error('Error en fusion automatica:', fusionError.message, emailNormalizado);
-        const { data, error } = await supabase
-          .from('users')
-          .upsert({ id: user_id, email: emailNormalizado, name: name || email.split('@')[0] }, { onConflict: 'id' })
-          .select()
-          .single();
-        if (error) throw error;
-        return res.json({ mensaje: 'Perfil creado (fusion pendiente manual)', usuario: data });
+
+        // Reintento automático después de 2 segundos
+        await new Promise(r => setTimeout(r, 2000));
+        try {
+          await supabase.from('invitations').update({ created_by: user_id }).eq('created_by', idViejo);
+          await supabase.from('user_challenges').update({ user_id }).eq('user_id', idViejo);
+          await supabase.from('user_challenges').update({ group_id: user_id }).eq('group_id', idViejo);
+          await supabase.from('activities').update({ user_id }).eq('user_id', idViejo);
+
+          const { data: datosViejosRetry } = await supabase
+            .from('users')
+            .select('bib_number, shipping_address, strava_token, strava_refresh_token, strava_token_expires_at, strava_athlete_id, strava_habilitado, avatar_url')
+            .eq('id', idViejo)
+            .single();
+
+          await supabase.from('users').delete().eq('id', idViejo);
+
+          const { data: dataRetry, error: errorRetry } = await supabase
+            .from('users')
+            .upsert({ id: user_id, email: emailNormalizado, name: name || email.split('@')[0], ...datosViejosRetry }, { onConflict: 'id' })
+            .select()
+            .single();
+
+          if (errorRetry) throw errorRetry;
+          console.log('Usuario fusionado en reintento OK:', emailNormalizado);
+          return res.json({ mensaje: 'Perfil fusionado con compra existente', usuario: dataRetry });
+        } catch (retryError) {
+          console.error('Reintento de fusion fallido:', retryError.message, emailNormalizado);
+
+          // Mandar email a Korva
+          let emailEnviado = false;
+          try {
+            const { enviarEmailAdmin } = require('./routes/emails');
+            await enviarEmailAdmin(
+              `⚠️ Fusión fallida — ${emailNormalizado}`,
+              `Email: ${emailNormalizado}
+User ID nuevo: ${user_id}
+ID viejo: ${idViejo}
+Error: ${retryError.message}
+
+Al entrar al sistema fijate si este usuario tiene el reto activo.`
+            );
+            emailEnviado = true;
+          } catch (emailError) {
+            console.error('Error mandando email de fusión fallida:', emailError.message);
+          }
+
+          // Crear usuario básico para que pueda estar logueado
+          const { data, error } = await supabase
+            .from('users')
+            .upsert({ id: user_id, email: emailNormalizado, name: name || email.split('@')[0] }, { onConflict: 'id' })
+            .select()
+            .single();
+          if (error) throw error;
+
+          return res.json({
+            mensaje: emailEnviado ? 'fusion_fallida_notificada' : 'fusion_fallida_sin_notificar',
+            usuario: data
+          });
+        }
       }
     }
 

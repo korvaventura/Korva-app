@@ -21,6 +21,7 @@ export default function LoginScreen({ onLogin }) {
   const [verPasswordConfirm, setVerPasswordConfirm] = useState(false);
   const [biometriaDisponible, setBiometriaDisponible] = useState(false);
   const [savedPassword, setSavedPassword] = useState('');
+  const [fusionFallida, setFusionFallida] = useState(null); // null | 'notificada' | 'sin_notificar'
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -71,12 +72,25 @@ export default function LoginScreen({ onLogin }) {
         email, password, options: { data: { name: nombre } }
       });
       if (error) throw error;
-      await fetch(`${BACKEND_URL}/usuarios/perfil`, {
+      const perfilRes = await fetch(`${BACKEND_URL}/usuarios/perfil`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: data.user.id, email, name: nombre })
       });
+      const perfilData = await perfilRes.json();
       await AsyncStorage.setItem('ultimo_email', email);
+      await AsyncStorage.setItem('saved_password', password);
+      setSavedPassword(password);
+      setBiometriaDisponible(true);
+
+      if (perfilData.mensaje === 'fusion_fallida_notificada') {
+        setFusionFallida('notificada');
+        return;
+      }
+      if (perfilData.mensaje === 'fusion_fallida_sin_notificar') {
+        setFusionFallida('sin_notificar');
+        return;
+      }
       onLogin(data.user);
     } catch (error) {
       setMensaje(error.message || 'Error al registrarse');
@@ -124,6 +138,31 @@ export default function LoginScreen({ onLogin }) {
     setResetMode(false);
     setResetEnviado(false);
   };
+
+  if (fusionFallida) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.resetCard}>
+          <Text style={styles.resetEmoji}>{fusionFallida === 'notificada' ? '⚙️' : '📞'}</Text>
+          <Text style={styles.resetTitulo}>
+            {fusionFallida === 'notificada' ? 'Estamos en ello' : 'Contactanos'}
+          </Text>
+          {fusionFallida === 'notificada' ? (
+            <Text style={styles.resetTexto}>
+              Detectamos un problema con tu cuenta y ya notificamos al equipo Korva automáticamente. Lo resolveremos en las próximas horas. No hace falta que nos escribas — te avisamos por email cuando esté solucionado.
+            </Text>
+          ) : (
+            <Text style={styles.resetTexto}>
+              Detectamos un problema con tu cuenta. Por favor escribinos por WhatsApp al +61474024238 para resolverlo.
+            </Text>
+          )}
+          <TouchableOpacity style={styles.button} onPress={() => { setFusionFallida(null); setCargando(false); }}>
+            <Text style={styles.buttonText}>Entendido</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   if (resetEnviado) {
     return (
