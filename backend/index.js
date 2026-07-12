@@ -273,14 +273,18 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
 
       const yaEstabaCompletado = reto.status === 'completed';
       const nuevoStatus = porcentaje >= 100 ? 'completed' : 'active';
-      const seCompletaAhora = nuevoStatus === 'completed' && !yaEstabaCompletado;
+      const yaEraShipped = reto.status === 'shipped';
+      const seCompletaAhora = nuevoStatus === 'completed' && !yaEstabaCompletado && !yaEraShipped;
+
+      // No bajar status de shipped/completed aunque bajen los km
+      const nuevoStatusFinal = (yaEraShipped || yaEstabaCompletado) ? reto.status : nuevoStatus;
 
       await supabase
         .from('user_challenges')
         .update({
           km_completed: totalKm,
-          status: nuevoStatus,
-          completed_at: nuevoStatus === 'active' ? null : (seCompletaAhora ? new Date().toISOString() : undefined),
+          status: nuevoStatusFinal,
+          completed_at: nuevoStatusFinal === 'active' ? null : (seCompletaAhora ? new Date().toISOString() : undefined),
         })
         .eq('id', reto.id);
 
@@ -1612,6 +1616,19 @@ app.delete('/actividades/:actividadId', async (req, res) => {
   const { actividadId } = req.params;
   const { user_id } = req.body;
   try {
+    // Verificar que no haya reto shipped o completed — no se puede borrar actividades de retos finalizados
+    const { data: retosFinalizados } = await supabase
+      .from('user_challenges')
+      .select('id, status')
+      .eq('user_id', user_id)
+      .in('status', ['completed', 'shipped']);
+
+    if (retosFinalizados?.length > 0) {
+      return res.status(400).json({
+        error: 'No podés eliminar actividades de un desafío completado o enviado. Tu medalla ya está en camino 🏅'
+      });
+    }
+
     const { error } = await supabase
       .from('activities')
       .delete()
