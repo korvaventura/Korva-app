@@ -760,22 +760,28 @@ app.post('/actividades/manual', async (req, res) => {
     return res.status(400).json({ error: 'Distancia inválida. Debe ser entre 0.1 y 300 km.' });
   }
 
-  const { data: challengeValido } = await supabase
-    .from('user_challenges')
-    .select('id')
-    .eq('user_id', user_id)
-    .eq('challenge_id', challenge_id)
-    .maybeSingle();
+  // Si viene challenge_id, validar que sea del usuario
+  if (challenge_id) {
+    const { data: challengeValido } = await supabase
+      .from('user_challenges')
+      .select('id')
+      .eq('user_id', user_id)
+      .eq('challenge_id', challenge_id)
+      .maybeSingle();
 
-  if (!challengeValido) {
-    return res.status(400).json({ error: 'No tenés este desafío activo. Cerrá sesión y volvé a entrar para actualizar tu cuenta.' });
+    if (!challengeValido) {
+      return res.status(400).json({ error: 'No tenés este desafío activo. Cerrá sesión y volvé a entrar para actualizar tu cuenta.' });
+    }
   }
+  // Si no viene challenge_id → modo libre, se permite igual
 
   try {
     const { data: nuevaActividad, error: errorActividad } = await supabase
       .from('activities')
       .insert({
-        user_id, challenge_id, source: 'manual',
+        user_id,
+        challenge_id: challenge_id || null,
+        source: 'manual',
         external_id: `manual_${user_id}_${Date.now()}`,
         sport_type, distance_km: distanciaFloat,
         duration_seconds: duration_seconds || null,
@@ -817,7 +823,9 @@ app.post('/actividades/manual', async (req, res) => {
       }
     }
 
-    await recalcularKmUsuario(user_id, challenge_id);
+    if (challenge_id) {
+      await recalcularKmUsuario(user_id, challenge_id);
+    }
     await verificarYEnviarNotificacionRacha(user_id);
 
     if (ucAntes) {

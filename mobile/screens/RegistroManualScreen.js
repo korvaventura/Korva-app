@@ -136,11 +136,7 @@ export default function RegistroManualScreen({ navigation }) {
       setMensaje('Error de sesion, intenta de nuevo');
       return;
     }
-    if (!challengeId) {
-      setMensaje('No tenés ningún desafío activo. Cerrá sesión y volvé a entrar, o inscribite a un desafío primero.');
-      setExito(false);
-      return;
-    }
+    // Sin challengeId = modo libre — se registra igual
     setCargando(true);
     setMensaje('');
     setExito(false);
@@ -174,7 +170,10 @@ export default function RegistroManualScreen({ navigation }) {
         setMensaje(data.error);
         setExito(false);
       } else {
-        setMensaje(`${distancia} km de ${deporte === 'run' ? 'running' : 'ciclismo'} registrados!`);
+        const msgModo = challengeId
+          ? `${distancia} km de ${deporte === 'run' ? 'running' : 'ciclismo'} registrados!`
+          : `${distancia} km guardados en modo libre 🏃`;
+        setMensaje(msgModo);
         setExito(true);
         setDistancia('');
         setDiasAtras(0);
@@ -219,7 +218,7 @@ export default function RegistroManualScreen({ navigation }) {
           onPress={() => navigation?.navigate('Catalogo')}
           activeOpacity={0.85}
         >
-          <Text style={styles.bannerSinRetoEmoji}>🏅</Text>
+          <Text style={styles.bannerSinRetoEmoji}>🏃</Text>
           <View style={{ flex: 1 }}>
             <Text style={styles.bannerSinRetoTitulo}>Tus km se guardan, pero no avanzan en ningún desafío</Text>
             <Text style={styles.bannerSinRetoDesc}>Inscribite en un reto para que cada km cuente hacia tu medalla → Ver catálogo</Text>

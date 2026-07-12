@@ -67,6 +67,8 @@ export default function HomeScreen({ navigation }) {
   const [modalStravaInfoVisible, setModalStravaInfoVisible] = useState(false);
   const [bannerStravaVisible, setBannerStravaVisible] = useState(false);
   const [bannerDireccionVisible, setBannerDireccionVisible] = useState(false);
+  const [actividadesLibres, setActividadesLibres] = useState([]);
+  const [modoLibre, setModoLibre] = useState(false);
   const [cargandoBib, setCargandoBib] = useState(false);
   const [modalAyudaVisible, setModalAyudaVisible] = useState(false);
   const [faqAbierta, setFaqAbierta] = useState(null);
@@ -721,6 +723,33 @@ export default function HomeScreen({ navigation }) {
         </>
       )}
 
+      {/* Modo libre — sin reto activo */}
+      {modoLibre && (
+        <View style={{ margin: 20 }}>
+          <View style={styles.modolLibreBanner}>
+            <Text style={styles.modoLibreEmoji}>🏃</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.modoLibreTitulo}>Modo libre</Text>
+              <Text style={styles.modoLibreDesc}>Estás registrando actividades sin un desafío activo. Los km se guardan en tu historial pero no cuentan para ningún reto.</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Catalogo')}>
+                <Text style={styles.modoLibreBtn}>Inscribite en un desafío →</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          {actividadesLibres.length > 0 && (
+            <View style={{ marginTop: 16 }}>
+              <Text style={[styles.seccionTitulo, { marginBottom: 12 }]}>Actividades recientes</Text>
+              {actividadesLibres.slice(0, 5).map((a, i) => (
+                <View key={i} style={styles.actividadLibreCard}>
+                  <Text style={{ color: '#A8CFFF', fontSize: 13 }}>{a.sport_type === 'run' ? '🏃' : '🚴'} {parseFloat(a.distance_km).toFixed(1)} km</Text>
+                  <Text style={{ color: '#4a6a8a', fontSize: 12 }}>{new Date(a.recorded_at).toLocaleDateString('es-AR')}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
       {/* Retos completados — solo lectura */}
       {!error && challengesCompletados.length > 0 && (
         <View style={{ marginTop: 8, marginBottom: 8 }}>
@@ -1043,6 +1072,12 @@ const styles = StyleSheet.create({
   completadoKm: { fontSize: 13, color: '#A8CFFF' },
   completadoBadge: { fontSize: 12, color: '#4CAF50', fontWeight: 'bold' },
   seccionTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
+  modolLibreBanner: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 16, flexDirection: 'row', gap: 12, borderLeftWidth: 4, borderLeftColor: '#1E6FD9' },
+  modoLibreEmoji: { fontSize: 32 },
+  modoLibreTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
+  modoLibreDesc: { fontSize: 13, color: '#A8CFFF', lineHeight: 18, marginBottom: 8 },
+  modoLibreBtn: { fontSize: 13, color: '#FC4C02', fontWeight: 'bold' },
+  actividadLibreCard: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#1E3A5F' },
   storyCard: { backgroundColor: '#0D1B2A', borderRadius: 20, padding: 28, width: 300, borderWidth: 2, borderColor: '#FC4C02', alignItems: 'center' },
   storyHeader: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 24 },
   storyLogo: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
