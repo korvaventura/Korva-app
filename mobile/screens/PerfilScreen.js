@@ -292,9 +292,13 @@ export default function PerfilScreen() {
   };
 
   const guardarDireccion = async () => {
-    const { nombre, direccion, ciudad, pais, telefono } = formDireccion;
+    const { nombre, direccion, ciudad, pais, telefono, codigo_postal } = formDireccion;
     if (!nombre || !direccion || !ciudad || !pais) {
       Alert.alert('Faltan datos', 'Por favor completá nombre, dirección, ciudad y país.');
+      return;
+    }
+    if (!codigo_postal || codigo_postal.trim().length < 3) {
+      Alert.alert('Código postal requerido', 'Ingresá tu código postal. Lo necesitamos para el envío.');
       return;
     }
     if (!telefono || telefono.trim().length < 7) {
@@ -901,7 +905,7 @@ export default function PerfilScreen() {
 
             <Text style={styles.formLabel}>Ciudad *</Text>
             <TextInput style={styles.input} value={formDireccion.ciudad} onChangeText={v => setFormDireccion(p => ({ ...p, ciudad: v }))} placeholder="Buenos Aires" placeholderTextColor="#4a6a8a" />
-            <Text style={styles.formLabel}>Código postal</Text>
+            <Text style={styles.formLabel}>Código postal *</Text>
             <TextInput style={styles.input} value={formDireccion.codigo_postal} onChangeText={v => setFormDireccion(p => ({ ...p, codigo_postal: v }))} placeholder="1425" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
             <Text style={styles.formLabel}>País *</Text>
             <TextInput style={styles.input} value={formDireccion.pais} onChangeText={v => setFormDireccion(p => ({ ...p, pais: v }))} placeholder="Argentina" placeholderTextColor="#4a6a8a" />

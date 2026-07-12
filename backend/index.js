@@ -875,6 +875,22 @@ const getChallengesByIds = async (challengeIds) => {
   return map;
 };
 
+app.post('/admin/marcar-cargado', async (req, res) => {
+  const { user_challenge_id } = req.body;
+  try {
+    const { error } = await supabase
+      .from('user_challenges')
+      .update({ status: 'cargado' })
+      .eq('id', user_challenge_id)
+      .in('status', ['completed']);
+
+    if (error) throw error;
+    res.json({ mensaje: 'Marcado como cargado' });
+  } catch (error) {
+    res.json({ error: 'Error', detalle: error.message });
+  }
+});
+
 app.post('/admin/medalla-enviada', async (req, res) => {
   const { user_challenge_id, tracking_number } = req.body;
   try {
