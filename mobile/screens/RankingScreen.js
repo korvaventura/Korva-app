@@ -171,7 +171,8 @@ export default function RankingScreen({ navigation }) {
       return propio ? [propio, ...resto] : finishers;
     })();
 
-    const listaBase = tabActivo === 'finishers' ? listaFinishers : listaEnCurso;
+    const listaBase = (tabActivo === 'finishers' ? listaFinishers : listaEnCurso)
+      .map((r, i) => ({ ...r, posicion: i + 1 })); // recalcular posición dentro del tab
 
     // Filtrar por búsqueda
     const listaFiltrada = busqueda.trim()
