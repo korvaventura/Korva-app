@@ -233,7 +233,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
         <View style={styles.metaCard}>
           <View style={styles.metaHeader}>
             <Text style={styles.metaTitulo}>🎯 Tu meta personal</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Perfil')}>
+            <TouchableOpacity onPress={() => navigation.navigate('HomeTabs', { screen: 'Perfil' })}>
               <Text style={styles.metaEditarBtn}>{metaFecha ? 'Editar ✏️' : '+ Agregar'}</Text>
             </TouchableOpacity>
           </View>
