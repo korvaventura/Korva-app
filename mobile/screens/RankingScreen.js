@@ -159,9 +159,13 @@ export default function RankingScreen({ navigation }) {
     const mods = challenge.modalidades || [];
 
     // Separar en curso y finishers
-    const listaEnCurso = lista.filter(r => parseFloat(r.porcentaje) < 100);
+    const listaEnCurso = lista
+      .filter(r => parseFloat(r.porcentaje) < 100)
+      .sort((a, b) => parseFloat(b.km_completados) - parseFloat(a.km_completados));
     const listaFinishers = (() => {
-      const finishers = lista.filter(r => parseFloat(r.porcentaje) >= 100);
+      const finishers = lista
+        .filter(r => parseFloat(r.porcentaje) >= 100)
+        .sort((a, b) => parseFloat(b.km_completados) - parseFloat(a.km_completados));
       const propio = finishers.find(r => esPropio(r.nombre));
       const resto = finishers.filter(r => !esPropio(r.nombre));
       return propio ? [propio, ...resto] : finishers;
@@ -196,6 +200,7 @@ export default function RankingScreen({ navigation }) {
         style={{ width: SCREEN_WIDTH }}
         contentContainerStyle={styles.pageContainer}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled" 
       >
         <Text style={styles.challengeTitulo}>{challenge.title}</Text>
 
@@ -269,6 +274,8 @@ export default function RankingScreen({ navigation }) {
                 onChangeText={setBusqueda}
                 placeholder="Buscar participante..."
                 placeholderTextColor="#4a6a8a"
+                blurOnSubmit={false}
+                returnKeyType="search"
               />
               {busqueda.length > 0 && (
                 <TouchableOpacity onPress={() => setBusqueda('')}>
