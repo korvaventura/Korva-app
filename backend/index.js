@@ -273,7 +273,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
 
       const yaEstabaCompletado = reto.status === 'completed';
       const nuevoStatus = porcentaje >= 100 ? 'completed' : 'active';
-      const yaEraShipped = reto.status === 'shipped';
+      const yaEraShipped = reto.status === 'shipped' || reto.status === 'cargado';
       const seCompletaAhora = nuevoStatus === 'completed' && !yaEstabaCompletado && !yaEraShipped;
 
       // No bajar status de shipped/completed aunque bajen los km
@@ -1050,7 +1050,7 @@ app.get('/admin/todos-inscriptos', async (req, res) => {
     const { data, error } = await supabase
       .from('user_challenges')
       .select('id, user_id, challenge_id, modalidad, km_completed, status, started_at, completed_at, tracking_number')
-      .in('status', ['active', 'completed', 'shipped', 'pending'])
+      .in('status', ['active', 'completed', 'shipped', 'pending', 'cargado'])
       .order('started_at', { ascending: false });
 
     if (error) throw error;
@@ -1675,7 +1675,7 @@ app.get('/admin/metricas', async (req, res) => {
 
     const fechaCortePorUsuario = {};
     inscripciones?.forEach(i => {
-      if (!['active', 'completed', 'shipped'].includes(i.status)) return;
+      if (!['active', 'completed', 'shipped', 'cargado'].includes(i.status)) return;
       const actual = fechaCortePorUsuario[i.user_id];
       if (!actual || new Date(i.started_at) < new Date(actual)) {
         fechaCortePorUsuario[i.user_id] = i.started_at;
