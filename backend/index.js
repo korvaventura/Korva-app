@@ -105,7 +105,8 @@ app.get('/usuarios/bib/:userId', async (req, res) => {
       .maybeSingle();
 
     const challengeTitle = uc?.challenges?.title || 'Desafío Korva';
-    const challengeId = uc?.challenge_id || 'ae54af78-dc6f-4cf5-af31-2c077ba58048';
+    const challengeId = uc?.challenge_id;
+    if (!challengeId) return res.status(404).json({ error: 'No se encontró desafío activo para este usuario' });
 
     const pdfs = await generarBibYPostal(supabase, user.name, bibNumber, challengeId);
     if (!pdfs) return res.status(500).json({ error: 'No se pudieron generar los PDFs' });
