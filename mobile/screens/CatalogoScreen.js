@@ -336,9 +336,15 @@ export default function CatalogoScreen() {
               </Text>
             </View>
 
+            <View style={styles.multiDesafioAviso}>
+              <Text style={styles.multiDesafioAvisoTexto}>
+                🛒 En la tienda podés agregar más de un desafío al carrito y pagar todo junto en un solo pago.
+              </Text>
+            </View>
+
             <TouchableOpacity style={styles.modalButton} onPress={() => { elegirModalidad(modalConfirmModalidad.tipo); setModalConfirmModalidad(null); }}>
               <View style={{ flex: 1, alignItems: 'center' }}>
-                <Text style={styles.modalButtonTitulo}>Entendido, continuar</Text>
+                <Text style={styles.modalButtonTitulo}>Entendido, ir a la tienda</Text>
               </View>
               <Ionicons name="arrow-forward" size={18} color="#1E6FD9" />
             </TouchableOpacity>
@@ -420,5 +426,7 @@ const styles = StyleSheet.create({
   cantidadBtnText: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' },
   cantidadNumero: { color: '#FFFFFF', fontSize: 22, fontWeight: 'bold', minWidth: 32, textAlign: 'center' },
   cantidadAyuda: { fontSize: 12, color: '#A8CFFF', marginTop: 12, lineHeight: 18, textAlign: 'center' },
+  multiDesafioAviso: { backgroundColor: '#0D2A1A', borderRadius: 12, padding: 12, marginTop: 12, borderLeftWidth: 3, borderLeftColor: '#4CAF50' },
+  multiDesafioAvisoTexto: { fontSize: 13, color: '#A8CFFF', lineHeight: 18 },
   regaloAviso: { fontSize: 12, color: '#FC4C02', marginTop: 12, lineHeight: 18, textAlign: 'center', fontWeight: 'bold' },
 });
