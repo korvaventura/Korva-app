@@ -31,25 +31,26 @@ const verificarFirmaShopify = (rawBody, hmacHeader) => {
 };
 
 // Función centralizada para activar un challenge y enviar bib+postal
-const activarChallengeYEnviarBib = async (supabase, user, pendiente) => {
+const activarChallengeYEnviarBib = async (supabase, user, pendiente, enviarBib = true) => {
   // 1. Activar el challenge
   await supabase
     .from('user_challenges')
     .update({ status: 'active' })
     .eq('id', pendiente.id);
 
-  console.log('Challenge activado para:', user.email);
+  console.log('Challenge activado para:', user.email, '-', pendiente.challenges?.title);
 
   // 2. Asignar número de bib (si no tiene uno ya)
   let bibNumber = user.bib_number;
   if (!bibNumber) {
     bibNumber = await asignarBibNumber(supabase, user.id);
+    user.bib_number = bibNumber;
   }
 
-  // 3. Generar dorsal y postal PDF
+  // 3. Generar dorsal y postal PDF — uno por cada desafío
   const pdfs = await generarBibYPostal(supabase, user.name, bibNumber, pendiente.challenge_id);
 
-  // 4. Mandar email con o sin adjuntos según si se generaron bien
+  // 5. Mandar email con o sin adjuntos según si se generaron bien
   if (pdfs) {
     await enviarEmailInscripcionConBib(
       user.email,
@@ -61,7 +62,6 @@ const activarChallengeYEnviarBib = async (supabase, user, pendiente) => {
       bibNumber
     );
   } else {
-    // Fallback sin adjuntos
     await enviarEmailInscripcion(
       user.email,
       user.name,
@@ -110,11 +110,14 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
 
   try {
     const email = (order.email || '').trim().toLowerCase();
-    const cantidad = order.line_items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 1;
-    const productId = String(order.line_items?.[0]?.product_id || '');
-    const challengeIdFromProduct = PRODUCT_CHALLENGE_MAP[productId];
 
-    // Buscar o crear usuario
+    // Buscar el nombre del usuario
+    const nombreShipping = [order.shipping_address?.first_name, order.shipping_address?.last_name].filter(Boolean).join(' ');
+    const nombreBilling = [order.billing_address?.first_name, order.billing_address?.last_name].filter(Boolean).join(' ');
+    const nombreCustomer = [order.customer?.first_name, order.customer?.last_name].filter(Boolean).join(' ');
+    const nombreCompleto = nombreShipping || nombreBilling || nombreCustomer || email.split('@')[0];
+
+    // Buscar o crear usuario UNA SOLA VEZ
     let user = null;
     const { data: usuarioExistente } = await supabase
       .from('users')
@@ -124,14 +127,7 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
 
     if (usuarioExistente) {
       user = usuarioExistente;
-    } else if (challengeIdFromProduct) {
-      // Buscar el nombre en varias fuentes posibles, en orden de confianza,
-      // antes de caer al fallback feo de usar la parte del email.
-      const nombreShipping = [order.shipping_address?.first_name, order.shipping_address?.last_name].filter(Boolean).join(' ');
-      const nombreBilling = [order.billing_address?.first_name, order.billing_address?.last_name].filter(Boolean).join(' ');
-      const nombreCustomer = [order.customer?.first_name, order.customer?.last_name].filter(Boolean).join(' ');
-      const nombreCompleto = nombreShipping || nombreBilling || nombreCustomer || email.split('@')[0];
-
+    } else {
       const { data: nuevoUsuario, error: errorUsuario } = await supabase
         .from('users')
         .insert({
@@ -159,69 +155,97 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
       return res.status(200).json({ mensaje: 'Usuario no encontrado y no se pudo crear' });
     }
 
-    // Buscar challenge pendiente o crear inscripción
-    let pendiente = null;
-    const { data: pendienteExistente } = await supabase
-      .from('user_challenges')
-      .select('id, modalidad, challenge_id, challenges(title)')
-      .eq('user_id', user.id)
-      .eq('status', 'pending')
-      .order('started_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // Procesar CADA line_item por separado — permite comprar múltiples desafíos
+    const lineItems = order.line_items || [];
+    let primerDesafioActivado = null;
+    let totalInvitados = 0;
 
-    if (pendienteExistente) {
-      pendiente = pendienteExistente;
-      // Asegurar que tenga group_id (self) si no lo tenía
-      await supabase
-        .from('user_challenges')
-        .update({ group_id: user.id })
-        .eq('id', pendiente.id)
-        .is('group_id', null);
-    } else if (challengeIdFromProduct) {
-      const { data: nuevaInscripcion } = await supabase
-        .from('user_challenges')
-        .insert({
-          user_id: user.id,
-          challenge_id: challengeIdFromProduct,
-          modalidad: 'run',
-          status: 'pending',
-          km_completed: 0,
-          started_at: new Date().toISOString(),
-          group_id: user.id,
-        })
-        .select('id, modalidad, challenge_id, challenges(title)')
-        .single();
+    for (const lineItem of lineItems) {
+      const productId = String(lineItem.product_id || '');
+      const challengeIdFromProduct = PRODUCT_CHALLENGE_MAP[productId];
+      const cantidadItem = lineItem.quantity || 1;
 
-      if (nuevaInscripcion) pendiente = nuevaInscripcion;
-    }
-
-    if (!pendiente) {
-      return res.status(200).json({ mensaje: 'No se encontró challenge pendiente' });
-    }
-
-    // Activar y enviar bib
-    await activarChallengeYEnviarBib(supabase, user, pendiente);
-
-    // Si compró más de 1, generar tokens de invitación
-    if (cantidad > 1) {
-      const tokens = [];
-      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-      for (let i = 0; i < cantidad - 1; i++) {
-        const token = generarToken();
-        await supabase.from('invitations').insert({
-          token,
-          challenge_id: pendiente.challenge_id,
-          created_by: user.id,
-          expires_at: expiresAt.toISOString()
-        });
-        tokens.push(token);
+      if (!challengeIdFromProduct) {
+        console.log(`Producto no mapeado: ${productId}`);
+        continue;
       }
-      console.log(`Generados ${tokens.length} tokens de invitación para ${email}`);
-      enviarEmailInvitacion(user.email, user.name, pendiente.challenges.title, tokens);
+
+      // Verificar si ya tiene este challenge activo (evitar duplicados)
+      const { data: yaExiste } = await supabase
+        .from('user_challenges')
+        .select('id, status')
+        .eq('user_id', user.id)
+        .eq('challenge_id', challengeIdFromProduct)
+        .in('status', ['active', 'completed', 'shipped', 'cargado'])
+        .maybeSingle();
+
+      if (yaExiste) {
+        console.log(`Challenge ${challengeIdFromProduct} ya activo para ${email}`);
+        continue;
+      }
+
+      // Buscar challenge pendiente para este producto específico
+      let pendiente = null;
+      const { data: pendienteExistente } = await supabase
+        .from('user_challenges')
+        .select('id, modalidad, challenge_id, challenges(title)')
+        .eq('user_id', user.id)
+        .eq('challenge_id', challengeIdFromProduct)
+        .eq('status', 'pending')
+        .maybeSingle();
+
+      if (pendienteExistente) {
+        pendiente = pendienteExistente;
+        await supabase.from('user_challenges').update({ group_id: user.id }).eq('id', pendiente.id).is('group_id', null);
+      } else {
+        const { data: nuevaInscripcion } = await supabase
+          .from('user_challenges')
+          .insert({
+            user_id: user.id,
+            challenge_id: challengeIdFromProduct,
+            modalidad: 'run',
+            status: 'pending',
+            km_completed: 0,
+            started_at: new Date().toISOString(),
+            group_id: user.id,
+          })
+          .select('id, modalidad, challenge_id, challenges(title)')
+          .single();
+
+        if (nuevaInscripcion) pendiente = nuevaInscripcion;
+      }
+
+      if (!pendiente) continue;
+
+      // Activar challenge y enviar bib — uno por cada desafío distinto
+      await activarChallengeYEnviarBib(supabase, user, pendiente, true);
+      if (!primerDesafioActivado) primerDesafioActivado = pendiente;
+
+      // Si compró más de 1 del mismo desafío, avisar a Korva para activar manualmente
+      if (cantidadItem > 1) {
+        const { enviarEmailAdmin } = require('../routes/emails');
+        await enviarEmailAdmin(
+          `👥 Compra grupal — activación manual requerida`,
+          `Email: ${email}\nNombre: ${nombreCompleto}\nDesafío: ${pendiente.challenges?.title}\nCantidad total: ${cantidadItem}\n\nActivar manualmente a ${cantidadItem - 1} persona(s) adicional(es) para este desafío.`
+        );
+        // Generar tokens de invitación para el email al comprador
+        const tokens = [];
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        for (let i = 0; i < cantidadItem - 1; i++) {
+          const token = generarToken();
+          await supabase.from('invitations').insert({
+            token,
+            challenge_id: pendiente.challenge_id,
+            created_by: user.id,
+            expires_at: expiresAt.toISOString()
+          });
+          tokens.push(token);
+        }
+        enviarEmailInvitacion(user.email, user.name, pendiente.challenges?.title, tokens);
+      }
     }
 
-    res.status(200).json({ mensaje: 'Challenge activado exitosamente' });
+    res.status(200).json({ mensaje: 'Challenges activados exitosamente' });
 
   } catch (error) {
     res.status(200).json({ error: 'Error procesando webhook', detalle: error.message });
