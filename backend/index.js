@@ -864,22 +864,10 @@ const getUsersByIds = async (userIds) => {
   if (!userIds || userIds.length === 0) return {};
   const idsValidos = [...new Set(userIds)].filter(id => id && id !== 'null' && typeof id === 'string' && id.length > 10);
   if (idsValidos.length === 0) return {};
-  try {
-    // Crear cliente fresco para evitar problemas de estado
-    const { createClient } = require('@supabase/supabase-js');
-    const freshClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET);
-    const { data, error } = await freshClient.from('users').select('id, name, email, avatar_url, shipping_address, push_token').in('id', idsValidos);
-    if (error) {
-      console.error('getUsersByIds error:', error.message);
-      return {};
-    }
-    const map = {};
-    (data || []).forEach(u => { map[u.id] = u; });
-    return map;
-  } catch (e) {
-    console.error('getUsersByIds catch:', e.message);
-    return {};
-  }
+  const { data } = await supabase.from('users').select('id, name, email, avatar_url, shipping_address, push_token').in('id', idsValidos);
+  const map = {};
+  (data || []).forEach(u => { map[u.id] = u; });
+  return map;
 };
 
 const getChallengesByIds = async (challengeIds) => {
@@ -1062,28 +1050,26 @@ app.get('/admin/export-envios', async (req, res) => {
 
 app.get('/admin/todos-inscriptos', async (req, res) => {
   try {
-    // Un solo query con join — evita el problema de fetch encadenado
     const { data, error } = await supabase
       .from('user_challenges')
-      .select(`
-        id, user_id, challenge_id, modalidad, km_completed, status, started_at, completed_at, tracking_number,
-        users!inner(id, name, email, shipping_address),
-        challenges(id, title)
-      `)
+      .select('id, user_id, challenge_id, modalidad, km_completed, status, started_at, completed_at, tracking_number')
       .in('status', ['active', 'completed', 'shipped', 'pending', 'cargado'])
       .order('started_at', { ascending: false });
 
     if (error) throw error;
 
-    const resultado = (data || []).map(uc => ({
+    const usuarios = await getUsersByIds(data.map(u => u.user_id));
+    const challenges = await getChallengesByIds(data.map(u => u.challenge_id));
+
+    const resultado = data.map(uc => ({
       id: uc.id,
-      usuario: uc.users?.name,
-      email: uc.users?.email,
-      challenge: uc.challenges?.title,
+      usuario: usuarios[uc.user_id]?.name,
+      email: usuarios[uc.user_id]?.email,
+      challenge: challenges[uc.challenge_id]?.title,
       challenge_id: uc.challenge_id,
       modalidad: uc.modalidad,
       km_completados: uc.km_completed?.toFixed(1) || '0.0',
-      direccion: uc.users?.shipping_address,
+      direccion: usuarios[uc.user_id]?.shipping_address,
       status: uc.status,
       started_at: uc.started_at,
       completed_at: uc.completed_at,
