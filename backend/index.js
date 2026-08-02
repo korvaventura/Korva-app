@@ -1050,33 +1050,9 @@ app.get('/admin/export-envios', async (req, res) => {
 
 app.get('/admin/todos-inscriptos', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('user_challenges')
-      .select('id, user_id, challenge_id, modalidad, km_completed, status, started_at, completed_at, tracking_number')
-      .in('status', ['active', 'completed', 'shipped', 'pending', 'cargado'])
-      .order('started_at', { ascending: false });
-
+    const { data, error } = await supabase.rpc('get_todos_inscriptos');
     if (error) throw error;
-
-    const usuarios = await getUsersByIds(data.map(u => u.user_id));
-    const challenges = await getChallengesByIds(data.map(u => u.challenge_id));
-
-    const resultado = data.map(uc => ({
-      id: uc.id,
-      usuario: usuarios[uc.user_id]?.name,
-      email: usuarios[uc.user_id]?.email,
-      challenge: challenges[uc.challenge_id]?.title,
-      challenge_id: uc.challenge_id,
-      modalidad: uc.modalidad,
-      km_completados: uc.km_completed?.toFixed(1) || '0.0',
-      direccion: usuarios[uc.user_id]?.shipping_address,
-      status: uc.status,
-      started_at: uc.started_at,
-      completed_at: uc.completed_at,
-      tracking_number: uc.tracking_number,
-    }));
-
-    res.json(resultado);
+    res.json(data || []);
   } catch (error) {
     res.json({ error: 'Error', detalle: error.message });
   }
