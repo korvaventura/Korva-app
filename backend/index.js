@@ -862,17 +862,24 @@ app.post('/actividades/manual', async (req, res) => {
 
 const getUsersByIds = async (userIds) => {
   if (!userIds || userIds.length === 0) return {};
-  // Filtrar IDs nulos o inválidos antes de buscar
   const idsValidos = [...new Set(userIds)].filter(id => id && id !== 'null' && typeof id === 'string' && id.length > 10);
   if (idsValidos.length === 0) return {};
-  const { data, error } = await supabase.from('users').select('id, name, email, avatar_url, shipping_address, push_token').in('id', idsValidos);
-  if (error) {
-    console.error('getUsersByIds error:', error.message);
+  try {
+    // Crear cliente fresco para evitar problemas de estado
+    const { createClient } = require('@supabase/supabase-js');
+    const freshClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET);
+    const { data, error } = await freshClient.from('users').select('id, name, email, avatar_url, shipping_address, push_token').in('id', idsValidos);
+    if (error) {
+      console.error('getUsersByIds error:', error.message);
+      return {};
+    }
+    const map = {};
+    (data || []).forEach(u => { map[u.id] = u; });
+    return map;
+  } catch (e) {
+    console.error('getUsersByIds catch:', e.message);
     return {};
   }
-  const map = {};
-  (data || []).forEach(u => { map[u.id] = u; });
-  return map;
 };
 
 const getChallengesByIds = async (challengeIds) => {
