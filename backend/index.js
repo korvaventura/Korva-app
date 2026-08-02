@@ -1062,29 +1062,28 @@ app.get('/admin/export-envios', async (req, res) => {
 
 app.get('/admin/todos-inscriptos', async (req, res) => {
   try {
+    // Un solo query con join — evita el problema de fetch encadenado
     const { data, error } = await supabase
       .from('user_challenges')
-      .select('id, user_id, challenge_id, modalidad, km_completed, status, started_at, completed_at, tracking_number')
+      .select(`
+        id, user_id, challenge_id, modalidad, km_completed, status, started_at, completed_at, tracking_number,
+        users!inner(id, name, email, shipping_address),
+        challenges(id, title)
+      `)
       .in('status', ['active', 'completed', 'shipped', 'pending', 'cargado'])
       .order('started_at', { ascending: false });
 
     if (error) throw error;
 
-    const userIds = data.map(u => u.user_id);
-    console.log('todos-inscriptos userIds sample:', userIds.slice(0,3));
-    const usuarios = await getUsersByIds(userIds);
-    console.log('todos-inscriptos usuarios count:', Object.keys(usuarios).length);
-    const challenges = await getChallengesByIds(data.map(u => u.challenge_id));
-
-    const resultado = data.map(uc => ({
+    const resultado = (data || []).map(uc => ({
       id: uc.id,
-      usuario: usuarios[uc.user_id]?.name,
-      email: usuarios[uc.user_id]?.email || uc.email,
-      challenge: challenges[uc.challenge_id]?.title,
+      usuario: uc.users?.name,
+      email: uc.users?.email,
+      challenge: uc.challenges?.title,
       challenge_id: uc.challenge_id,
       modalidad: uc.modalidad,
       km_completados: uc.km_completed?.toFixed(1) || '0.0',
-      direccion: usuarios[uc.user_id]?.shipping_address,
+      direccion: uc.users?.shipping_address,
       status: uc.status,
       started_at: uc.started_at,
       completed_at: uc.completed_at,
