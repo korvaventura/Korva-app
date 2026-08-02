@@ -1063,7 +1063,10 @@ app.get('/admin/todos-inscriptos', async (req, res) => {
 
     if (error) throw error;
 
-    const usuarios = await getUsersByIds(data.map(u => u.user_id));
+    const userIds = data.map(u => u.user_id);
+    console.log('todos-inscriptos userIds sample:', userIds.slice(0,3));
+    const usuarios = await getUsersByIds(userIds);
+    console.log('todos-inscriptos usuarios count:', Object.keys(usuarios).length);
     const challenges = await getChallengesByIds(data.map(u => u.challenge_id));
 
     const resultado = data.map(uc => ({
