@@ -2,6 +2,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput,
 import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
@@ -440,6 +441,57 @@ export default function PerfilScreen() {
   };
 
   const cerrarSesion = async () => { await supabase.auth.signOut(); };
+
+  const eliminarCuenta = () => {
+    Alert.alert(
+      '⚠️ Eliminar cuenta',
+      'Esta acción es permanente. Se eliminarán tu cuenta y todos tus datos personales asociados. Tu historial de desafíos quedará anonimizado.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Continuar',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              '¿Estás seguro/a?',
+              'No podrás recuperar tu cuenta ni tus datos. ¿Querés eliminar tu cuenta definitivamente?',
+              [
+                { text: 'No, conservar mi cuenta', style: 'cancel' },
+                {
+                  text: 'Sí, eliminar definitivamente',
+                  style: 'destructive',
+                  onPress: confirmarEliminacion,
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  const confirmarEliminacion = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { Alert.alert('Error', 'No hay sesión activa.'); return; }
+
+      const res = await fetch(`${BACKEND_URL}/usuarios/${session.user.id}`, { method: 'DELETE' });
+      const data = await res.json();
+
+      if (data.error) {
+        Alert.alert('Error', 'No se pudo eliminar la cuenta. Intentá de nuevo.');
+        return;
+      }
+
+      // Limpiar datos locales
+      await supabase.auth.signOut();
+      await AsyncStorage.clear();
+
+      Alert.alert('Cuenta eliminada', 'Tu cuenta fue eliminada correctamente.');
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo conectar. Verificá tu conexión e intentá de nuevo.');
+    }
+  };
 
   const formatearFechaCorta = (fecha) => {
     if (!fecha) return '';
@@ -981,6 +1033,10 @@ export default function PerfilScreen() {
         <Text style={styles.cerrarButtonText}>Cerrar sesion</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity style={styles.eliminarCuentaBtn} onPress={eliminarCuenta}>
+        <Text style={styles.eliminarCuentaBtnText}>Eliminar cuenta</Text>
+      </TouchableOpacity>
+
     </ScrollView>
   );
 }
@@ -1096,6 +1152,8 @@ const styles = StyleSheet.create({
   stravaReconectarText: { color: '#4a6a8a', fontSize: 13 },
   stravaInstructivoBtn: { borderWidth: 1, borderColor: '#2a4a6a', borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
   stravaInstructivoBtnText: { color: '#A8CFFF', fontSize: 13 },
+  eliminarCuentaBtn: { marginTop: 8, marginHorizontal: 24, paddingVertical: 14, alignItems: 'center', borderRadius: 14, borderWidth: 1, borderColor: '#FF3B30', marginBottom: 8 },
+  eliminarCuentaBtnText: { color: '#FF3B30', fontSize: 14, fontWeight: '600' },
   cerrarButton: { borderWidth: 1, borderColor: '#2a3a4a', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center', paddingHorizontal: 24, marginHorizontal: 24 },
   cerrarButtonText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 15 },
   perfilDeporteCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#1E6FD9' },

@@ -1755,6 +1755,53 @@ setInterval(recordarDireccion, 24 * 60 * 60 * 1000);
 // También correr al iniciar (después de 1 minuto para que el servidor esté listo)
 setTimeout(recordarDireccion, 60 * 1000);
 
+// ── ELIMINAR CUENTA ────────────────────────────────────────────
+app.delete('/usuarios/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    // 1. Anonimizar datos personales en users (no borrar para conservar historial)
+    await supabase.from('users').update({
+      name: 'Usuario eliminado',
+      email: `deleted_${userId}@korva.deleted`,
+      shipping_address: null,
+      avatar_url: null,
+      strava_token: null,
+      strava_refresh_token: null,
+      strava_athlete_id: null,
+      strava_habilitado: false,
+      push_token: null,
+      dorsal_url: null,
+      postal_url: null,
+    }).eq('id', userId);
+
+    // 2. Anonimizar invitaciones (no borrar para no romper grupos)
+    await supabase.from('invitations').update({ created_by: null }).eq('created_by', userId);
+    await supabase.from('invitations').update({ used_by: null }).eq('used_by', userId);
+
+    // 3. Borrar actividades (datos personales de movimiento)
+    await supabase.from('activities').delete().eq('user_id', userId);
+
+    // 4. Eliminar usuario de Auth de Supabase (requiere service role)
+    const { createClient } = require('@supabase/supabase-js');
+    const adminClient = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SECRET,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+    const { error: authError } = await adminClient.auth.admin.deleteUser(userId);
+    if (authError) {
+      console.error('Error eliminando de Auth:', authError.message);
+      // Continuar aunque falle Auth — los datos ya están anonimizados
+    }
+
+    console.log('Cuenta eliminada/anonimizada:', userId);
+    res.json({ mensaje: 'Cuenta eliminada correctamente' });
+  } catch (error) {
+    console.error('Error eliminando cuenta:', error.message);
+    res.status(500).json({ error: 'Error eliminando cuenta', detalle: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
