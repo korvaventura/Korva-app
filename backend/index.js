@@ -31,7 +31,7 @@ app.get('/strava-cupo', async (req, res) => {
         .from('user_challenges')
         .select('id')
         .eq('user_id', userId)
-        .in('status', ['active', 'completed', 'shipped'])
+        .in('status', ['active', 'completed', 'shipped', 'cargado'])
         .limit(1)
         .maybeSingle();
 
