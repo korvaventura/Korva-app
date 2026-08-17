@@ -6,6 +6,9 @@ const { enviarNotificacionProgreso } = require('../routes/notificaciones');
 const REDIRECT_URI = 'https://korva-app-production.up.railway.app/strava/callback';
 const WEBHOOK_VERIFY_TOKEN = 'korva_webhook_secret_2024';
 
+// Tolerancia para considerar que dos actividades del mismo dia son la misma
+const TOLERANCIA_KM = 0.3;
+
 const getSupabase = () => createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SECRET
@@ -16,6 +19,57 @@ const normalizarSportType = (tipo) => {
   if (['run', 'virtualrun', 'trailrun', 'treadmill'].includes(t)) return 'run';
   if (['ride', 'virtualride', 'mountainbikeride', 'gravelride', 'ebikeride'].includes(t)) return 'ride';
   return t;
+};
+
+// FIX ANTI-DUPLICADOS
+// Si el usuario ya cargo a mano (o migramos de la web vieja) una actividad
+// del mismo dia con distancia parecida, no la volvemos a insertar desde Strava.
+// El neq sobre external_id evita que una actividad se encuentre a si misma
+// cuando Strava reenvia un evento de update.
+const yaExisteActividad = async (supabase, userId, startDate, km, externalId) => {
+  try {
+    const fecha = String(startDate).split('T')[0];
+    let query = supabase
+      .from('activities')
+      .select('id, source, distance_km')
+      .eq('user_id', userId)
+      .gte('recorded_at', `${fecha}T00:00:00`)
+      .lte('recorded_at', `${fecha}T23:59:59.999`)
+      .gte('distance_km', km - TOLERANCIA_KM)
+      .lte('distance_km', km + TOLERANCIA_KM)
+      .limit(1);
+
+    if (externalId) query = query.neq('external_id', String(externalId));
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error verificando duplicado:', error.message);
+      return false; // ante la duda, dejamos pasar
+    }
+    return (data && data.length > 0) ? data[0] : null;
+  } catch (error) {
+    console.error('Error verificando duplicado:', error.message);
+    return false;
+  }
+};
+
+// Suma los km que le corresponden a un challenge.
+// A PROPOSITO no filtra por challenge_id: una misma salida suma a TODOS los
+// retos activos de la persona. El recorte correcto es started_at, para que
+// cada reto cuente solo desde su fecha de inscripcion.
+const calcularKmDeChallenge = async (supabase, userId, uc) => {
+  const { data: actividades } = await supabase
+    .from('activities')
+    .select('distance_km')
+    .eq('user_id', userId)
+    .gte('recorded_at', uc.started_at);
+
+  const suma = actividades?.reduce((acc, a) => acc + (a.distance_km || 0), 0) || 0;
+
+  // FIX PROTECTIVO: nunca bajar los km ya acreditados.
+  // Hay usuarios migrados en junio con km_completed cargado como numero suelto,
+  // sin filas en activities. Sin este guard, el primer recalculo se los borra.
+  return Math.max(suma, uc.km_completed || 0);
 };
 
 const enviarPushNotification = async (pushToken, title, body) => {
@@ -127,12 +181,33 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
 
   if (!actividad.id) throw new Error('Actividad no encontrada en Strava');
 
-  // FIX: ignorar actividades sin distancia (workout de fuerza, gym, etc.)
+  // Ignorar actividades sin distancia (gym, fuerza, etc.)
   const distanciaKm = (actividad.distance || 0) / 1000;
   if (distanciaKm <= 0) {
     console.log(`Actividad ${stravaActivityId} ignorada — sin distancia (tipo: ${actividad.type})`);
     return;
   }
+
+  // FIX ANTI-DUPLICADOS
+  const duplicada = await yaExisteActividad(
+    supabase, userId, actividad.start_date, distanciaKm, actividad.id
+  );
+  if (duplicada) {
+    console.log(
+      `Actividad ${stravaActivityId} salteada — ya existe una de ${duplicada.distance_km} km ` +
+      `(origen: ${duplicada.source}) el ${String(actividad.start_date).split('T')[0]}`
+    );
+    return;
+  }
+
+  // Buscamos el challenge activo para etiquetar la actividad
+  const { data: userChallenges } = await supabase
+    .from('user_challenges')
+    .select('*, challenges(*)')
+    .eq('user_id', userId)
+    .eq('status', 'active');
+
+  const challengePrincipal = userChallenges?.[0] || null;
 
   await supabase.from('activities').upsert({
     user_id: userId,
@@ -141,28 +216,17 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
     sport_type: normalizarSportType(actividad.type),
     distance_km: distanciaKm,
     duration_seconds: actividad.moving_time,
-    recorded_at: actividad.start_date
+    recorded_at: actividad.start_date,
+    challenge_id: challengePrincipal?.challenge_id || null
   }, { onConflict: 'external_id' });
-
-  const { data: userChallenges } = await supabase
-    .from('user_challenges')
-    .select('*, challenges(*)')
-    .eq('user_id', userId)
-    .eq('status', 'active');
 
   for (const uc of userChallenges || []) {
     const modalidades = uc.challenges.modalidades || [];
     const modalidadElegida = modalidades.find(m => m.tipo === uc.modalidad) ||
       { distancia_km: uc.challenges.total_distance_km };
 
-    const { data: actividades } = await supabase
-      .from('activities')
-      .select('distance_km')
-      .eq('user_id', userId)
-      .gte('recorded_at', uc.started_at);
-
     const kmAntes = uc.km_completed || 0;
-    const totalKm = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
+    const totalKm = await calcularKmDeChallenge(supabase, userId, uc);
     const porcentaje = Math.min((totalKm / modalidadElegida.distancia_km) * 100, 100);
     const yaCompletado = uc.status === 'completed';
     const nuevoStatus = porcentaje >= 100 ? 'completed' : uc.status;
@@ -309,38 +373,67 @@ router.get('/actividades/:userId', async (req, res) => {
 
     const actividades = await response.json();
 
-    // FIX: filtrar actividades sin distancia antes de guardar
+    if (!Array.isArray(actividades)) {
+      throw new Error('Strava no devolvió actividades. Reconectá tu cuenta.');
+    }
+
+    // Filtrar actividades sin distancia antes de guardar
     const actividadesConDistancia = actividades.filter(a => (a.distance || 0) > 0);
 
-    // FIX: no importar actividades anteriores al started_at del challenge mas reciente
+    // No importar actividades anteriores al started_at del challenge mas reciente
     const { data: inscripciones } = await supabase
       .from('user_challenges')
-      .select('started_at')
+      .select('started_at, challenge_id')
       .eq('user_id', userId)
       .in('status', ['active', 'completed'])
       .order('started_at', { ascending: false })
       .limit(1);
 
     const fechaCorteImport = inscripciones?.[0]?.started_at || null;
+    const challengeIdActual = inscripciones?.[0]?.challenge_id || null;
 
     const actividadesFiltradas = fechaCorteImport
       ? actividadesConDistancia.filter(a => new Date(a.start_date) >= new Date(fechaCorteImport))
       : actividadesConDistancia;
 
+    let importadas = 0;
+    let salteadas = 0;
+
     for (const actividad of actividadesFiltradas) {
+      const km = actividad.distance / 1000;
+
+      // FIX ANTI-DUPLICADOS
+      const duplicada = await yaExisteActividad(
+        supabase, userId, actividad.start_date, km, actividad.id
+      );
+      if (duplicada) {
+        console.log(
+          `Actividad ${actividad.id} salteada — ya existe una de ${duplicada.distance_km} km ` +
+          `(origen: ${duplicada.source}) el ${String(actividad.start_date).split('T')[0]}`
+        );
+        salteadas++;
+        continue;
+      }
+
       await supabase.from('activities').upsert({
         user_id: userId,
         source: 'strava',
         external_id: String(actividad.id),
         sport_type: normalizarSportType(actividad.type),
-        distance_km: actividad.distance / 1000,
+        distance_km: km,
         duration_seconds: actividad.moving_time,
-        recorded_at: actividad.start_date
+        recorded_at: actividad.start_date,
+        challenge_id: challengeIdActual
       }, { onConflict: 'external_id' });
+
+      importadas++;
     }
 
     res.json({
-      mensaje: `${actividadesFiltradas.length} actividades importadas de Strava`,
+      mensaje: `${importadas} actividades importadas de Strava` +
+               (salteadas > 0 ? ` (${salteadas} ya estaban cargadas)` : ''),
+      importadas,
+      salteadas,
       actividades: actividadesFiltradas.map(a => ({
         nombre: a.name,
         tipo: a.type,
@@ -388,13 +481,7 @@ router.get('/progreso/:userId', async (req, res) => {
       const modalidadElegida = modalidades.find(m => m.tipo === uc.modalidad) ||
         { distancia_km: uc.challenges.total_distance_km };
 
-      const { data: actividades } = await supabase
-        .from('activities')
-        .select('distance_km')
-        .eq('user_id', userId)
-        .gte('recorded_at', uc.started_at);
-
-      const totalKm = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
+      const totalKm = await calcularKmDeChallenge(supabase, userId, uc);
       const porcentaje = Math.min((totalKm / modalidadElegida.distancia_km) * 100, 100).toFixed(1);
       const yaCompletado = uc.status === 'completed';
       const nuevoStatus = parseFloat(porcentaje) >= 100 ? 'completed' : uc.status;
@@ -450,7 +537,6 @@ router.get('/progreso/:userId', async (req, res) => {
   }
 });
 
-// FIX: endpoint para desconectar Strava
 router.post('/desconectar/:userId', async (req, res) => {
   const { userId } = req.params;
   const supabase = getSupabase();
@@ -502,7 +588,7 @@ router.post('/webhook', async (req, res) => {
       .from('users')
       .select('id')
       .eq('strava_athlete_id', stravaAthleteId)
-      .single();
+      .maybeSingle();
 
     if (error || !user) {
       console.log(`Usuario no encontrado para atleta Strava ${stravaAthleteId}`);
