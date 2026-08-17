@@ -173,7 +173,12 @@ export default function HomeScreen({ navigation }) {
       // FIX: solo mostrar si no fue cerrado manualmente
       if (sinKm && !bannerCerrado) setBannerVisible(true);
       const reto100 = lista.find(c => parseFloat(c.porcentaje) >= 100 && !c.pending);
-      if (reto100) setCompletado(reto100.challenge);
+      if (reto100) {
+        const visto = await AsyncStorage.getItem(`completado_visto_${reto100.challenge_id}`);
+        if (!visto) {
+          setCompletado(reto100.challenge);
+        }
+      }
 
       const visibles = {};
       for (const c of activos) {
@@ -330,14 +335,18 @@ export default function HomeScreen({ navigation }) {
       <CompletadoScreen
         challenge={completado}
         userId={userId}
-        onVolver={() => setCompletado(null)}
+        onVolver={async () => {
+          const reto100 = challenges.find(c => parseFloat(c.porcentaje) >= 100 && !c.pending);
+          if (reto100) await AsyncStorage.setItem(`completado_visto_${reto100.challenge_id}`, 'true');
+          setCompletado(null);
+        }}
       />
     );
   }
 
   const challengesPending = challenges.filter(c => c.pending);
-  const challengesEnCurso = challenges.filter(c => !c.pending && parseFloat(c.porcentaje) < 100);
-  const challengesCompletados = challenges.filter(c => !c.pending && (parseFloat(c.porcentaje) >= 100 || c.status === 'shipped'));
+  const challengesEnCurso = challenges.filter(c => !c.pending && parseFloat(c.porcentaje) < 100 && !['completed','shipped','cargado'].includes(c.status));
+  const challengesCompletados = challenges.filter(c => !c.pending && (parseFloat(c.porcentaje) >= 100 || ['completed','shipped','cargado'].includes(c.status)));
   const challengesActivos = challenges.filter(c => !c.pending);
 
   const scrollRef = useRef(null);
