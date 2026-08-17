@@ -228,7 +228,7 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
     const kmAntes = uc.km_completed || 0;
     const totalKm = await calcularKmDeChallenge(supabase, userId, uc);
     const porcentaje = Math.min((totalKm / modalidadElegida.distancia_km) * 100, 100);
-    const yaCompletado = uc.status === 'completed';
+    const yaCompletado = ['completed', 'cargado', 'shipped'].includes(uc.status);
     const nuevoStatus = porcentaje >= 100 ? 'completed' : uc.status;
 
     await supabase
@@ -450,11 +450,13 @@ router.get('/progreso/:userId', async (req, res) => {
   const supabase = getSupabase();
 
   try {
+    // FIX: antes solo traia active/pending, asi que los ~200 que ya completaron
+    // (completed / cargado / shipped) abrian la app y no veian su reto.
     const { data: userChallenges, error: challengeError } = await supabase
       .from('user_challenges')
       .select('*, challenges(*)')
       .eq('user_id', userId)
-      .in('status', ['active', 'pending']);
+      .in('status', ['active', 'pending', 'completed', 'cargado', 'shipped']);
 
     if (challengeError) throw challengeError;
 
@@ -483,8 +485,12 @@ router.get('/progreso/:userId', async (req, res) => {
 
       const totalKm = await calcularKmDeChallenge(supabase, userId, uc);
       const porcentaje = Math.min((totalKm / modalidadElegida.distancia_km) * 100, 100).toFixed(1);
-      const yaCompletado = uc.status === 'completed';
-      const nuevoStatus = parseFloat(porcentaje) >= 100 ? 'completed' : uc.status;
+      const yaCompletado = ['completed', 'cargado', 'shipped'].includes(uc.status);
+      // Los estados finales no se tocan: un 'shipped' no puede volver a 'completed'.
+      const estadosFinales = ['completed', 'cargado', 'shipped'];
+      const nuevoStatus = estadosFinales.includes(uc.status)
+        ? uc.status
+        : (parseFloat(porcentaje) >= 100 ? 'completed' : uc.status);
 
       await supabase
         .from('user_challenges')
@@ -524,7 +530,11 @@ router.get('/progreso/:userId', async (req, res) => {
         km_completados: totalKm.toFixed(2),
         porcentaje: porcentaje,
         checkpoints: uc.challenges.checkpoints || null,
-        estado: parseFloat(porcentaje) >= 100 ? 'COMPLETADO' : 'En progreso',
+        estado: uc.status === 'shipped' ? 'ENVIADO'
+              : uc.status === 'cargado' ? 'EN PREPARACION'
+              : parseFloat(porcentaje) >= 100 ? 'COMPLETADO' : 'En progreso',
+        status_interno: uc.status,
+        tracking_number: uc.tracking_number || null,
         started_at: uc.started_at,
         meta_fecha: uc.meta_fecha,
         pending: false
