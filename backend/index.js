@@ -541,7 +541,7 @@ app.get('/perfil/:userId', async (req, res) => {
       .limit(1);
     const fechaCorte = inscripcionesOrdenadas?.[0]?.started_at || null;
 
-    let queryActividades = supabase.from('activities').select('distance_km').eq('user_id', userId);
+    let queryActividades = supabase.from('activities').select('distance_km').eq('user_id', userId).eq('excluida', false);
     if (fechaCorte) queryActividades = queryActividades.gte('recorded_at', fechaCorte);
     const { data: actividades } = await queryActividades;
 
@@ -660,7 +660,7 @@ app.get('/perfil/:userId', async (req, res) => {
     };
 
     let queryFechas = supabase
-      .from('activities').select('recorded_at').eq('user_id', userId).order('recorded_at', { ascending: false });
+      .from('activities').select('recorded_at').eq('user_id', userId).eq('excluida', false).order('recorded_at', { ascending: false });
     if (fechaCorte) queryFechas = queryFechas.gte('recorded_at', fechaCorte);
     const actividadesFechas = await queryFechas;
 
@@ -677,7 +677,7 @@ app.get('/perfil/:userId', async (req, res) => {
     if (diasUnicos.length > 0) mejorRacha = Math.max(mejorRacha, 1);
 
     let queryConKm = supabase
-      .from('activities').select('recorded_at, distance_km, sport_type, duration_seconds').eq('user_id', userId);
+      .from('activities').select('recorded_at, distance_km, sport_type, duration_seconds').eq('user_id', userId).eq('excluida', false);
     if (fechaCorte) queryConKm = queryConKm.gte('recorded_at', fechaCorte);
     const actividadesConKm = await queryConKm;
 
@@ -1626,7 +1626,7 @@ app.delete('/actividades/:actividadId', async (req, res) => {
 
     const { error } = await supabase
       .from('activities')
-      .delete()
+      .update({ excluida: true })
       .eq('id', actividadId)
       .eq('user_id', user_id);
 
