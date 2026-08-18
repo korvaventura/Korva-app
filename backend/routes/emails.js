@@ -121,9 +121,9 @@ const enviarEmailInvitacion = async (email, nombre, challenge, tokens) => {
           </div>
 
           <p style="color: #FFFFFF; font-size: 14px; font-weight: bold; margin: 16px 0 6px;">🍎 ¿Tenés iPhone?</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 10px; line-height: 1.6;">Ingresá desde acá y registrá tus km directamente:</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 10px; line-height: 1.6;">Descargá la app desde el App Store, iniciá sesión con tu email y el desafío aparece automáticamente.</p>
           <div style="margin: 8px 0 16px;">
-            <a href="https://korva-aventuras.netlify.app" style="display: inline-block; background: #1E3A5F; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none; border: 1px solid #1E6FD9;">Abrir Korva en iPhone →</a>
+            <a href="https://apps.apple.com/app/korva-aventuras/id6795443954" style="display: inline-block; background: #1E3A5F; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none; border: 1px solid #1E6FD9;">Descargar app Korva en App Store →</a>
           </div>
         `, '#1E6FD9')}
 
@@ -337,9 +337,9 @@ const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad,
           </div>
 
           <p style="color: #FFFFFF; font-size: 14px; font-weight: bold; margin: 0 0 10px;">🍎 ¿Tenés iPhone?</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 10px; line-height: 1.6;">Ingresá a este link desde tu iPhone:</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 10px; line-height: 1.6;">Descargá la app desde el App Store, iniciá sesión con tu email y el desafío aparece automáticamente.</p>
           <div style="margin: 0 0 16px;">
-            <a href="https://korva-aventuras.netlify.app" style="display: inline-block; background: #1E3A5F; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none; border: 1px solid #1E6FD9;">Abrir Korva en iPhone →</a>
+            <a href="https://apps.apple.com/app/korva-aventuras/id6795443954" style="display: inline-block; background: #1E3A5F; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none; border: 1px solid #1E6FD9;">Descargar app Korva en App Store →</a>
           </div>
 
           <div style="background: #1E3A5F; border-radius: 10px; padding: 14px 16px; margin: 0 0 8px; border-left: 3px solid #1E6FD9;">
