@@ -533,8 +533,6 @@ router.get('/progreso/:userId', async (req, res) => {
         estado: uc.status === 'shipped' ? 'ENVIADO'
               : uc.status === 'cargado' ? 'EN PREPARACION'
               : parseFloat(porcentaje) >= 100 ? 'COMPLETADO' : 'En progreso',
-        status_interno: uc.status,
-        tracking_number: uc.tracking_number || null,
         started_at: uc.started_at,
         meta_fecha: uc.meta_fecha,
         pending: false
