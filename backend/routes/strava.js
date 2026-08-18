@@ -28,11 +28,27 @@ const normalizarSportType = (tipo) => {
 // cuando Strava reenvia un evento de update.
 const yaExisteActividad = async (supabase, userId, startDate, km, externalId) => {
   try {
+    // Primero verificar si el external_id exacto ya existe y esta excluido.
+    // Si esta excluido, el usuario la borro a proposito — no la reactivamos.
+    if (externalId) {
+      const { data: existente } = await supabase
+        .from('activities')
+        .select('id, excluida')
+        .eq('external_id', String(externalId))
+        .maybeSingle();
+      if (existente?.excluida) {
+        console.log(`Actividad ${externalId} excluida por el usuario — ignorada`);
+        return existente; // truthy: la saltea
+      }
+    }
+
+    // Despues verificar duplicados por fecha y distancia similar
     const fecha = String(startDate).split('T')[0];
     let query = supabase
       .from('activities')
       .select('id, source, distance_km')
       .eq('user_id', userId)
+      .eq('excluida', false)
       .gte('recorded_at', `${fecha}T00:00:00`)
       .lte('recorded_at', `${fecha}T23:59:59.999`)
       .gte('distance_km', km - TOLERANCIA_KM)
@@ -44,7 +60,7 @@ const yaExisteActividad = async (supabase, userId, startDate, km, externalId) =>
     const { data, error } = await query;
     if (error) {
       console.error('Error verificando duplicado:', error.message);
-      return false; // ante la duda, dejamos pasar
+      return false;
     }
     return (data && data.length > 0) ? data[0] : null;
   } catch (error) {
@@ -62,6 +78,7 @@ const calcularKmDeChallenge = async (supabase, userId, uc) => {
     .from('activities')
     .select('distance_km')
     .eq('user_id', userId)
+    .eq('excluida', false)
     .gte('recorded_at', uc.started_at);
 
   const suma = actividades?.reduce((acc, a) => acc + (a.distance_km || 0), 0) || 0;
