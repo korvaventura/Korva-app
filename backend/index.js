@@ -428,6 +428,23 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
       usuario.name, usuario.email, tituloChallenge, tieneDir, esGrupo, miembros
     );
 
+    // Verificar si tiene otros desafíos activos — avisar para consolidar envío
+    const { data: otrosRetos } = await supabase
+      .from('user_challenges')
+      .select('id, challenges(title)')
+      .eq('user_id', userId)
+      .in('status', ['active', 'completed', 'pending'])
+      .neq('challenge_id', challengeId);
+
+    if (otrosRetos && otrosRetos.length > 0) {
+      const nombresOtros = otrosRetos.map(r => r.challenges?.title).filter(Boolean).join(', ');
+      const { enviarEmailAdmin } = require('./routes/emails');
+      await enviarEmailAdmin(
+        `📦 Envío consolidado — ${usuario.name}`,
+        `${usuario.name} (${usuario.email}) completó ${tituloChallenge} pero también tiene otros desafíos: ${nombresOtros}.\n\nConsiderar esperar antes de despachar para consolidar el envío en un solo paquete.`
+      );
+    }
+
   } catch (error) {
     console.error('Error enviando certificado finisher:', error.message);
   }
@@ -1478,7 +1495,6 @@ app.get('/ranking/:challengeId', async (req, res) => {
 
       return {
         posicion: index + 1,
-        user_id: uc.user_id,
         nombre: (() => {
           const n = usuario?.name || 'Anonimo';
           const partes = n.trim().split(' ');

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
-const { enviarEmailInscripcionConBib, enviarEmailInscripcion, enviarEmailInvitacion } = require('../routes/emails');
+const { enviarEmailInscripcionConBib, enviarEmailInscripcion, enviarEmailInvitacion, enviarEmailAdmin } = require('../routes/emails');
 const { generarBibYPostal, asignarBibNumber } = require('../generador_bib');
 
 const SHOPIFY_WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET;
@@ -47,7 +47,13 @@ const activarChallengeYEnviarBib = async (supabase, user, pendiente, enviarBib =
     user.bib_number = bibNumber;
   }
 
-  // 3. Generar dorsal y postal PDF — uno por cada desafío
+  // 3. Si no hay que enviar bib (flag), salir acá
+  if (!enviarBib) {
+    console.log('Challenge activado sin email de bib para:', user.email);
+    return bibNumber;
+  }
+
+  // 4. Generar dorsal y postal PDF — uno por cada desafío
   const pdfs = await generarBibYPostal(supabase, user.name, bibNumber, pendiente.challenge_id);
 
   // 5. Mandar email con o sin adjuntos según si se generaron bien
@@ -223,7 +229,6 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
 
       // Si compró más de 1 del mismo desafío, avisar a Korva para activar manualmente
       if (cantidadItem > 1) {
-        const { enviarEmailAdmin } = require('../routes/emails');
         await enviarEmailAdmin(
           `👥 Compra grupal — activación manual requerida`,
           `Email: ${email}\nNombre: ${nombreCompleto}\nDesafío: ${pendiente.challenges?.title}\nCantidad total: ${cantidadItem}\n\nActivar manualmente a ${cantidadItem - 1} persona(s) adicional(es) para este desafío.`
@@ -337,27 +342,45 @@ const cancelarInscripcionPorOrden = async (supabase, order) => {
     return;
   }
 
-  const productId = String(order.line_items?.[0]?.product_id || '');
-  const challengeIdFromProduct = PRODUCT_CHALLENGE_MAP[productId];
+  // Iterar todos los line_items para cancelar el challenge correcto por producto
+  const lineItems = order.line_items || [];
+  const challengeIdsACancelar = lineItems
+    .map(item => PRODUCT_CHALLENGE_MAP[String(item.product_id || '')])
+    .filter(Boolean);
 
-  let query = supabase
-    .from('user_challenges')
-    .select('id, challenge_id, status')
-    .eq('user_id', user.id)
-    .in('status', ['pending', 'active'])
-    .order('started_at', { ascending: false });
+  if (challengeIdsACancelar.length === 0) {
+    // Si no hay line_items mapeados, cancelar la más reciente como mejor esfuerzo
+    const { data: inscripcion } = await supabase
+      .from('user_challenges')
+      .select('id, status')
+      .eq('user_id', user.id)
+      .in('status', ['pending', 'active'])
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  if (challengeIdFromProduct) {
-    query = query.eq('challenge_id', challengeIdFromProduct);
-  }
-
-  const { data: inscripcion } = await query.limit(1).maybeSingle();
-
-  if (!inscripcion) {
-    console.log('No se encontró inscripción pending/active para cancelar:', email);
+    if (inscripcion) {
+      await supabase.from('user_challenges').delete().eq('id', inscripcion.id);
+      console.log(`Inscripción cancelada (sin producto mapeado) para ${email}:`, inscripcion.id);
+    }
     return;
   }
 
-  await supabase.from('user_challenges').delete().eq('id', inscripcion.id);
-  console.log(`Inscripción cancelada/reembolsada y borrada para ${email}:`, inscripcion.id, '(estaba en', inscripcion.status + ')');
+  // Cancelar cada challenge mapeado
+  for (const challengeId of challengeIdsACancelar) {
+    const { data: inscripcion } = await supabase
+      .from('user_challenges')
+      .select('id, status')
+      .eq('user_id', user.id)
+      .eq('challenge_id', challengeId)
+      .in('status', ['pending', 'active'])
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (inscripcion) {
+      await supabase.from('user_challenges').delete().eq('id', inscripcion.id);
+      console.log(`Inscripción cancelada para ${email}, challenge ${challengeId}:`, inscripcion.id);
+    }
+  }
 };
