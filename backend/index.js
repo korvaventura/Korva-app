@@ -1478,6 +1478,7 @@ app.get('/ranking/:challengeId', async (req, res) => {
 
       return {
         posicion: index + 1,
+        user_id: uc.user_id,
         nombre: (() => {
           const n = usuario?.name || 'Anonimo';
           const partes = n.trim().split(' ');

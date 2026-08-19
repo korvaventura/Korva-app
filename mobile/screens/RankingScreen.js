@@ -11,13 +11,14 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 export default function RankingScreen({ navigation }) {
   const [challenges, setChallenges] = useState([]);
   const [challengeIndex, setChallengeIndex] = useState(0);
-  const [modalidades, setModalidades] = useState({});   // { challengeId: 'run' | 'ride' }
-  const [rankings, setRankings] = useState({});         // { challengeId_modalidad: [...] }
-  const [cargando, setCargando] = useState({});         // { challengeId_modalidad: bool }
+  const [modalidades, setModalidades] = useState({});
+  const [rankings, setRankings] = useState({});
+  const [cargando, setCargando] = useState({});
   const [mostrarTodos, setMostrarTodos] = useState({});
   const [miNombre, setMiNombre] = useState('');
+  const [miUserId, setMiUserId] = useState('');  // FIX: guardar user_id para comparar exacto
   const [busqueda, setBusqueda] = useState('');
-  const [tabActivo, setTabActivo] = useState('en_curso'); // 'en_curso' | 'finishers'
+  const [tabActivo, setTabActivo] = useState('en_curso');
   const challengeScrollRef = useRef(null);
   const rankingScrollRefs = useRef({});
 
@@ -25,6 +26,7 @@ export default function RankingScreen({ navigation }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.id) {
         setMiNombre(session.user.user_metadata?.name?.split(' ')[0] || '');
+        setMiUserId(session.user.id);  // FIX: guardar el user_id real
       }
     });
     cargarChallenges();
@@ -45,11 +47,9 @@ export default function RankingScreen({ navigation }) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         setChallenges(data);
-        // Inicializar modalidad default run para cada challenge
         const mods = {};
         data.forEach(c => { mods[c.id] = 'run'; });
         setModalidades(mods);
-        // Cargar ranking de todos
         data.forEach(c => cargarRanking(c.id, 'run'));
       }
     } catch (error) {
@@ -90,9 +90,11 @@ export default function RankingScreen({ navigation }) {
     challengeScrollRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
   };
 
-  const esPropio = (nombre) => {
+  // FIX: comparar por user_id si está disponible, fallback a nombre
+  const esPropio = (item) => {
+    if (miUserId && item.user_id) return item.user_id === miUserId;
     if (!miNombre) return false;
-    return nombre?.toLowerCase().startsWith(miNombre.toLowerCase());
+    return item.nombre?.toLowerCase().startsWith(miNombre.toLowerCase());
   };
 
   const completado = (porcentaje) => parseFloat(porcentaje) >= 100;
@@ -117,7 +119,7 @@ export default function RankingScreen({ navigation }) {
   );
 
   const RankingItem = ({ item }) => {
-    const propio = esPropio(item.nombre);
+    const propio = esPropio(item);  // FIX: pasar item completo, no solo nombre
     const hizo100 = completado(item.porcentaje);
     const pct = Math.min(parseFloat(item.porcentaje), 100);
     return (
@@ -158,36 +160,33 @@ export default function RankingScreen({ navigation }) {
     const mostrar = mostrarTodos[key];
     const mods = challenge.modalidades || [];
 
-    // Separar en curso y finishers
     const listaEnCurso = lista
       .filter(r => parseFloat(r.porcentaje) < 100)
       .sort((a, b) => parseFloat(b.km_completados) - parseFloat(a.km_completados));
+
     const listaFinishers = (() => {
       const finishers = lista
         .filter(r => parseFloat(r.porcentaje) >= 100)
         .sort((a, b) => parseFloat(b.km_completados) - parseFloat(a.km_completados));
-      const propio = finishers.find(r => esPropio(r.nombre));
-      const resto = finishers.filter(r => !esPropio(r.nombre));
+      const propio = finishers.find(r => esPropio(r));  // FIX: item completo
+      const resto = finishers.filter(r => !esPropio(r));  // FIX: item completo
       return propio ? [propio, ...resto] : finishers;
     })();
 
     const listaBase = (tabActivo === 'finishers' ? listaFinishers : listaEnCurso)
-      .map((r, i) => ({ ...r, posicion: i + 1 })); // recalcular posición dentro del tab
+      .map((r, i) => ({ ...r, posicion: i + 1 }));
 
-    // Filtrar por búsqueda
     const listaFiltrada = busqueda.trim()
       ? listaBase.filter(r => r.nombre?.toLowerCase().includes(busqueda.toLowerCase()))
       : listaBase;
 
     const listaVisible = mostrar ? listaFiltrada : listaFiltrada.slice(0, TOP_VISIBLE);
 
-    // Encontrar posición propia
-    const miPosicion = listaBase.findIndex(r => esPropio(r.nombre));
+    const miPosicion = listaBase.findIndex(r => esPropio(r));  // FIX: item completo
     const scrollRef = rankingScrollRefs.current[challenge.id];
 
     const irAMiPosicion = () => {
       if (miPosicion === -1) return;
-      // Cada card tiene ~72px de alto + gap
       const offset = miPosicion * 80;
       scrollRef?.scrollTo({ y: offset, animated: true });
       if (!mostrarTodos[key]) {
@@ -201,11 +200,10 @@ export default function RankingScreen({ navigation }) {
         style={{ width: SCREEN_WIDTH }}
         contentContainerStyle={styles.pageContainer}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled" 
+        keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.challengeTitulo}>{challenge.title}</Text>
 
-        {/* Selector modalidad */}
         {mods.length > 1 && (
           <View style={styles.selectorRow}>
             {mods.map((m, i) => (
@@ -228,7 +226,6 @@ export default function RankingScreen({ navigation }) {
           </View>
         )}
 
-        {/* Banner no inscripto */}
         {!cargandoThis && lista.length > 0 && miPosicion === -1 && (
           <View style={styles.noInscriptoCard}>
             <Text style={styles.noInscriptoEmoji}>🏅</Text>
@@ -242,7 +239,6 @@ export default function RankingScreen({ navigation }) {
           </View>
         )}
 
-        {/* Tabs En curso / Muro de Finishers */}
         {!cargandoThis && lista.length > 0 && (
           <View style={styles.tabsVistaRow}>
             <TouchableOpacity
@@ -264,7 +260,6 @@ export default function RankingScreen({ navigation }) {
           </View>
         )}
 
-        {/* Buscador + botón ir a mi posición */}
         {!cargandoThis && lista.length > 0 && (
           <View style={styles.buscadorRow}>
             <View style={styles.buscadorWrapper}>
@@ -344,7 +339,6 @@ export default function RankingScreen({ navigation }) {
       <View style={styles.header}>
         <Text style={styles.titulo}>🏆 Ranking</Text>
 
-        {/* Tabs de challenges */}
         {challenges.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
             {challenges.map((c, i) => (
@@ -361,7 +355,6 @@ export default function RankingScreen({ navigation }) {
           </ScrollView>
         )}
 
-        {/* Indicador de puntos */}
         {challenges.length > 1 && (
           <View style={styles.dotsRow}>
             {challenges.map((_, i) => (
@@ -371,7 +364,6 @@ export default function RankingScreen({ navigation }) {
         )}
       </View>
 
-      {/* Páginas deslizables horizontalmente */}
       <ScrollView
         ref={challengeScrollRef}
         horizontal
@@ -446,4 +438,5 @@ const styles = StyleSheet.create({
   tabVistaActivo: { borderColor: '#FC4C02' },
   tabVistaText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
   tabVistaTextActivo: { color: '#FFFFFF' },
+  tabVistaSub: { fontSize: 11, color: '#4a6a8a', marginTop: 2 },
 });
