@@ -345,8 +345,8 @@ export default function HomeScreen({ navigation }) {
   }
 
   const challengesPending = challenges.filter(c => c.pending);
-  const challengesEnCurso = challenges.filter(c => !c.pending && parseFloat(c.porcentaje) < 100 && !['completed','shipped','cargado'].includes(c.status));
-  const challengesCompletados = challenges.filter(c => !c.pending && (parseFloat(c.porcentaje) >= 100 || ['completed','shipped','cargado'].includes(c.status)));
+  const challengesEnCurso = challenges.filter(c => !c.pending && parseFloat(c.porcentaje || 0) < 100 && !['completed','shipped','cargado'].includes(c.status));
+  const challengesCompletados = challenges.filter(c => !c.pending && (parseFloat(c.porcentaje || 0) >= 100 || ['completed','shipped','cargado'].includes(c.status)));
   const challengesActivos = challenges.filter(c => !c.pending);
 
   const scrollRef = useRef(null);
@@ -770,11 +770,11 @@ export default function HomeScreen({ navigation }) {
               onPress={() => navigation.navigate('DetalleReto', { item, userId })}
             >
               <View style={{ flex: 1 }}>
-                <Text style={styles.completadoChallenge}>{item.challenge}</Text>
-                <Text style={styles.completadoKm}>{item.km_completados} km · {item.modalidad}</Text>
+                <Text style={styles.completadoChallenge}>{item.challenge || item.challenge_title || '—'}</Text>
+                <Text style={styles.completadoKm}>{parseFloat(item.km_completados || 0).toFixed(1)} km · {item.modalidad || 'run'}</Text>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                <Text style={styles.completadoBadge}>{item.status === 'shipped' ? '📦 Enviado' : '🏅 Completado'}</Text>
+                <Text style={styles.completadoBadge}>{item.status === 'shipped' || item.status === 'cargado' ? '📦 Enviado' : '🏅 Completado'}</Text>
                 <Text style={{ color: '#1E6FD9', fontSize: 12 }}>Ver historia →</Text>
               </View>
             </TouchableOpacity>
