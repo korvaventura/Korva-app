@@ -456,7 +456,7 @@ router.get('/progreso/:userId', async (req, res) => {
       .from('user_challenges')
       .select('*, challenges(*)')
       .eq('user_id', userId)
-      .in('status', ['active', 'pending', 'completed', 'cargado', 'shipped']);
+      .in('status', ['active', 'pending']); // TODO: volver a ['active', 'pending', 'completed', 'cargado', 'shipped'] cuando build nuevo esté publicado
 
     if (challengeError) throw challengeError;
 
