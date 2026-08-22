@@ -456,7 +456,7 @@ router.get('/progreso/:userId', async (req, res) => {
       .from('user_challenges')
       .select('*, challenges(*)')
       .eq('user_id', userId)
-      .in('status', ['active', 'pending']); // TEMP: volver a completed/shipped cuando 1.0.4 aprobado
+      .in('status', ['active', 'pending', 'completed', 'cargado', 'shipped']);
 
     if (challengeError) throw challengeError;
 
