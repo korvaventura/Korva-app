@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
 import * as Sharing from 'expo-sharing';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
@@ -44,7 +44,7 @@ export default function CompletadoScreen({ challenge, userId, onVolver }) {
   const [tieneDireccion, setTieneDireccion] = useState(false);
   const [checkandoDireccion, setCheckandoDireccion] = useState(true);
 
-  useState(() => {
+  useEffect(() => {
     const checkDireccion = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -57,7 +57,7 @@ export default function CompletadoScreen({ challenge, userId, onVolver }) {
       } catch (e) {} finally { setCheckandoDireccion(false); }
     };
     checkDireccion();
-  });
+  }, []);
 
   const codigoFinal = codigoSeleccionado?.nombre === 'Otro' ? codigoManual : codigoSeleccionado?.codigo;
 

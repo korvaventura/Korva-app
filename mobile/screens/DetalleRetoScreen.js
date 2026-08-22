@@ -43,7 +43,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
 
 
 
-  const pct = Math.min(parseFloat(item.porcentaje), 100);
+  const pct = Math.min(parseFloat(item.porcentaje || 0), 100);
   const estaCompletado = pct >= 100;
   const modalidad = item.modalidad === 'Running' ? 'run' : 'ride';
   const limiteDiario = modalidad === 'run' ? LIMITE_KM_DIA_RUN : LIMITE_KM_DIA_RIDE;
@@ -164,7 +164,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
         </View>
       </TouchableOpacity>
 
-      <Text style={styles.titulo}>{item.challenge}</Text>
+      <Text style={styles.titulo}>{item.challenge || '—'}</Text>
       <Text style={styles.subtitulo}>{item.modalidad} · {item.distancia_total}km</Text>
 
       <View style={styles.progresoCard}>

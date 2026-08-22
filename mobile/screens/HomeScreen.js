@@ -169,20 +169,22 @@ export default function HomeScreen({ navigation }) {
       const lista = Array.isArray(data) ? data : [];
       setChallenges(lista);
       const activos = lista.filter(c => !c.pending);
-      const sinKm = activos.some(c => parseFloat(c.km_completados) === 0);
+      const sinKm = activos.some(c => parseFloat(c.km_completados || 0) === 0);
       // FIX: solo mostrar si no fue cerrado manualmente
       if (sinKm && !bannerCerrado) setBannerVisible(true);
-      const reto100 = lista.find(c => parseFloat(c.porcentaje) >= 100 && !c.pending);
+      const reto100 = lista.find(c => parseFloat(c.porcentaje || 0) >= 100 && !c.pending);
       if (reto100) {
         const visto = await AsyncStorage.getItem(`completado_visto_${reto100.challenge_id}`);
         if (!visto) {
-          setCompletado(reto100.challenge);
+          // Marcar como visto inmediatamente para evitar loops de crash
+          await AsyncStorage.setItem(`completado_visto_${reto100.challenge_id}`, 'true');
+          setCompletado(reto100.challenge || reto100.challenge_title || 'tu desafío');
         }
       }
 
       const visibles = {};
       for (const c of activos) {
-        if (parseFloat(c.km_completados) === 0 && !c.meta_fecha) {
+        if (parseFloat(c.km_completados || 0) === 0 && !c.meta_fecha) {
           const yaVisto = await AsyncStorage.getItem(`meta_preguntada_${c.challenge_id}`);
           if (!yaVisto) visibles[c.challenge_id] = true;
         }
@@ -190,7 +192,7 @@ export default function HomeScreen({ navigation }) {
       setMetaVisibles(visibles);
 
       // Mostrar banner si tiene un reto completado pero sin dirección
-      const tieneCompletado = lista.some(c => parseFloat(c.porcentaje) >= 100 && !c.pending);
+      const tieneCompletado = lista.some(c => parseFloat(c.porcentaje || 0) >= 100 && !c.pending);
       if (tieneCompletado && userId) {
         try {
           const resUser = await fetch(`${BACKEND_URL}/perfil/${userId}`);
@@ -336,7 +338,7 @@ export default function HomeScreen({ navigation }) {
         challenge={completado}
         userId={userId}
         onVolver={async () => {
-          const reto100 = challenges.find(c => parseFloat(c.porcentaje) >= 100 && !c.pending);
+          const reto100 = challenges.find(c => parseFloat(c.porcentaje || 0) >= 100 && !c.pending);
           if (reto100) await AsyncStorage.setItem(`completado_visto_${reto100.challenge_id}`, 'true');
           setCompletado(null);
         }}
@@ -442,12 +444,12 @@ export default function HomeScreen({ navigation }) {
                     <Text style={styles.storyTagline}>AVENTURAS</Text>
                   </View>
                   <View style={styles.storyPctWrapper}>
-                    <Text style={styles.storyPctNumero}>{Math.min(parseFloat(modalCompartirItem.porcentaje), 100).toFixed(0)}</Text>
+                    <Text style={styles.storyPctNumero}>{Math.min(parseFloat(modalCompartirItem.porcentaje || 0), 100).toFixed(0)}</Text>
                     <Text style={styles.storyPctSymbol}>%</Text>
                   </View>
-                  <Text style={styles.storyChallenge}>{modalCompartirItem.challenge}</Text>
+                  <Text style={styles.storyChallenge}>{modalCompartirItem.challenge || '—'}</Text>
                   <View style={styles.storyBar}>
-                    <View style={[styles.storyBarFill, { width: `${Math.min(parseFloat(modalCompartirItem.porcentaje), 100)}%` }]} />
+                    <View style={[styles.storyBarFill, { width: `${Math.min(parseFloat(modalCompartirItem.porcentaje || 0), 100)}%` }]} />
                   </View>
                   <Text style={styles.storyKm}>{modalCompartirItem.km_completados} km completados</Text>
                   <View style={styles.storyFooter}>
@@ -648,7 +650,7 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.pendingEmoji}>⏳</Text>
               <View style={styles.pendingInfo}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Text style={[styles.pendingTitulo, { flex: 1 }]}>{item.challenge}</Text>
+                  <Text style={[styles.pendingTitulo, { flex: 1 }]}>{item.challenge || '—'}</Text>
                   <TouchableOpacity
                     onPress={() => cancelarPending(item.challenge_id)}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -703,7 +705,7 @@ export default function HomeScreen({ navigation }) {
                     <Text style={[styles.retoTabText, i === retoActivoIndex && styles.retoTabTextActivo]}>
                       {item.challenge}
                     </Text>
-                    {parseFloat(item.porcentaje) >= 100 && <Text style={styles.retoTabBadge}>🏅</Text>}
+                    {parseFloat(item.porcentaje || 0) >= 100 && <Text style={styles.retoTabBadge}>🏅</Text>}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -824,7 +826,7 @@ export default function HomeScreen({ navigation }) {
 // ─── Componente reto individual ──────────────────────────────────
 function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress, scrollRef, descargarBib, cargandoBib }) {
   if (!item) return null;
-  const pct = Math.min(parseFloat(item.porcentaje), 100);
+  const pct = Math.min(parseFloat(item.porcentaje || 0), 100);
   const estaCompletado = pct >= 100;
   const frase = getFrase(pct);
   const mostrarCardMeta = metaVisibles[item.challenge_id];
@@ -852,14 +854,14 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
             <Text style={styles.sharePctNumero}>{pct.toFixed(0)}</Text>
             <Text style={styles.sharePctSymbol}>%</Text>
           </View>
-          <Text style={styles.shareChallengeName}>{item.challenge}</Text>
+          <Text style={styles.shareChallengeName}>{item.challenge || '—'}</Text>
           <Text style={styles.shareFrase}>{frase}</Text>
           <View style={styles.shareProgressBar}>
             <View style={[styles.shareProgressFill, { width: `${pct}%` }, estaCompletado && styles.shareProgressFillCompletado]} />
           </View>
           <View style={styles.shareKmRow}>
             <Text style={styles.shareKmText}>{item.km_completados} km</Text>
-            <Text style={styles.shareKmTotal}>· {getSubtitulo(item.challenge)}</Text>
+            <Text style={styles.shareKmTotal}>· {getSubtitulo(item.challenge || '')}</Text>
             {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅</Text>}
           </View>
           {metaFormateada && <Text style={styles.shareMetaText}>🎯 Meta: {metaFormateada}</Text>}
@@ -876,7 +878,7 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
         porcentaje={item.porcentaje}
         checkpointsData={item.checkpoints}
         challengeId={item.challenge_id}
-        challengeTitle={item.challenge}
+        challengeTitle={item.challenge || ''}
       />
 
       {mostrarCardMeta && (
