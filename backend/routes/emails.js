@@ -359,7 +359,13 @@ const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad,
           <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">🏅 &nbsp;Tu medalla sale en camino</p>
         `, '#2a4a6a')}
 
-        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6; margin-top: 24px;">¿Tenés dudas? Escribinos por Instagram <a href="https://instagram.com/korva.aventuras" style="color: #1E6FD9;">@korva.aventuras</a>, al email <a href="mailto:korvaventura@gmail.com" style="color: #1E6FD9;">korvaventura@gmail.com</a> o por WhatsApp al <strong style="color: #FFFFFF;">+61474024238</strong></p>
+        <div style="background: #1E3A5F; border-radius: 12px; padding: 16px 20px; margin: 24px 0; border-left: 4px solid #25D366;">
+          <p style="color: #FFFFFF; font-size: 14px; font-weight: bold; margin: 0 0 8px;">👥 ¿Compraste para más personas?</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 12px; line-height: 1.6;">Escribinos por WhatsApp con el nombre y email de cada participante y los registramos a la brevedad.</p>
+          <a href="https://wa.me/61474024238" style="display: inline-block; background: #25D366; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 10px 20px; border-radius: 10px; text-decoration: none;">💬 Escribirnos por WhatsApp →</a>
+        </div>
+
+        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6; margin-top: 16px;">¿Tenés alguna duda? Escribinos por Instagram <a href="https://instagram.com/korva.aventuras" style="color: #1E6FD9;">@korva.aventuras</a>, al email <a href="mailto:korvaventura@gmail.com" style="color: #1E6FD9;">korvaventura@gmail.com</a> o por WhatsApp al <strong style="color: #FFFFFF;">+61474024238</strong> — estamos para ayudarte.</p>
         <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 16px;">El equipo Korva 🏅</p>
       `),
       attachments: [
