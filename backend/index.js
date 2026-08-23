@@ -82,7 +82,6 @@ app.get('/usuarios/bib/:userId', async (req, res) => {
     const { data: user } = await supabase.from('users').select('id, name, email, bib_number, dorsal_url, postal_url').eq('id', userId).single();
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
 
-    // Si ya están guardados, devolverlos directo
     if (user.dorsal_url && user.postal_url) {
       return res.json({
         bib_number: user.bib_number,
@@ -111,7 +110,6 @@ app.get('/usuarios/bib/:userId', async (req, res) => {
     const pdfs = await generarBibYPostal(supabase, user.name, bibNumber, challengeId);
     if (!pdfs) return res.status(500).json({ error: 'No se pudieron generar los PDFs' });
 
-    // Guardar en Supabase Storage
     const dorsalBuffer = Buffer.from(pdfs.dorsalPdf, 'base64');
     const postalBuffer = Buffer.from(pdfs.postalPdf, 'base64');
 
@@ -124,7 +122,6 @@ app.get('/usuarios/bib/:userId', async (req, res) => {
     const { data: dorsalUrl } = supabase.storage.from('korva-images').getPublicUrl(dorsalPath);
     const { data: postalUrl } = supabase.storage.from('korva-images').getPublicUrl(postalPath);
 
-    // Guardar URLs en el usuario
     await supabase.from('users').update({
       dorsal_url: dorsalUrl.publicUrl,
       postal_url: postalUrl.publicUrl,
@@ -219,6 +216,7 @@ const verificarYEnviarNotificacionRacha = async (userId) => {
       .from('activities')
       .select('recorded_at')
       .eq('user_id', userId)
+      .eq('excluida', false)
       .order('recorded_at', { ascending: false });
 
     const racha = calcularRachaSemanal(actividades);
@@ -263,6 +261,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
         .from('activities')
         .select('distance_km')
         .eq('user_id', user_id)
+        .eq('excluida', false)
         .gte('recorded_at', reto.started_at);
 
       const totalKm = todasActividades?.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
@@ -277,7 +276,6 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
       const yaEraShipped = reto.status === 'shipped' || reto.status === 'cargado';
       const seCompletaAhora = nuevoStatus === 'completed' && !yaEstabaCompletado && !yaEraShipped;
 
-      // No bajar status de shipped/completed aunque bajen los km
       const nuevoStatusFinal = (yaEraShipped || yaEstabaCompletado) ? reto.status : nuevoStatus;
 
       await supabase
@@ -291,7 +289,6 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
 
       if (seCompletaAhora) {
         await enviarCertificadoFinisher(user_id, reto, distanciaTotal);
-        // Push notification al completar
         const { data: usuarioPush } = await supabase
           .from('users')
           .select('push_token')
@@ -335,7 +332,6 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
       .single();
     if (!usuario) return;
 
-    // Número de serie
     let numeroSerie = 'KORVA-' + new Date().getFullYear() + '-0000';
     try {
       const { data: serie, error: errorSerie } = await supabase.rpc('get_next_certificado_serial');
@@ -359,7 +355,6 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
 
     await supabase.from('user_challenges').update({ certificado_serial: numeroSerie }).eq('id', reto.id);
 
-    // Determinar contexto: individual, comprador grupal o invitado grupal
     const { data: ucCompleto } = await supabase
       .from('user_challenges')
       .select('group_id')
@@ -372,7 +367,6 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
     const tieneDir = !!usuario.shipping_address;
 
     if (esGrupo && !esComprador) {
-      // Invitado: email simple, sin aviso a Korva
       const { data: comprador } = await supabase
         .from('users').select('name').eq('id', groupId).maybeSingle();
       await enviarEmailCompletado(usuario.email, usuario.name, tituloChallenge, certificadoPdf, {
@@ -381,7 +375,6 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
       return;
     }
 
-    // Individual o comprador grupal — armar lista de miembros si es grupo
     let miembros = [];
     if (esGrupo) {
       const { data: miembrosUC } = await supabase
@@ -406,7 +399,6 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
         };
       });
 
-      // Si ya hay otro miembro del grupo que completó antes, no mandar email a Korva
       const otrosCompletados = (miembrosUC || []).filter(m =>
         m.user_id !== user_id && (m.status === 'completed' || m.status === 'shipped')
       );
@@ -418,12 +410,10 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
       }
     }
 
-    // Email al usuario (individual o primer completado del grupo)
     await enviarEmailCompletado(usuario.email, usuario.name, tituloChallenge, certificadoPdf, {
       tieneDir, esGrupo, esComprador: true, miembros,
     });
 
-    // Email a Korva
     await enviarEmailAdminMedallaLista(
       usuario.name, usuario.email, tituloChallenge, tieneDir, esGrupo, miembros
     );
@@ -433,17 +423,13 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
   }
 };
 
-// Redirect intermedio para recovery de contraseña
-// Gmail escanea links pero no sigue redirects 302 — así el token no se consume
 app.get('/auth/reset', (req, res) => {
   const { token, type, token_hash } = req.query;
-  // Construir el deep link con los parámetros
   const params = new URLSearchParams();
   if (token) params.set('token', token);
   if (token_hash) params.set('token_hash', token_hash);
   if (type) params.set('type', type);
   const deepLink = `korva://reset-password?${params.toString()}`;
-  // Redirect 302 — Gmail no lo sigue, pero el celu sí
   res.redirect(302, deepLink);
 });
 
@@ -549,7 +535,8 @@ app.get('/perfil/:userId', async (req, res) => {
 
     const totalKm = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
     const activos = challenges?.filter(c => c.status === 'active').length || 0;
-    const completados = challenges?.filter(c => c.status === 'completed' || c.status === 'shipped').length || 0;
+    // FIX: incluir cargado en el conteo de medallas
+    const completados = challenges?.filter(c => ['completed', 'shipped', 'cargado'].includes(c.status)).length || 0;
 
     const getNivel = (retos) => {
       if (retos >= 20) return { nombre: 'Leyenda Viviente', emoji: '🐐', siguiente: null, faltanParaSiguiente: 0 };
@@ -765,7 +752,6 @@ app.post('/actividades/manual', async (req, res) => {
     return res.status(400).json({ error: 'Distancia inválida. Debe ser entre 0.1 y 300 km.' });
   }
 
-  // Si viene challenge_id, validar que sea del usuario
   if (challenge_id) {
     const { data: challengeValido } = await supabase
       .from('user_challenges')
@@ -778,7 +764,6 @@ app.post('/actividades/manual', async (req, res) => {
       return res.status(400).json({ error: 'No tenés este desafío activo. Cerrá sesión y volvé a entrar para actualizar tu cuenta.' });
     }
   }
-  // Si no viene challenge_id → modo libre, se permite igual
 
   try {
     const { data: nuevaActividad, error: errorActividad } = await supabase
@@ -1063,7 +1048,7 @@ app.get('/admin/challenges-activos', async (req, res) => {
     const { data, error } = await supabase
       .from('user_challenges')
       .select('id, user_id, challenge_id, modalidad, km_completed, tracking_number, completed_at, status')
-      .in('status', ['completed', 'shipped'])
+      .in('status', ['completed', 'shipped', 'cargado'])
       .order('completed_at', { ascending: false });
 
     if (error) throw error;
@@ -1127,7 +1112,7 @@ app.get('/admin/registro-grupos', async (req, res) => {
     for (const [groupId, miembros] of Object.entries(grupos)) {
       const comprador = miembros.find(m => m.user_id === groupId) || miembros[0];
       const compradorUsuario = usuarios[comprador.user_id];
-      const completados = miembros.filter(m => m.status === 'completed' || m.status === 'shipped').length;
+      const completados = miembros.filter(m => ['completed', 'shipped', 'cargado'].includes(m.status)).length;
 
       resultado.push({
         group_id: groupId,
@@ -1273,7 +1258,6 @@ app.post('/usuarios/perfil', async (req, res) => {
       } catch (fusionError) {
         console.error('Error en fusion automatica:', fusionError.message, emailNormalizado);
 
-        // Reintento automático después de 2 segundos
         await new Promise(r => setTimeout(r, 2000));
         try {
           await supabase.from('invitations').update({ created_by: user_id }).eq('created_by', idViejo);
@@ -1301,7 +1285,6 @@ app.post('/usuarios/perfil', async (req, res) => {
         } catch (retryError) {
           console.error('Reintento de fusion fallido:', retryError.message, emailNormalizado);
 
-          // Mandar email a Korva
           let emailEnviado = false;
           try {
             const { enviarEmailAdmin } = require('./routes/emails');
@@ -1319,7 +1302,6 @@ Al entrar al sistema fijate si este usuario tiene el reto activo.`
             console.error('Error mandando email de fusión fallida:', emailError.message);
           }
 
-          // Crear usuario básico para que pueda estar logueado
           const { data, error } = await supabase
             .from('users')
             .upsert({ id: user_id, email: emailNormalizado, name: name || email.split('@')[0] }, { onConflict: 'id' })
@@ -1444,6 +1426,9 @@ app.get('/direcciones/detalle/:placeId', async (req, res) => {
   }
 });
 
+// FIX: El ranking incluye a todos los usuarios con km, sin importar el status
+// Cualquiera que haya completado los km aparece, independientemente de si está
+// en active, completed, cargado o shipped.
 app.get('/ranking/:challengeId', async (req, res) => {
   const { challengeId } = req.params;
   try {
@@ -1451,7 +1436,7 @@ app.get('/ranking/:challengeId', async (req, res) => {
       .from('user_challenges')
       .select('user_id, km_completed, modalidad, status')
       .eq('challenge_id', challengeId)
-      .in('status', ['active', 'completed', 'shipped'])
+      .neq('status', 'pending')
       .order('km_completed', { ascending: false });
 
     if (error) throw error;
@@ -1612,7 +1597,6 @@ app.delete('/actividades/:actividadId', async (req, res) => {
   const { actividadId } = req.params;
   const { user_id } = req.body;
   try {
-    // Verificar que no haya reto shipped o completed — no se puede borrar actividades de retos finalizados
     const { data: retosFinalizados } = await supabase
       .from('user_challenges')
       .select('id, status')
@@ -1714,7 +1698,6 @@ app.get('/admin/metricas', async (req, res) => {
   }
 });
 
-// ── CRON: recordatorio de dirección cada 24hs ─────────────────
 const recordarDireccion = async () => {
   try {
     console.log('Cron: verificando usuarios completados sin dirección...');
@@ -1751,16 +1734,12 @@ const recordarDireccion = async () => {
   }
 };
 
-// Correr cada 24 horas
 setInterval(recordarDireccion, 24 * 60 * 60 * 1000);
-// También correr al iniciar (después de 1 minuto para que el servidor esté listo)
 setTimeout(recordarDireccion, 60 * 1000);
 
-// ── ELIMINAR CUENTA ────────────────────────────────────────────
 app.delete('/usuarios/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
-    // 1. Anonimizar datos personales en users (no borrar para conservar historial)
     await supabase.from('users').update({
       name: 'Usuario eliminado',
       email: `deleted_${userId}@korva.deleted`,
@@ -1775,14 +1754,10 @@ app.delete('/usuarios/:userId', async (req, res) => {
       postal_url: null,
     }).eq('id', userId);
 
-    // 2. Anonimizar invitaciones (no borrar para no romper grupos)
     await supabase.from('invitations').update({ created_by: null }).eq('created_by', userId);
     await supabase.from('invitations').update({ used_by: null }).eq('used_by', userId);
-
-    // 3. Borrar actividades (datos personales de movimiento)
     await supabase.from('activities').delete().eq('user_id', userId);
 
-    // 4. Eliminar usuario de Auth de Supabase (requiere service role)
     const { createClient } = require('@supabase/supabase-js');
     const adminClient = createClient(
       process.env.SUPABASE_URL,
@@ -1792,7 +1767,6 @@ app.delete('/usuarios/:userId', async (req, res) => {
     const { error: authError } = await adminClient.auth.admin.deleteUser(userId);
     if (authError) {
       console.error('Error eliminando de Auth:', authError.message);
-      // Continuar aunque falle Auth — los datos ya están anonimizados
     }
 
     console.log('Cuenta eliminada/anonimizada:', userId);
