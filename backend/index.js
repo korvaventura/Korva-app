@@ -76,6 +76,46 @@ app.get('/test/bib/:userId', async (req, res) => {
   }
 });
 
+app.get('/test/reenviar-certificados', async (req, res) => {
+  const { generarCertificado } = require('./generador_bib');
+  const { enviarEmailCompletado } = require('./routes/emails');
+  const resultados = [];
+  try {
+    const { data: ucs } = await supabase
+      .from('user_challenges')
+      .select('id, user_id, challenge_id, km_completed, completed_at, challenges(title, total_distance_km)')
+      .in('status', ['completed', 'shipped', 'cargado'])
+      .is('certificado_serial', null);
+
+    for (const uc of (ucs || [])) {
+      const { data: usuario } = await supabase.from('users').select('email, name, bib_number, shipping_address').eq('id', uc.user_id).single();
+      if (!usuario) { resultados.push({ user_id: uc.user_id, error: 'usuario no encontrado' }); continue; }
+      try {
+        let numeroSerie = 'KORVA-' + new Date().getFullYear() + '-0000';
+        const { data: serie } = await supabase.rpc('get_next_certificado_serial');
+        if (serie) numeroSerie = serie;
+        const fechaCompletado = uc.completed_at
+          ? new Date(uc.completed_at).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+          : new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+        const tituloChallenge = uc.challenges?.title || 'Desafío Korva';
+        const distanciaTotal = uc.challenges?.total_distance_km || uc.km_completed;
+        const certificadoPdf = await generarCertificado(supabase, usuario.name, tituloChallenge, distanciaTotal, usuario.bib_number || '---', fechaCompletado, numeroSerie);
+        if (!certificadoPdf) { resultados.push({ email: usuario.email, error: 'PDF falló' }); continue; }
+        await supabase.from('user_challenges').update({ certificado_serial: numeroSerie }).eq('id', uc.id);
+        await enviarEmailCompletado(usuario.email, usuario.name, tituloChallenge, certificadoPdf, {
+          tieneDir: !!usuario.shipping_address, esGrupo: false, esComprador: true, miembros: []
+        });
+        resultados.push({ email: usuario.email, challenge: tituloChallenge, serie: numeroSerie, ok: true });
+      } catch (e) {
+        resultados.push({ email: usuario.email, error: e.message });
+      }
+    }
+    res.json({ total: resultados.length, resultados });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/test/reenviar-todos-bibs-nuevos', async (req, res) => {
   const challengeIds = [
     '64442b1d-12b8-4a58-a951-50ea10cb2131', // Dubrovnik
