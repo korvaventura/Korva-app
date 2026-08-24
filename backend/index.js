@@ -76,6 +76,44 @@ app.get('/test/bib/:userId', async (req, res) => {
   }
 });
 
+app.get('/test/reenviar-todos-bibs-nuevos', async (req, res) => {
+  const challengeIds = [
+    '64442b1d-12b8-4a58-a951-50ea10cb2131', // Dubrovnik
+    '85a362a5-eee7-456d-9027-358d44446004',  // San Andrés
+  ];
+  const { generarBibYPostal } = require('./generador_bib');
+  const { enviarEmailInscripcionConBib } = require('./routes/emails');
+  const resultados = [];
+
+  try {
+    for (const challengeId of challengeIds) {
+      const { data: challenge } = await supabase.from('challenges').select('title').eq('id', challengeId).single();
+      const { data: ucs } = await supabase
+        .from('user_challenges')
+        .select('user_id, numero_bib, modalidad')
+        .eq('challenge_id', challengeId)
+        .not('numero_bib', 'is', null)
+        .in('status', ['active', 'completed', 'shipped', 'cargado']);
+
+      for (const uc of (ucs || [])) {
+        const { data: user } = await supabase.from('users').select('id, name, email').eq('id', uc.user_id).single();
+        if (!user || !uc.numero_bib) { resultados.push({ email: user?.email, error: 'sin numero_bib' }); continue; }
+        try {
+          const pdfs = await generarBibYPostal(supabase, user.name, uc.numero_bib, challengeId);
+          if (!pdfs) { resultados.push({ email: user.email, challenge: challenge.title, error: 'PDFs fallaron' }); continue; }
+          await enviarEmailInscripcionConBib(user.email, user.name, challenge.title, uc.modalidad === 'run' ? 'Running' : 'Ciclismo', pdfs.dorsalPdf, pdfs.postalPdf, uc.numero_bib);
+          resultados.push({ email: user.email, challenge: challenge.title, bib: uc.numero_bib, ok: true });
+        } catch (e) {
+          resultados.push({ email: user.email, challenge: challenge.title, error: e.message });
+        }
+      }
+    }
+    res.json({ total: resultados.length, resultados });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/test/bib/:userId/:challengeId', async (req, res) => {
   const { userId, challengeId } = req.params;
   try {
