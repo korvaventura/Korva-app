@@ -79,14 +79,16 @@ app.get('/test/bib/:userId', async (req, res) => {
 app.get('/test/bib/:userId/:challengeId', async (req, res) => {
   const { userId, challengeId } = req.params;
   try {
-    const { data: user } = await supabase.from('users').select('id, name, email, bib_number').eq('id', userId).single();
+    const { data: user } = await supabase.from('users').select('id, name, email').eq('id', userId).single();
     if (!user) return res.json({ error: 'Usuario no encontrado' });
-    const { data: challenge } = await supabase.from('challenges').select('title, modalidades').eq('id', challengeId).single();
+    const { data: challenge } = await supabase.from('challenges').select('title').eq('id', challengeId).single();
     if (!challenge) return res.json({ error: 'Challenge no encontrado' });
-    const { generarBibYPostal, asignarBibNumber } = require('./generador_bib');
+    // Usar numero_bib del user_challenge específico
+    const { data: uc } = await supabase.from('user_challenges').select('numero_bib').eq('user_id', userId).eq('challenge_id', challengeId).maybeSingle();
+    const bibNumber = uc?.numero_bib;
+    if (!bibNumber) return res.json({ error: 'No tiene numero_bib asignado para este desafío' });
+    const { generarBibYPostal } = require('./generador_bib');
     const { enviarEmailInscripcionConBib } = require('./routes/emails');
-    let bibNumber = user.bib_number;
-    if (!bibNumber) bibNumber = await asignarBibNumber(supabase, userId);
     const pdfs = await generarBibYPostal(supabase, user.name, bibNumber, challengeId);
     if (!pdfs) return res.json({ error: 'No se pudieron generar los PDFs' });
     await enviarEmailInscripcionConBib(user.email, user.name, challenge.title, 'Running', pdfs.dorsalPdf, pdfs.postalPdf, bibNumber);
