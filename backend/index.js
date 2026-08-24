@@ -492,9 +492,9 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
     const { data: otrosRetos } = await supabase
       .from('user_challenges')
       .select('id, challenges(title)')
-      .eq('user_id', userId)
+      .eq('user_id', user_id)
       .in('status', ['active', 'completed', 'pending'])
-      .neq('challenge_id', challengeId);
+      .neq('challenge_id', reto.challenge_id);
 
     if (otrosRetos && otrosRetos.length > 0) {
       const nombresOtros = otrosRetos.map(r => r.challenges?.title).filter(Boolean).join(', ');
