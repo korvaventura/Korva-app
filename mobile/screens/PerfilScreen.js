@@ -49,7 +49,7 @@ export default function PerfilScreen() {
   const [stravaHabilitado, setStravaHabilitado] = useState(false);
   // FIX: referencia incluida en el estado inicial
   const [formDireccion, setFormDireccion] = useState({
-    nombre: '', direccion: '', referencia: '', ciudad: '', codigo_postal: '', pais: '', telefono: '',
+    nombre: '', direccion: '', referencia: '', ciudad: '', codigo_postal: '', pais: '', telefono: '', documento: '', indicaciones: '',
   });
   const [busquedaDireccion, setBusquedaDireccion] = useState('');
   const [sugerenciasDireccion, setSugerenciasDireccion] = useState([]);
@@ -243,6 +243,8 @@ export default function PerfilScreen() {
       codigo_postal: d?.codigo_postal || '',
       pais: d?.pais || '',
       telefono: d?.telefono || '',
+      documento: d?.documento || '',
+      indicaciones: d?.indicaciones || '',
     });
     setBusquedaDireccion(d?.direccion || '');
     setDireccionConfirmada(!!d?.direccion);
@@ -305,6 +307,13 @@ export default function PerfilScreen() {
     if (!telefono || telefono.trim().length < 7) {
       Alert.alert('Teléfono requerido', 'Ingresá tu número de celular con código de país (ej: +54 11 1234 5678). Lo necesitamos para coordinar el envío de tu medalla.');
       return;
+    }
+    if (pais.toLowerCase().includes('argentina') || pais.toLowerCase().includes('arg')) {
+      const doc = formDireccion.documento?.trim().replace(/[^0-9]/g, '');
+      if (!doc || doc.length < 7 || doc.length > 11) {
+        Alert.alert('CUIL requerido', 'Para envíos a Argentina ingresá tu CUIL (solo números, sin guiones).');
+        return;
+      }
     }
     setGuardando(true);
     try {
@@ -964,6 +973,31 @@ export default function PerfilScreen() {
             <Text style={styles.formLabel}>Teléfono * (con código de país)</Text>
             <TextInput style={styles.input} value={formDireccion.telefono} onChangeText={v => setFormDireccion(p => ({ ...p, telefono: v }))} placeholder="+54 11 1234 5678" placeholderTextColor="#4a6a8a" keyboardType="phone-pad" />
             <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: -8, marginBottom: 8 }}>Lo necesitamos para coordinar el envío con el correo</Text>
+
+            {(formDireccion.pais?.toLowerCase().includes('argentina') || formDireccion.pais?.toLowerCase().includes('arg')) && (
+              <>
+                <Text style={styles.formLabel}>CUIL * <Text style={{ color: '#4a6a8a', fontWeight: 'normal' }}>(requerido para Argentina)</Text></Text>
+                <TextInput
+                  style={styles.input}
+                  value={formDireccion.documento}
+                  onChangeText={v => setFormDireccion(p => ({ ...p, documento: v.replace(/[^0-9]/g, '') }))}
+                  placeholder="CUIL (solo números, sin guiones)"
+                  placeholderTextColor="#4a6a8a"
+                  keyboardType="numeric"
+                  maxLength={11}
+                />
+              </>
+            )}
+
+            <Text style={styles.formLabel}>Indicaciones adicionales <Text style={{ color: '#4a6a8a', fontWeight: 'normal' }}>(opcional)</Text></Text>
+            <TextInput
+              style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
+              value={formDireccion.indicaciones}
+              onChangeText={v => setFormDireccion(p => ({ ...p, indicaciones: v }))}
+              placeholder="Ej: edificio, piso, entre calles, horario de entrega, etc."
+              placeholderTextColor="#4a6a8a"
+              multiline
+            />
 
             <View style={styles.formBotones}>
               <TouchableOpacity style={styles.cancelarBtn} onPress={() => setEditandoDireccion(false)} disabled={guardando}>
