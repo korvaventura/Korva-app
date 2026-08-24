@@ -136,8 +136,10 @@ app.get('/test/reenviar-todos-bibs-nuevos', async (req, res) => {
         .in('status', ['active', 'completed', 'shipped', 'cargado']);
 
       for (const uc of (ucs || [])) {
-        const { data: user } = await supabase.from('users').select('id, name, email').eq('id', uc.user_id).single();
+        const { data: user } = await supabase.from('users').select('id, name, email, dorsal_url').eq('id', uc.user_id).single();
         if (!user || !uc.numero_bib) { resultados.push({ email: user?.email, error: 'sin numero_bib' }); continue; }
+        // Saltar si ya tiene dorsal_url (ya recibió el bib)
+        if (user.dorsal_url) { resultados.push({ email: user.email, challenge: challenge.title, skipped: 'ya tiene bib' }); continue; }
         try {
           const pdfs = await generarBibYPostal(supabase, user.name, uc.numero_bib, challengeId);
           if (!pdfs) { resultados.push({ email: user.email, challenge: challenge.title, error: 'PDFs fallaron' }); continue; }
