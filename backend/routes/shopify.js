@@ -246,7 +246,7 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
       if (cantidadItem > 1) {
         await enviarEmailAdmin(
           `👥 Compra grupal — activación manual requerida`,
-          `Email: ${email}\nNombre: ${nombreCompleto}\nDesafío: ${pendiente.challenges?.title}\nCantidad total: ${cantidadItem}\n\nActivar manualmente a ${cantidadItem - 1} persona(s) adicional(es) para este desafío.`
+          `Email: ${email}\nNombre: ${nombreCompleto}\nDesafío: ${pendiente.challenges?.title}\nCantidad total: ${cantidadItem}\nGroup ID (usar al activar): ${user.id}\n\nActivar manualmente a ${cantidadItem - 1} persona(s) adicional(es) para este desafío con group_id = ${user.id}`
         );
         // Generar tokens de invitación para el email al comprador
         const tokens = [];
@@ -263,6 +263,21 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
         }
         enviarEmailInvitacion(user.email, user.name, pendiente.challenges?.title, tokens);
       }
+    }
+
+    // Si hubo más de un desafío activado, agruparlos todos con group_id = user.id
+    const { data: challengesCreados } = await supabase
+      .from('user_challenges')
+      .select('id')
+      .eq('user_id', user.id)
+      .in('challenge_id', lineItems.map(li => PRODUCT_CHALLENGE_MAP[String(li.product_id || '')]).filter(Boolean))
+      .in('status', ['active', 'pending']);
+
+    if (challengesCreados && challengesCreados.length > 1) {
+      for (const uc of challengesCreados) {
+        await supabase.from('user_challenges').update({ group_id: user.id }).eq('id', uc.id);
+      }
+      console.log(`Multi-desafío agrupado: ${challengesCreados.length} retos para ${email}`);
     }
 
     res.status(200).json({ mensaje: 'Challenges activados exitosamente' });
