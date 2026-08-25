@@ -1484,11 +1484,16 @@ Al entrar al sistema fijate si este usuario tiene el reto activo.`
 });
 
 app.post('/usuarios/direccion', async (req, res) => {
-  const { user_id, shipping_address } = req.body;
+  const { user_id, shipping_address, nombre_completo } = req.body;
   try {
+    const updateData = { shipping_address };
+    // Si viene nombre_completo, actualizar también users.name
+    if (nombre_completo && nombre_completo.trim().split(' ').filter(Boolean).length >= 2) {
+      updateData.name = nombre_completo.trim();
+    }
     const { data, error } = await supabase
       .from('users')
-      .update({ shipping_address })
+      .update(updateData)
       .eq('id', user_id)
       .select()
       .maybeSingle();

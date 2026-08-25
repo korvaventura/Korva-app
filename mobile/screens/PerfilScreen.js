@@ -49,7 +49,7 @@ export default function PerfilScreen() {
   const [stravaHabilitado, setStravaHabilitado] = useState(false);
   // FIX: referencia incluida en el estado inicial
   const [formDireccion, setFormDireccion] = useState({
-    nombre: '', direccion: '', referencia: '', ciudad: '', codigo_postal: '', pais: '', telefono: '', documento: '', indicaciones: '',
+    nombre: '', direccion: '', referencia: '', ciudad: '', provincia: '', codigo_postal: '', pais: '', telefono: '', documento: '', indicaciones: '',
   });
   const [busquedaDireccion, setBusquedaDireccion] = useState('');
   const [sugerenciasDireccion, setSugerenciasDireccion] = useState([]);
@@ -241,6 +241,7 @@ export default function PerfilScreen() {
       referencia: d?.referencia || '',
       ciudad: d?.ciudad || '',
       codigo_postal: d?.codigo_postal || '',
+      provincia: d?.provincia || '',
       pais: d?.pais || '',
       telefono: d?.telefono || '',
       documento: d?.documento || '',
@@ -300,6 +301,11 @@ export default function PerfilScreen() {
       Alert.alert('Faltan datos', 'Por favor completá nombre, dirección, ciudad y país.');
       return;
     }
+    const partesNombre = nombre.trim().split(' ').filter(Boolean);
+    if (partesNombre.length < 2) {
+      Alert.alert('Nombre incompleto', 'Por favor ingresá tu nombre y apellido completo. Lo necesitamos para el envío de tu medalla.');
+      return;
+    }
     if (!codigo_postal || codigo_postal.trim().length < 3) {
       Alert.alert('Código postal requerido', 'Ingresá tu código postal. Lo necesitamos para el envío.');
       return;
@@ -321,11 +327,11 @@ export default function PerfilScreen() {
       const res = await fetch(`${BACKEND_URL}/usuarios/direccion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, shipping_address: { ...formDireccion } }),
+        body: JSON.stringify({ user_id: userId, shipping_address: { ...formDireccion }, nombre_completo: formDireccion.nombre }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.detalle);
-      setUsuario(prev => ({ ...prev, shipping_address: { ...formDireccion } }));
+      setUsuario(prev => ({ ...prev, shipping_address: { ...formDireccion }, name: formDireccion.nombre }));
       setEditandoDireccion(false);
       Alert.alert('✅ Dirección guardada', 'Tu dirección de envío fue actualizada.');
     } catch (error) {
@@ -969,6 +975,8 @@ export default function PerfilScreen() {
 
             <Text style={styles.formLabel}>Ciudad *</Text>
             <TextInput style={styles.input} value={formDireccion.ciudad} onChangeText={v => setFormDireccion(p => ({ ...p, ciudad: v }))} placeholder="Buenos Aires" placeholderTextColor="#4a6a8a" />
+            <Text style={styles.formLabel}>Provincia / Estado</Text>
+            <TextInput style={styles.input} value={formDireccion.provincia || ''} onChangeText={v => setFormDireccion(p => ({ ...p, provincia: v }))} placeholder="Ej: Buenos Aires, Cataluña, California" placeholderTextColor="#4a6a8a" />
             <Text style={styles.formLabel}>Código postal *</Text>
             <TextInput style={styles.input} value={formDireccion.codigo_postal} onChangeText={v => setFormDireccion(p => ({ ...p, codigo_postal: v }))} placeholder="1425" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
             <Text style={styles.formLabel}>País *</Text>
