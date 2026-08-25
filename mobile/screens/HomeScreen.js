@@ -250,10 +250,10 @@ export default function HomeScreen({ navigation }) {
   const descargarBib = async (tipo, challengeId) => {
     setCargandoBib(tipo);
     try {
-      const url = challengeId 
+      const fetchUrl = challengeId 
         ? `${BACKEND_URL}/usuarios/bib/${userId}?challenge_id=${challengeId}`
         : `${BACKEND_URL}/usuarios/bib/${userId}`;
-      const res = await fetch(url);
+      const res = await fetch(fetchUrl);
       const data = await res.json();
       if (data.error) { Alert.alert('Error', data.error); return; }
       const url = tipo === 'dorsal' ? data.dorsal_url : data.postal_url;
