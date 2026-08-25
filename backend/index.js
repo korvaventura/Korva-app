@@ -362,6 +362,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
         .from('activities')
         .select('distance_km')
         .eq('user_id', user_id)
+        .eq('excluida', false)
         .gte('recorded_at', reto.started_at);
 
       const totalKm = todasActividades?.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
