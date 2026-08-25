@@ -180,35 +180,32 @@ app.get('/test/bib/:userId/:challengeId', async (req, res) => {
 
 app.get('/usuarios/bib/:userId', async (req, res) => {
   const { userId } = req.params;
+  const { challenge_id: challengeIdQuery } = req.query; // opcional: ?challenge_id=XXX
   try {
-    const { data: user } = await supabase.from('users').select('id, name, email, bib_number, dorsal_url, postal_url').eq('id', userId).single();
+    const { data: user } = await supabase.from('users').select('id, name, email, bib_number').eq('id', userId).single();
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
 
-    // Si ya están guardados, devolverlos directo
-    if (user.dorsal_url && user.postal_url) {
-      return res.json({
-        bib_number: user.bib_number,
-        nombre: user.name,
-        dorsal_url: user.dorsal_url,
-        postal_url: user.postal_url,
-      });
+    const { generarBibYPostal } = require('./generador_bib');
+
+    // Buscar el challenge específico o el más reciente
+    let ucQuery = supabase
+      .from('user_challenges')
+      .select('challenge_id, numero_bib, challenges(title)')
+      .eq('user_id', userId)
+      .in('status', ['active', 'completed', 'shipped', 'cargado']);
+
+    if (challengeIdQuery) {
+      ucQuery = ucQuery.eq('challenge_id', challengeIdQuery);
     }
 
-    const { generarBibYPostal, asignarBibNumber } = require('./generador_bib');
-    let bibNumber = user.bib_number;
-    if (!bibNumber) bibNumber = await asignarBibNumber(supabase, userId);
+    const { data: uc } = await ucQuery.order('started_at', { ascending: false }).limit(1).maybeSingle();
 
-    const { data: uc } = await supabase
-      .from('user_challenges')
-      .select('challenge_id, challenges(title)')
-      .eq('user_id', userId)
-      .in('status', ['active', 'completed', 'shipped'])
-      .limit(1)
-      .maybeSingle();
-
-    const challengeTitle = uc?.challenges?.title || 'Desafío Korva';
     const challengeId = uc?.challenge_id;
     if (!challengeId) return res.status(404).json({ error: 'No se encontró desafío activo para este usuario' });
+
+    // Usar numero_bib del challenge específico, fallback a bib_number global
+    const bibNumber = uc?.numero_bib || user.bib_number;
+    if (!bibNumber) return res.status(404).json({ error: 'No tiene número de bib asignado' });
 
     const pdfs = await generarBibYPostal(supabase, user.name, bibNumber, challengeId);
     if (!pdfs) return res.status(500).json({ error: 'No se pudieron generar los PDFs' });

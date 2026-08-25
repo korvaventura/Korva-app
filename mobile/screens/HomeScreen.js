@@ -242,10 +242,13 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  const descargarBib = async (tipo) => {
+  const descargarBib = async (tipo, challengeId) => {
     setCargandoBib(tipo);
     try {
-      const res = await fetch(`${BACKEND_URL}/usuarios/bib/${userId}`);
+      const url = challengeId 
+        ? `${BACKEND_URL}/usuarios/bib/${userId}?challenge_id=${challengeId}`
+        : `${BACKEND_URL}/usuarios/bib/${userId}`;
+      const res = await fetch(url);
       const data = await res.json();
       if (data.error) { Alert.alert('Error', data.error); return; }
       const url = tipo === 'dorsal' ? data.dorsal_url : data.postal_url;
@@ -825,6 +828,7 @@ export default function HomeScreen({ navigation }) {
 
 // ─── Componente reto individual ──────────────────────────────────
 function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress, scrollRef, descargarBib, cargandoBib }) {
+  const challengeId = item.challenge_id;
   if (!item) return null;
   const pct = Math.min(parseFloat(item.porcentaje || 0), 100);
   const estaCompletado = pct >= 100;
@@ -925,10 +929,10 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
       </TouchableOpacity>
 
       <View style={styles.bibRow}>
-        <TouchableOpacity style={styles.bibBtn} onPress={() => descargarBib('dorsal')} disabled={!!cargandoBib}>
+        <TouchableOpacity style={styles.bibBtn} onPress={() => descargarBib('dorsal', challengeId)} disabled={!!cargandoBib}>
           {cargandoBib === 'dorsal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.bibBtnText}>📄 Mi dorsal</Text>}
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.bibBtn, styles.bibBtnSecundario]} onPress={() => descargarBib('postal')} disabled={!!cargandoBib}>
+        <TouchableOpacity style={[styles.bibBtn, styles.bibBtnSecundario]} onPress={() => descargarBib('postal', challengeId)} disabled={!!cargandoBib}>
           {cargandoBib === 'postal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={[styles.bibBtnText, { color: '#A8CFFF' }]}>🖼️ Mi postal</Text>}
         </TouchableOpacity>
       </View>

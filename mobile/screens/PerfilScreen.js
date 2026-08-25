@@ -358,10 +358,13 @@ export default function PerfilScreen() {
   };
 
 
-  const descargarBib = async (tipo) => {
+  const descargarBib = async (tipo, challengeId) => {
     setCargandoBib(tipo);
     try {
-      const res = await fetch(`${BACKEND_URL}/usuarios/bib/${userId}`);
+      const url = challengeId 
+        ? `${BACKEND_URL}/usuarios/bib/${userId}?challenge_id=${challengeId}`
+        : `${BACKEND_URL}/usuarios/bib/${userId}`;
+      const res = await fetch(url);
       const data = await res.json();
       if (data.error) { Alert.alert('Error', data.error); return; }
       const url = tipo === 'dorsal' ? data.dorsal_url : data.postal_url;
@@ -801,10 +804,10 @@ export default function PerfilScreen() {
                     )}
                     <View style={styles.metaSeparador} />
                     <View style={styles.bibRow}>
-                      <TouchableOpacity style={styles.bibBtn} onPress={() => descargarBib('dorsal')} disabled={!!cargandoBib}>
+                      <TouchableOpacity style={styles.bibBtn} onPress={() => descargarBib('dorsal', inscripcion.challenge_id)} disabled={!!cargandoBib}>
                         {cargandoBib === 'dorsal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.bibBtnText}>📄 Mi dorsal</Text>}
                       </TouchableOpacity>
-                      <TouchableOpacity style={[styles.bibBtn, styles.bibBtnSecundario]} onPress={() => descargarBib('postal')} disabled={!!cargandoBib}>
+                      <TouchableOpacity style={[styles.bibBtn, styles.bibBtnSecundario]} onPress={() => descargarBib('postal', inscripcion.challenge_id)} disabled={!!cargandoBib}>
                         {cargandoBib === 'postal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={[styles.bibBtnText, { color: '#A8CFFF' }]}>🖼️ Mi postal</Text>}
                       </TouchableOpacity>
                     </View>
