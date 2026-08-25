@@ -1012,33 +1012,51 @@ app.post('/admin/marcar-cargado', async (req, res) => {
 });
 
 app.post('/admin/medalla-enviada', async (req, res) => {
-  const { user_challenge_id, tracking_number } = req.body;
+  const { user_challenge_id, tracking_number, notificar = true, reenviar = false } = req.body;
   try {
-    const { data: uc, error } = await supabase
-      .from('user_challenges')
-      .update({ status: 'shipped', tracking_number })
-      .eq('id', user_challenge_id)
-      .select('id, user_id, challenge_id')
-      .single();
+    let uc;
 
-    if (error) throw error;
-
-    const usuarios = await getUsersByIds([uc.user_id]);
-    const challenges = await getChallengesByIds([uc.challenge_id]);
-    const usuario = usuarios[uc.user_id];
-    const challenge = challenges[uc.challenge_id];
-
-    await enviarEmailMedallaEnCamino(usuario?.email, usuario?.name, challenge?.title, tracking_number);
-
-    if (usuario?.push_token) {
-      await enviarPushNotification(
-        usuario.push_token,
-        '📦 Tu medalla está en camino!',
-        `Tu medalla de ${challenge?.title} fue enviada. Pronto la tenés en casa 🏅`
-      );
+    if (reenviar) {
+      // Solo leer el user_challenge sin modificar nada
+      const { data: ucExistente, error } = await supabase
+        .from('user_challenges')
+        .select('id, user_id, challenge_id, tracking_number')
+        .eq('id', user_challenge_id)
+        .single();
+      if (error) throw error;
+      uc = ucExistente;
+    } else {
+      // Comportamiento normal: actualizar status y tracking
+      const { data: ucActualizado, error } = await supabase
+        .from('user_challenges')
+        .update({ status: 'shipped', tracking_number })
+        .eq('id', user_challenge_id)
+        .select('id, user_id, challenge_id, tracking_number')
+        .single();
+      if (error) throw error;
+      uc = ucActualizado;
     }
 
-    res.json({ mensaje: 'Medalla marcada como enviada y email enviado' });
+    const trackingParaUsar = reenviar ? uc.tracking_number : tracking_number;
+
+    if (notificar) {
+      const usuarios = await getUsersByIds([uc.user_id]);
+      const challenges = await getChallengesByIds([uc.challenge_id]);
+      const usuario = usuarios[uc.user_id];
+      const challenge = challenges[uc.challenge_id];
+
+      await enviarEmailMedallaEnCamino(usuario?.email, usuario?.name, challenge?.title, trackingParaUsar);
+
+      if (usuario?.push_token) {
+        await enviarPushNotification(
+          usuario.push_token,
+          '📦 Tu medalla está en camino!',
+          `Tu medalla de ${challenge?.title} fue enviada. Pronto la tenés en casa 🏅`
+        );
+      }
+    }
+
+    res.json({ mensaje: reenviar ? 'Notificación reenviada' : notificar ? 'Medalla marcada como enviada y email enviado' : 'Tracking guardado sin notificar' });
   } catch (error) {
     res.json({ error: 'Error', detalle: error.message });
   }
