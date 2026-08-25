@@ -1359,7 +1359,10 @@ app.post('/usuarios/perfil', async (req, res) => {
       console.log('Fusionando usuario:', emailNormalizado, idViejo, '->', user_id);
 
       try {
-        await supabase.from('invitations').update({ created_by: user_id }).eq('created_by', idViejo);
+        // Nullear invitations primero para evitar FK violation
+        await supabase.from('invitations').update({ created_by: null }).eq('created_by', idViejo);
+        await supabase.from('invitations').update({ used_by: null }).eq('used_by', idViejo);
+
         await supabase.from('user_challenges').update({ user_id }).eq('user_id', idViejo);
         await supabase.from('user_challenges').update({ group_id: user_id }).eq('group_id', idViejo);
         await supabase.from('activities').update({ user_id }).eq('user_id', idViejo);
@@ -1392,7 +1395,9 @@ app.post('/usuarios/perfil', async (req, res) => {
         // Reintento automático después de 2 segundos
         await new Promise(r => setTimeout(r, 2000));
         try {
-          await supabase.from('invitations').update({ created_by: user_id }).eq('created_by', idViejo);
+          // Nullear invitations primero también en el reintento
+          await supabase.from('invitations').update({ created_by: null }).eq('created_by', idViejo);
+          await supabase.from('invitations').update({ used_by: null }).eq('used_by', idViejo);
           await supabase.from('user_challenges').update({ user_id }).eq('user_id', idViejo);
           await supabase.from('user_challenges').update({ group_id: user_id }).eq('group_id', idViejo);
           await supabase.from('activities').update({ user_id }).eq('user_id', idViejo);
