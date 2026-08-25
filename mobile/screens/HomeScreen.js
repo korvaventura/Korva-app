@@ -163,7 +163,10 @@ export default function HomeScreen({ navigation }) {
     try {
       setCargando(true);
       setError(false);
-      await fetch(`${BACKEND_URL}/strava/actividades/${userId}`);
+      // Solo sincronizar Strava si está conectado
+      if (stravaConectado) {
+        await fetch(`${BACKEND_URL}/strava/actividades/${userId}`);
+      }
       const res = await fetch(`${BACKEND_URL}/strava/progreso/${userId}`);
       const data = await res.json();
       const lista = Array.isArray(data) ? data : [];
@@ -196,11 +199,13 @@ export default function HomeScreen({ navigation }) {
       if (tieneCompletado && userId) {
         try {
           const resUser = await fetch(`${BACKEND_URL}/perfil/${userId}`);
-          const dataUser = await resUser.json();
-          if (!dataUser?.usuario?.shipping_address) {
-            setBannerDireccionVisible(true);
+          if (resUser.ok) {
+            const dataUser = await resUser.json();
+            if (!dataUser?.usuario?.shipping_address) {
+              setBannerDireccionVisible(true);
+            }
           }
-        } catch (e) {}
+        } catch (e) {} // Si falla, no mostramos el banner para no confundir
       }
     } catch (err) {
       setError(true);

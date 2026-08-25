@@ -1572,7 +1572,7 @@ app.get('/ranking/:challengeId', async (req, res) => {
       .from('user_challenges')
       .select('user_id, km_completed, modalidad, status')
       .eq('challenge_id', challengeId)
-      .in('status', ['active', 'completed', 'shipped'])
+      .in('status', ['active', 'completed', 'shipped', 'cargado'])
       .order('km_completed', { ascending: false });
 
     if (error) throw error;
