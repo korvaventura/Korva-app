@@ -1593,12 +1593,20 @@ app.get('/direcciones/detalle/:placeId', async (req, res) => {
 app.get('/ranking/:challengeId', async (req, res) => {
   const { challengeId } = req.params;
   try {
-    const { data: ucs, error } = await supabase
+    const { data: ucsRaw, error } = await supabase
       .from('user_challenges')
-      .select('user_id, km_completed, modalidad, status')
+      .select('user_id, km_completed, modalidad, status, users(id, name, avatar_url)')
       .eq('challenge_id', challengeId)
       .in('status', ['active', 'completed', 'shipped', 'cargado'])
       .order('km_completed', { ascending: false });
+
+    // Deduplicar por user_id — quedarse con el de mayor km_completed
+    const vistos = new Set();
+    const ucs = (ucsRaw || []).filter(uc => {
+      if (vistos.has(uc.user_id)) return false;
+      vistos.add(uc.user_id);
+      return true;
+    });
 
     if (error) throw error;
 
@@ -1608,14 +1616,8 @@ app.get('/ranking/:challengeId', async (req, res) => {
       .eq('id', challengeId)
       .single();
 
-    const userIds = [...new Set((ucs || []).map(u => u.user_id))].filter(id => id && id !== 'null');
-    const { data: usuarios } = userIds.length > 0
-      ? await supabase.from('users').select('id, name, avatar_url').in('id', userIds)
-      : { data: [] };
-
     const usuariosMap = {};
-    (usuarios || []).forEach(u => { usuariosMap[u.id] = u; });
-    console.log('Ranking debug — userIds:', userIds.length, '— usuarios encontrados:', (usuarios || []).length);
+    (ucs || []).forEach(uc => { if (uc.users) usuariosMap[uc.user_id] = uc.users; });
 
     const resultado = (ucs || []).map((uc, index) => {
       const modalidades = challenge?.modalidades || [];
