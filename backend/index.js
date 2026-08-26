@@ -1595,10 +1595,12 @@ app.get('/ranking/:challengeId', async (req, res) => {
   try {
     const { data: ucsRaw, error } = await supabase
       .from('user_challenges')
-      .select('user_id, km_completed, modalidad, status, users(id, name, avatar_url)')
+      .select('user_id, km_completed, modalidad, status')
       .eq('challenge_id', challengeId)
       .in('status', ['active', 'completed', 'shipped', 'cargado'])
       .order('km_completed', { ascending: false });
+
+    if (error) throw error;
 
     // Deduplicar por user_id — quedarse con el de mayor km_completed
     const vistos = new Set();
@@ -1608,16 +1610,20 @@ app.get('/ranking/:challengeId', async (req, res) => {
       return true;
     });
 
-    if (error) throw error;
-
     const { data: challenge } = await supabase
       .from('challenges')
       .select('modalidades, total_distance_km')
       .eq('id', challengeId)
       .single();
 
+    // Traer usuarios en chunks de 100 para evitar límite del .in()
+    const userIds = ucs.map(u => u.user_id).filter(Boolean);
     const usuariosMap = {};
-    (ucs || []).forEach(uc => { if (uc.users) usuariosMap[uc.user_id] = uc.users; });
+    for (let i = 0; i < userIds.length; i += 100) {
+      const chunk = userIds.slice(i, i + 100);
+      const { data: usuariosChunk } = await supabase.from('users').select('id, name, avatar_url').in('id', chunk);
+      (usuariosChunk || []).forEach(u => { usuariosMap[u.id] = u; });
+    }
 
     const resultado = (ucs || []).map((uc, index) => {
       const modalidades = challenge?.modalidades || [];
