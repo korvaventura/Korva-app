@@ -201,6 +201,7 @@ app.get('/usuarios/bib/:userId', async (req, res) => {
     const { data: uc } = await ucQuery.order('started_at', { ascending: false }).limit(1).maybeSingle();
 
     const challengeId = uc?.challenge_id;
+    const challengeTitle = uc?.challenges?.title || 'Desafío Korva';
     if (!challengeId) return res.status(404).json({ error: 'No se encontró desafío activo para este usuario' });
 
     // Usar numero_bib del challenge específico, fallback a bib_number global
