@@ -1615,6 +1615,7 @@ app.get('/ranking/:challengeId', async (req, res) => {
 
     const usuariosMap = {};
     (usuarios || []).forEach(u => { usuariosMap[u.id] = u; });
+    console.log('Ranking debug — userIds:', userIds.length, '— usuarios encontrados:', (usuarios || []).length);
 
     const resultado = (ucs || []).map((uc, index) => {
       const modalidades = challenge?.modalidades || [];
