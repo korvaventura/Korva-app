@@ -76,6 +76,44 @@ app.get('/test/bib/:userId', async (req, res) => {
   }
 });
 
+app.get('/test/certificado/:userId/:challengeId', async (req, res) => {
+  const { userId, challengeId } = req.params;
+  try {
+    const { generarCertificado } = require('./generador_bib');
+    const { enviarEmailCompletado } = require('./routes/emails');
+
+    const { data: usuario } = await supabase.from('users').select('email, name, bib_number, shipping_address').eq('id', userId).single();
+    if (!usuario) return res.json({ error: 'Usuario no encontrado' });
+
+    const { data: uc } = await supabase.from('user_challenges')
+      .select('id, km_completed, completed_at, challenges(title, total_distance_km)')
+      .eq('user_id', userId).eq('challenge_id', challengeId).maybeSingle();
+    if (!uc) return res.json({ error: 'Challenge no encontrado' });
+
+    const { data: serie } = await supabase.rpc('get_next_certificado_serial');
+    const numeroSerie = serie || `KORVA-${new Date().getFullYear()}-0000`;
+
+    const fechaCompletado = uc.completed_at
+      ? new Date(uc.completed_at).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+      : new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    const tituloChallenge = uc.challenges?.title || 'Desafío Korva';
+    const distanciaTotal = uc.challenges?.total_distance_km || uc.km_completed;
+
+    const certificadoPdf = await generarCertificado(supabase, usuario.name, tituloChallenge, distanciaTotal, usuario.bib_number || '---', fechaCompletado, numeroSerie);
+    if (!certificadoPdf) return res.json({ error: 'No se pudo generar el certificado' });
+
+    await supabase.from('user_challenges').update({ certificado_serial: numeroSerie }).eq('id', uc.id);
+    await enviarEmailCompletado(usuario.email, usuario.name, tituloChallenge, certificadoPdf, {
+      tieneDir: !!usuario.shipping_address, esGrupo: false, esComprador: true, miembros: []
+    });
+
+    res.json({ ok: true, mensaje: `Certificado ${numeroSerie} enviado a ${usuario.email}` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/test/reenviar-certificados', async (req, res) => {
   const { generarCertificado } = require('./generador_bib');
   const { enviarEmailCompletado } = require('./routes/emails');
