@@ -531,7 +531,7 @@ router.get('/progreso/:userId', async (req, res) => {
         challenge_id: uc.challenge_id,
         modalidad: uc.modalidad === 'run' ? 'Running' : uc.modalidad === 'ride' ? 'Ciclismo' : 'General',
         distancia_total: modalidadElegida.distancia_km,
-        km_completados: totalKm.toFixed(2),
+        km_completados: kmFinal.toFixed(2),
         porcentaje: porcentaje,
         checkpoints: uc.challenges.checkpoints || null,
         estado: parseFloat(porcentaje) >= 100 ? 'COMPLETADO' : 'En progreso',
