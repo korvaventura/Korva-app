@@ -381,10 +381,19 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
       // No bajar status de shipped/completed aunque bajen los km
       const nuevoStatusFinal = (yaEraShipped || yaEstabaCompletado) ? reto.status : nuevoStatus;
 
+      // No bajar km_completed si el nuevo valor es menor — protege contra actividades faltantes
+      const { data: ucActual } = await supabase
+        .from('user_challenges')
+        .select('km_completed')
+        .eq('id', reto.id)
+        .single();
+      const kmActual = parseFloat(ucActual?.km_completed || 0);
+      const kmFinal = Math.max(totalKm, kmActual);
+
       await supabase
         .from('user_challenges')
         .update({
-          km_completed: totalKm,
+          km_completed: kmFinal,
           status: nuevoStatusFinal,
           completed_at: nuevoStatusFinal === 'active' ? null : (seCompletaAhora ? new Date().toISOString() : undefined),
         })
