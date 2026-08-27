@@ -229,14 +229,16 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
 
     const kmAntes = uc.km_completed || 0;
     const totalKm = await calcularKmDeChallenge(supabase, userId, uc);
-    const porcentaje = Math.min((totalKm / modalidadElegida.distancia_km) * 100, 100);
+    // Strava solo sube km, nunca baja — protege contra sincronizaciones parciales
+    const kmFinal = Math.max(totalKm, kmAntes);
+    const porcentaje = Math.min((kmFinal / modalidadElegida.distancia_km) * 100, 100);
     const yaCompletado = ['completed', 'cargado', 'shipped'].includes(uc.status);
     const nuevoStatus = porcentaje >= 100 ? 'completed' : uc.status;
 
     await supabase
       .from('user_challenges')
       .update({
-        km_completed: totalKm,
+        km_completed: kmFinal,
         status: nuevoStatus,
         completed_at: porcentaje >= 100 ? new Date().toISOString() : uc.completed_at
       })
@@ -484,7 +486,9 @@ router.get('/progreso/:userId', async (req, res) => {
         { distancia_km: uc.challenges.total_distance_km };
 
       const totalKm = await calcularKmDeChallenge(supabase, userId, uc);
-      const porcentaje = Math.min((totalKm / modalidadElegida.distancia_km) * 100, 100).toFixed(1);
+      // Strava solo sube km, nunca baja — protege contra sincronizaciones parciales
+      const kmFinal = Math.max(totalKm, uc.km_completed || 0);
+      const porcentaje = Math.min((kmFinal / modalidadElegida.distancia_km) * 100, 100).toFixed(1);
       const yaCompletado = ['completed', 'cargado', 'shipped'].includes(uc.status);
       // Los estados finales no se tocan: un 'shipped' no puede volver a 'completed'.
       const estadosFinales = ['completed', 'cargado', 'shipped'];
@@ -495,7 +499,7 @@ router.get('/progreso/:userId', async (req, res) => {
       await supabase
         .from('user_challenges')
         .update({
-          km_completed: totalKm,
+          km_completed: kmFinal,
           status: nuevoStatus,
           completed_at: parseFloat(porcentaje) >= 100 ? new Date().toISOString() : uc.completed_at
         })
