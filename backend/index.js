@@ -965,7 +965,7 @@ app.post('/actividades/manual', async (req, res) => {
 
     const { data: ucAntes } = await supabase
       .from('user_challenges')
-      .select('km_completed, status, challenge_id, challenges(title, modalidades, total_distance_km)')
+      .select('km_completed, status, challenge_id, modalidad, challenges(title, modalidades, total_distance_km)')
       .eq('user_id', user_id)
       .eq('challenge_id', challenge_id)
       .maybeSingle();
@@ -1007,7 +1007,8 @@ app.post('/actividades/manual', async (req, res) => {
         .maybeSingle();
 
       const modalidades = ucAntes.challenges?.modalidades || [];
-      const distanciaTotal = modalidades[0]?.distancia_km || ucAntes.challenges?.total_distance_km || 100;
+      const modalidadElegida = modalidades.find(m => m.tipo === ucAntes.modalidad) || modalidades[0];
+      const distanciaTotal = modalidadElegida?.distancia_km || ucAntes.challenges?.total_distance_km || 100;
 
       if (ucAntes.status !== 'completed') {
         await enviarNotificacionProgreso(
