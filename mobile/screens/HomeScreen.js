@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
 import CompletadoScreen from './CompletadoScreen';
+import TutorialScreen from './TutorialScreen';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import MapaRecorrido from './MapaRecorrido';
@@ -53,6 +54,7 @@ export default function HomeScreen({ navigation }) {
   const [error, setError] = useState(false);
   const [userId, setUserId] = useState(null);
   const [completado, setCompletado] = useState(null);
+  const [mostrarTutorial, setMostrarTutorial] = useState(false);
   const [nombre, setNombre] = useState('');
   const [bannerVisible, setBannerVisible] = useState(false);
   const [bannerCerrado, setBannerCerrado] = useState(false); // FIX: estado separado para cerrar manualmente
@@ -80,6 +82,8 @@ export default function HomeScreen({ navigation }) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user?.id) {
         setUserId(session.user.id);
+        const tutorialVisto = await AsyncStorage.getItem('tutorial_visto');
+        if (!tutorialVisto) setMostrarTutorial(true);
         const metaNombre = session.user.user_metadata?.name?.split(' ')[0] || 
                            session.user.user_metadata?.full_name?.split(' ')[0] || '';
         if (metaNombre) {
@@ -339,6 +343,10 @@ export default function HomeScreen({ navigation }) {
       console.error('Error compartiendo:', err);
     }
   };
+
+  if (mostrarTutorial) {
+    return <TutorialScreen onTerminar={() => setMostrarTutorial(false)} />;
+  }
 
   if (completado) {
     return (

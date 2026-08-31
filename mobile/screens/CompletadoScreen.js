@@ -257,11 +257,15 @@ export default function CompletadoScreen({ challenge, userId, onVolver }) {
           </View>
         </View>
 
-        <View style={styles.pasoGuia}>
+        <View style={[styles.pasoGuia, { backgroundColor: '#0D2A1F', borderRadius: 12, padding: 14, borderLeftWidth: 3, borderLeftColor: '#22C55E' }]}>
           <Text style={styles.pasoGuiaEmoji}>📦</Text>
           <View style={{ flex: 1 }}>
-            <Text style={styles.pasoGuiaTitulo}>Esperá el número de seguimiento</Text>
-            <Text style={styles.pasoGuiaDesc}>Cuando tu medalla sea despachada, te avisamos por email con el número de tracking. No hace falta que nos escribas.</Text>
+            <Text style={styles.pasoGuiaTitulo}>¿Qué pasa ahora?</Text>
+            <Text style={styles.pasoGuiaDesc}>
+              {tieneDireccion
+                ? 'Tus datos están siendo procesados. Estamos preparando tu medalla y la despacharemos en los próximos días hábiles. Recibirás el número de seguimiento por email — no hace falta que nos escribas. 🎉'
+                : '⚠️ Andá al Perfil y cargá tu dirección de envío para que podamos despacharte la medalla. Una vez que la tengamos, la procesamos y te enviamos el tracking por email en los próximos días hábiles.'}
+            </Text>
           </View>
         </View>
       </View>
