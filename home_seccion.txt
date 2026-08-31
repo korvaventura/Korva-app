@@ -1,0 +1,100 @@
+﻿          setCompletado(null);
+        }}
+      />
+    );
+  }
+
+  const challengesPending = challenges.filter(c => c.pending);
+  const challengesEnCurso = challenges.filter(c => !c.pending && parseFloat(c.porcentaje) < 100 && !['completed','shipped','cargado'].includes(c.status));
+  const challengesCompletados = challenges.filter(c => !c.pending && (parseFloat(c.porcentaje) >= 100 || ['completed','shipped','cargado'].includes(c.status)));
+  const challengesActivos = challenges.filter(c => !c.pending);
+
+  const scrollRef = useRef(null);
+
+  return (
+    <ScrollView
+      ref={scrollRef}
+      style={styles.scroll}
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+    >
+      {/* Banner direcciÃ³n â€” para completados sin direcciÃ³n */}
+      {bannerDireccionVisible && (
+        <View style={[styles.bannerStrava, { borderLeftColor: '#FC4C02', backgroundColor: '#1A0D00' }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bannerStravaTitulo}>ðŸ“¦ Â¡CargÃ¡ tu direcciÃ³n!</Text>
+            <Text style={styles.bannerStravaDesc}>Completaste tu desafÃ­o pero falta tu direcciÃ³n de envÃ­o. Cargala en el Perfil para que podamos enviarte tu medalla.</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Perfil')}>
+              <Text style={styles.bannerStravaBtn}>Ir al Perfil â†’</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity onPress={() => setBannerDireccionVisible(false)} style={{ padding: 4 }}>
+            <Text style={{ color: '#4a6a8a', fontSize: 18 }}>âœ•</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Banner Strava â€” aparece una sola vez para activos sin Strava */}
+      {bannerStravaVisible && !stravaConectado && (
+        <View style={styles.bannerStrava}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.bannerStravaTitulo}>ðŸ”— Â¡Strava ya estÃ¡ disponible!</Text>
+            <Text style={styles.bannerStravaDesc}>ConectÃ¡ tu cuenta y cada actividad que registres en Strava se carga automÃ¡ticamente a tu desafÃ­o.</Text>
+            <TouchableOpacity onPress={abrirTutorialStrava}>
+              <Text style={styles.bannerStravaBtn}>Ver cÃ³mo conectarla â†’</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity onPress={cerrarBannerStrava} style={{ padding: 4 }}>
+            <Text style={{ color: '#4a6a8a', fontSize: 18 }}>âœ•</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Modal FAQ / Ayuda */}
+      <Modal visible={modalAyudaVisible} transparent animationType="slide" onRequestClose={() => setModalAyudaVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxHeight: '85%' }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={styles.modalTitulo}>â“ Ayuda</Text>
+              <TouchableOpacity onPress={() => setModalAyudaVisible(false)}>
+                <Text style={{ color: '#4a6a8a', fontSize: 18, fontWeight: 'bold' }}>âœ•</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {[
+                { q: 'Â¿CÃ³mo funciona Korva?', a: 'ElegÃ­s un desafÃ­o en el CatÃ¡logo y lo comprÃ¡s. Una vez confirmado el pago, el desafÃ­o se activa en la app. RegistrÃ¡s tus km corriendo o pedaleando en el mundo real, y cuando completÃ¡s la distancia total se inicia automÃ¡ticamente la orden de envÃ­o de tu medalla.' },
+                { q: 'Â¿Necesito completar el desafÃ­o de una sola vez?', a: 'No. PodÃ©s salir a correr o pedalear cuando quieras â€” salidas cortas, largas, a tu ritmo. Los km se van acumulando hasta completar la distancia total del desafÃ­o.' },
+                { q: 'Â¿Puedo mezclar actividades?', a: 'SÃ­. Si elegiste Running podÃ©s sumar km corriendo, caminando, trotando o incluso en bicicleta â€” todo se acumula hacia tu meta. La modalidad que elegÃ­s define la distancia del desafÃ­o, no el tipo de actividad que podÃ©s registrar.' },
+                { q: 'Â¿CÃ³mo registro mis kilÃ³metros?', a: 'Desde la pestaÃ±a "Registrar" cargÃ¡s tus km manualmente en segundos. La integraciÃ³n con Strava para sincronizaciÃ³n automÃ¡tica estarÃ¡ disponible prÃ³ximamente.' },
+                { q: 'Â¿CÃ³mo cargo mi direcciÃ³n de envÃ­o?', a: 'Desde la pestaÃ±a "Perfil", secciÃ³n "DirecciÃ³n de envÃ­o". Asegurate de tenerla cargada antes de completar el desafÃ­o para que el envÃ­o salga sin demoras.' },
+                { q: 'Â¿CuÃ¡ndo llega mi medalla?', a: 'Cuando completÃ¡s el 100% del desafÃ­o se inicia la orden de envÃ­o automÃ¡ticamente. Los tiempos varÃ­an segÃºn tu paÃ­s â€” podÃ©s consultar los tiempos estimados en korva.run.' },
+                { q: 'Â¿QuÃ© son los logros?', a: 'Los logros son badges gratuitos que ganÃ¡s por tu actividad â€” km recorridos, rachas de dÃ­as activos, cantidad de salidas y mÃ¡s. Se acumulan siempre, tengas o no un desafÃ­o activo.' },
+                { q: 'Â¿Puedo usar la app sin comprar un desafÃ­o?', a: 'SÃ­. PodÃ©s registrar actividades y acumular logros sin costo. Los desafÃ­os son para quienes quieren una meta con medalla fÃ­sica incluida.' },
+                { q: 'Â¿Puedo cambiar mi modalidad?', a: 'SÃ­, desde "Mis retos activos" en el Perfil podÃ©s cambiar entre Running y Ciclismo cuando quieras.' },
+                { q: 'Â¿Puedo tener varios desafÃ­os a la vez?', a: 'SÃ­. PodÃ©s inscribirte en mÃ¡s de un desafÃ­o al mismo tiempo â€” cada uno tiene su propio progreso y se completan de forma independiente. En la app vas a ver una pestaÃ±a para cada desafÃ­o activo.' },
+                { q: 'Â¿Mis datos estÃ¡n seguros?', a: 'SÃ­. Solo vos podÃ©s ver tu perfil, direcciÃ³n y actividades. No compartimos tu informaciÃ³n con terceros.' },
+                { q: 'Â¿Necesito Strava?', a: 'No. El registro manual es suficiente para sumar tus km. Strava estarÃ¡ disponible prÃ³ximamente como opciÃ³n de sincronizaciÃ³n automÃ¡tica.' },
+                { q: 'Â¿Tengo un problema o consulta?', a: 'Escribinos a korvaventura@gmail.com o por Instagram @korva.aventuras. Te respondemos a la brevedad.' },
+              ].map((item, i) => (
+                <TouchableOpacity key={i} style={styles.faqItem} onPress={() => setFaqAbierta(faqAbierta === i ? null : i)}>
+                  <View style={styles.faqHeader}>
+                    <Text style={styles.faqPregunta}>{item.q}</Text>
+                    <Text style={styles.faqChevron}>{faqAbierta === i ? 'â–²' : 'â–¼'}</Text>
+                  </View>
+                  {faqAbierta === i && <Text style={styles.faqRespuesta}>{item.a}</Text>}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal PrÃ³ximamente Strava */}
+      {/* Modal Compartir Progreso */}
+      <Modal visible={!!modalCompartirItem} transparent animationType="fade" onRequestClose={() => setModalCompartirItem(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={{ width: '100%', alignItems: 'center' }}>
+            {modalCompartirItem && (
+              <ViewShot ref={shareCardRef} options={{ format: 'png', quality: 1 }}>
+                <View style={styles.storyCard}>
+                  <View style={styles.storyHeader}>
