@@ -25,7 +25,7 @@ export default function RegistroManualScreen({ navigation }) {
   const [userId, setUserId] = useState(null);
   const [diasAtras, setDiasAtras] = useState(0);
   const [challengeId, setChallengeId] = useState(null);
-  const [desafiosActivos, setDesafiosActivos] = useState([]);
+
   const [evidenciaUri, setEvidenciaUri] = useState(null);
   const [subiendoEvidencia, setSubiendoEvidencia] = useState(false);
   const [evidenciaUrl, setEvidenciaUrl] = useState(null);
@@ -38,14 +38,13 @@ export default function RegistroManualScreen({ navigation }) {
         setUserId(session.user.id);
         const { data } = await supabase
           .from('user_challenges')
-          .select('challenge_id, challenges(title)')
+          .select('challenge_id')
           .eq('user_id', session.user.id)
           .eq('status', 'active')
-          .order('started_at', { ascending: true });
-        if (data && data.length > 0) {
-          setDesafiosActivos(data);
-          setChallengeId(data[0].challenge_id);
-        }
+          .order('started_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (data?.challenge_id) setChallengeId(data.challenge_id);
       }
     });
   }, []);
@@ -242,32 +241,6 @@ export default function RegistroManualScreen({ navigation }) {
           </TouchableOpacity>
         ))}
       </View>
-
-      {desafiosActivos.length > 1 && (
-        <View style={{ marginBottom: 16 }}>
-          <Text style={{ color: '#A8CFFF', fontSize: 13, fontWeight: 'bold', marginBottom: 8, letterSpacing: 1 }}>¿A QUÉ DESAFÍO SUMÁS ESTOS KM?</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {desafiosActivos.map(d => (
-              <TouchableOpacity
-                key={d.challenge_id}
-                onPress={() => setChallengeId(d.challenge_id)}
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  backgroundColor: challengeId === d.challenge_id ? '#FC4C02' : '#1E3A5F',
-                  borderWidth: 1,
-                  borderColor: challengeId === d.challenge_id ? '#FC4C02' : '#2a5a8a',
-                }}
-              >
-                <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: challengeId === d.challenge_id ? 'bold' : 'normal' }}>
-                  {d.challenges?.title || 'Desafío'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
 
       <View style={styles.distanciaCard}>
         <Text style={styles.distanciaLabel}>DISTANCIA</Text>
