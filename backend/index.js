@@ -168,16 +168,16 @@ app.get('/test/reenviar-todos-bibs-nuevos', async (req, res) => {
       const { data: challenge } = await supabase.from('challenges').select('title').eq('id', challengeId).single();
       const { data: ucs } = await supabase
         .from('user_challenges')
-        .select('user_id, numero_bib, modalidad')
+        .select('user_id, numero_bib, modalidad, dorsal_url')
         .eq('challenge_id', challengeId)
         .not('numero_bib', 'is', null)
         .in('status', ['active', 'completed', 'shipped', 'cargado']);
 
       for (const uc of (ucs || [])) {
-        const { data: user } = await supabase.from('users').select('id, name, email, dorsal_url').eq('id', uc.user_id).single();
+        const { data: user } = await supabase.from('users').select('id, name, email').eq('id', uc.user_id).single();
         if (!user || !uc.numero_bib) { resultados.push({ email: user?.email, error: 'sin numero_bib' }); continue; }
-        // Saltar si ya tiene dorsal_url (ya recibió el bib)
-        if (user.dorsal_url) { resultados.push({ email: user.email, challenge: challenge.title, skipped: 'ya tiene bib' }); continue; }
+        // Saltar si ya tiene dorsal_url en user_challenges (ya recibió el bib para este desafío)
+        if (uc.dorsal_url) { resultados.push({ email: user.email, challenge: challenge.title, skipped: 'ya tiene bib' }); continue; }
         try {
           const pdfs = await generarBibYPostal(supabase, user.name, uc.numero_bib, challengeId);
           if (!pdfs) { resultados.push({ email: user.email, challenge: challenge.title, error: 'PDFs fallaron' }); continue; }
@@ -228,7 +228,7 @@ app.get('/usuarios/bib/:userId', async (req, res) => {
     // Buscar el challenge específico o el más reciente
     let ucQuery = supabase
       .from('user_challenges')
-      .select('challenge_id, numero_bib, challenges(title)')
+      .select('challenge_id, numero_bib, challenges(title), dorsal_url, postal_url')
       .eq('user_id', userId)
       .in('status', ['active', 'completed', 'shipped', 'cargado']);
 
@@ -246,6 +246,17 @@ app.get('/usuarios/bib/:userId', async (req, res) => {
     const bibNumber = uc?.numero_bib || user.bib_number;
     if (!bibNumber) return res.status(404).json({ error: 'No tiene número de bib asignado' });
 
+    // Si ya tiene URLs guardadas para este desafío, devolverlas sin regenerar
+    if (uc?.dorsal_url && uc?.postal_url) {
+      return res.json({
+        bib_number: bibNumber,
+        nombre: user.name,
+        challenge: challengeTitle,
+        dorsal_url: uc.dorsal_url,
+        postal_url: uc.postal_url,
+      });
+    }
+
     const pdfs = await generarBibYPostal(supabase, user.name, bibNumber, challengeId);
     if (!pdfs) return res.status(500).json({ error: 'No se pudieron generar los PDFs' });
 
@@ -262,7 +273,12 @@ app.get('/usuarios/bib/:userId', async (req, res) => {
     const { data: dorsalUrl } = supabase.storage.from('korva-images').getPublicUrl(dorsalPath);
     const { data: postalUrl } = supabase.storage.from('korva-images').getPublicUrl(postalPath);
 
-    // Guardar URLs en el usuario
+    // Guardar URLs en user_challenges (por desafío) y en users (fallback)
+    await supabase.from('user_challenges').update({
+      dorsal_url: dorsalUrl.publicUrl,
+      postal_url: postalUrl.publicUrl,
+    }).eq('user_id', userId).eq('challenge_id', challengeId);
+
     await supabase.from('users').update({
       dorsal_url: dorsalUrl.publicUrl,
       postal_url: postalUrl.publicUrl,
