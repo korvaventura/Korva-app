@@ -712,9 +712,20 @@ app.get('/perfil/:userId', async (req, res) => {
 
     const { data: challenges } = await supabase.from('user_challenges').select('status').eq('user_id', userId);
 
-    const totalKm = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
+    const kmDeActividades = actividades?.reduce((sum, a) => sum + a.distance_km, 0) || 0;
+
+    // Si no hay actividades, usar km_completed de user_challenges (usuarios migrados de Netlify)
+    const { data: challengesConKm } = await supabase
+      .from('user_challenges')
+      .select('status, km_completed')
+      .eq('user_id', userId)
+      .in('status', ['active', 'completed', 'shipped', 'cargado']);
+
+    const kmDeDesafios = challengesConKm?.reduce((sum, c) => sum + (parseFloat(c.km_completed) || 0), 0) || 0;
+    const totalKm = Math.max(kmDeActividades, kmDeDesafios);
+
     const activos = challenges?.filter(c => c.status === 'active').length || 0;
-    const completados = challenges?.filter(c => c.status === 'completed' || c.status === 'shipped').length || 0;
+    const completados = challenges?.filter(c => ['completed', 'shipped', 'cargado'].includes(c.status)).length || 0;
 
     const getNivel = (retos) => {
       if (retos >= 20) return { nombre: 'Leyenda Viviente', emoji: '🐐', siguiente: null, faltanParaSiguiente: 0 };
