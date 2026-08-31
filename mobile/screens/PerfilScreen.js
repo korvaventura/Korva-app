@@ -162,7 +162,7 @@ export default function PerfilScreen() {
         .from('user_challenges')
         .select('id, modalidad, challenge_id, meta_fecha, km_completed, challenges(title, modalidades)')
         .eq('user_id', userId)
-        .eq('status', 'active');
+        .in('status', ['active', 'completed', 'shipped', 'cargado']);
       if (!error && data) {
         setInscripcionesActivas(data);
         const metas = {};
@@ -685,9 +685,9 @@ export default function PerfilScreen() {
 
       {/* Stats */}
       <View style={styles.statsRow}>
-        <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.total_actividades || 0}</Text><Text style={styles.statLabel}>Actividades</Text></View>
         <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.total_km || 0}</Text><Text style={styles.statLabel}>km totales</Text></View>
-        <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.medallas || 0}</Text><Text style={styles.statLabel}>Medallas</Text></View>
+        <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.medallas || 0}</Text><Text style={styles.statLabel}>🏅 Medallas</Text></View>
+        <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.total_actividades || 0}</Text><Text style={styles.statLabel}>Actividades</Text></View>
       </View>
 
 
@@ -853,43 +853,46 @@ export default function PerfilScreen() {
       {(insignias.length > 0 || Object.keys(insigniasProgreso).length > 0) && (
         <View style={styles.seccion}>
           <Text style={styles.seccionTitulo}>🏆 Logros {insignias.length > 0 ? `(${insignias.length})` : ''}</Text>
-          {[
-            { key: 'distancia',    titulo: 'DISTANCIA',    emoji: '🏃' },
-            { key: 'racha',        titulo: 'RACHAS',       emoji: '🔥' },
-            { key: 'actividades',  titulo: 'ACTIVIDADES',  emoji: '⚡' },
-            { key: 'challenges',   titulo: 'CHALLENGES',   emoji: '🏅' },
-            { key: 'consistencia', titulo: 'CONSISTENCIA', emoji: '📅' },
-            { key: 'especial',     titulo: 'ESPECIALES',   emoji: '🌟' },
-          ].map(({ key, titulo, emoji }) => {
-            const ganados = insignias.filter(i => i.categoria === key);
-            const proximo = insigniasProgreso?.[key];
-            if (ganados.length === 0 && !proximo) return null;
-            const visibles = ganados.slice(-3);
-            return (
-              <View key={key} style={styles.logroCategoria}>
-                <Text style={styles.logroCatTitulo}>{emoji} {titulo}</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {visibles.map((ins, i) => (
-                    <View key={i} style={styles.logroCard}>
-                      <Text style={styles.logroEmoji}>{ins.emoji}</Text>
-                      <Text style={styles.logroNombre}>{ins.nombre}</Text>
+          
+          {/* Grilla de logros ganados */}
+          {insignias.length > 0 && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              {insignias.map((ins, i) => (
+                <View key={i} style={styles.logroCard}>
+                  <Text style={styles.logroEmoji}>{ins.emoji}</Text>
+                  <Text style={styles.logroNombre}>{ins.nombre}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Próximos logros */}
+          {Object.keys(insigniasProgreso).length > 0 && (
+            <View>
+              <Text style={[styles.logroCatTitulo, { marginBottom: 8 }]}>🎯 PRÓXIMOS</Text>
+              {[
+                { key: 'distancia', emoji: '🏃' },
+                { key: 'racha', emoji: '🔥' },
+                { key: 'actividades', emoji: '⚡' },
+                { key: 'challenges', emoji: '🏅' },
+                { key: 'consistencia', emoji: '📅' },
+                { key: 'especial', emoji: '🌟' },
+              ].map(({ key, emoji }) => {
+                const proximo = insigniasProgreso?.[key];
+                if (!proximo) return null;
+                return (
+                  <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10 }}>
+                    <Text style={{ fontSize: 20 }}>{emoji}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' }}>{proximo.nombre}</Text>
+                      <Text style={{ color: '#4a6a8a', fontSize: 11 }}>Faltan {proximo.falta} {proximo.unidad}</Text>
                     </View>
-                  ))}
-                  {proximo && (
-                    <View style={styles.logroBloqueado}>
-                      <Text style={styles.logroBloqueadoEmoji}>🔒</Text>
-                      <Text style={styles.logroBloqueadoNombre}>???</Text>
-                    </View>
-                  )}
-                </ScrollView>
-                {proximo && (
-                  <Text style={styles.logroProximo}>
-                    → {proximo.nombre} · faltan {proximo.falta} {proximo.unidad}
-                  </Text>
-                )}
-              </View>
-            );
-          })}
+                    <Text style={{ color: '#FC4C02', fontSize: 18 }}>🔒</Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </View>
       )}
 
