@@ -206,7 +206,6 @@ export default function CatalogoScreen() {
       </View>
     </TouchableOpacity>
   );
-  };
 
   const renderCardBloqueada = (item, index) => (
     <View key={`bloqueado-${index}`} style={styles.cardBloqueada}>
