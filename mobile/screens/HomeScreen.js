@@ -82,8 +82,10 @@ export default function HomeScreen({ navigation }) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user?.id) {
         setUserId(session.user.id);
-        const tutorialVisto = await AsyncStorage.getItem('tutorial_visto');
-        if (!tutorialVisto) setMostrarTutorial(true);
+        try {
+          const tutorialVisto = await AsyncStorage.getItem('tutorial_visto');
+          if (!tutorialVisto) setMostrarTutorial(true);
+        } catch (e) {}
         const metaNombre = session.user.user_metadata?.name?.split(' ')[0] || 
                            session.user.user_metadata?.full_name?.split(' ')[0] || '';
         if (metaNombre) {
