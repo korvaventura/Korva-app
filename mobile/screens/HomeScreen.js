@@ -363,7 +363,9 @@ export default function HomeScreen({ navigation }) {
   }
 
   const challengesPending = challenges.filter(c => c.pending);
-  const challengesEnCurso = challenges.filter(c => !c.pending && parseFloat(c.porcentaje || 0) < 100 && !['completed','shipped','cargado'].includes(c.status));
+  const challengesEnCurso = challenges
+    .filter(c => !c.pending && parseFloat(c.porcentaje || 0) < 100 && !['completed','shipped','cargado'].includes(c.status))
+    .sort((a, b) => parseFloat(b.porcentaje || 0) - parseFloat(a.porcentaje || 0)); // Más cerca de completar primero
   const challengesCompletados = challenges.filter(c => !c.pending && (parseFloat(c.porcentaje || 0) >= 100 || ['completed','shipped','cargado'].includes(c.status)));
   const challengesActivos = challenges.filter(c => !c.pending);
 
