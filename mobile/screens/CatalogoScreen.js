@@ -23,12 +23,20 @@ export default function CatalogoScreen() {
   const [detalleVisible, setDetalleVisible] = useState(false);
   const [userId, setUserId] = useState(null);
   const [esAdmin, setEsAdmin] = useState(false);
+  const [misDesafios, setMisDesafios] = useState([]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user?.id) {
         setUserId(session.user.id);
         setEsAdmin(ADMINS.includes(session.user.email?.toLowerCase()));
+        // Cargar desafíos del usuario para mostrar badge "Ya inscripto"
+        const { data: ucs } = await supabase
+          .from('user_challenges')
+          .select('challenge_id, status')
+          .eq('user_id', session.user.id)
+          .in('status', ['active', 'completed', 'shipped', 'cargado', 'pending']);
+        if (ucs) setMisDesafios(ucs.map(u => u.challenge_id));
       }
     });
     cargarChallenges();
@@ -104,13 +112,20 @@ export default function CatalogoScreen() {
     );
   }
 
-  const renderCardActiva = (item, index) => (
-    <TouchableOpacity key={index} style={styles.card} onPress={() => abrirDetalle(item)} activeOpacity={0.85}>
+  const renderCardActiva = (item, index) => {
+    const yaInscripto = misDesafios.includes(item.id);
+    return (
+    <TouchableOpacity key={index} style={[styles.card, yaInscripto && { borderWidth: 1.5, borderColor: '#22C55E' }]} onPress={() => abrirDetalle(item)} activeOpacity={0.85}>
       <View style={styles.imageWrapper}>
         {item.medal_image_url && (
           <Image source={{ uri: item.medal_image_url }} style={styles.medallaImage} resizeMode="contain" />
         )}
-        {item.oferta_texto && (
+        {yaInscripto && (
+          <View style={[styles.ofertaBadge, { backgroundColor: '#15803D' }]}>
+            <Text style={styles.ofertaTexto}>✅ Ya inscripto</Text>
+          </View>
+        )}
+        {!yaInscripto && item.oferta_texto && (
           <View style={styles.ofertaBadge}>
             <Text style={styles.ofertaTexto}>🔥 {item.oferta_texto}</Text>
           </View>
@@ -153,7 +168,8 @@ export default function CatalogoScreen() {
         </View>
       </View>
     </TouchableOpacity>
-  );
+    );
+  };
 
   const renderCardBloqueadaAdmin = (item, index) => (
     <TouchableOpacity key={`admin-${index}`} style={[styles.card, styles.cardAdminPreview]} onPress={() => abrirDetalle(item)} activeOpacity={0.85}>
@@ -190,6 +206,7 @@ export default function CatalogoScreen() {
       </View>
     </TouchableOpacity>
   );
+  };
 
   const renderCardBloqueada = (item, index) => (
     <View key={`bloqueado-${index}`} style={styles.cardBloqueada}>
