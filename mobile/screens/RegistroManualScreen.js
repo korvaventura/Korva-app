@@ -247,7 +247,7 @@ export default function RegistroManualScreen({ navigation }) {
           <TextInput
             style={styles.distanciaInput}
             value={distancia}
-            onChangeText={setDistancia}
+            onChangeText={v => setDistancia(v.replace(',', '.'))}
             keyboardType="decimal-pad"
             placeholder="0.0"
             placeholderTextColor="#2a4a6a"
