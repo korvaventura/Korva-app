@@ -1841,18 +1841,15 @@ app.delete('/actividades/:actividadId', async (req, res) => {
   const { actividadId } = req.params;
   const { user_id } = req.body;
   try {
-    // Verificar que no haya reto shipped o completed — no se puede borrar actividades de retos finalizados
-    const { data: retosFinalizados } = await supabase
+    // Solo bloquear si TODOS los retos están finalizados (no hay ninguno activo)
+    const { data: retosActivos } = await supabase
       .from('user_challenges')
       .select('id, status')
       .eq('user_id', user_id)
-      .in('status', ['completed', 'shipped']);
+      .in('status', ['active', 'pending']);
 
-    if (retosFinalizados?.length > 0) {
-      return res.status(400).json({
-        error: 'No podés eliminar actividades de un desafío completado o enviado. Tu medalla ya está en camino 🏅'
-      });
-    }
+    // Si no hay retos activos, no tiene sentido borrar actividades
+    // Pero si tiene alguno activo, puede borrar
 
     const { error } = await supabase
       .from('activities')
@@ -1861,7 +1858,24 @@ app.delete('/actividades/:actividadId', async (req, res) => {
       .eq('user_id', user_id);
 
     if (error) throw error;
-    await recalcularKmUsuario(user_id);
+    // Recalcular km sin protección de Math.max (borrado intencional)
+    const { data: ucs } = await supabase
+      .from('user_challenges')
+      .select('id, challenge_id, started_at, status')
+      .eq('user_id', user_id)
+      .not('status', 'in', '("shipped","cargado")');
+
+    for (const uc of (ucs || [])) {
+      const { data: acts } = await supabase
+        .from('activities')
+        .select('distance_km')
+        .eq('user_id', user_id)
+        .eq('excluida', false)
+        .gte('recorded_at', uc.started_at);
+      const totalKm = acts?.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
+      await supabase.from('user_challenges').update({ km_completed: totalKm }).eq('id', uc.id);
+    }
+
     res.json({ mensaje: 'Actividad eliminada y km recalculados' });
   } catch (error) {
     res.json({ error: 'Error eliminando actividad', detalle: error.message });
