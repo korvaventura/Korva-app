@@ -137,7 +137,10 @@ export default function RegistroManualScreen({ navigation }) {
       setMensaje('Error de sesion, intenta de nuevo');
       return;
     }
-    // Sin challengeId = modo libre — se registra igual
+    guardarActividad();
+  };
+
+  const guardarActividad = async () => {
     setCargando(true);
     setMensaje('');
     setExito(false);
