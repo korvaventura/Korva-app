@@ -128,7 +128,13 @@ export default function DetalleRetoScreen({ route, navigation }) {
     const horas = Math.floor(tiempoTotal / 3600);
     const minutos = Math.floor((tiempoTotal % 3600) / 60);
 
-    const kmPorDia = actividades.reduce((acc, a) => {
+    // Solo contar actividades hasta la fecha de completado si el reto está terminado
+    const fechaLimite = estaCompletado && item.completed_at ? new Date(item.completed_at) : null;
+    const actividadesFiltradas = fechaLimite
+      ? actividades.filter(a => new Date(a.recorded_at) <= fechaLimite)
+      : actividades;
+
+    const kmPorDia = actividadesFiltradas.reduce((acc, a) => {
       const dia = a.recorded_at?.split('T')[0];
       acc[dia] = (acc[dia] || 0) + a.distance_km;
       return acc;
