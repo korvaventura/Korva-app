@@ -1776,6 +1776,7 @@ app.get('/actividades/:userId', async (req, res) => {
       .from('activities')
       .select('*')
       .eq('user_id', userId)
+      .eq('excluida', false)
       .order('recorded_at', { ascending: false })
       .limit(100);
 
