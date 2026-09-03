@@ -100,6 +100,8 @@ export default function RankingScreen({ navigation }) {
   const irAChallenge = (index) => {
     setChallengeIndex(index);
     challengeScrollRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
+    // Actualizar ranking de países al cambiar desafío
+    if (challenges[index]) cargarRankingPaises(challenges[index].id);
   };
 
   // FIX: comparar por user_id si está disponible, fallback a nombre

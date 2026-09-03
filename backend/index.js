@@ -1792,10 +1792,24 @@ app.get('/ranking/paises/:challengeId', async (req, res) => {
       .eq('challenge_id', challengeId)
       .in('status', ['completed', 'shipped', 'cargado']);
 
+    // Normalizar nombres de países
+    const NORMALIZAR = {
+      'mexico': 'México', 'peru': 'Perú', 'panama': 'Panamá',
+      'republica dominicana': 'República Dominicana', 'espana': 'España',
+      'brasil': 'Brasil', 'brazil': 'Brasil', 'usa': 'Estados Unidos',
+      'united states': 'Estados Unidos', 'estados unidos': 'Estados Unidos',
+      'correa del sur': 'Corea del Sur',
+    };
+
     const conteo = {};
     (data || []).forEach(uc => {
-      const pais = uc.users?.pais?.trim();
-      if (pais) conteo[pais] = (conteo[pais] || 0) + 1;
+      let pais = uc.users?.pais?.trim();
+      if (!pais) return;
+      // Normalizar
+      const paisLower = pais.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      const normalizado = NORMALIZAR[paisLower];
+      if (normalizado) pais = normalizado;
+      conteo[pais] = (conteo[pais] || 0) + 1;
     });
 
     const resultado = Object.entries(conteo)

@@ -301,23 +301,23 @@ export default function PerfilScreen() {
       Alert.alert('Faltan datos', 'Por favor completá nombre, dirección, ciudad y país.');
       return;
     }
+    // Solo advertencia si tiene una sola palabra — no bloquea
     const partesNombre = nombre.trim().split(' ').filter(Boolean);
     if (partesNombre.length < 2) {
-      Alert.alert('Nombre incompleto', 'Por favor ingresá tu nombre y apellido completo. Lo necesitamos para el envío de tu medalla.');
-      return;
+      console.log('Nombre con una sola palabra:', nombre);
+      // No bloqueamos — algunos nombres son de una sola palabra
     }
-    if (!codigo_postal || codigo_postal.trim().length < 3) {
-      Alert.alert('Código postal requerido', 'Ingresá tu código postal. Lo necesitamos para el envío.');
-      return;
-    }
+    // CP opcional — algunos países no usan
+    // if (!codigo_postal || codigo_postal.trim().length < 3) { ... }
     if (!telefono || telefono.trim().length < 7) {
       Alert.alert('Teléfono requerido', 'Ingresá tu número de celular con código de país (ej: +54 11 1234 5678). Lo necesitamos para coordinar el envío de tu medalla.');
       return;
     }
-    if (pais.toLowerCase().includes('argentina') || pais.toLowerCase().includes('arg')) {
+    // CUIL recomendado pero no bloquea
+    if ((pais.toLowerCase().includes('argentina') || pais.toLowerCase().includes('arg')) && formDireccion.documento) {
       const doc = formDireccion.documento?.trim().replace(/[^0-9]/g, '');
-      if (!doc || doc.length < 7 || doc.length > 11) {
-        Alert.alert('CUIL requerido', 'Para envíos a Argentina ingresá tu CUIL (solo números, sin guiones).');
+      if (doc.length > 0 && (doc.length < 7 || doc.length > 11)) {
+        Alert.alert('CUIL inválido', 'El CUIL debe tener entre 7 y 11 dígitos (solo números, sin guiones).');
         return;
       }
     }
