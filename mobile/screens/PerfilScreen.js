@@ -160,7 +160,7 @@ export default function PerfilScreen() {
     try {
       const { data, error } = await supabase
         .from('user_challenges')
-        .select('id, modalidad, challenge_id, meta_fecha, km_completed, challenges(title, modalidades)')
+        .select('id, modalidad, challenge_id, meta_fecha, km_completed, status, pausado, challenges(title, modalidades)')
         .eq('user_id', userId)
         .in('status', ['active', 'completed', 'shipped', 'cargado']);
       if (!error && data) {
