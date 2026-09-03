@@ -12,6 +12,7 @@ const PRODUCT_CHALLENGE_MAP = {
   '8780043288754': 'ae54af78-dc6f-4cf5-af31-2c077ba58048', // Fin del Mundo 103km
   '8908019957938': '85a362a5-eee7-456d-9027-358d44446004', // San Andrés 57km
   '8908019466418': '64442b1d-12b8-4a58-a951-50ea10cb2131', // Dubrovnik 19.4km
+  '8999917191346': '881936a8-2282-4b7d-a94d-24a7c796d789', // Monte Fuji 68km
 };
 
 const getSupabase = () => createClient(
