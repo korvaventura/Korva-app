@@ -1773,10 +1773,19 @@ const recalcularKmConPausas = async (user_id, challenge_id, periodos) => {
     const porcentaje = (totalKm / distanciaTotal) * 100;
     const nuevoStatus = porcentaje >= 100 ? 'completed' : uc.status;
 
-    await supabase.from('user_challenges').update({
-      km_completed: totalKm,
-      status: nuevoStatus,
-    }).eq('id', uc.id);
+    // No tocar completados/shipped/cargado
+    if (!['completed', 'shipped', 'cargado'].includes(uc.status)) {
+      await supabase.from('user_challenges').update({
+        km_completed: totalKm,
+        status: nuevoStatus,
+      }).eq('id', uc.id);
+    } else {
+      // Solo actualizar km si son mayores
+      const kmActual = parseFloat(uc.km_completed || 0);
+      if (totalKm > kmActual) {
+        await supabase.from('user_challenges').update({ km_completed: totalKm }).eq('id', uc.id);
+      }
+    }
   } catch (e) {
     console.error('Error recalcularKmConPausas:', e.message);
   }

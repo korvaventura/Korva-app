@@ -962,12 +962,14 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
       </TouchableOpacity>
 
       <View style={styles.bibRow}>
-        <TouchableOpacity
-          style={[styles.bibBtn, { backgroundColor: estaPausado ? '#1a4a1a' : '#1E3A5F', borderColor: estaPausado ? '#22C55E' : '#2a5a8a' }]}
-          onPress={() => togglePausar(challengeId, estaPausado)}
-        >
-          <Text style={styles.bibBtnText}>{estaPausado ? '▶️ Reanudar' : '⏸ Pausar'}</Text>
-        </TouchableOpacity>
+        {!['completed','shipped','cargado'].includes(item.status) && (
+          <TouchableOpacity
+            style={[styles.bibBtn, { backgroundColor: estaPausado ? '#1a4a1a' : '#1E3A5F', borderColor: estaPausado ? '#22C55E' : '#2a5a8a' }]}
+            onPress={() => togglePausar(challengeId, estaPausado)}
+          >
+            <Text style={styles.bibBtnText}>{estaPausado ? '▶️ Reanudar' : '⏸ Pausar'}</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={styles.bibBtn} onPress={() => descargarBib('dorsal', challengeId)} disabled={!!cargandoBib}>
           {cargandoBib === 'dorsal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.bibBtnText}>📄 Mi dorsal</Text>}
         </TouchableOpacity>

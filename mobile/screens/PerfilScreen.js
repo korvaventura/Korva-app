@@ -824,12 +824,14 @@ export default function PerfilScreen() {
                     )}
                     <View style={styles.metaSeparador} />
                     <View style={styles.bibRow}>
-                      <TouchableOpacity
-                        style={[styles.bibBtn, { backgroundColor: inscripcion.pausado ? '#1a4a1a' : '#0D1B2A', borderColor: inscripcion.pausado ? '#22C55E' : '#FC4C02' }]}
-                        onPress={() => togglePausar(inscripcion.challenge_id, inscripcion.pausado)}
-                      >
-                        <Text style={styles.bibBtnText}>{inscripcion.pausado ? '▶️ Reanudar' : '⏸ Pausar'}</Text>
-                      </TouchableOpacity>
+                      {inscripcion.status === 'active' && (
+                        <TouchableOpacity
+                          style={[styles.bibBtn, { backgroundColor: inscripcion.pausado ? '#1a4a1a' : '#0D1B2A', borderColor: inscripcion.pausado ? '#22C55E' : '#FC4C02' }]}
+                          onPress={() => togglePausar(inscripcion.challenge_id, inscripcion.pausado)}
+                        >
+                          <Text style={styles.bibBtnText}>{inscripcion.pausado ? '▶️ Reanudar' : '⏸ Pausar'}</Text>
+                        </TouchableOpacity>
+                      )}
                       <TouchableOpacity style={styles.bibBtn} onPress={() => descargarBib('dorsal', inscripcion.challenge_id)} disabled={!!cargandoBib}>
                         {cargandoBib === 'dorsal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.bibBtnText}>📄 Mi dorsal</Text>}
                       </TouchableOpacity>
