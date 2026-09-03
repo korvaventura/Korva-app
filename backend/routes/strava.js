@@ -207,7 +207,8 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
     .from('user_challenges')
     .select('*, challenges(*)')
     .eq('user_id', userId)
-    .eq('status', 'active');
+    .eq('status', 'active')
+    .eq('pausado', false);
 
   const challengePrincipal = userChallenges?.[0] || null;
 
@@ -433,6 +434,46 @@ router.get('/actividades/:userId', async (req, res) => {
       importadas++;
     }
 
+    // Recalcular km y status para cada reto activo después del sync
+    if (importadas > 0) {
+      const { data: ucActivos } = await supabase
+        .from('user_challenges')
+        .select('*, challenges(*)')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .eq('pausado', false);
+
+      for (const uc of ucActivos || []) {
+        const modalidades = uc.challenges.modalidades || [];
+        const modalidadElegida = modalidades.find(m => m.tipo === uc.modalidad) ||
+          { distancia_km: uc.challenges.total_distance_km };
+
+        const kmAntes = uc.km_completed || 0;
+        const totalKm = await calcularKmDeChallenge(supabase, userId, uc);
+        const kmFinal = Math.max(totalKm, kmAntes);
+        const porcentaje = Math.min((kmFinal / modalidadElegida.distancia_km) * 100, 100);
+        const nuevoStatus = porcentaje >= 100 ? 'completed' : 'active';
+
+        await supabase.from('user_challenges').update({
+          km_completed: kmFinal,
+          status: nuevoStatus,
+          completed_at: nuevoStatus === 'completed' ? new Date().toISOString() : uc.completed_at
+        }).eq('id', uc.id);
+
+        if (nuevoStatus === 'completed') {
+          const { data: usuario } = await supabase.from('users').select('email, name, push_token').eq('id', userId).maybeSingle();
+          if (usuario?.email) {
+            const { enviarEmailCompletado } = require('../routes/emails');
+            enviarEmailCompletado(usuario.email, usuario.name, uc.challenges.title);
+          }
+          if (usuario?.push_token) {
+            await enviarPushNotification(usuario.push_token, '🏅 ¡Completaste el reto!', `Llegaste a la meta. Tu medalla de ${uc.challenges.title} está en camino 🎉`);
+          }
+          console.log(`Reto completado via sync Strava: ${usuario?.email} — ${uc.challenges.title}`);
+        }
+      }
+    }
+
     res.json({
       mensaje: `${importadas} actividades importadas de Strava` +
                (salteadas > 0 ? ` (${salteadas} ya estaban cargadas)` : ''),
@@ -537,6 +578,7 @@ router.get('/progreso/:userId', async (req, res) => {
         estado: parseFloat(porcentaje) >= 100 ? 'COMPLETADO' : 'En progreso',
         started_at: uc.started_at,
         meta_fecha: uc.meta_fecha,
+        pausado: uc.pausado || false,
         pending: false
       };
     }));

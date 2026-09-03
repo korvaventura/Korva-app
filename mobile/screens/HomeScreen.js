@@ -254,6 +254,20 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
+  const togglePausar = async (challengeId, pausado) => {
+    try {
+      const endpoint = pausado ? 'reanudar' : 'pausar';
+      await fetch(`${BACKEND_URL}/challenges/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, challenge_id: challengeId }),
+      });
+      cargarProgreso();
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo cambiar el estado del desafío.');
+    }
+  };
+
   const descargarBib = async (tipo, challengeId) => {
     setCargandoBib(tipo);
     try {
@@ -748,6 +762,7 @@ export default function HomeScreen({ navigation }) {
                 onModalidadPress={() => setModalModalidadVisible(true)}
                 scrollRef={scrollRef}
                 descargarBib={descargarBib}
+                togglePausar={togglePausar}
                 cargandoBib={cargandoBib}
               />
             </>
@@ -845,8 +860,9 @@ export default function HomeScreen({ navigation }) {
 }
 
 // ─── Componente reto individual ──────────────────────────────────
-function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress, scrollRef, descargarBib, cargandoBib }) {
+function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress, scrollRef, descargarBib, cargandoBib, togglePausar }) {
   const challengeId = item.challenge_id;
+  const estaPausado = item.pausado || false;
   if (!item) return null;
   const pct = Math.min(parseFloat(item.porcentaje || 0), 100);
   const estaCompletado = pct >= 100;
@@ -947,6 +963,12 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
       </TouchableOpacity>
 
       <View style={styles.bibRow}>
+        <TouchableOpacity
+          style={[styles.bibBtn, { backgroundColor: estaPausado ? '#1a4a1a' : '#1E3A5F', borderColor: estaPausado ? '#22C55E' : '#2a5a8a' }]}
+          onPress={() => togglePausar(challengeId, estaPausado)}
+        >
+          <Text style={styles.bibBtnText}>{estaPausado ? '▶️ Reanudar' : '⏸ Pausar'}</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.bibBtn} onPress={() => descargarBib('dorsal', challengeId)} disabled={!!cargandoBib}>
           {cargandoBib === 'dorsal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.bibBtnText}>📄 Mi dorsal</Text>}
         </TouchableOpacity>

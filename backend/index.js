@@ -404,9 +404,10 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
   try {
     let query = supabase
       .from('user_challenges')
-      .select('id, started_at, challenge_id, status, modalidad, challenges(title, modalidades, total_distance_km)')
+      .select('id, started_at, challenge_id, status, modalidad, pausado, periodos_pausados, challenges(title, modalidades, total_distance_km)')
       .eq('user_id', user_id)
-      .in('status', ['active', 'completed']);
+      .in('status', ['active', 'completed'])
+      .eq('pausado', false);
 
     if (challenge_id) query = query.eq('challenge_id', challenge_id);
 
@@ -415,12 +416,21 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
     for (const reto of retos || []) {
       const { data: todasActividades } = await supabase
         .from('activities')
-        .select('distance_km')
+        .select('distance_km, recorded_at')
         .eq('user_id', user_id)
         .eq('excluida', false)
         .gte('recorded_at', reto.started_at);
 
-      const totalKm = todasActividades?.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
+      // Filtrar actividades en períodos pausados
+      const actividadesValidas = (todasActividades || []).filter(a => {
+        const fecha = new Date(a.recorded_at);
+        for (const p of (reto.periodos_pausados || [])) {
+          if (fecha >= new Date(p.desde) && fecha <= new Date(p.hasta)) return false;
+        }
+        return true;
+      });
+
+      const totalKm = actividadesValidas.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0);
 
       const modalidades = reto.challenges?.modalidades || [];
       const modalidadElegida = modalidades.find(m => m.tipo === reto.modalidad) || modalidades[0];
@@ -1664,6 +1674,109 @@ app.get('/direcciones/detalle/:placeId', async (req, res) => {
     res.status(500).json({ error: 'Error obteniendo detalle de la dirección' });
   }
 });
+
+// Pausar desafío
+app.post('/challenges/pausar', async (req, res) => {
+  const { user_id, challenge_id } = req.body;
+  try {
+    const { data: uc } = await supabase
+      .from('user_challenges')
+      .select('id, pausado, periodos_pausados')
+      .eq('user_id', user_id)
+      .eq('challenge_id', challenge_id)
+      .single();
+
+    if (!uc) return res.status(404).json({ error: 'Desafío no encontrado' });
+    if (uc.pausado) return res.json({ mensaje: 'Ya estaba pausado' });
+
+    await supabase.from('user_challenges').update({
+      pausado: true,
+      pausado_at: new Date().toISOString()
+    }).eq('id', uc.id);
+
+    res.json({ mensaje: 'Desafío pausado' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Reanudar desafío
+app.post('/challenges/reanudar', async (req, res) => {
+  const { user_id, challenge_id } = req.body;
+  try {
+    const { data: uc } = await supabase
+      .from('user_challenges')
+      .select('id, pausado, pausado_at, periodos_pausados')
+      .eq('user_id', user_id)
+      .eq('challenge_id', challenge_id)
+      .single();
+
+    if (!uc) return res.status(404).json({ error: 'Desafío no encontrado' });
+    if (!uc.pausado) return res.json({ mensaje: 'No estaba pausado' });
+
+    // Guardar el período pausado
+    const periodos = uc.periodos_pausados || [];
+    periodos.push({ desde: uc.pausado_at, hasta: new Date().toISOString() });
+
+    await supabase.from('user_challenges').update({
+      pausado: false,
+      pausado_at: null,
+      periodos_pausados: periodos
+    }).eq('id', uc.id);
+
+    // Recalcular km excluyendo los períodos pausados
+    await recalcularKmConPausas(user_id, challenge_id, periodos);
+
+    res.json({ mensaje: 'Desafío reanudado y km recalculados' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Función auxiliar: recalcular km ignorando períodos pausados
+const recalcularKmConPausas = async (user_id, challenge_id, periodos) => {
+  try {
+    const { data: uc } = await supabase
+      .from('user_challenges')
+      .select('id, started_at, status, challenges(title, modalidades, total_distance_km), modalidad')
+      .eq('user_id', user_id)
+      .eq('challenge_id', challenge_id)
+      .single();
+
+    if (!uc) return;
+
+    const { data: actividades } = await supabase
+      .from('activities')
+      .select('distance_km, recorded_at')
+      .eq('user_id', user_id)
+      .eq('excluida', false)
+      .gte('recorded_at', uc.started_at);
+
+    // Filtrar actividades que caen en períodos pausados
+    const actividadesValidas = (actividades || []).filter(a => {
+      const fecha = new Date(a.recorded_at);
+      for (const p of (periodos || [])) {
+        if (fecha >= new Date(p.desde) && fecha <= new Date(p.hasta)) return false;
+      }
+      return true;
+    });
+
+    const totalKm = actividadesValidas.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0);
+
+    const modalidades = uc.challenges?.modalidades || [];
+    const modalidadElegida = modalidades.find(m => m.tipo === uc.modalidad) || modalidades[0];
+    const distanciaTotal = modalidadElegida?.distancia_km || uc.challenges?.total_distance_km || 100;
+    const porcentaje = (totalKm / distanciaTotal) * 100;
+    const nuevoStatus = porcentaje >= 100 ? 'completed' : uc.status;
+
+    await supabase.from('user_challenges').update({
+      km_completed: totalKm,
+      status: nuevoStatus,
+    }).eq('id', uc.id);
+  } catch (e) {
+    console.error('Error recalcularKmConPausas:', e.message);
+  }
+};
 
 app.get('/ranking/:challengeId', async (req, res) => {
   const { challengeId } = req.params;
