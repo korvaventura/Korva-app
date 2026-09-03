@@ -18,7 +18,7 @@ export default function RankingScreen({ navigation }) {
   const [mostrarTodos, setMostrarTodos] = useState({});
   const [miNombre, setMiNombre] = useState('');
   const [miUserId, setMiUserId] = useState('');  // FIX: guardar user_id para comparar exacto
-  const [tabActivo, setTabActivo] = useState('ranking'); // 'ranking' o 'paises'
+  const [tabVista, setTabVista] = useState('ranking'); // 'ranking' o 'paises'
   const [rankingPaises, setRankingPaises] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [tabActivo, setTabActivo] = useState('en_curso');
@@ -356,20 +356,20 @@ export default function RankingScreen({ navigation }) {
         {/* Tab Ranking / Países */}
         <View style={{ flexDirection: 'row', backgroundColor: '#0D1B2A', borderRadius: 10, padding: 3, marginBottom: 12 }}>
           <TouchableOpacity
-            style={{ flex: 1, paddingVertical: 8, borderRadius: 8, backgroundColor: tabActivo === 'ranking' ? '#FC4C02' : 'transparent', alignItems: 'center' }}
-            onPress={() => setTabActivo('ranking')}
+            style={{ flex: 1, paddingVertical: 8, borderRadius: 8, backgroundColor: tabVista === 'ranking' ? '#FC4C02' : 'transparent', alignItems: 'center' }}
+            onPress={() => setTabVista('ranking')}
           >
             <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>🏅 Ranking</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={{ flex: 1, paddingVertical: 8, borderRadius: 8, backgroundColor: tabActivo === 'paises' ? '#FC4C02' : 'transparent', alignItems: 'center' }}
-            onPress={() => setTabActivo('paises')}
+            style={{ flex: 1, paddingVertical: 8, borderRadius: 8, backgroundColor: tabVista === 'paises' ? '#FC4C02' : 'transparent', alignItems: 'center' }}
+            onPress={() => setTabVista('paises')}
           >
             <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>🌍 Países</Text>
           </TouchableOpacity>
         </View>
 
-        {tabActivo === 'ranking' && challenges.length > 1 && (
+        {tabVista === 'ranking' && challenges.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
             {challenges.map((c, i) => (
               <TouchableOpacity
@@ -401,14 +401,14 @@ export default function RankingScreen({ navigation }) {
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onChallengeScroll}
         scrollEventThrottle={16}
-        style={{ flex: 1, display: tabActivo === 'ranking' ? 'flex' : 'none' }}
+        style={{ flex: 1, display: tabVista === 'ranking' ? 'flex' : 'none' }}
       >
         {challenges.map((c, i) => (
           <RankingPage key={i} challenge={c} />
         ))}
       </ScrollView>
 
-      {tabActivo === 'paises' && (
+      {tabVista === 'paises' && (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
           <Text style={{ color: '#A8CFFF', fontSize: 13, marginBottom: 16, textAlign: 'center' }}>
             Finishers por país 🌍
