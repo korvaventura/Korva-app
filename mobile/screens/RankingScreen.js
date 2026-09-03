@@ -5,6 +5,7 @@ import { supabase } from '../supabase';
 import { Ionicons } from '@expo/vector-icons';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
+const BANDERAS = {"Argentina": "🇦🇷", "Colombia": "🇨🇴", "Uruguay": "🇺🇾", "España": "🇪🇸", "Ecuador": "🇪🇨", "México": "🇲🇽", "Mexico": "🇲🇽", "Costa Rica": "🇨🇷", "Chile": "🇨🇱", "Estados Unidos": "🇺🇸", "Perú": "🇵🇪", "Peru": "🇵🇪", "Puerto Rico": "🇵🇷", "Venezuela": "🇻🇪", "República Dominicana": "🇩🇴", "Republica Dominicana": "🇩🇴", "Panamá": "🇵🇦", "Panama": "🇵🇦", "Brasil": "🇧🇷", "Australia": "🇦🇺", "El Salvador": "🇸🇻", "Guatemala": "🇬🇹", "Paraguay": "🇵🇾", "Bolivia": "🇧🇴", "Cuba": "🇨🇺", "Honduras": "🇭🇳", "Nicaragua": "🇳🇮", "Alemania": "🇩🇪", "Italia": "🇮🇹", "Francia": "🇫🇷", "Aruba": "🇦🇼", "Curacao": "🇨🇼", "Corea del Sur": "🇰🇷"};
 const TOP_VISIBLE = 10;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -17,6 +18,8 @@ export default function RankingScreen({ navigation }) {
   const [mostrarTodos, setMostrarTodos] = useState({});
   const [miNombre, setMiNombre] = useState('');
   const [miUserId, setMiUserId] = useState('');  // FIX: guardar user_id para comparar exacto
+  const [tabActivo, setTabActivo] = useState('ranking'); // 'ranking' o 'paises'
+  const [rankingPaises, setRankingPaises] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [tabActivo, setTabActivo] = useState('en_curso');
   const challengeScrollRef = useRef(null);
@@ -51,10 +54,19 @@ export default function RankingScreen({ navigation }) {
         data.forEach(c => { mods[c.id] = 'run'; });
         setModalidades(mods);
         data.forEach(c => cargarRanking(c.id, 'run'));
+        if (data[0]) cargarRankingPaises(data[0].id);
       }
     } catch (error) {
       console.error('Error:', error);
     }
+  };
+
+  const cargarRankingPaises = async (cId) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/ranking/paises/${cId}`);
+      const data = await res.json();
+      setRankingPaises(Array.isArray(data) ? data : []);
+    } catch (e) {}
   };
 
   const cargarRanking = async (cId, mod) => {
@@ -339,7 +351,23 @@ export default function RankingScreen({ navigation }) {
       <View style={styles.header}>
         <Text style={styles.titulo}>🏆 Ranking</Text>
 
-        {challenges.length > 1 && (
+        {/* Tab Ranking / Países */}
+        <View style={{ flexDirection: 'row', backgroundColor: '#0D1B2A', borderRadius: 10, padding: 3, marginBottom: 12 }}>
+          <TouchableOpacity
+            style={{ flex: 1, paddingVertical: 8, borderRadius: 8, backgroundColor: tabActivo === 'ranking' ? '#FC4C02' : 'transparent', alignItems: 'center' }}
+            onPress={() => setTabActivo('ranking')}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>🏅 Ranking</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ flex: 1, paddingVertical: 8, borderRadius: 8, backgroundColor: tabActivo === 'paises' ? '#FC4C02' : 'transparent', alignItems: 'center' }}
+            onPress={() => setTabActivo('paises')}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>🌍 Países</Text>
+          </TouchableOpacity>
+        </View>
+
+        {tabActivo === 'ranking' && challenges.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
             {challenges.map((c, i) => (
               <TouchableOpacity
@@ -371,12 +399,33 @@ export default function RankingScreen({ navigation }) {
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onChallengeScroll}
         scrollEventThrottle={16}
-        style={{ flex: 1 }}
+        style={{ flex: 1, display: tabActivo === 'ranking' ? 'flex' : 'none' }}
       >
         {challenges.map((c, i) => (
           <RankingPage key={i} challenge={c} />
         ))}
       </ScrollView>
+
+      {tabActivo === 'paises' && (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
+          <Text style={{ color: '#A8CFFF', fontSize: 13, marginBottom: 16, textAlign: 'center' }}>
+            Finishers por país 🌍
+          </Text>
+          {rankingPaises.length === 0 ? (
+            <Text style={{ color: '#4a6a8a', textAlign: 'center' }}>Cargando...</Text>
+          ) : (
+            rankingPaises.map((item, i) => (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, marginBottom: 8 }}>
+                <Text style={{ fontSize: 28, marginRight: 12 }}>{BANDERAS[item.pais] || '🏳️'}</Text>
+                <Text style={{ flex: 1, color: '#FFFFFF', fontSize: 15, fontWeight: 'bold' }}>{item.pais}</Text>
+                <View style={{ backgroundColor: '#FC4C02', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4 }}>
+                  <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>{item.cantidad}</Text>
+                </View>
+              </View>
+            ))
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 }

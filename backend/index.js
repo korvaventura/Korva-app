@@ -1601,6 +1601,10 @@ app.post('/usuarios/direccion', async (req, res) => {
     if (nombre_completo && nombre_completo.trim().split(' ').filter(Boolean).length >= 2) {
       updateData.name = nombre_completo.trim();
     }
+    // Actualizar pais desde la dirección
+    if (shipping_address?.pais) {
+      updateData.pais = shipping_address.pais;
+    }
     const { data, error } = await supabase
       .from('users')
       .update(updateData)
@@ -1777,6 +1781,32 @@ const recalcularKmConPausas = async (user_id, challenge_id, periodos) => {
     console.error('Error recalcularKmConPausas:', e.message);
   }
 };
+
+// Ranking de países — finishers por país
+app.get('/ranking/paises/:challengeId', async (req, res) => {
+  const { challengeId } = req.params;
+  try {
+    const { data } = await supabase
+      .from('user_challenges')
+      .select('users(pais)')
+      .eq('challenge_id', challengeId)
+      .in('status', ['completed', 'shipped', 'cargado']);
+
+    const conteo = {};
+    (data || []).forEach(uc => {
+      const pais = uc.users?.pais?.trim();
+      if (pais) conteo[pais] = (conteo[pais] || 0) + 1;
+    });
+
+    const resultado = Object.entries(conteo)
+      .sort((a, b) => b[1] - a[1])
+      .map(([pais, cantidad]) => ({ pais, cantidad }));
+
+    res.json(resultado);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.get('/ranking/:challengeId', async (req, res) => {
   const { challengeId } = req.params;
