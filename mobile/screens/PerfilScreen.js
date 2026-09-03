@@ -364,6 +364,20 @@ export default function PerfilScreen() {
   };
 
 
+  const togglePausar = async (challengeId, pausado) => {
+    try {
+      const endpoint = pausado ? 'reanudar' : 'pausar';
+      await fetch(`${BACKEND_URL}/challenges/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, challenge_id: challengeId }),
+      });
+      cargarInscripcionesActivas();
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo cambiar el estado del desafío.');
+    }
+  };
+
   const descargarBib = async (tipo, challengeId) => {
     setCargandoBib(tipo);
     try {
@@ -810,6 +824,12 @@ export default function PerfilScreen() {
                     )}
                     <View style={styles.metaSeparador} />
                     <View style={styles.bibRow}>
+                      <TouchableOpacity
+                        style={[styles.bibBtn, { backgroundColor: inscripcion.pausado ? '#1a4a1a' : '#0D1B2A', borderColor: inscripcion.pausado ? '#22C55E' : '#FC4C02' }]}
+                        onPress={() => togglePausar(inscripcion.challenge_id, inscripcion.pausado)}
+                      >
+                        <Text style={styles.bibBtnText}>{inscripcion.pausado ? '▶️ Reanudar' : '⏸ Pausar'}</Text>
+                      </TouchableOpacity>
                       <TouchableOpacity style={styles.bibBtn} onPress={() => descargarBib('dorsal', inscripcion.challenge_id)} disabled={!!cargandoBib}>
                         {cargandoBib === 'dorsal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.bibBtnText}>📄 Mi dorsal</Text>}
                       </TouchableOpacity>
