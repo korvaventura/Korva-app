@@ -1795,31 +1795,43 @@ const recalcularKmConPausas = async (user_id, challenge_id, periodos) => {
 app.get('/ranking/paises/:challengeId', async (req, res) => {
   const { challengeId } = req.params;
   try {
-    const { data } = await supabase
+    // Obtener user_ids de finishers
+    const { data: ucs } = await supabase
       .from('user_challenges')
-      .select('users(pais)')
+      .select('user_id')
       .eq('challenge_id', challengeId)
       .in('status', ['completed', 'shipped', 'cargado']);
 
-    // Normalizar nombres de países
+    if (!ucs || ucs.length === 0) return res.json([]);
+
+    const userIds = ucs.map(u => u.user_id);
+
+    // Obtener países en chunks de 100
     const NORMALIZAR = {
       'mexico': 'México', 'peru': 'Perú', 'panama': 'Panamá',
       'republica dominicana': 'República Dominicana', 'espana': 'España',
       'brasil': 'Brasil', 'brazil': 'Brasil', 'usa': 'Estados Unidos',
       'united states': 'Estados Unidos', 'estados unidos': 'Estados Unidos',
-      'correa del sur': 'Corea del Sur',
+      'corea del sur': 'Corea del Sur',
     };
 
     const conteo = {};
-    (data || []).forEach(uc => {
-      let pais = uc.users?.pais?.trim();
-      if (!pais) return;
-      // Normalizar
-      const paisLower = pais.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-      const normalizado = NORMALIZAR[paisLower];
-      if (normalizado) pais = normalizado;
-      conteo[pais] = (conteo[pais] || 0) + 1;
-    });
+    for (let i = 0; i < userIds.length; i += 100) {
+      const chunk = userIds.slice(i, i + 100);
+      const { data: usuarios } = await supabase
+        .from('users')
+        .select('pais')
+        .in('id', chunk);
+
+      (usuarios || []).forEach(u => {
+        let pais = u.pais?.trim();
+        if (!pais) return;
+        const paisLower = pais.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        const normalizado = NORMALIZAR[paisLower];
+        if (normalizado) pais = normalizado;
+        conteo[pais] = (conteo[pais] || 0) + 1;
+      });
+    }
 
     const resultado = Object.entries(conteo)
       .sort((a, b) => b[1] - a[1])
