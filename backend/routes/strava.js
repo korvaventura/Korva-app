@@ -77,9 +77,12 @@ const calcularKmDeChallenge = async (supabase, userId, uc) => {
 
   const suma = actividadesValidas.reduce((acc, a) => acc + (a.distance_km || 0), 0);
 
-  // FIX PROTECTIVO: nunca bajar los km ya acreditados.
-  // Hay usuarios migrados en junio con km_completed cargado como numero suelto,
-  // sin filas en activities. Sin este guard, el primer recalculo se los borra.
+  // Si tiene períodos pausados — usar suma filtrada sin Math.max (respeta pausas)
+  // Si no tiene pausas — comportamiento original con Math.max (protege migrados)
+  const tienePausas = periodos.length > 0;
+  if (tienePausas) {
+    return suma;
+  }
   return Math.max(suma, uc.km_completed || 0);
 };
 
