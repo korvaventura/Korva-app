@@ -801,20 +801,27 @@ export default function HomeScreen({ navigation }) {
         <View style={{ marginTop: 8, marginBottom: 8 }}>
           <Text style={[styles.seccionTitulo, { marginHorizontal: 20, marginBottom: 12 }]}>🏅 Completados</Text>
           {challengesCompletados.map((item, i) => (
-            <TouchableOpacity
-              key={i}
-              style={styles.completadoCard}
-              onPress={() => navigation.navigate('DetalleReto', { item, userId })}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.completadoChallenge}>{item.challenge || item.challenge_title || '—'}</Text>
-                <Text style={styles.completadoKm}>{parseFloat(item.km_completados || 0).toFixed(1)} km · {item.modalidad || 'run'}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                <Text style={styles.completadoBadge}>{item.status === 'shipped' || item.status === 'cargado' ? '📦 Enviado' : '🏅 Completado'}</Text>
-                <Text style={{ color: '#1E6FD9', fontSize: 12 }}>Ver historia →</Text>
-              </View>
-            </TouchableOpacity>
+            <View key={i} style={styles.completadoCard}>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center' }}
+                onPress={() => navigation.navigate('DetalleReto', { item, userId })}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.completadoChallenge}>{item.challenge || item.challenge_title || '—'}</Text>
+                  <Text style={styles.completadoKm}>{parseFloat(item.km_completados || 0).toFixed(1)} km · {item.modalidad || 'run'}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                  <Text style={styles.completadoBadge}>{item.status === 'shipped' || item.status === 'cargado' ? '📦 Enviado' : '🏅 Completado'}</Text>
+                  <Text style={{ color: '#1E6FD9', fontSize: 12 }}>Ver historia →</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ marginTop: 8, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#2a3a4a', alignItems: 'center' }}
+                onPress={() => Linking.openURL(`https://wa.me/61474024238?text=Hola!%20Cargué%20km%20por%20error%20en%20el%20desafío%20${encodeURIComponent(item.challenge || '')}%20y%20necesito%20ayuda%20para%20corregirlo.`)}
+              >
+                <Text style={{ color: '#4a6a8a', fontSize: 11 }}>⚠️ Reportar error en mis km</Text>
+              </TouchableOpacity>
+            </View>
           ))}
         </View>
       )}
