@@ -962,21 +962,16 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
         </View>
       </TouchableOpacity>
 
-      <View style={styles.bibRow}>
-        {estaPausado && (
-          <View style={{ backgroundColor: '#1a4a1a', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginBottom: 8 }}>
-            <Text style={{ color: '#22C55E', fontSize: 12, fontWeight: 'bold' }}>⏸ Pausado — los km no se suman</Text>
-          </View>
-        )}
+      {item.status === 'active' && (
+        <TouchableOpacity
+          style={[styles.bibBtn, { marginBottom: 8, backgroundColor: estaPausado ? '#1a4a1a' : '#1E3A5F', borderColor: estaPausado ? '#22C55E' : '#2a5a8a' }]}
+          onPress={() => togglePausar(challengeId, estaPausado)}
+        >
+          <Text style={styles.bibBtnText}>{estaPausado ? '▶️ Reanudar desafío' : '⏸ Pausar desafío'}</Text>
+        </TouchableOpacity>
+      )}
 
-        {!['completed','shipped','cargado'].includes(item.status) && (
-          <TouchableOpacity
-            style={[styles.bibBtn, { backgroundColor: estaPausado ? '#1a4a1a' : '#1E3A5F', borderColor: estaPausado ? '#22C55E' : '#2a5a8a' }]}
-            onPress={() => togglePausar(challengeId, estaPausado)}
-          >
-            <Text style={styles.bibBtnText}>{estaPausado ? '▶️ Reanudar' : '⏸ Pausar'}</Text>
-          </TouchableOpacity>
-        )}
+      <View style={styles.bibRow}>
         <TouchableOpacity style={styles.bibBtn} onPress={() => descargarBib('dorsal', challengeId)} disabled={!!cargandoBib}>
           {cargandoBib === 'dorsal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.bibBtnText}>📄 Mi dorsal</Text>}
         </TouchableOpacity>
