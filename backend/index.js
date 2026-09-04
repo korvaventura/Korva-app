@@ -406,7 +406,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
       .from('user_challenges')
       .select('id, started_at, challenge_id, status, modalidad, pausado, periodos_pausados, challenges(title, modalidades, total_distance_km)')
       .eq('user_id', user_id)
-      .in('status', ['active', 'completed'])
+      .in('status', ['active'])
       .eq('pausado', false);
 
     if (challenge_id) query = query.eq('challenge_id', challenge_id);
@@ -1030,9 +1030,8 @@ app.post('/actividades/manual', async (req, res) => {
       }
     }
 
-    if (challenge_id) {
-      await recalcularKmUsuario(user_id, challenge_id);
-    }
+    // Recalcular solo retos activos y no pausados
+    await recalcularKmUsuario(user_id, challenge_id || null);
     await verificarYEnviarNotificacionRacha(user_id);
 
     if (ucAntes) {
