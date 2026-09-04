@@ -103,11 +103,13 @@ const enviarNotificacionProgreso = async (supabase, userId, challengeId, challen
       }
     }
 
-    // 4. CONFIRMACIÓN DE KM (siempre como fallback)
-    await enviarPushNotification(token,
-      `✅ +${kmRegistrados} km registrados`,
-      `${pctDespues.toFixed(0)}% de ${challengeTitle} completado. ¡Muy bien${nombre ? `, ${nombre}` : ''}!`
-    );
+    // 4. CONFIRMACIÓN DE KM (solo si sumó algo real)
+    if (parseFloat(kmRegistrados) > 0) {
+      await enviarPushNotification(token,
+        `✅ +${kmRegistrados} km registrados`,
+        `${pctDespues.toFixed(0)}% de ${challengeTitle} completado. ¡Muy bien${nombre ? `, ${nombre}` : ''}!`
+      );
+    }
 
   } catch (error) {
     console.error('Error enviando notificación de progreso:', error);
