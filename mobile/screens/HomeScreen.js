@@ -816,10 +816,10 @@ export default function HomeScreen({ navigation }) {
                 </View>
               </TouchableOpacity>
               <TouchableOpacity
-                style={{ marginTop: 8, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#2a3a4a', alignItems: 'center' }}
+                style={{ marginTop: 8, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#2a3a4a', alignItems: 'center', width: '100%' }}
                 onPress={() => Linking.openURL(`https://wa.me/61474024238?text=Hola!%20Cargué%20km%20por%20error%20en%20el%20desafío%20${encodeURIComponent(item.challenge || '')}%20y%20necesito%20ayuda%20para%20corregirlo.`)}
               >
-                <Text style={{ color: '#4a6a8a', fontSize: 11 }}>⚠️ Reportar error en mis km</Text>
+                <Text style={{ color: '#4a6a8a', fontSize: 11, textAlign: 'center' }}>⚠️ Reportar error en mis km</Text>
               </TouchableOpacity>
             </View>
           ))}
