@@ -55,6 +55,8 @@ export default function HomeScreen({ navigation }) {
   const [userId, setUserId] = useState(null);
   const [completado, setCompletado] = useState(null);
   const [mostrarTutorial, setMostrarTutorial] = useState(false);
+  const [modalInfoVisible, setModalInfoVisible] = useState(false);
+  const [modalInfoChallenge, setModalInfoChallenge] = useState('');
   const [nombre, setNombre] = useState('');
   const [bannerVisible, setBannerVisible] = useState(false);
   const [bannerCerrado, setBannerCerrado] = useState(false); // FIX: estado separado para cerrar manualmente
@@ -799,7 +801,9 @@ export default function HomeScreen({ navigation }) {
       {/* Retos completados — solo lectura */}
       {!error && challengesCompletados.length > 0 && (
         <View style={{ marginTop: 8, marginBottom: 8 }}>
-          <Text style={[styles.seccionTitulo, { marginHorizontal: 20, marginBottom: 12 }]}>🏅 Completados</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 12 }}>
+            <Text style={[styles.seccionTitulo, { flex: 1 }]}>🏅 Completados</Text>
+          </View>
           {challengesCompletados.map((item, i) => (
             <View key={i} style={styles.completadoCard}>
               <TouchableOpacity
@@ -812,15 +816,15 @@ export default function HomeScreen({ navigation }) {
                 </View>
                 <View style={{ alignItems: 'flex-end', gap: 4 }}>
                   <Text style={styles.completadoBadge}>{item.status === 'shipped' || item.status === 'cargado' ? '📦 Enviado' : '🏅 Completado'}</Text>
-                  <Text style={{ color: '#1E6FD9', fontSize: 12 }}>Ver historia →</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ color: '#1E6FD9', fontSize: 12 }}>Ver historia →</Text>
+                    <TouchableOpacity onPress={(e) => { e.stopPropagation(); setModalInfoChallenge(item.challenge || ''); setModalInfoVisible(true); }}>
+                      <Text style={{ color: '#4a6a8a', fontSize: 16 }}>ℹ️</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={{ marginTop: 8, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#2a3a4a', alignItems: 'center', width: '100%' }}
-                onPress={() => Linking.openURL(`https://wa.me/61474024238?text=Hola!%20Cargué%20km%20por%20error%20en%20el%20desafío%20${encodeURIComponent(item.challenge || '')}%20y%20necesito%20ayuda%20para%20corregirlo.`)}
-              >
-                <Text style={{ color: '#4a6a8a', fontSize: 11, textAlign: 'center' }}>⚠️ Reportar error en mis km</Text>
-              </TouchableOpacity>
+
             </View>
           ))}
         </View>
@@ -831,6 +835,30 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.actualizarBtnText}>↻ Actualizar progreso</Text>
         </TouchableOpacity>
       )}
+
+      {/* Modal info completado */}
+      <Modal visible={modalInfoVisible} transparent animationType="fade" onRequestClose={() => setModalInfoVisible(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalInfoVisible(false)}>
+          <View style={[styles.modalCard, { padding: 24 }]}>
+            <Text style={{ fontSize: 32, marginBottom: 12, textAlign: 'center' }}>🏅</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 }}>{modalInfoChallenge}</Text>
+            <Text style={{ color: '#A8CFFF', fontSize: 14, lineHeight: 22, textAlign: 'center', marginBottom: 20 }}>
+              Si tu dirección está cargada, nuestro equipo procesará tu pedido y recibirás el número de seguimiento por email en los próximos 5 días hábiles.{'
+
+'}Para dudas o cambios de dirección escribinos por WhatsApp.
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: '#25D366', borderRadius: 12, padding: 14, alignItems: 'center', marginBottom: 10 }}
+              onPress={() => { setModalInfoVisible(false); Linking.openURL(`https://wa.me/61474024238?text=Hola!%20Tengo%20una%20consulta%20sobre%20mi%20medalla%20de%20${encodeURIComponent(modalInfoChallenge)}`); }}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>💬 Escribir por WhatsApp</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setModalInfoVisible(false)}>
+              <Text style={{ color: '#4a6a8a', textAlign: 'center', fontSize: 13 }}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Modal info modalidad */}
       <Modal visible={modalModalidadVisible} transparent animationType="fade" onRequestClose={() => setModalModalidadVisible(false)}>
