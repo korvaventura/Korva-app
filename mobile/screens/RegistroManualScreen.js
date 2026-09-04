@@ -41,6 +41,7 @@ export default function RegistroManualScreen({ navigation }) {
           .select('challenge_id')
           .eq('user_id', session.user.id)
           .eq('status', 'active')
+          .eq('pausado', false)
           .order('started_at', { ascending: true })
           .limit(1)
           .maybeSingle();
