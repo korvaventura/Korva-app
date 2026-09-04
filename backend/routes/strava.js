@@ -60,12 +60,22 @@ const yaExisteActividad = async (supabase, userId, startDate, km, externalId) =>
 const calcularKmDeChallenge = async (supabase, userId, uc) => {
   const { data: actividades } = await supabase
     .from('activities')
-    .select('distance_km')
+    .select('distance_km, recorded_at')
     .eq('user_id', userId)
     .eq('excluida', false)
     .gte('recorded_at', uc.started_at);
 
-  const suma = actividades?.reduce((acc, a) => acc + (a.distance_km || 0), 0) || 0;
+  // Filtrar actividades en períodos pausados
+  const periodos = uc.periodos_pausados || [];
+  const actividadesValidas = (actividades || []).filter(a => {
+    const fecha = new Date(a.recorded_at);
+    for (const p of periodos) {
+      if (fecha >= new Date(p.desde) && fecha <= new Date(p.hasta)) return false;
+    }
+    return true;
+  });
+
+  const suma = actividadesValidas.reduce((acc, a) => acc + (a.distance_km || 0), 0);
 
   // FIX PROTECTIVO: nunca bajar los km ya acreditados.
   // Hay usuarios migrados en junio con km_completed cargado como numero suelto,
