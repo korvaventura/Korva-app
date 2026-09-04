@@ -540,24 +540,29 @@ router.get('/progreso/:userId', async (req, res) => {
         { distancia_km: uc.challenges.total_distance_km };
 
       const totalKm = await calcularKmDeChallenge(supabase, userId, uc);
-      // Strava solo sube km, nunca baja — protege contra sincronizaciones parciales
-      const kmFinal = Math.max(totalKm, uc.km_completed || 0);
+      // Si está pausado — no actualizar km_completed, usar el valor actual
+      const kmFinal = uc.pausado ? (uc.km_completed || 0) : Math.max(totalKm, uc.km_completed || 0);
       const porcentaje = Math.min((kmFinal / modalidadElegida.distancia_km) * 100, 100).toFixed(1);
       const yaCompletado = ['completed', 'cargado', 'shipped'].includes(uc.status);
       // Los estados finales no se tocan: un 'shipped' no puede volver a 'completed'.
       const estadosFinales = ['completed', 'cargado', 'shipped'];
-      const nuevoStatus = estadosFinales.includes(uc.status)
+      const nuevoStatus = uc.pausado
         ? uc.status
-        : (parseFloat(porcentaje) >= 100 ? 'completed' : uc.status);
+        : estadosFinales.includes(uc.status)
+          ? uc.status
+          : (parseFloat(porcentaje) >= 100 ? 'completed' : uc.status);
 
-      await supabase
-        .from('user_challenges')
-        .update({
-          km_completed: kmFinal,
-          status: nuevoStatus,
-          completed_at: parseFloat(porcentaje) >= 100 ? new Date().toISOString() : uc.completed_at
-        })
-        .eq('id', uc.id);
+      // No actualizar retos pausados
+      if (!uc.pausado) {
+        await supabase
+          .from('user_challenges')
+          .update({
+            km_completed: kmFinal,
+            status: nuevoStatus,
+            completed_at: parseFloat(porcentaje) >= 100 ? new Date().toISOString() : uc.completed_at
+          })
+          .eq('id', uc.id);
+      }
 
       if (parseFloat(porcentaje) >= 100 && !yaCompletado) {
         const { data: usuario } = await supabase
