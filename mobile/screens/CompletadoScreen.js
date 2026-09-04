@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Modal, Linking } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
@@ -263,11 +263,25 @@ export default function CompletadoScreen({ challenge, userId, onVolver }) {
             <Text style={styles.pasoGuiaTitulo}>¿Qué pasa ahora?</Text>
             <Text style={styles.pasoGuiaDesc}>
               {tieneDireccion
-                ? 'Tus datos están siendo procesados. Estamos preparando tu medalla y la despacharemos en los próximos días hábiles. Recibirás el número de seguimiento por email — no hace falta que nos escribas. 🎉'
-                : '⚠️ Andá al Perfil y cargá tu dirección de envío para que podamos despacharte la medalla. Una vez que la tengamos, la procesamos y te enviamos el tracking por email en los próximos días hábiles.'}
+                ? 'Si tu dirección está cargada, nuestro equipo procesará tu pedido y recibirás el número de seguimiento por email en los próximos 5 días hábiles.'
+                : '⚠️ Cargá tu dirección en el Perfil para que podamos enviarte la medalla.'}
             </Text>
           </View>
         </View>
+
+        {!tieneDireccion && (
+          <TouchableOpacity
+            style={{ backgroundColor: '#25D366', borderRadius: 12, padding: 14, flexDirection: 'row', alignItems: 'center', marginTop: 8 }}
+            onPress={() => Linking.openURL('https://wa.me/61474024238?text=Hola!%20Acab%C3%A9%20el%20desaf%C3%ADo%20y%20a%C3%BAn%20no%20cargue%20mi%20direcci%C3%B3n%20de%20env%C3%ADo%20%F0%9F%8F%85')}
+          >
+            <Text style={{ fontSize: 22, marginRight: 10 }}>💬</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>¿No tenés dirección cargada?</Text>
+              <Text style={{ color: '#dcfce7', fontSize: 12 }}>Escribinos por WhatsApp y te ayudamos</Text>
+            </View>
+            <Text style={{ color: '#FFFFFF', fontSize: 18 }}>→</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <TouchableOpacity style={styles.button} onPress={onVolver}>

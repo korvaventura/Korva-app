@@ -25,6 +25,7 @@ export default function RegistroManualScreen({ navigation }) {
   const [userId, setUserId] = useState(null);
   const [diasAtras, setDiasAtras] = useState(0);
   const [challengeId, setChallengeId] = useState(null);
+  const [challengeTitle, setChallengeTitle] = useState('');
 
   const [evidenciaUri, setEvidenciaUri] = useState(null);
   const [subiendoEvidencia, setSubiendoEvidencia] = useState(false);
@@ -38,14 +39,17 @@ export default function RegistroManualScreen({ navigation }) {
         setUserId(session.user.id);
         const { data } = await supabase
           .from('user_challenges')
-          .select('challenge_id')
+          .select('challenge_id, challenges(title)')
           .eq('user_id', session.user.id)
           .eq('status', 'active')
           .eq('pausado', false)
           .order('started_at', { ascending: true })
           .limit(1)
           .maybeSingle();
-        if (data?.challenge_id) setChallengeId(data.challenge_id);
+        if (data?.challenge_id) {
+          setChallengeId(data.challenge_id);
+          setChallengeTitle(data.challenges?.title || '');
+        }
       }
     });
   }, []);
@@ -245,6 +249,13 @@ export default function RegistroManualScreen({ navigation }) {
           </TouchableOpacity>
         ))}
       </View>
+
+      {challengeTitle ? (
+        <View style={{ backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10, marginBottom: 12, flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ color: '#A8CFFF', fontSize: 13 }}>Sumando a: </Text>
+          <Text style={{ color: '#FC4C02', fontSize: 13, fontWeight: 'bold' }}>{challengeTitle}</Text>
+        </View>
+      ) : null}
 
       <View style={styles.distanciaCard}>
         <Text style={styles.distanciaLabel}>DISTANCIA</Text>

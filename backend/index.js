@@ -475,7 +475,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
           await enviarPushNotification(
             usuarioPush.push_token,
             '🏅 ¡Lo lograste!',
-            `Completaste ${reto.challenges?.title}. Tu medalla está siendo preparada 📦`
+            `¡Lo lograste! 🎉 Completaste ${reto.challenges?.title}. Nuestro equipo procesará tu pedido en los próximos días hábiles.`
           );
         }
       }

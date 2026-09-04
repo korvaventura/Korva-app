@@ -862,6 +862,7 @@ export default function HomeScreen({ navigation }) {
 function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress, scrollRef, descargarBib, cargandoBib, togglePausar }) {
   const challengeId = item.challenge_id;
   const estaPausado = item.pausado || false;
+  const estaActivo = item.status === 'active';
   if (!item) return null;
   const pct = Math.min(parseFloat(item.porcentaje || 0), 100);
   const estaCompletado = pct >= 100;
@@ -962,6 +963,12 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
       </TouchableOpacity>
 
       <View style={styles.bibRow}>
+        {estaPausado && (
+          <View style={{ backgroundColor: '#1a4a1a', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginBottom: 8 }}>
+            <Text style={{ color: '#22C55E', fontSize: 12, fontWeight: 'bold' }}>⏸ Pausado — los km no se suman</Text>
+          </View>
+        )}
+
         {!['completed','shipped','cargado'].includes(item.status) && (
           <TouchableOpacity
             style={[styles.bibBtn, { backgroundColor: estaPausado ? '#1a4a1a' : '#1E3A5F', borderColor: estaPausado ? '#22C55E' : '#2a5a8a' }]}
