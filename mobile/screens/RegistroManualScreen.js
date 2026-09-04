@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../supabase';
 
@@ -33,7 +34,7 @@ export default function RegistroManualScreen({ navigation }) {
   const [horas, setHoras] = useState('');
   const [minutos, setMinutos] = useState('');
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user?.id) {
         setUserId(session.user.id);
@@ -49,10 +50,13 @@ export default function RegistroManualScreen({ navigation }) {
         if (data?.challenge_id) {
           setChallengeId(data.challenge_id);
           setChallengeTitle(data.challenges?.title || '');
+        } else {
+          setChallengeId(null);
+          setChallengeTitle('');
         }
       }
     });
-  }, []);
+  }, []));
 
   const seleccionarEvidencia = async () => {
     try {
