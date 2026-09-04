@@ -480,7 +480,9 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
         }
       }
 
-      if (porcentaje >= 75 && !yaEstabaCompletado) {
+      // Solo mandar notificación de dirección si RECIÉN cruzó el 75% (no si ya estaba arriba)
+      const porcentajeAntes = Math.min((kmAntes / modalidadElegida.distancia_km) * 100, 100);
+      if (porcentaje >= 75 && porcentajeAntes < 75 && !yaEstabaCompletado) {
         const { data: usuario } = await supabase
           .from('users')
           .select('push_token, shipping_address')
