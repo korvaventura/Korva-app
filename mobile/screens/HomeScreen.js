@@ -842,14 +842,15 @@ export default function HomeScreen({ navigation }) {
           <View style={[styles.modalCard, { padding: 24 }]}>
             <Text style={{ fontSize: 32, marginBottom: 12, textAlign: 'center' }}>🏅</Text>
             <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 }}>{modalInfoChallenge}</Text>
+            <Text style={{ color: '#A8CFFF', fontSize: 14, lineHeight: 22, textAlign: 'center', marginBottom: 8 }}>
+              Si tu dirección está cargada, nuestro equipo procesará tu pedido y recibirás el número de seguimiento por email en los próximos 5 días hábiles.
+            </Text>
             <Text style={{ color: '#A8CFFF', fontSize: 14, lineHeight: 22, textAlign: 'center', marginBottom: 20 }}>
-              Si tu dirección está cargada, nuestro equipo procesará tu pedido y recibirás el número de seguimiento por email en los próximos 5 días hábiles.{'
-
-'}Para dudas o cambios de dirección escribinos por WhatsApp.
+              Para dudas o cambios de dirección escribinos por WhatsApp.
             </Text>
             <TouchableOpacity
               style={{ backgroundColor: '#25D366', borderRadius: 12, padding: 14, alignItems: 'center', marginBottom: 10 }}
-              onPress={() => { setModalInfoVisible(false); Linking.openURL(`https://wa.me/61474024238?text=Hola!%20Tengo%20una%20consulta%20sobre%20mi%20medalla%20de%20${encodeURIComponent(modalInfoChallenge)}`); }}
+              onPress={() => { setModalInfoVisible(false); Linking.openURL('https://wa.me/61474024238'); }}
             >
               <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>💬 Escribir por WhatsApp</Text>
             </TouchableOpacity>
