@@ -102,6 +102,8 @@ export default function RankingScreen({ navigation }) {
     challengeScrollRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
     // Actualizar ranking de países al cambiar desafío
     if (challenges[index]) cargarRankingPaises(challenges[index].id);
+    // Cambiar tab según status del desafío del usuario
+    // (se maneja en RankingPage según miPosicion)
   };
 
   // FIX: comparar por user_id si está disponible, fallback a nombre
@@ -186,6 +188,15 @@ export default function RankingScreen({ navigation }) {
       const resto = finishers.filter(r => !esPropio(r));  // FIX: item completo
       return propio ? [propio, ...resto] : finishers;
     })();
+
+    // Auto-seleccionar tab según dónde está el usuario
+    const estaEnFinishers = listaFinishers.some(r => esPropio(r));
+    const estaEnCurso = listaEnCurso.some(r => esPropio(r));
+    if (estaEnFinishers && !estaEnCurso && tabActivo !== 'finishers') {
+      setTabActivo('finishers');
+    } else if (!estaEnFinishers && estaEnCurso && tabActivo !== 'en_curso') {
+      setTabActivo('en_curso');
+    }
 
     const listaBase = (tabActivo === 'finishers' ? listaFinishers : listaEnCurso)
       .map((r, i) => ({ ...r, posicion: i + 1 }));
