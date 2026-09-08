@@ -539,18 +539,34 @@ router.get('/progreso/:userId', async (req, res) => {
       const modalidadElegida = modalidades.find(m => m.tipo === uc.modalidad) ||
         { distancia_km: uc.challenges.total_distance_km };
 
-      const totalKm = await calcularKmDeChallenge(supabase, userId, uc);
-      // Si está pausado — no actualizar km_completed, usar el valor actual
-      const kmFinal = uc.pausado ? (uc.km_completed || 0) : Math.max(totalKm, uc.km_completed || 0);
-      const porcentaje = Math.min((kmFinal / modalidadElegida.distancia_km) * 100, 100).toFixed(1);
       const yaCompletado = ['completed', 'cargado', 'shipped'].includes(uc.status);
-      // Los estados finales no se tocan: un 'shipped' no puede volver a 'completed'.
+
+      // Si el reto ya está completado/enviado — no recalcular km, usar los que tiene
+      // Los km se congelan en el momento de completar
+      if (yaCompletado || uc.pausado) {
+        const kmFinal = uc.km_completed || 0;
+        const porcentaje = Math.min((kmFinal / modalidadElegida.distancia_km) * 100, 100).toFixed(1);
+        return {
+          challenge: uc.challenges.title,
+          challenge_id: uc.challenge_id,
+          modalidad: uc.modalidad === 'run' ? 'Running' : uc.modalidad === 'ride' ? 'Ciclismo' : 'General',
+          distancia_total: modalidadElegida.distancia_km,
+          km_completados: kmFinal.toFixed ? kmFinal.toFixed(2) : kmFinal,
+          porcentaje,
+          checkpoints: uc.challenges.checkpoints || null,
+          estado: yaCompletado ? 'COMPLETADO' : 'En progreso',
+          started_at: uc.started_at,
+          meta_fecha: uc.meta_fecha,
+          pausado: uc.pausado || false,
+          pending: false
+        };
+      }
+
+      const totalKm = await calcularKmDeChallenge(supabase, userId, uc);
+      const kmFinal = Math.max(totalKm, uc.km_completed || 0);
+      const porcentaje = Math.min((kmFinal / modalidadElegida.distancia_km) * 100, 100).toFixed(1);
       const estadosFinales = ['completed', 'cargado', 'shipped'];
-      const nuevoStatus = uc.pausado
-        ? uc.status
-        : estadosFinales.includes(uc.status)
-          ? uc.status
-          : (parseFloat(porcentaje) >= 100 ? 'completed' : uc.status);
+      const nuevoStatus = parseFloat(porcentaje) >= 100 ? 'completed' : uc.status;
 
       // No actualizar retos pausados
       if (!uc.pausado) {
