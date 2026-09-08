@@ -189,13 +189,14 @@ export default function RankingScreen({ navigation }) {
       return propio ? [propio, ...resto] : finishers;
     })();
 
-    // Auto-seleccionar tab según dónde está el usuario
-    const estaEnFinishers = listaFinishers.some(r => esPropio(r));
-    const estaEnCurso = listaEnCurso.some(r => esPropio(r));
-    if (estaEnFinishers && !estaEnCurso && tabActivo !== 'finishers') {
-      setTabActivo('finishers');
-    } else if (!estaEnFinishers && estaEnCurso && tabActivo !== 'en_curso') {
-      setTabActivo('en_curso');
+    // Auto-seleccionar tab solo cuando el ranking acaba de cargar (lista cambió de 0 a >0)
+    // No sobreescribir si el usuario ya cambió el tab manualmente
+    if (lista.length > 0) {
+      const estaEnFinishers = listaFinishers.some(r => esPropio(r));
+      const estaEnCurso = listaEnCurso.some(r => esPropio(r));
+      if (estaEnFinishers && !estaEnCurso && tabActivo === 'en_curso') {
+        setTimeout(() => setTabActivo('finishers'), 0);
+      }
     }
 
     const listaBase = (tabActivo === 'finishers' ? listaFinishers : listaEnCurso)
