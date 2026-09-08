@@ -1085,13 +1085,34 @@ const getChallengesByIds = async (challengeIds) => {
 app.post('/admin/marcar-cargado', async (req, res) => {
   const { user_challenge_id } = req.body;
   try {
+    const { data: uc } = await supabase
+      .from('user_challenges')
+      .select('id, user_id, challenge_id, certificado_serial, status, challenges(*), km_completed')
+      .eq('id', user_challenge_id)
+      .single();
+
+    if (!uc) return res.json({ error: 'No encontrado' });
+
     const { error } = await supabase
       .from('user_challenges')
       .update({ status: 'cargado' })
       .eq('id', user_challenge_id)
-      .in('status', ['completed']);
+      .in('status', ['completed', 'active']);
 
     if (error) throw error;
+
+    // Si no tiene certificado, mandarlo ahora
+    if (!uc.certificado_serial) {
+      const modalidades = uc.challenges?.modalidades || [];
+      const distanciaTotal = modalidades[0]?.distancia_km || uc.challenges?.total_distance_km || 100;
+      try {
+        await enviarCertificadoFinisher(uc.user_id, { ...uc, challenges: uc.challenges }, distanciaTotal);
+        console.log(`Certificado enviado al marcar cargado: ${user_challenge_id}`);
+      } catch (e) {
+        console.error('Error enviando certificado al marcar cargado:', e.message);
+      }
+    }
+
     res.json({ mensaje: 'Marcado como cargado' });
   } catch (error) {
     res.json({ error: 'Error', detalle: error.message });
