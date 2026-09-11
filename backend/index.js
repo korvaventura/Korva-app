@@ -1615,6 +1615,24 @@ Al entrar al sistema fijate si este usuario tiene el reto activo.`
   }
 });
 
+app.post('/usuarios/nombre', async (req, res) => {
+  const { user_id, nombre } = req.body;
+  try {
+    if (!user_id || !nombre?.trim() || nombre.trim().length < 2) {
+      return res.status(400).json({ error: 'Nombre inválido' });
+    }
+    // Verificar que el usuario existe
+    const { data: user } = await supabase.from('users').select('id').eq('id', user_id).single();
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    const { error } = await supabase.from('users').update({ name: nombre.trim() }).eq('id', user_id);
+    if (error) throw error;
+    res.json({ ok: true, nombre: nombre.trim() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/usuarios/direccion', async (req, res) => {
   const { user_id, shipping_address, nombre_completo } = req.body;
   try {

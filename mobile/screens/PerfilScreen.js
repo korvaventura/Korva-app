@@ -28,6 +28,8 @@ export default function PerfilScreen() {
   const [userId, setUserId] = useState(null);
   const scrollRef = useRef(null);
   const direccionY = useRef(0);
+  const [editandoNombre, setEditandoNombre] = useState(false);
+  const [nombreEditado, setNombreEditado] = useState('');
   const [nivel, setNivel] = useState(null);
   const [insignias, setInsignias] = useState([]);
   const [insigniasProgreso, setInsigniasProgreso] = useState({});
@@ -695,7 +697,49 @@ export default function PerfilScreen() {
             <Text style={{ fontSize: 14 }}>📷</Text>
           </View>
         </TouchableOpacity>
-        <Text style={styles.nombre}>{usuario?.name || 'Cargando...'}</Text>
+        {editandoNombre ? (
+          <View style={{ marginTop: 4, alignItems: 'center' }}>
+            <TextInput
+              style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 'bold', borderBottomWidth: 1, borderColor: '#FC4C02', minWidth: 200, textAlign: 'center', paddingVertical: 4 }}
+              value={nombreEditado}
+              onChangeText={setNombreEditado}
+              autoFocus
+              placeholder="Tu nombre completo"
+              placeholderTextColor="#4a6a8a"
+            />
+            <View style={{ flexDirection: 'row', marginTop: 10 }}>
+              <TouchableOpacity
+                style={{ backgroundColor: '#FC4C02', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8, marginRight: 8 }}
+                onPress={async () => {
+                  const nombre = nombreEditado.trim();
+                  if (!nombre || nombre.length < 2) {
+                    Alert.alert('Nombre inválido', 'Ingresá tu nombre completo.');
+                    return;
+                  }
+                  await fetch(`${BACKEND_URL}/usuarios/nombre`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId, nombre }),
+                  });
+                  setUsuario(prev => ({ ...prev, name: nombre }));
+                  setEditandoNombre(false);
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>Guardar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: '#2a3a4a' }}
+                onPress={() => setEditandoNombre(false)}
+              >
+                <Text style={{ color: '#4a6a8a', fontSize: 13 }}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity onPress={() => { setNombreEditado(usuario?.name || ''); setEditandoNombre(true); }}>
+            <Text style={styles.nombre}>{usuario?.name || 'Cargando...'} <Text style={{ color: '#4a6a8a', fontSize: 13 }}>✏️</Text></Text>
+          </TouchableOpacity>
+        )}
         <Text style={styles.email}>{usuario?.email}</Text>
       </View>
 
@@ -975,6 +1019,9 @@ export default function PerfilScreen() {
 
       {/* Dirección */}
       <View style={styles.seccion} onLayout={e => { direccionY.current = e.nativeEvent.layout.y; }}>
+        <Text style={{ color: '#4a6a8a', fontSize: 11, textAlign: 'center', marginBottom: 12 }}>
+          🔒 Tu información es privada y solo se usa para procesar el envío de tu medalla. No se comparte con terceros.
+        </Text>
         <Text style={styles.seccionTitulo}>📦 Direccion de envio</Text>
         {editandoDireccion ? (
           <View style={styles.formCard}>
