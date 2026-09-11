@@ -758,41 +758,14 @@ export default function PerfilScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Stats */}
+      {/* Stats — solo los 3 más importantes */}
       <View style={styles.statsRow}>
         <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.total_km || 0}</Text><Text style={styles.statLabel}>km totales</Text></View>
         <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.medallas || 0}</Text><Text style={styles.statLabel}>🏅 Medallas</Text></View>
-        <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.total_actividades || 0}</Text><Text style={styles.statLabel}>Actividades</Text></View>
+        <View style={styles.statCard}><Text style={styles.statNumero}>🔥 {stats?.racha_actual || 0}</Text><Text style={styles.statLabel}>Racha sem.</Text></View>
       </View>
 
 
-
-      {stats && (
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}><Text style={styles.statNumero}>🔥 {stats.racha_actual || 0}</Text><Text style={styles.statLabel}>Racha sem.</Text></View>
-          <View style={styles.statCard}><Text style={styles.statNumero}>{stats.mejor_semana_km || 0}</Text><Text style={styles.statLabel}>Mejor semana</Text></View>
-          <View style={styles.statCard}><Text style={styles.statNumero}>{stats.promedio_semanal_km || 0}</Text><Text style={styles.statLabel}>km/semana</Text></View>
-        </View>
-      )}
-
-      {(stats?.ritmo_run || stats?.velocidad_ride) && (
-        <View style={styles.statsRow}>
-          {stats.ritmo_run && (
-            <View style={styles.statCard}><Text style={styles.statNumero}>🏃 {stats.ritmo_run}</Text><Text style={styles.statLabel}>Ritmo running</Text></View>
-          )}
-          {stats.velocidad_ride && (
-            <View style={styles.statCard}><Text style={styles.statNumero}>🚴 {stats.velocidad_ride}</Text><Text style={styles.statLabel}>Vel. ciclismo</Text></View>
-          )}
-        </View>
-      )}
-
-      {stats?.perfil_deporte && (
-        <View style={styles.seccion}>
-          <View style={styles.perfilDeporteCard}>
-            <Text style={styles.perfilDeporteTexto}>{stats.perfil_deporte}</Text>
-          </View>
-        </View>
-      )}
 
       {/* Retos activos */}
       {inscripcionesActivas.length > 0 && (
@@ -937,45 +910,35 @@ export default function PerfilScreen() {
         <View style={styles.seccion}>
           <Text style={styles.seccionTitulo}>🏆 Logros {insignias.length > 0 ? `(${insignias.length})` : ''}</Text>
           
-          {/* Grilla de logros ganados */}
+          {/* Carrusel horizontal de logros ganados */}
           {insignias.length > 0 && (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
               {insignias.map((ins, i) => (
-                <View key={i} style={styles.logroCard}>
+                <View key={i} style={[styles.logroCard, { marginRight: 8 }]}>
                   <Text style={styles.logroEmoji}>{ins.emoji}</Text>
                   <Text style={styles.logroNombre}>{ins.nombre}</Text>
                 </View>
               ))}
-            </View>
+            </ScrollView>
           )}
 
-          {/* Próximos logros */}
-          {Object.keys(insigniasProgreso).length > 0 && (
-            <View>
-              <Text style={[styles.logroCatTitulo, { marginBottom: 8 }]}>🎯 PRÓXIMOS</Text>
-              {[
-                { key: 'distancia', emoji: '🏃' },
-                { key: 'racha', emoji: '🔥' },
-                { key: 'actividades', emoji: '⚡' },
-                { key: 'challenges', emoji: '🏅' },
-                { key: 'consistencia', emoji: '📅' },
-                { key: 'especial', emoji: '🌟' },
-              ].map(({ key, emoji }) => {
-                const proximo = insigniasProgreso?.[key];
-                if (!proximo) return null;
-                return (
-                  <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10 }}>
-                    <Text style={{ fontSize: 20 }}>{emoji}</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' }}>{proximo.nombre}</Text>
-                      <Text style={{ color: '#4a6a8a', fontSize: 11 }}>Faltan {proximo.falta} {proximo.unidad}</Text>
-                    </View>
-                    <Text style={{ color: '#FC4C02', fontSize: 18 }}>🔒</Text>
-                  </View>
-                );
-              })}
-            </View>
-          )}
+          {/* Solo el próximo logro más cercano */}
+          {(() => {
+            const categorias = ['distancia','racha','actividades','challenges','consistencia','especial'];
+            const proximos = categorias.map(k => insigniasProgreso?.[k]).filter(Boolean);
+            if (proximos.length === 0) return null;
+            const proximo = proximos[0];
+            return (
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10 }}>
+                <Text style={{ fontSize: 18, marginRight: 8 }}>🎯</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#A8CFFF', fontSize: 12, fontWeight: 'bold' }}>{proximo.nombre}</Text>
+                  <Text style={{ color: '#4a6a8a', fontSize: 11 }}>Faltan {proximo.falta} {proximo.unidad}</Text>
+                </View>
+                <Text style={{ color: '#FC4C02' }}>🔒</Text>
+              </View>
+            );
+          })()}
         </View>
       )}
 
