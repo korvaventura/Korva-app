@@ -85,8 +85,7 @@ export default function HomeScreen({ navigation }) {
       if (session?.user?.id) {
         setUserId(session.user.id);
         try {
-          const tutorialVisto = await AsyncStorage.getItem('tutorial_visto');
-          if (!tutorialVisto) setMostrarTutorial(true);
+          await AsyncStorage.setItem('tutorial_visto', 'true');
         } catch (e) {}
         const metaNombre = session.user.user_metadata?.name?.split(' ')[0] || 
                            session.user.user_metadata?.full_name?.split(' ')[0] || '';
