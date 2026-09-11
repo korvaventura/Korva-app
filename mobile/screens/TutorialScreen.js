@@ -6,25 +6,31 @@ const SLIDES = [
   {
     emoji: '🏃‍♂️',
     titulo: '¡Bienvenido a Korva!',
-    desc: 'Completá km a tu ritmo desde cualquier lugar del mundo. Caminando, corriendo o en bici — todo suma.',
+    desc: 'Completá km a tu ritmo desde cualquier lugar del mundo. Caminando, corriendo, en bici o como quieras — todo suma igual.',
     color: '#FC4C02',
+  },
+  {
+    emoji: '📏',
+    titulo: 'Elegí tu distancia',
+    desc: 'Al inscribirte elegís la distancia del desafío. La distancia más corta es la estándar — la más larga es para ciclistas o quienes quieren un reto mayor. La medalla es la misma para ambas.',
+    color: '#F59E0B',
   },
   {
     emoji: '➕',
     titulo: 'Cargá tus km',
-    desc: 'Tocá el botón "+" en la pantalla principal para registrar tus actividades. Podés conectar Strava o cargarlas manualmente.',
+    desc: 'Tocá el botón "+" para registrar actividades manualmente o conectá Strava. Podés cargar correr, caminar, bici, natación — lo que sea.',
     color: '#1E6FD9',
   },
   {
     emoji: '🗑️',
     titulo: 'Borrá actividades',
-    desc: 'Si cargaste algo por error, podés borrarlo desde el historial. La actividad queda excluida y no vuelve a aparecer aunque la tengas en Strava.',
+    desc: 'Si cargaste algo por error, deslizá la actividad en el historial para borrarla. Queda excluida y no vuelve a aparecer.',
     color: '#0D9488',
   },
   {
     emoji: '📦',
     titulo: 'Cargá tu dirección',
-    desc: 'Cuando completes el desafío, te enviamos tu medalla. Cargá tu dirección en el Perfil antes de terminar para que el proceso sea automático.',
+    desc: 'Cuando completes el desafío, te enviamos tu medalla. Cargá tu dirección en el Perfil → "Dirección de envío" antes de terminar.',
     color: '#7C3AED',
   },
 ];
