@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Modal, Dimensions } from 'react-native';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -26,6 +26,8 @@ export default function PerfilScreen() {
   const [usuario, setUsuario] = useState(null);
   const [stats, setStats] = useState(null);
   const [userId, setUserId] = useState(null);
+  const scrollRef = useRef(null);
+  const direccionY = useRef(0);
   const [nivel, setNivel] = useState(null);
   const [insignias, setInsignias] = useState([]);
   const [insigniasProgreso, setInsigniasProgreso] = useState({});
@@ -542,7 +544,7 @@ export default function PerfilScreen() {
   const inicial = usuario?.name?.charAt(0)?.toUpperCase() || 'K';
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+    <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.container}>
 
       {/* Modal Próximamente Strava */}
       {/* Modal Strava Info */}
@@ -696,6 +698,21 @@ export default function PerfilScreen() {
         <Text style={styles.nombre}>{usuario?.name || 'Cargando...'}</Text>
         <Text style={styles.email}>{usuario?.email}</Text>
       </View>
+
+      {/* Banner dirección faltante */}
+      {!usuario?.shipping_address && inscripcionesActivas.length > 0 && (
+        <TouchableOpacity
+          style={{ backgroundColor: '#7C3AED22', borderRadius: 12, padding: 14, marginBottom: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#7C3AED' }}
+          onPress={() => scrollRef.current?.scrollTo({ y: direccionY.current, animated: true })}
+        >
+          <Text style={{ fontSize: 20, marginRight: 10 }}>📦</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>Cargá tu dirección de envío</Text>
+            <Text style={{ color: '#A8CFFF', fontSize: 12 }}>Necesaria para enviarte tu medalla cuando termines</Text>
+          </View>
+          <Text style={{ color: '#7C3AED', fontSize: 16 }}>→</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Stats */}
       <View style={styles.statsRow}>
@@ -957,7 +974,7 @@ export default function PerfilScreen() {
       </View>
 
       {/* Dirección */}
-      <View style={styles.seccion}>
+      <View style={styles.seccion} onLayout={e => { direccionY.current = e.nativeEvent.layout.y; }}>
         <Text style={styles.seccionTitulo}>📦 Direccion de envio</Text>
         {editandoDireccion ? (
           <View style={styles.formCard}>
