@@ -363,7 +363,13 @@ export default function HomeScreen({ navigation }) {
   };
 
   if (mostrarTutorial) {
-    return <TutorialScreen onTerminar={() => setMostrarTutorial(false)} />;
+    try {
+      return <TutorialScreen onTerminar={() => setMostrarTutorial(false)} />;
+    } catch (e) {
+      // Si crashea el tutorial, lo marcamos como visto y continuamos
+      AsyncStorage.setItem('tutorial_visto', 'true').catch(() => {});
+      setMostrarTutorial(false);
+    }
   }
 
   if (completado) {
