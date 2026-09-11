@@ -144,17 +144,6 @@ export default function CatalogoScreen() {
         <Text style={styles.titulo2}>{item.title}</Text>
         <Text style={styles.descripcion} numberOfLines={2}>{item.description}</Text>
 
-        {item.modalidades && (
-          <View style={styles.modalidadesContainer}>
-            {item.modalidades.map((m, i) => (
-              <View key={i} style={styles.modalidadTag}>
-                <Text style={styles.modalidadEmoji}>{m.tipo === 'run' ? '🏃' : '🚴'}</Text>
-                <Text style={styles.modalidadText}>{m.label} — {m.distancia_km}km</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
         <View style={styles.botonesRow}>
           <TouchableOpacity style={styles.detalleBtn} onPress={() => abrirDetalle(item)}>
             <Text style={styles.detalleBtnText}>Ver detalle</Text>
@@ -283,8 +272,8 @@ export default function CatalogoScreen() {
             {challengeSeleccionado?.modalidades?.map((m, i) => (
               <TouchableOpacity key={i} style={styles.modalButton} onPress={() => { setModalModalidad(false); setModalConfirmModalidad(m); }}>
                 <View>
-                  <Text style={styles.modalButtonTitulo}>{m.tipo === 'run' ? '🏃' : '🚴'} {m.label}</Text>
-                  <Text style={styles.modalButtonSub}>{m.distancia_km} km totales</Text>
+                  <Text style={styles.modalButtonTitulo}>{m.distancia_km} km</Text>
+                  <Text style={styles.modalButtonSub}>Podés correr, caminar o andar en bici — todo suma</Text>
                 </View>
                 <Ionicons name="arrow-forward" size={18} color="#1E6FD9" />
               </TouchableOpacity>
@@ -300,7 +289,7 @@ export default function CatalogoScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalEmojiConfirm}>{modalConfirmModalidad?.tipo === 'run' ? '🏃' : '🚴'}</Text>
-            <Text style={styles.modalTitulo}>{modalConfirmModalidad?.label} — {modalConfirmModalidad?.distancia_km} km</Text>
+            <Text style={styles.modalTitulo}>{modalConfirmModalidad?.distancia_km} km</Text>
             <Text style={styles.modalSubtitulo}>{challengeSeleccionado?.title}</Text>
 
             <View style={styles.confirmInfoBox}>
