@@ -353,11 +353,19 @@ export default function HomeScreen({ navigation }) {
 
   const ejecutarCompartir = async () => {
     try {
+      if (!shareCardRef?.current) {
+        Alert.alert('Error', 'No se pudo capturar la imagen. Cerrá y volvé a intentar.');
+        return;
+      }
+      // Esperar un frame para asegurar que el ViewShot está renderizado
+      await new Promise(resolve => setTimeout(resolve, 200));
       const uri = await shareCardRef.current.capture();
       setModalCompartirItem(null);
+      await new Promise(resolve => setTimeout(resolve, 400));
       await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: '¡Compartí tu progreso en Korva!' });
     } catch (err) {
       console.error('Error compartiendo:', err);
+      Alert.alert('Error', 'No se pudo compartir. Intentá de nuevo.');
     }
   };
 
@@ -479,25 +487,53 @@ export default function HomeScreen({ navigation }) {
           <View style={{ width: '100%', alignItems: 'center' }}>
             {modalCompartirItem && (
               <ViewShot ref={shareCardRef} options={{ format: 'png', quality: 1 }}>
-                <View style={styles.storyCard}>
-                  <View style={styles.storyHeader}>
-                    <Text style={styles.storyLogo}>🏅 KORVA</Text>
-                    <Text style={styles.storyTagline}>AVENTURAS</Text>
-                  </View>
-                  <View style={styles.storyPctWrapper}>
-                    <Text style={styles.storyPctNumero}>{Math.min(parseFloat(modalCompartirItem.porcentaje || 0), 100).toFixed(0)}</Text>
-                    <Text style={styles.storyPctSymbol}>%</Text>
-                  </View>
-                  <Text style={styles.storyChallenge}>{modalCompartirItem.challenge || '—'}</Text>
-                  <View style={styles.storyBar}>
-                    <View style={[styles.storyBarFill, { width: `${Math.min(parseFloat(modalCompartirItem.porcentaje || 0), 100)}%` }]} />
-                  </View>
-                  <Text style={styles.storyKm}>{modalCompartirItem.km_completados} km completados</Text>
-                  <View style={styles.storyFooter}>
-                    <Text style={styles.storyNombre}>{nombre}</Text>
-                    <Text style={styles.storyUrl}>korva.run</Text>
-                  </View>
-                </View>
+                {(() => {
+                  const pct = Math.min(parseFloat(modalCompartirItem.porcentaje || 0), 100);
+                  const kmComp = parseFloat(modalCompartirItem.km_completados || 0).toFixed(1);
+                  const distTotal = parseFloat(modalCompartirItem.distancia_total || 0).toFixed(0);
+                  const mensaje = pct >= 100 ? 'META ALCANZADA'
+                    : pct >= 75 ? 'CASI EN LA META'
+                    : pct >= 50 ? 'MITAD DEL CAMINO'
+                    : pct >= 25 ? 'EN MOVIMIENTO'
+                    : 'EN RUTA';
+                  return (
+                    <View style={{ backgroundColor: '#0D1B2A', borderRadius: 20, width: 320, overflow: 'hidden' }}>
+                      <View style={{ padding: 28, alignItems: 'center' }}>
+                        {/* Logo */}
+                        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, letterSpacing: 4, fontWeight: 'bold', marginBottom: 24 }}>KORVA AVENTURAS</Text>
+                        {/* Medalla */}
+                        {modalCompartirItem.medal_image_url ? (
+                          <Image source={{ uri: modalCompartirItem.medal_image_url }} style={{ width: 72, height: 72, marginBottom: 16 }} resizeMode="contain" />
+                        ) : (
+                          <Text style={{ fontSize: 44, marginBottom: 16 }}>🏅</Text>
+                        )}
+                        {/* Nombre desafío */}
+                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 3, textTransform: 'uppercase', textAlign: 'center', marginBottom: 20 }}>
+                          {modalCompartirItem.challenge || '—'}
+                        </Text>
+                        {/* Porcentaje grande */}
+                        <Text style={{ color: '#FFFFFF', fontSize: 80, fontWeight: 'bold', letterSpacing: -3, lineHeight: 84 }}>
+                          {pct.toFixed(0)}<Text style={{ fontSize: 28, color: 'rgba(255,255,255,0.4)', fontWeight: '300' }}>%</Text>
+                        </Text>
+                        {/* Mensaje estado */}
+                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, letterSpacing: 3, marginTop: 6, marginBottom: 24 }}>{mensaje}</Text>
+                        {/* Barra progreso */}
+                        <View style={{ width: '100%', height: 3, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 2, marginBottom: 8 }}>
+                          <View style={{ width: `${pct}%`, height: 3, backgroundColor: '#FFFFFF', borderRadius: 2 }} />
+                        </View>
+                        {/* km */}
+                        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, letterSpacing: 1, marginBottom: 28 }}>
+                          {kmComp} / {distTotal} KM
+                        </Text>
+                        {/* Footer */}
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>{nombre?.toUpperCase()}</Text>
+                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: 1 }}>KORVA.RUN</Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })()}
               </ViewShot>
             )}
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
