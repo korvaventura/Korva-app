@@ -68,31 +68,29 @@ export default function CatalogoScreen() {
     setModalModalidad(true);
   };
 
-  const elegirModalidad = async (modalidad) => {
+  const irALaTienda = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/challenges/inscribir`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, challenge_id: challengeSeleccionado.id, modalidad })
-      });
-      const data = await res.json();
-      setModalModalidad(false);
-      if (data.mensaje === 'Ya estas inscripto en este challenge con esta modalidad') {
-        Alert.alert('Ya inscripto', data.mensaje);
-        return;
-      }
       const link = challengeSeleccionado?.link_shopify;
       if (!link) {
         Alert.alert('Link no disponible', 'El link de pago para este reto todavía no está configurado. Contactanos a korvaventura@gmail.com');
         return;
       }
-      // Si el link es de carrito (/cart/VARIANT_ID:1), reemplazamos el ":1" final por la cantidad elegida.
-      // Si es otro tipo de link (checkout directo viejo), lo dejamos tal cual — no soporta cantidad.
-      let linkFinal = link;
-      if (cantidad > 1 && link.includes('/cart/')) {
-        linkFinal = link.replace(/(:\d+)(\?|$)/, `:${cantidad}$2`);
-      }
-      Linking.openURL(linkFinal);
+      Linking.openURL(link);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo abrir la tienda.');
+    }
+  };
+
+  // Mantener elegirModalidad por compatibilidad con flujo existente
+  const elegirModalidad = async (modalidad) => {
+    try {
+      await fetch(`${BACKEND_URL}/challenges/inscribir`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, challenge_id: challengeSeleccionado.id, modalidad })
+      });
+      setModalModalidad(false);
+      irALaTienda();
     } catch (error) {
       Alert.alert('Error', 'No se pudo completar la inscripción.');
     }
@@ -259,25 +257,16 @@ export default function CatalogoScreen() {
       <Modal visible={modalModalidad} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitulo}>Elegi tu modalidad</Text>
-            <Text style={styles.modalSubtitulo}>{challengeSeleccionado?.title}</Text>
+            <Text style={styles.modalEmojiConfirm}>🏅</Text>
+            <Text style={styles.modalTitulo}>{challengeSeleccionado?.title}</Text>
             <View style={styles.modalidadInfoBox}>
-              <Text style={styles.modalidadInfoTexto}>
-                📏 Es tu meta personal — podés cambiarla cuando quieras desde tu Perfil.
-              </Text>
-              <Text style={styles.modalidadInfoTexto}>
-                🔄 Elijas la que elijas, podés combinar actividades: correr, caminar o andar en bici, todo suma hacia tu distancia.
-              </Text>
+              <Text style={styles.modalidadInfoTexto}>🛒 Comprá el desafío en la tienda — una vez confirmado se activa automáticamente en la app.</Text>
+              <Text style={styles.modalidadInfoTexto}>🏃 Empezás a sumar km como quieras — correr, caminar, bici o nadar. Todo cuenta.</Text>
+              <Text style={styles.modalidadInfoTexto}>📦 Al completar la distancia, procesamos el despacho de tu medalla con la dirección que cargaste en el Perfil.</Text>
             </View>
-            {challengeSeleccionado?.modalidades?.map((m, i) => (
-              <TouchableOpacity key={i} style={styles.modalButton} onPress={() => { setModalModalidad(false); setModalConfirmModalidad(m); }}>
-                <View>
-                  <Text style={styles.modalButtonTitulo}>{m.distancia_km} km</Text>
-                  <Text style={styles.modalButtonSub}>Podés correr, caminar o andar en bici — todo suma</Text>
-                </View>
-                <Ionicons name="arrow-forward" size={18} color="#1E6FD9" />
-              </TouchableOpacity>
-            ))}
+            <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#1E6FD9' }]} onPress={() => { setModalModalidad(false); elegirModalidad('run'); }}>
+              <Text style={[styles.modalButtonTitulo, { color: '#FFFFFF', textAlign: 'center', width: '100%' }]}>Ir a la tienda →</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalModalidad(false)}>
               <Text style={styles.modalCancelarText}>Cancelar</Text>
             </TouchableOpacity>
@@ -288,16 +277,19 @@ export default function CatalogoScreen() {
       <Modal visible={!!modalConfirmModalidad} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalEmojiConfirm}>{modalConfirmModalidad?.tipo === 'run' ? '🏃' : '🚴'}</Text>
+            <Text style={styles.modalEmojiConfirm}>🏅</Text>
             <Text style={styles.modalTitulo}>{modalConfirmModalidad?.distancia_km} km</Text>
             <Text style={styles.modalSubtitulo}>{challengeSeleccionado?.title}</Text>
 
             <View style={styles.confirmInfoBox}>
               <Text style={styles.confirmInfoTexto}>
-                📏 La modalidad define tu meta personal — es un desafío contra vos mismo, no cambia tu medalla.
+                🎯 Tu meta: completar {modalConfirmModalidad?.distancia_km} km como quieras — corriendo, caminando, en bici o nadando.
               </Text>
               <Text style={styles.confirmInfoTexto}>
-                🔄 Dentro de esta modalidad podés registrar cualquier actividad (correr, caminar, andar en bici) — todo suma hacia tus {modalConfirmModalidad?.distancia_km} km.
+                🏅 La medalla siempre dice <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>{challengeSeleccionado?.modalidades?.find(m => m.tipo === 'run')?.distancia_km || challengeSeleccionado?.total_distance_km} km</Text> — es la misma para todos sin importar la distancia que elijas.
+              </Text>
+              <Text style={styles.confirmInfoTexto}>
+                📦 Cuando termines, ingresá tu dirección en el Perfil y procesamos el envío automáticamente.
               </Text>
               {(() => {
                 const baseRun = challengeSeleccionado?.modalidades?.find(m => m.tipo === 'run');
