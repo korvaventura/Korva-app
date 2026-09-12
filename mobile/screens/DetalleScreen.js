@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import MapaRecorrido from './MapaRecorrido';
 
 const COMO_FUNCIONA = [
-  { emoji: '1️⃣', titulo: 'Inscribite', desc: 'Elegí tu modalidad y completá el pago.' },
+  { emoji: '1️⃣', titulo: 'Comprá en la tienda', desc: 'Una vez confirmado el pago, el desafío se activa automáticamente en la app.' },
   { emoji: '2️⃣', titulo: 'Registrá tus km', desc: 'Cargá tus actividades manualmente desde la app. Strava estará disponible próximamente.' },
   { emoji: '3️⃣', titulo: 'Corré a tu ritmo', desc: 'No hay límite de tiempo para completar la distancia.' },
   { emoji: '4️⃣', titulo: 'Recibí tu medalla', desc: 'Al completar el reto, iniciamos el envío de tu medalla física.' },
@@ -46,7 +46,7 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
 
       <View style={styles.seccion}>
         <Text style={styles.deporte}>
-          {challenge.sport_type === 'run' ? '🏃 RUNNING' : challenge.sport_type === 'ride' ? '🚴 CICLISMO' : '🌐 MULTIDEPORTE'}
+          🌐 DESAFÍO VIRTUAL
         </Text>
         <Text style={styles.titulo}>{challenge.title}</Text>
         <Text style={styles.descripcion}>{challenge.description}</Text>
@@ -54,15 +54,7 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
 
       <View style={styles.seccion}>
         <Text style={styles.seccionTitulo}>🎯 Tu objetivo</Text>
-        <View style={styles.modalidadesRow}>
-          {modalidades.map((m, i) => (
-            <View key={i} style={styles.modalidadCard}>
-              <Text style={styles.modalidadEmoji}>{m.tipo === 'run' ? '🏃' : '🚴'}</Text>
-              <Text style={styles.modalidadLabel}>{m.label}</Text>
-              <Text style={styles.modalidadKm}>{m.distancia_km} km</Text>
-            </View>
-          ))}
-        </View>
+
       </View>
 
       <View style={styles.seccion}>
@@ -154,7 +146,7 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
                 },
                 {
                   q: '¿Puedo mezclar actividades?',
-                  a: 'Sí. Si elegiste Running podés sumar km corriendo, caminando, trotando o incluso en bicicleta — todo se acumula hacia tu meta. La modalidad que elegís define la distancia del desafío, no el tipo de actividad que podés registrar.'
+                  a: 'Sí. Podés sumar km corriendo, caminando, en bici, nadando o como quieras — todo cuenta. La distancia que elegís es tu meta personal, no define el tipo de actividad.'
                 },
                 {
                   q: '¿Cómo registro mis kilómetros?',
@@ -177,8 +169,8 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
                   a: 'Sí. Podés registrar actividades y acumular logros sin costo. Los desafíos son para quienes quieren una meta con medalla física incluida.'
                 },
                 {
-                  q: '¿Puedo cambiar mi modalidad?',
-                  a: 'Sí, desde "Mis retos activos" en el Perfil podés cambiar entre Running y Ciclismo cuando quieras.'
+                  q: '¿Puedo cambiar la distancia elegida?',
+                  a: 'Sí, desde el Perfil podés cambiar entre las opciones de distancia disponibles cuando quieras.'
                 },
                 {
                   q: '¿Puedo tener varios desafíos a la vez?',
