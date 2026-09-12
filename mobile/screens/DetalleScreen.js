@@ -52,19 +52,7 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
         <Text style={styles.descripcion}>{challenge.description}</Text>
       </View>
 
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>🎯 Tu objetivo</Text>
 
-      </View>
-
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>📖 La historia</Text>
-        <View style={styles.historiaCard}>
-          <Text style={styles.historiaTexto}>
-            {challenge.historia || 'Completá la distancia a tu ritmo desde cualquier lugar del mundo. Cada kilómetro cuenta.'}
-          </Text>
-        </View>
-      </View>
 
       <View style={styles.seccion}>
         <Text style={styles.seccionTitulo}>⚙️ Cómo funciona</Text>
@@ -182,7 +170,7 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
                 },
                 {
                   q: '¿Necesito Strava?',
-                  a: 'No. El registro manual es suficiente para sumar tus km. Strava estará disponible próximamente como opción de sincronización automática.'
+                  a: 'No. El registro manual es suficiente para sumar tus km. También podés conectar Strava desde el Perfil para sincronización automática.'
                 },
                 {
                   q: '¿Tengo un problema o consulta?',
