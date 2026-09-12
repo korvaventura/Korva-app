@@ -32,7 +32,9 @@ const getHitoActividad = (actividad, index, totalKmAcumulado, distanciaTotal) =>
   if (pct >= 75) return { emoji: '🔥', texto: 'En la recta final' };
   if (pct >= 50) return { emoji: '⚡', texto: 'Mitad del camino' };
   if (pct >= 25) return { emoji: '💪', texto: 'Arrancando fuerte' };
-  return { emoji: actividad.sport_type === 'ride' ? '🚴' : '🏃', texto: actividad.sport_type === 'ride' ? 'Pedaleando' : 'Corriendo' };
+  const emojis = { ride: '🚴', run: '🏃', swim: '🏊', walk: '🚶' };
+  const textos = { ride: 'Ciclismo', run: 'Running', swim: 'Natación', walk: 'Caminata' };
+  return { emoji: emojis[actividad.sport_type] || '⚡', texto: textos[actividad.sport_type] || (actividad.sport_type || 'Actividad') };
 };
 
 export default function DetalleRetoScreen({ route, navigation }) {
@@ -99,7 +101,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
     if (isFinite(kmPorDia) && kmPorDia > limiteDiario) {
       Alert.alert(
         '⚠️ Ritmo elevado',
-        `Para llegar a tiempo necesitarías ${kmPorDia.toFixed(1)}km por día.\n\nLas guías de actividad física recomiendan no superar los ${limiteDiario}km diarios para ${modalidad === 'run' ? 'running' : 'ciclismo'} sin entrenamiento previo.\n\n¿Querés guardar igual?`,
+        `Para llegar a tiempo necesitarías ${kmPorDia.toFixed(1)}km por día.\n\n¿Querés guardar igual?`,
         [
           { text: 'Cancelar', style: 'cancel' },
           { text: 'Guardar igual', onPress: () => saveFecha(fecha.toISOString()) }
@@ -171,7 +173,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
       </TouchableOpacity>
 
       <Text style={styles.titulo}>{item.challenge || '—'}</Text>
-      <Text style={styles.subtitulo}>{item.modalidad} · {item.distancia_total}km</Text>
+      <Text style={styles.subtitulo}>{item.distancia_total}km</Text>
 
       <View style={styles.progresoCard}>
         <View style={styles.progresoHeader}>
@@ -291,7 +293,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
                   <View style={styles.timelineActRow}>
                     <Text style={styles.timelineEmoji}>{act.sport_type === 'ride' ? '🚴' : '🏃'}</Text>
                     <Text style={styles.timelineKm}>{parseFloat(act.distance_km).toFixed(1)} km</Text>
-                    <Text style={styles.timelineTipo}>{act.sport_type === 'ride' ? 'Ciclismo' : 'Running'} · {act.source === 'manual' ? 'manual' : 'Strava'}</Text>
+                    <Text style={styles.timelineTipo}>{act.sport_type || 'Actividad'} · {act.source === 'manual' ? 'manual' : 'Strava'}</Text>
                   </View>
                   <Text style={styles.timelineAcumulado}>Total acumulado: {act.acumulado.toFixed(1)}km</Text>
                 </View>

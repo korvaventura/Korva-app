@@ -13,7 +13,7 @@ const SLIDES = [
   {
     emoji: '🏃',
     titulo: 'Elegí tu reto',
-    descripcion: 'Running o Ciclismo, a tu ritmo. Tenés tiempo para completar la distancia desde donde estés.',
+    descripcion: 'Correr, caminar, bici o nadar — lo que prefieras. Tenés tiempo para completar la distancia desde donde estés.',
     color: '#FC4C02',
   },
   {
