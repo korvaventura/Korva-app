@@ -1,390 +1,364 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, Alert } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect, useCallback } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
-import * as ImagePicker from 'expo-image-picker';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Image, Linking, Alert } from 'react-native';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import DetalleScreen from './DetalleScreen';
+import { Ionicons } from '@expo/vector-icons';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
-const getFecha = (diasAtras) => {
-  const d = new Date();
-  d.setDate(d.getDate() - diasAtras);
-  return d;
-};
+const ADMINS = [
+  'korvaventura@gmail.com',
+  'fabrialejandrogonzalez@gmail.com',
+  'malejo.eche16@gmail.com',
+];
 
-const formatearFecha = (date) => {
-  return date.toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-};
-
-export default function RegistroManualScreen({ navigation }) {
-  const [deporte, setDeporte] = useState('run');
-  const [distancia, setDistancia] = useState('');
-  const [cargando, setCargando] = useState(false);
-  const [mensaje, setMensaje] = useState('');
-  const [exito, setExito] = useState(false);
+export default function CatalogoScreen() {
+  const [challenges, setChallenges] = useState([]);
+  const [challengesBloqueados, setChallengesBloqueados] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [modalModalidad, setModalModalidad] = useState(false);
+  const [modalConfirmModalidad, setModalConfirmModalidad] = useState(null); // { tipo, label, distancia_km }
+  const [cantidad, setCantidad] = useState(1);
+  const [challengeSeleccionado, setChallengeSeleccionado] = useState(null);
+  const [detalleVisible, setDetalleVisible] = useState(false);
   const [userId, setUserId] = useState(null);
-  const [diasAtras, setDiasAtras] = useState(0);
-  const [challengeId, setChallengeId] = useState(null);
-  const [challengeTitle, setChallengeTitle] = useState('');
+  const [esAdmin, setEsAdmin] = useState(false);
+  const [misDesafios, setMisDesafios] = useState([]);
 
-  const [evidenciaUri, setEvidenciaUri] = useState(null);
-  const [subiendoEvidencia, setSubiendoEvidencia] = useState(false);
-  const [evidenciaUrl, setEvidenciaUrl] = useState(null);
-  const [horas, setHoras] = useState('');
-  const [minutos, setMinutos] = useState('');
-
-  useFocusEffect(useCallback(() => {
+  useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user?.id) {
         setUserId(session.user.id);
-        const { data } = await supabase
+        setEsAdmin(ADMINS.includes(session.user.email?.toLowerCase()));
+        // Cargar desafíos del usuario para mostrar badge "Ya inscripto"
+        const { data: ucs } = await supabase
           .from('user_challenges')
-          .select('challenge_id, challenges(title)')
+          .select('challenge_id, status')
           .eq('user_id', session.user.id)
-          .eq('status', 'active')
-          .eq('pausado', false)
-          .order('started_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        if (data?.challenge_id) {
-          setChallengeId(data.challenge_id);
-          setChallengeTitle(data.challenges?.title || '');
-        } else {
-          setChallengeId(null);
-          setChallengeTitle('');
-        }
+          .in('status', ['active', 'completed', 'shipped', 'cargado', 'pending']);
+        if (ucs) setMisDesafios(ucs.map(u => u.challenge_id));
       }
     });
-  }, []));
+    cargarChallenges();
+  }, []);
 
-  const seleccionarEvidencia = async () => {
+  const cargarChallenges = async () => {
     try {
-      const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permiso.granted) {
-        Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería para subir evidencia.');
-        return;
-      }
-      const resultado = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,
-        quality: 0.7,
-      });
-      if (resultado.canceled) return;
-      setEvidenciaUri(resultado.assets[0].uri);
-      setEvidenciaUrl(null); // resetear URL anterior
+      const res = await fetch(`${BACKEND_URL}/challenges`);
+      const activos = await res.json();
+      setChallenges(Array.isArray(activos) ? activos : []);
+
+      // Bloqueados ocultos — no mostrar próximamente hasta lanzamiento oficial
+      setChallengesBloqueados([]);
     } catch (error) {
-      Alert.alert('Error', 'No se pudo seleccionar la imagen.');
-    }
-  };
-
-  const sacarFoto = async () => {
-    try {
-      const permiso = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permiso.granted) {
-        Alert.alert('Permiso requerido', 'Necesitamos acceso a la cámara.');
-        return;
-      }
-      const resultado = await ImagePicker.launchCameraAsync({
-        allowsEditing: false,
-        quality: 0.7,
-      });
-      if (resultado.canceled) return;
-      setEvidenciaUri(resultado.assets[0].uri);
-      setEvidenciaUrl(null);
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo tomar la foto.');
-    }
-  };
-
-  const subirEvidencia = async (uri) => {
-    setSubiendoEvidencia(true);
-    try {
-      // Convertir imagen a base64
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      const reader = new FileReader();
-      const base64 = await new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-
-      // Subir via backend (sin exponer keys en el cliente)
-      const res = await fetch(`${BACKEND_URL}/upload`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          base64,
-          carpeta: 'evidencias',
-          nombre: `evidencia_${userId}_${Date.now()}.jpg`,
-        }),
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      return data.url;
-    } catch (error) {
-      console.error('Error subiendo evidencia:', error);
-      return null;
-    } finally {
-      setSubiendoEvidencia(false);
-    }
-  };
-
-  const quitarEvidencia = () => {
-    setEvidenciaUri(null);
-    setEvidenciaUrl(null);
-  };
-
-  const registrar = async () => {
-    if (!distancia || parseFloat(distancia) <= 0) {
-      setMensaje('Ingresa una distancia valida');
-      setExito(false);
-      return;
-    }
-    if (!userId) {
-      setMensaje('Error de sesion, intenta de nuevo');
-      return;
-    }
-    guardarActividad();
-  };
-
-  const guardarActividad = async () => {
-    setCargando(true);
-    setMensaje('');
-    setExito(false);
-    try {
-      // Subir evidencia si hay una seleccionada
-      let urlEvidencia = evidenciaUrl;
-      if (evidenciaUri && !evidenciaUrl) {
-        urlEvidencia = await subirEvidencia(evidenciaUri);
-      }
-
-      const fechaActividad = getFecha(diasAtras);
-      const h = parseInt(horas) || 0;
-      const m = parseInt(minutos) || 0;
-      const duracionSegundos = (h * 3600 + m * 60) || null;
-
-      const res = await fetch(`${BACKEND_URL}/actividades/manual`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userId,
-          challenge_id: challengeId,
-          sport_type: deporte,
-          distance_km: parseFloat(distancia),
-          recorded_at: fechaActividad.toISOString(),
-          evidencia_url: urlEvidencia || null,
-          duration_seconds: duracionSegundos,
-        })
-      });
-      const data = await res.json();
-      if (data.error) {
-        setMensaje(data.error);
-        setExito(false);
-      } else {
-        const msgModo = challengeId
-          ? `${distancia} km de ${deporte === 'run' ? 'running' : 'ciclismo'} registrados!`
-          : `${distancia} km guardados en modo libre 🏃`;
-        setMensaje(msgModo);
-        setExito(true);
-        setDistancia('');
-        setDiasAtras(0);
-        setEvidenciaUri(null);
-        setEvidenciaUrl(null);
-        setHoras('');
-        setMinutos('');
-        setTimeout(() => { setMensaje(''); setExito(false); }, 3000);
-      }
-    } catch (error) {
-      setMensaje('Error de conexion');
-      setExito(false);
+      console.error('Error:', error);
     } finally {
       setCargando(false);
     }
   };
 
-  const deportes = [
-    { id: 'run', label: 'Running', emoji: '🏃' },
-    { id: 'ride', label: 'Ciclismo', emoji: '🚴' },
-  ];
+  const abrirDetalle = (challenge) => {
+    setChallengeSeleccionado(challenge);
+    setDetalleVisible(true);
+  };
 
-  const opciones_fecha = [
-    { label: 'Hoy', dias: 0 },
-    { label: 'Ayer', dias: 1 },
-    { label: 'Hace 2 días', dias: 2 },
-    { label: 'Hace 3 días', dias: 3 },
-    { label: 'Hace 4 días', dias: 4 },
-    { label: 'Hace 5 días', dias: 5 },
-    { label: 'Hace 6 días', dias: 6 },
-    { label: 'Hace 7 días', dias: 7 },
-  ];
+  const abrirModal = (challenge) => {
+    setChallengeSeleccionado(challenge);
+    setCantidad(1);
+    setModalModalidad(true);
+  };
+
+  const elegirModalidad = async (modalidad) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/challenges/inscribir`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, challenge_id: challengeSeleccionado.id, modalidad })
+      });
+      const data = await res.json();
+      setModalModalidad(false);
+      if (data.mensaje === 'Ya estas inscripto en este challenge con esta modalidad') {
+        Alert.alert('Ya inscripto', data.mensaje);
+        return;
+      }
+      const link = challengeSeleccionado?.link_shopify;
+      if (!link) {
+        Alert.alert('Link no disponible', 'El link de pago para este reto todavía no está configurado. Contactanos a korvaventura@gmail.com');
+        return;
+      }
+      // Si el link es de carrito (/cart/VARIANT_ID:1), reemplazamos el ":1" final por la cantidad elegida.
+      // Si es otro tipo de link (checkout directo viejo), lo dejamos tal cual — no soporta cantidad.
+      let linkFinal = link;
+      if (cantidad > 1 && link.includes('/cart/')) {
+        linkFinal = link.replace(/(:\d+)(\?|$)/, `:${cantidad}$2`);
+      }
+      Linking.openURL(linkFinal);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo completar la inscripción.');
+    }
+  };
+
+  if (detalleVisible && challengeSeleccionado) {
+    return (
+      <DetalleScreen
+        challenge={challengeSeleccionado}
+        userId={userId}
+        onVolver={() => setDetalleVisible(false)}
+        onInscribir={() => {
+          setDetalleVisible(false);
+          setModalModalidad(true);
+        }}
+      />
+    );
+  }
+
+  const renderCardActiva = (item, index) => {
+    const yaInscripto = misDesafios.includes(item.id);
+    return (
+    <TouchableOpacity key={index} style={[styles.card, yaInscripto && { borderWidth: 1.5, borderColor: '#22C55E' }]} onPress={() => abrirDetalle(item)} activeOpacity={0.85}>
+      <View style={styles.imageWrapper}>
+        {item.medal_image_url && (
+          <Image source={{ uri: item.medal_image_url }} style={styles.medallaImage} resizeMode="contain" />
+        )}
+        {yaInscripto && (
+          <View style={[styles.ofertaBadge, { backgroundColor: '#15803D' }]}>
+            <Text style={styles.ofertaTexto}>✅ Ya inscripto</Text>
+          </View>
+        )}
+        {!yaInscripto && item.oferta_texto && (
+          <View style={styles.ofertaBadge}>
+            <Text style={styles.ofertaTexto}>🔥 {item.oferta_texto}</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.cardBody}>
+        <View style={styles.deporteRow}>
+          <Text style={styles.deporte}>
+            {item.sport_type === 'run' ? '🏃 RUNNING' : item.sport_type === 'ride' ? '🚴 CICLISMO' : '🌐 MULTIDEPORTE'}
+          </Text>
+          <View>
+            <Text style={styles.precio}>USD ${item.price_usd}</Text>
+            {item.price_ars && <Text style={styles.precioArs}>$ {item.price_ars.toLocaleString('es-AR')} ARS</Text>}
+          </View>
+        </View>
+        <Text style={styles.titulo2}>{item.title}</Text>
+        <Text style={styles.descripcion} numberOfLines={2}>{item.description}</Text>
+
+        <View style={styles.botonesRow}>
+          <TouchableOpacity style={styles.detalleBtn} onPress={() => abrirDetalle(item)}>
+            <Text style={styles.detalleBtnText}>Ver detalle</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={(e) => { e.stopPropagation?.(); abrirModal(item); }}>
+            <View style={styles.btnRow}>
+              <Text style={styles.buttonText}>Inscribirme</Text>
+              <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
+    );
+  };
+
+  const renderCardBloqueadaAdmin = (item, index) => (
+    <TouchableOpacity key={`admin-${index}`} style={[styles.card, styles.cardAdminPreview]} onPress={() => abrirDetalle(item)} activeOpacity={0.85}>
+      <View style={styles.imageWrapper}>
+        {item.medal_image_url && (
+          <Image source={{ uri: item.medal_image_url }} style={styles.medallaImage} resizeMode="contain" />
+        )}
+        <View style={styles.adminPreviewBadge}>
+          <Text style={styles.adminPreviewBadgeText}>👁️ PREVIEW ADMIN</Text>
+        </View>
+      </View>
+      <View style={styles.cardBody}>
+        <View style={styles.deporteRow}>
+          <Text style={styles.deporte}>🔒 PRÓXIMAMENTE</Text>
+          <Text style={styles.precio}>USD ${item.price_usd}</Text>
+        </View>
+        <Text style={styles.titulo2}>{item.title}</Text>
+        <Text style={styles.descripcion} numberOfLines={2}>{item.description}</Text>
+
+        {item.modalidades && (
+          <View style={styles.modalidadesContainer}>
+            {item.modalidades.map((m, i) => (
+              <View key={i} style={styles.modalidadTag}>
+                <Text style={styles.modalidadEmoji}>{m.tipo === 'run' ? '🏃' : '🚴'}</Text>
+                <Text style={styles.modalidadText}>{m.distancia_km}km</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <TouchableOpacity style={styles.detalleBtn} onPress={() => abrirDetalle(item)}>
+          <Text style={styles.detalleBtnText}>Ver detalle (preview)</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const renderCardBloqueada = (item, index) => (
+    <View key={`bloqueado-${index}`} style={styles.cardBloqueada}>
+      <View style={styles.imageWrapperBloqueado}>
+        {item.medal_image_url ? (
+          <Image source={{ uri: item.medal_image_url }} style={styles.medallaImageBloqueada} resizeMode="contain" blurRadius={18} />
+        ) : (
+          <View style={styles.medallaImageBloqueada} />
+        )}
+        <View style={styles.blurOverlay} />
+        <View style={styles.candadoWrapper}>
+          <Text style={styles.candadoEmoji}>🔒</Text>
+          <Text style={styles.candadoTexto}>Próximamente</Text>
+        </View>
+      </View>
+      <View style={styles.cardBodyBloqueado}>
+        <Text style={styles.titulo2Bloqueado}>{item.title}</Text>
+        <Text style={styles.precioBloqueado}>USD ${item.price_usd}</Text>
+        <View style={styles.modalidadesContainerBloqueado}>
+          <View style={styles.modalidadTagBloqueado}>
+            <Text style={styles.modalidadTextBloqueado}>🏃 Running</Text>
+          </View>
+          <View style={styles.modalidadTagBloqueado}>
+            <Text style={styles.modalidadTextBloqueado}>🚴 Ciclismo</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
-      <Text style={styles.titulo}>Registrar km</Text>
-      <Text style={styles.subtitulo}>Carga tus actividades manualmente</Text>
+      <Text style={styles.titulo}>Challenges</Text>
+      <Text style={styles.subtitulo}>Elegi tu proximo desafio 🏆</Text>
 
-      {!challengeId && userId && (
-        <TouchableOpacity
-          style={styles.bannerSinReto}
-          onPress={() => navigation?.navigate('Catalogo')}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.bannerSinRetoEmoji}>🏃</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.bannerSinRetoTitulo}>Tus km se guardan, pero no avanzan en ningún desafío</Text>
-            <Text style={styles.bannerSinRetoDesc}>Inscribite en un reto para que cada km cuente hacia tu medalla → Ver catálogo</Text>
-          </View>
-        </TouchableOpacity>
+      {cargando ? (
+        <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
+      ) : (
+        <>
+          {challenges.map((item, index) => renderCardActiva(item, index))}
+
+          {challengesBloqueados.length > 0 && (
+            <>
+              <View style={styles.proximamenteSeparador}>
+                <View style={styles.separadorLinea} />
+                <Text style={styles.separadorTexto}>
+                  {esAdmin ? '👁️ PREVIEW — PRÓXIMAMENTE' : 'PRÓXIMAMENTE'}
+                </Text>
+                <View style={styles.separadorLinea} />
+              </View>
+
+              {challengesBloqueados.map((item, index) =>
+                esAdmin
+                  ? renderCardBloqueadaAdmin(item, index)
+                  : renderCardBloqueada(item, index)
+              )}
+            </>
+          )}
+        </>
       )}
 
-      <View style={styles.deporteContainer}>
-        {deportes.map((d) => (
-          <TouchableOpacity
-            key={d.id}
-            style={[styles.deporteBtn, deporte === d.id && styles.deporteBtnActivo]}
-            onPress={() => setDeporte(d.id)}
-          >
-            <Text style={styles.deporteEmoji}>{d.emoji}</Text>
-            <Text style={[styles.deporteLabel, deporte === d.id && styles.deporteLabelActivo]}>
-              {d.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      <Text style={{ color: '#4a6a8a', fontSize: 12, textAlign: 'center', marginBottom: 16, paddingHorizontal: 10 }}>
-        💡 Podés cargar cualquier actividad — correr, caminar, bici o nadar. Todo suma igual hacia tu meta sin importar qué elegís acá.
-      </Text>
-
-      {challengeTitle ? (
-        <View style={{ backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10, marginBottom: 12, flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ color: '#A8CFFF', fontSize: 13 }}>Sumando a: </Text>
-          <Text style={{ color: '#FC4C02', fontSize: 13, fontWeight: 'bold' }}>{challengeTitle}</Text>
-        </View>
-      ) : null}
-
-      <View style={styles.distanciaCard}>
-        <Text style={styles.distanciaLabel}>DISTANCIA</Text>
-        <View style={styles.distanciaRow}>
-          <TextInput
-            style={styles.distanciaInput}
-            value={distancia}
-            onChangeText={v => setDistancia(v.replace(',', '.'))}
-            keyboardType="decimal-pad"
-            placeholder="0.0"
-            placeholderTextColor="#2a4a6a"
-          />
-          <Text style={styles.distanciaUnidad}>km</Text>
-        </View>
-      </View>
-
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>📅 Fecha de la actividad</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.fechaScroll}>
-          {opciones_fecha.map((op) => (
-            <TouchableOpacity
-              key={op.dias}
-              style={[styles.fechaBtn, diasAtras === op.dias && styles.fechaBtnActivo]}
-              onPress={() => setDiasAtras(op.dias)}
-            >
-              <Text style={[styles.fechaBtnText, diasAtras === op.dias && styles.fechaBtnTextActivo]}>
-                {op.label}
+      <Modal visible={modalModalidad} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitulo}>Elegi tu modalidad</Text>
+            <Text style={styles.modalSubtitulo}>{challengeSeleccionado?.title}</Text>
+            <View style={styles.modalidadInfoBox}>
+              <Text style={styles.modalidadInfoTexto}>
+                📏 Es tu meta personal — podés cambiarla cuando quieras desde tu Perfil.
               </Text>
+              <Text style={styles.modalidadInfoTexto}>
+                🔄 Elijas la que elijas, podés combinar actividades: correr, caminar o andar en bici, todo suma hacia tu distancia.
+              </Text>
+            </View>
+            {challengeSeleccionado?.modalidades?.map((m, i) => (
+              <TouchableOpacity key={i} style={styles.modalButton} onPress={() => { setModalModalidad(false); setModalConfirmModalidad(m); }}>
+                <View>
+                  <Text style={styles.modalButtonTitulo}>{m.distancia_km} km</Text>
+                  <Text style={styles.modalButtonSub}>Podés correr, caminar o andar en bici — todo suma</Text>
+                </View>
+                <Ionicons name="arrow-forward" size={18} color="#1E6FD9" />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalModalidad(false)}>
+              <Text style={styles.modalCancelarText}>Cancelar</Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-        <Text style={styles.fechaSeleccionada}>
-          {formatearFecha(getFecha(diasAtras))}
-        </Text>
-      </View>
-
-      {/* Sección de tiempo opcional */}
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>⏱️ Tiempo <Text style={styles.opcional}>(opcional)</Text></Text>
-        <Text style={styles.evidenciaSubtitulo}>Para calcular tu ritmo promedio en el Perfil</Text>
-        <View style={styles.tiempoRow}>
-          <View style={styles.tiempoInputWrapper}>
-            <TextInput
-              style={styles.tiempoInput}
-              value={horas}
-              onChangeText={setHoras}
-              keyboardType="number-pad"
-              placeholder="0"
-              placeholderTextColor="#2a4a6a"
-              maxLength={2}
-            />
-            <Text style={styles.tiempoUnidad}>hs</Text>
-          </View>
-          <View style={styles.tiempoInputWrapper}>
-            <TextInput
-              style={styles.tiempoInput}
-              value={minutos}
-              onChangeText={setMinutos}
-              keyboardType="number-pad"
-              placeholder="0"
-              placeholderTextColor="#2a4a6a"
-              maxLength={2}
-            />
-            <Text style={styles.tiempoUnidad}>min</Text>
           </View>
         </View>
-      </View>
+      </Modal>
 
-      {/* Sección de evidencia */}
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>📸 Evidencia <Text style={styles.opcional}>(opcional)</Text></Text>
-        <Text style={styles.evidenciaSubtitulo}>Captura de Strava, Garmin u otra app de entrenamiento</Text>
+      <Modal visible={!!modalConfirmModalidad} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalEmojiConfirm}>{modalConfirmModalidad?.tipo === 'run' ? '🏃' : '🚴'}</Text>
+            <Text style={styles.modalTitulo}>{modalConfirmModalidad?.distancia_km} km</Text>
+            <Text style={styles.modalSubtitulo}>{challengeSeleccionado?.title}</Text>
 
-        {evidenciaUri ? (
-          <View style={styles.evidenciaPreviewWrapper}>
-            <Image source={{ uri: evidenciaUri }} style={styles.evidenciaPreview} resizeMode="cover" />
-            {subiendoEvidencia && (
-              <View style={styles.evidenciaOverlay}>
-                <ActivityIndicator color="#FFFFFF" size="large" />
-                <Text style={styles.evidenciaSubiendoText}>Subiendo...</Text>
+            <View style={styles.confirmInfoBox}>
+              <Text style={styles.confirmInfoTexto}>
+                📏 La modalidad define tu meta personal — es un desafío contra vos mismo, no cambia tu medalla.
+              </Text>
+              <Text style={styles.confirmInfoTexto}>
+                🔄 Dentro de esta modalidad podés registrar cualquier actividad (correr, caminar, andar en bici) — todo suma hacia tus {modalConfirmModalidad?.distancia_km} km.
+              </Text>
+              {(() => {
+                const baseRun = challengeSeleccionado?.modalidades?.find(m => m.tipo === 'run');
+                if (modalConfirmModalidad?.tipo !== 'run' && baseRun && baseRun.distancia_km !== modalConfirmModalidad?.distancia_km) {
+                  return (
+                    <Text style={styles.confirmInfoTexto}>
+                      🏅 Tu medalla física dirá <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>{baseRun.distancia_km}K</Text> — el diseño es el mismo para todas las modalidades del desafío.
+                    </Text>
+                  );
+                }
+                return null;
+              })()}
+            </View>
+
+            <View style={styles.cantidadBox}>
+              <Text style={styles.cantidadLabel}>¿Para cuántas personas? (vos + invitados)</Text>
+              <View style={styles.cantidadRow}>
+                <TouchableOpacity
+                  style={styles.cantidadBtn}
+                  onPress={() => setCantidad(c => Math.max(1, c - 1))}
+                  disabled={cantidad <= 1}
+                >
+                  <Text style={styles.cantidadBtnText}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.cantidadNumero}>{cantidad}</Text>
+                <TouchableOpacity
+                  style={styles.cantidadBtn}
+                  onPress={() => setCantidad(c => Math.min(5, c + 1))}
+                  disabled={cantidad >= 5}
+                >
+                  <Text style={styles.cantidadBtnText}>+</Text>
+                </TouchableOpacity>
               </View>
-            )}
-            <TouchableOpacity style={styles.evidenciaQuitarBtn} onPress={quitarEvidencia}>
-              <Text style={styles.evidenciaQuitarText}>✕ Quitar</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.evidenciaBotonesRow}>
-            <TouchableOpacity style={styles.evidenciaBtn} onPress={seleccionarEvidencia}>
-              <Ionicons name="image-outline" size={20} color="#1E6FD9" />
-              <Text style={styles.evidenciaBtnText}>Galería</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.evidenciaBtn} onPress={sacarFoto}>
-              <Ionicons name="camera-outline" size={20} color="#1E6FD9" />
-              <Text style={styles.evidenciaBtnText}>Cámara</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
+              {cantidad > 1 && (
+                <Text style={styles.cantidadAyuda}>
+                  Vas a pagar {cantidad} medallas juntas, en un solo pago. Después de pagar, te van a llegar {cantidad - 1} link(s) por email para que se los pases a quien quieras — cada uno completa sus datos y le activamos su propia cuenta.
+                </Text>
+              )}
+              <Text style={styles.regaloAviso}>
+                🎁 ¿Es un regalo para otra persona? Cuando vayas a pagar, completá el email Y el nombre de esa persona en los datos de envío (no los tuyos) — así la cuenta y la medalla quedan a su nombre.
+              </Text>
+            </View>
 
-      {mensaje ? (
-        <View style={[styles.mensajeBox, exito && styles.mensajeExito]}>
-          <Text style={[styles.mensajeText, exito && styles.mensajeTextoExito]}>
-            {exito ? '✅ ' : '⚠️ '}{mensaje}
-          </Text>
+            <View style={styles.multiDesafioAviso}>
+              <Text style={styles.multiDesafioAvisoTexto}>
+                🛒 En la tienda podés agregar más de un desafío al carrito y pagar todo junto en un solo pago.
+              </Text>
+            </View>
+
+            <TouchableOpacity style={styles.modalButton} onPress={() => { elegirModalidad(modalConfirmModalidad.tipo); setModalConfirmModalidad(null); }}>
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <Text style={styles.modalButtonTitulo}>Entendido, ir a la tienda</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={18} color="#1E6FD9" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalConfirmModalidad(null)}>
+              <Text style={styles.modalCancelarText}>Volver</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      ) : null}
-
-      <TouchableOpacity
-        style={[styles.button, cargando && styles.buttonDisabled]}
-        onPress={registrar}
-        disabled={cargando}
-      >
-        {cargando ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <View style={styles.btnRow}>
-            <Text style={styles.buttonText}>Registrar actividad</Text>
-            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-          </View>
-        )}
-      </TouchableOpacity>
+      </Modal>
 
     </ScrollView>
   );
@@ -394,51 +368,70 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#0D1B2A' },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
   titulo: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  subtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 28 },
-  deporteContainer: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  deporteBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 16, padding: 16, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
-  deporteBtnActivo: { borderColor: '#1E6FD9', backgroundColor: '#162d4a' },
-  deporteEmoji: { fontSize: 28, marginBottom: 6 },
-  deporteLabel: { fontSize: 12, fontWeight: 'bold', color: '#4a6a8a' },
-  deporteLabelActivo: { color: '#1E6FD9' },
-  distanciaCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 28, marginBottom: 20, alignItems: 'center' },
-  distanciaLabel: { fontSize: 11, fontWeight: 'bold', color: '#4a6a8a', letterSpacing: 2, marginBottom: 16 },
-  distanciaRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-  distanciaInput: { fontSize: 56, fontWeight: 'bold', color: '#FFFFFF', minWidth: 120, textAlign: 'center' },
-  distanciaUnidad: { fontSize: 24, color: '#A8CFFF', fontWeight: 'bold' },
-  seccion: { marginBottom: 20 },
-  seccionTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4, letterSpacing: 0.5 },
-  opcional: { fontSize: 12, color: '#4a6a8a', fontWeight: 'normal' },
-  evidenciaSubtitulo: { fontSize: 12, color: '#4a6a8a', marginBottom: 12 },
-  tiempoRow: { flexDirection: 'row', gap: 12 },
-  tiempoInputWrapper: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  tiempoInput: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', minWidth: 40, textAlign: 'center' },
-  tiempoUnidad: { fontSize: 13, color: '#A8CFFF', fontWeight: 'bold' },
-  evidenciaBotonesRow: { flexDirection: 'row', gap: 10 },
-  evidenciaBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E6FD9', flexDirection: 'row', justifyContent: 'center', gap: 8 },
-  evidenciaBtnText: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 14 },
-  evidenciaPreviewWrapper: { position: 'relative', borderRadius: 14, overflow: 'hidden' },
-  evidenciaPreview: { width: '100%', height: 200, borderRadius: 14 },
-  evidenciaOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
-  evidenciaSubiendoText: { color: '#FFFFFF', marginTop: 8, fontWeight: 'bold' },
-  evidenciaQuitarBtn: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
-  evidenciaQuitarText: { color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' },
-  fechaScroll: { marginBottom: 12 },
-  fechaBtn: { backgroundColor: '#1E3A5F', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8, borderWidth: 2, borderColor: 'transparent' },
-  fechaBtnActivo: { borderColor: '#1E6FD9', backgroundColor: '#162d4a' },
-  fechaBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
-  fechaBtnTextActivo: { color: '#1E6FD9' },
-  fechaSeleccionada: { fontSize: 13, color: '#A8CFFF', marginTop: 4 },
-  mensajeBox: { backgroundColor: '#2a1a1a', borderRadius: 12, padding: 14, marginBottom: 16 },
-  mensajeExito: { backgroundColor: '#0a2a1a' },
-  mensajeText: { color: '#FC4C02', fontSize: 14, textAlign: 'center' },
-  mensajeTextoExito: { color: '#4CAF50' },
-  button: { backgroundColor: '#1E6FD9', paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
-  buttonDisabled: { backgroundColor: '#2a3a4a' },
-  buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
+  subtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 24 },
+  card: { backgroundColor: '#1E3A5F', borderRadius: 20, marginBottom: 20, overflow: 'hidden' },
+  cardAdminPreview: { borderWidth: 1, borderColor: '#FC4C02', borderStyle: 'dashed' },
+  adminPreviewBadge: { position: 'absolute', top: 12, left: 12, backgroundColor: 'rgba(252,76,2,0.85)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  adminPreviewBadgeText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 11, letterSpacing: 1 },
+  imageWrapper: { position: 'relative' },
+  medallaImage: { width: '100%', height: 280, backgroundColor: '#f5f5f5' },
+  ofertaBadge: { position: 'absolute', top: 12, left: 12, backgroundColor: '#FC4C02', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  ofertaTexto: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
+  cardBody: { padding: 20 },
+  deporteRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  deporte: { fontSize: 11, fontWeight: 'bold', color: '#1E6FD9', letterSpacing: 1 },
+  precio: { fontSize: 18, fontWeight: 'bold', color: '#FC4C02' },
+  precioArs: { fontSize: 12, color: '#A8CFFF', textAlign: 'right', marginTop: 2 },
+  titulo2: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
+  descripcion: { fontSize: 13, color: '#A8CFFF', marginBottom: 16, lineHeight: 20 },
+  modalidadesContainer: { gap: 8, marginBottom: 16 },
+  modalidadTag: { backgroundColor: '#0D1B2A', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  modalidadEmoji: { fontSize: 14 },
+  modalidadText: { color: '#A8CFFF', fontSize: 13 },
+  botonesRow: { flexDirection: 'row', gap: 10 },
+  detalleBtn: { flex: 1, borderWidth: 1, borderColor: '#1E6FD9', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  detalleBtnText: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 14 },
+  button: { flex: 1, backgroundColor: '#1E6FD9', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
   btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  bannerSinReto: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, marginBottom: 20, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#1E6FD9' },
-  bannerSinRetoEmoji: { fontSize: 28 },
-  bannerSinRetoTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  bannerSinRetoDesc: { fontSize: 12, color: '#1E6FD9', lineHeight: 18 },
+  proximamenteSeparador: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20, marginTop: 8 },
+  separadorLinea: { flex: 1, height: 1, backgroundColor: '#1E3A5F' },
+  separadorTexto: { fontSize: 11, fontWeight: 'bold', color: '#4a6a8a', letterSpacing: 2 },
+  cardBloqueada: { backgroundColor: '#1E3A5F', borderRadius: 20, marginBottom: 20, overflow: 'hidden', opacity: 0.85 },
+  imageWrapperBloqueado: { position: 'relative', height: 200 },
+  medallaImageBloqueada: { width: '100%', height: 200, backgroundColor: '#0D1B2A' },
+  blurOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(6, 13, 20, 0.72)' },
+  candadoWrapper: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  candadoEmoji: { fontSize: 36, marginBottom: 8 },
+  candadoTexto: { fontSize: 13, fontWeight: 'bold', color: '#4a6a8a', letterSpacing: 2 },
+  cardBodyBloqueado: { padding: 20 },
+  titulo2Bloqueado: { fontSize: 20, fontWeight: 'bold', color: '#4a6a8a', marginBottom: 6 },
+  precioBloqueado: { fontSize: 16, fontWeight: 'bold', color: '#4a6a8a', marginBottom: 12 },
+  modalidadesContainerBloqueado: { flexDirection: 'row', gap: 8 },
+  modalidadTagBloqueado: { backgroundColor: '#0D1B2A', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+  modalidadTextBloqueado: { color: '#2a4a6a', fontSize: 12 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+  modalCard: { backgroundColor: '#1E3A5F', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 32 },
+  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
+  modalSubtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 24 },
+  modalButton: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 18, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  modalButtonTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
+  modalButtonSub: { fontSize: 12, color: '#A8CFFF' },
+  modalCancelar: { marginTop: 8, alignItems: 'center', paddingVertical: 12 },
+  modalCancelarText: { color: '#A8CFFF', fontSize: 15 },
+  modalEmojiConfirm: { fontSize: 40, textAlign: 'center', marginBottom: 8 },
+  confirmInfoBox: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, marginBottom: 16, gap: 12 },
+  modalidadInfoBox: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, marginBottom: 16, gap: 10 },
+  modalidadInfoTexto: { fontSize: 13, color: '#A8CFFF', lineHeight: 19 },
+  confirmInfoTexto: { fontSize: 13, color: '#A8CFFF', lineHeight: 20 },
+  cantidadBox: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, marginBottom: 16 },
+  cantidadLabel: { fontSize: 13, color: '#A8CFFF', marginBottom: 12, textAlign: 'center' },
+  cantidadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24 },
+  cantidadBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1E3A5F', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2a4a6a' },
+  cantidadBtnText: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' },
+  cantidadNumero: { color: '#FFFFFF', fontSize: 22, fontWeight: 'bold', minWidth: 32, textAlign: 'center' },
+  cantidadAyuda: { fontSize: 12, color: '#A8CFFF', marginTop: 12, lineHeight: 18, textAlign: 'center' },
+  multiDesafioAviso: { backgroundColor: '#0D2A1A', borderRadius: 12, padding: 12, marginTop: 12, borderLeftWidth: 3, borderLeftColor: '#4CAF50' },
+  multiDesafioAvisoTexto: { fontSize: 13, color: '#A8CFFF', lineHeight: 18 },
+  regaloAviso: { fontSize: 12, color: '#FC4C02', marginTop: 12, lineHeight: 18, textAlign: 'center', fontWeight: 'bold' },
 });
