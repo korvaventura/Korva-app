@@ -18,7 +18,8 @@ const formatearFecha = (date) => {
 };
 
 export default function RegistroManualScreen({ navigation }) {
-  const [deporte, setDeporte] = useState('run');
+  const [deporte, setDeporte] = useState('manual');
+  const [descripcionActividad, setDescripcionActividad] = useState('');
   const [distancia, setDistancia] = useState('');
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState('');
@@ -171,7 +172,7 @@ export default function RegistroManualScreen({ navigation }) {
         body: JSON.stringify({
           user_id: userId,
           challenge_id: challengeId,
-          sport_type: deporte,
+          sport_type: descripcionActividad.trim() || 'manual',
           distance_km: parseFloat(distancia),
           recorded_at: fechaActividad.toISOString(),
           evidencia_url: urlEvidencia || null,
@@ -204,11 +205,6 @@ export default function RegistroManualScreen({ navigation }) {
     }
   };
 
-  const deportes = [
-    { id: 'run', label: 'Running', emoji: '🏃' },
-    { id: 'ride', label: 'Ciclismo', emoji: '🚴' },
-  ];
-
   const opciones_fecha = [
     { label: 'Hoy', dias: 0 },
     { label: 'Ayer', dias: 1 },
@@ -239,19 +235,18 @@ export default function RegistroManualScreen({ navigation }) {
         </TouchableOpacity>
       )}
 
-      <View style={styles.deporteContainer}>
-        {deportes.map((d) => (
-          <TouchableOpacity
-            key={d.id}
-            style={[styles.deporteBtn, deporte === d.id && styles.deporteBtnActivo]}
-            onPress={() => setDeporte(d.id)}
-          >
-            <Text style={styles.deporteEmoji}>{d.emoji}</Text>
-            <Text style={[styles.deporteLabel, deporte === d.id && styles.deporteLabelActivo]}>
-              {d.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View style={{ marginBottom: 20 }}>
+        <Text style={{ color: '#A8CFFF', fontSize: 12, marginBottom: 8 }}>¿Qué actividad hiciste? <Text style={{ color: '#4a6a8a' }}>(opcional)</Text></Text>
+        <TextInput
+          style={{ backgroundColor: '#1E3A5F', borderRadius: 10, padding: 12, color: '#FFFFFF', fontSize: 14 }}
+          value={descripcionActividad}
+          onChangeText={setDescripcionActividad}
+          placeholder="Ej: Caminata, Natación, Trekking, Running..."
+          placeholderTextColor="#4a6a8a"
+        />
+        <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 8, textAlign: 'center' }}>
+          💡 Cualquier actividad es válida — correr, caminar, bici, nadar. Todo suma igual.
+        </Text>
       </View>
 
       {challengeTitle ? (
