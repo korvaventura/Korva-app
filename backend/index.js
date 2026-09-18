@@ -543,8 +543,20 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
       .maybeSingle();
 
     const groupId = ucCompleto?.group_id;
-    const esGrupo = !!groupId;
-    const esComprador = esGrupo && (groupId === user_id);
+    // Solo es grupo si hay OTRO usuario con el mismo group_id en este challenge
+    const esComprador = !!groupId && (groupId === user_id);
+    // Verificar si hay otros miembros reales en el grupo
+    let hayOtrosMiembros = false;
+    if (groupId) {
+      const { data: otrosMiembros } = await supabase
+        .from('user_challenges')
+        .select('user_id')
+        .eq('group_id', groupId)
+        .eq('challenge_id', reto.challenge_id)
+        .neq('user_id', user_id);
+      hayOtrosMiembros = (otrosMiembros || []).length > 0;
+    }
+    const esGrupo = hayOtrosMiembros;
     const tieneDir = !!usuario.shipping_address;
 
     if (esGrupo && !esComprador) {
@@ -1637,10 +1649,8 @@ app.post('/usuarios/direccion', async (req, res) => {
   const { user_id, shipping_address, nombre_completo } = req.body;
   try {
     const updateData = { shipping_address };
-    // Si viene nombre_completo, actualizar también users.name
-    if (nombre_completo && nombre_completo.trim().split(' ').filter(Boolean).length >= 2) {
-      updateData.name = nombre_completo.trim();
-    }
+    // NO actualizar users.name desde la dirección — ese campo es para certificados
+    // El nombre de envío va solo en shipping_address.nombre
     // Actualizar pais desde la dirección
     if (shipping_address?.pais) {
       updateData.pais = shipping_address.pais;

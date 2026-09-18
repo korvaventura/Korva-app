@@ -988,7 +988,7 @@ export default function PerfilScreen() {
         <Text style={styles.seccionTitulo}>📦 Direccion de envio</Text>
         {editandoDireccion ? (
           <View style={styles.formCard}>
-            <Text style={styles.formLabel}>Nombre completo *</Text>
+            <Text style={styles.formLabel}>Nombre completo para el envío *</Text>
             <TextInput style={styles.input} value={formDireccion.nombre} onChangeText={v => setFormDireccion(p => ({ ...p, nombre: v }))} placeholder="Juan Pérez" placeholderTextColor="#4a6a8a" />
 
             <Text style={styles.formLabel}>Dirección * <Text style={styles.opcionalTexto}>(buscá y elegí de la lista)</Text></Text>
