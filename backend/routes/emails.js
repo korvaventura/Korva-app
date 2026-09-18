@@ -71,8 +71,9 @@ const enviarEmailInscripcion = async (email, nombre, challenge, modalidad) => {
           <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">TUS PRÓXIMOS PASOS</p>
           <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">1️⃣ &nbsp; Descargá la app Korva</p>
           <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">2️⃣ &nbsp; Registrá tus km desde la pestaña "Registrar"</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">3️⃣ &nbsp; Al llegar al 100%, tu medalla viaja a tu puerta 📦</p>
-          <p style="color: #4a6a8a; font-size: 12px; margin: 12px 0 0;">La integración con Strava estará disponible próximamente.</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">3️⃣ &nbsp; Cargá tu dirección en el Perfil antes de terminar</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">4️⃣ &nbsp; Al llegar al 100%, procesamos el envío de tu medalla 📦</p>
+          <p style="color: #4a6a8a; font-size: 12px; margin: 12px 0 0;">También podés conectar Strava desde el Perfil para sincronización automática.</p>
         `, '#1E6FD9')}
 
         <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6;">Cada kilómetro cuenta. Cada salida te acerca a tu medalla. ¡A correr!</p>
@@ -158,7 +159,9 @@ const enviarEmailCompletado = async (email, nombre, challenge, certificadoPdfBas
         bloqueEnvio = card(`
           <p style="color: #FC4C02; font-size: 36px; text-align: center; margin: 0 0 12px;">📍</p>
           <p style="color: #FFFFFF; font-size: 18px; font-weight: bold; text-align: center; margin: 0 0 8px;">Cargá tu dirección de envío</p>
-          <p style="color: #A8CFFF; font-size: 14px; text-align: center; margin: 0; line-height: 1.6;">Para que podamos enviarte tu medalla, ingresá a la app y completá tu dirección en la sección Perfil.</p>
+          <p style="color: #A8CFFF; font-size: 14px; text-align: center; margin: 0 0 16px; line-height: 1.6;">Para que podamos enviarte tu medalla, ingresá a la app y completá tu dirección en Perfil → Dirección de envío.</p>
+          <a href="https://apps.apple.com/app/korva-aventuras/id6795443954" style="display: inline-block; background: #FC4C02; color: #FFFFFF; font-size: 13px; font-weight: bold; padding: 10px 20px; border-radius: 10px; text-decoration: none; margin: 4px;">Abrir app iOS →</a>
+          <a href="https://play.google.com/store/apps/details?id=com.korva.mobile" style="display: inline-block; background: #1E3A5F; color: #FFFFFF; font-size: 13px; font-weight: bold; padding: 10px 20px; border-radius: 10px; text-decoration: none; margin: 4px; border: 1px solid #1E6FD9;">Abrir app Android →</a>
         `, '#FC4C02');
       }
     } else if (esComprador) {
@@ -197,7 +200,7 @@ const enviarEmailCompletado = async (email, nombre, challenge, certificadoPdfBas
     await getResend().emails.send({
       from: 'Korva Aventuras <noreply@korva.run>',
       to: email,
-      subject: `🎉 ¡Completaste ${challenge}! Tu medalla está siendo preparada`,
+      subject: `🎉 ¡Completaste ${challenge}! — Korva Aventuras`,
       html: wrapper(`
         ${badge('🎉 RETO COMPLETADO', '#1E6FD9')}
         <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Lo lograste, ${nombre}!</h2>
@@ -241,6 +244,7 @@ const enviarEmailAdminMedallaLista = async (nombre, email, challenge, tieneDir, 
           <p style="color: #FFFFFF; font-size: 15px; font-weight: bold; margin: 0 0 4px;">${nombre}</p>
           <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 4px;">${email}</p>
           <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 12px;">🏔️ ${challenge}</p>
+          <p style="color: #4a6a8a; font-size: 11px; margin: 0;">* El nombre de envío puede ser diferente — verificar en Supabase.</p>
           <p style="color: ${tieneDir ? '#4CAF50' : '#FC4C02'}; font-size: 13px; font-weight: bold; margin: 0;">
             ${tieneDir ? '✅ Tiene dirección cargada' : '⚠️ SIN dirección — no despachar todavía'}
           </p>
