@@ -1075,9 +1075,23 @@ export default function PerfilScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitulo}>👥 Grupos</Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, textAlign: 'center', marginBottom: 20, lineHeight: 20 }}>
-              Creá un grupo con amigos o compañeros de running y vean su progreso juntos en el Ranking.
+            <Text style={{ color: '#A8CFFF', fontSize: 13, textAlign: 'center', marginBottom: 16, lineHeight: 20 }}>
+              Creá un grupo con amigos o compañeros y vean su progreso juntos en el Ranking 🏆
             </Text>
+            <View style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 20 }}>
+              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>
+                1️⃣ Creás el grupo y le ponés un nombre{'
+'}
+                2️⃣ Te genera un código único de 6 letras{'
+'}
+                3️⃣ Lo compartís con tus amigos por WhatsApp{'
+'}
+                4️⃣ Ellos ingresan el código en su Perfil{'
+'}
+                5️⃣ Se ven entre todos en el Ranking → "Mi grupo"
+              </Text>
+              <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 10 }}>Podés estar en hasta 3 grupos · Máximo 50 miembros por grupo</Text>
+            </View>
             <TouchableOpacity
               style={[styles.modalBtn, { marginBottom: 12 }]}
               onPress={() => { setModalGruposVisible(false); setModalCrearGrupo(true); }}
