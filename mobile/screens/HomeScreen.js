@@ -430,7 +430,7 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.bannerStrava}>
           <View style={{ flex: 1 }}>
             <Text style={styles.bannerStravaTitulo}>🔗 ¡Strava ya está disponible!</Text>
-            <Text style={styles.bannerStravaDesc}>Conectá tu cuenta y cada actividad que registres en Strava se carga automáticamente a tu desafío.</Text>
+            <Text style={styles.bannerStravaDesc}>Conectá tu cuenta y cada actividad se carga automáticamente. Si ya cargaste km manualmente, revisá tu historial en el Perfil para evitar duplicados — podés borrar actividades deslizando sobre ellas.</Text>
             <TouchableOpacity onPress={abrirTutorialStrava}>
               <Text style={styles.bannerStravaBtn}>Ver cómo conectarla →</Text>
             </TouchableOpacity>

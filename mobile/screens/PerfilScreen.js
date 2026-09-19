@@ -578,6 +578,14 @@ export default function PerfilScreen() {
                   <Text style={styles.modalPasoDesc}>Necesitás tener un desafío activo para conectar Strava — que ya tenés 🎉</Text>
                 </View>
               </View>
+              {/* Aviso importante antes de conectar */}
+              <View style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: '#FC4C02' }}>
+                <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 12, marginBottom: 8 }}>⚠️ ANTES DE CONECTAR, LEÉ ESTO:</Text>
+                <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 6 }}>• Si ya cargaste actividades manualmente, Strava puede volver a sumarlas si también las tenés ahí. Revisá tu historial y borrá las duplicadas desde la app.</Text>
+                <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 6 }}>• Todas tus actividades de Strava se importan automáticamente — incluyendo las de ciclismo, natación y caminata. Todo suma.</Text>
+                <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20 }}>• Para borrar una actividad, andá al Perfil y deslizá sobre ella en el historial.</Text>
+              </View>
+
               <TouchableOpacity style={styles.modalBtn} onPress={conectarStravaConfirmado}>
                 <Text style={styles.modalBtnText}>Conectar Strava 🔗</Text>
               </TouchableOpacity>
