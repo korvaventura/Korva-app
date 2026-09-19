@@ -140,8 +140,8 @@ const enviarEmailCompletado = async (email, nombre, challenge, certificadoPdfBas
     const { tieneDir = true, esGrupo = false, esComprador = true, miembros = [], nombreComprador = '' } = opciones;
 
     const certificadoTexto = certificadoPdfBase64
-      ? `Completaste el reto <strong style="color: #FFFFFF;">${challenge}</strong>. Eso requiere compromiso, constancia y mucho esfuerzo. Adjunto encontrás tu certificado oficial de finalización.`
-      : `Completaste el reto <strong style="color: #FFFFFF;">${challenge}</strong>. Eso requiere compromiso, constancia y mucho esfuerzo. Mereces cada gramo de tu medalla.`;
+      ? `Completaste el reto <strong style="color: #FC4C02;">${challenge}</strong>. Eso requiere compromiso, constancia y mucho esfuerzo. Adjunto encontrás tu certificado oficial de finalización.`
+      : `Completaste el reto <strong style="color: #FC4C02;">${challenge}</strong>. Eso requiere compromiso, constancia y mucho esfuerzo. Mereces cada gramo de tu medalla.`;
 
     let bloqueEnvio = '';
 
@@ -271,11 +271,11 @@ const enviarEmailMedallaEnCamino = async (email, nombre, challenge, tracking) =>
       html: wrapper(`
         ${badge('📦 MEDALLA EN CAMINO', '#4CAF50')}
         <h2 style="color: #0D1B2A; font-size: 26px; margin: 20px 0 8px;">¡Tu medalla está en camino, ${nombre}!</h2>
-        <p style="color: #4B5563; font-size: 15px; line-height: 1.6;">Tu medalla del reto <strong style="color: #FFFFFF;">${challenge}</strong> ya fue despachada y está en camino a tu puerta.</p>
+        <p style="color: #4B5563; font-size: 15px; line-height: 1.6;">Tu medalla del reto <strong style="color: #FC4C02;">${challenge}</strong> ya fue despachada y está en camino a tu puerta.</p>
 
         ${card(`
           <p style="color: #4CAF50; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 8px;">NÚMERO DE SEGUIMIENTO</p>
-          <p style="color: #FFFFFF; font-size: 28px; font-weight: bold; margin: 0; letter-spacing: 2px;">${tracking || 'En preparación'}</p>
+          <p style="color: #0D1B2A; font-size: 28px; font-weight: bold; margin: 0; letter-spacing: 2px;">${tracking || 'En preparación'}</p>
         `, '#4CAF50')}
 
         <p style="color: #4B5563; font-size: 14px; line-height: 1.6;">Los tiempos de entrega pueden variar según tu ubicación. Si tenés alguna consulta sobre el envío, escribinos a <a href="mailto:korvaventura@gmail.com" style="color: #1E6FD9;">korvaventura@gmail.com</a></p>
@@ -321,7 +321,7 @@ const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad,
       html: wrapper(`
         ${badge('INSCRIPCIÓN CONFIRMADA')}
         <h2 style="color: #0D1B2A; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
-        <p style="color: #4B5563; font-size: 15px; line-height: 1.6;">Tu inscripción al desafío <strong style="color: #FFFFFF;">${challenge}</strong> fue confirmada. Encontrás tu dorsal y postal adjuntos a este mail.</p>
+        <p style="color: #4B5563; font-size: 15px; line-height: 1.6;">Tu inscripción al desafío <strong style="color: #FC4C02;">${challenge}</strong> fue confirmada. Encontrás tu dorsal y postal adjuntos a este mail.</p>
 
         <div style="background: #FC4C02; border-radius: 14px; padding: 24px; margin: 24px 0; text-align: center;">
           <p style="color: rgba(255,255,255,0.85); font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 8px;">TU NÚMERO DE DORSAL</p>
@@ -333,7 +333,7 @@ const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad,
           <p style="color: #FC4C02; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 16px;">CÓMO EMPEZAR</p>
           <p style="color: #FFFFFF; font-size: 14px; line-height: 2; margin: 0 0 8px;">
             1️⃣ &nbsp;Descargá la app Korva (o abrila si ya la tenés)<br>
-            2️⃣ &nbsp;<strong style="color: #FC4C02;">Primera vez:</strong> tocá <strong style="color: #FC4C02;">Registrarse</strong> con <strong style="color: #FC4C02;">${email}</strong> y creá una contraseña nueva · <strong style="color: #FC4C02;">Ya tenés cuenta:</strong> iniciá sesión normalmente<br>
+            2️⃣ &nbsp;<strong style="color: #FC4C02;">Primera vez:</strong> tocá <strong style="color: #FC4C02;">Registrarse</strong> con <strong style="color: #FC4C02; font-weight: bold;">${email}</strong> y creá una contraseña nueva · <strong style="color: #FC4C02;">Ya tenés cuenta:</strong> iniciá sesión normalmente<br>
             3️⃣ &nbsp;El desafío ya debería estar activo en la pantalla principal<br>
             4️⃣ &nbsp;Empezá a registrar tus km — correr, caminar, bici o nadar, todo suma
           </p>
