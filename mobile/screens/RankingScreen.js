@@ -19,6 +19,7 @@ export default function RankingScreen({ navigation }) {
   const [miNombre, setMiNombre] = useState('');
   const [miUserId, setMiUserId] = useState('');  // FIX: guardar user_id para comparar exacto
   const [tabVista, setTabVista] = useState('ranking'); // 'ranking' o 'paises'
+  const [modalInfoDistancia, setModalInfoDistancia] = useState(false);
   const [rankingPaises, setRankingPaises] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [tabActivo, setTabActivo] = useState('en_curso');
@@ -245,11 +246,20 @@ export default function RankingScreen({ navigation }) {
                   style={{ marginRight: 6 }}
                 />
                 <Text style={[styles.selectorText, mod === m.tipo && styles.selectorTextActivo]}>
-                  {m.tipo === 'run' ? 'Running' : 'Ciclismo'} — {m.distancia_km}km
+                  {m.distancia_km}km · {m.tipo === 'run' ? 'Estándar' : 'Extendida 🚴'}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
+          {mods.length > 1 && (
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 6, marginBottom: 4 }}
+              onPress={() => setModalInfoDistancia(true)}
+            >
+              <Text style={{ color: '#4a6a8a', fontSize: 11 }}>¿Cuál elegir? </Text>
+              <Text style={{ color: '#1E6FD9', fontSize: 13 }}>ℹ️</Text>
+            </TouchableOpacity>
+          )}
         )}
 
         {!cargandoThis && lista.length > 0 && miPosicion === -1 && (
@@ -419,6 +429,27 @@ export default function RankingScreen({ navigation }) {
           <RankingPage key={i} challenge={c} />
         ))}
       </ScrollView>
+
+      {/* Modal info distancias */}
+      <Modal visible={modalInfoDistancia} transparent animationType="fade" onRequestClose={() => setModalInfoDistancia(false)}>
+        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 }} activeOpacity={1} onPress={() => setModalInfoDistancia(false)}>
+          <View style={{ backgroundColor: '#0D1B2A', borderRadius: 20, padding: 24, width: '100%', borderWidth: 1, borderColor: '#1E3A5F' }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }}>🏅 ¿Qué distancia elegir?</Text>
+            <View style={{ backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, marginBottom: 12 }}>
+              <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 13, marginBottom: 6 }}>Distancia estándar</Text>
+              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20 }}>Para todos — correr, caminar, bici, nadar o cualquier actividad. Ideal si vas principalmente a pie o combinás distintos deportes.</Text>
+            </View>
+            <View style={{ backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, marginBottom: 16 }}>
+              <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 13, marginBottom: 6 }}>Distancia extendida 🚴</Text>
+              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20 }}>Para quienes van principalmente en bici o quieren un reto mayor. También vale correr o caminar.</Text>
+            </View>
+            <Text style={{ color: '#4a6a8a', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>La medalla es la misma para ambas opciones 🏅</Text>
+            <TouchableOpacity style={{ backgroundColor: '#FC4C02', borderRadius: 12, padding: 14, alignItems: 'center' }} onPress={() => setModalInfoDistancia(false)}>
+              <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>Entendido</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {tabVista === 'paises' && (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
