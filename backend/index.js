@@ -2309,6 +2309,116 @@ app.delete('/usuarios/:userId', async (req, res) => {
   }
 });
 
+// ========== GRUPOS SOCIALES ==========
+
+const generarCodigo = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let codigo = '';
+  for (let i = 0; i < 6; i++) codigo += chars[Math.floor(Math.random() * chars.length)];
+  return codigo;
+};
+
+app.post('/grupos/crear', async (req, res) => {
+  const { user_id, nombre } = req.body;
+  if (!user_id || !nombre?.trim()) return res.status(400).json({ error: 'Faltan datos' });
+  try {
+    let codigo, existe = true;
+    while (existe) {
+      codigo = generarCodigo();
+      const { data } = await supabase.from('social_groups').select('id').eq('codigo', codigo).single();
+      existe = !!data;
+    }
+    const { data: grupo, error } = await supabase
+      .from('social_groups')
+      .insert({ nombre: nombre.trim(), codigo, creador_id: user_id })
+      .select().single();
+    if (error) throw error;
+    await supabase.from('social_group_members').insert({ group_id: grupo.id, user_id });
+    res.json({ grupo });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/grupos/unirse', async (req, res) => {
+  const { user_id, codigo } = req.body;
+  if (!user_id || !codigo?.trim()) return res.status(400).json({ error: 'Faltan datos' });
+  try {
+    const { data: grupo } = await supabase
+      .from('social_groups').select('id, nombre, codigo')
+      .eq('codigo', codigo.trim().toUpperCase()).single();
+    if (!grupo) return res.status(404).json({ error: 'Código no encontrado. Revisá que esté bien escrito.' });
+    const { data: yaEsMiembro } = await supabase
+      .from('social_group_members').select('id')
+      .eq('group_id', grupo.id).eq('user_id', user_id).single();
+    if (yaEsMiembro) return res.json({ grupo, mensaje: 'Ya sos miembro de este grupo' });
+    await supabase.from('social_group_members').insert({ group_id: grupo.id, user_id });
+    res.json({ grupo, mensaje: 'Te uniste al grupo' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/grupos/salir', async (req, res) => {
+  const { user_id, group_id } = req.body;
+  if (!user_id || !group_id) return res.status(400).json({ error: 'Faltan datos' });
+  try {
+    await supabase.from('social_group_members').delete().eq('group_id', group_id).eq('user_id', user_id);
+    res.json({ mensaje: 'Saliste del grupo' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/grupos/mis-grupos/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const { data: memberships } = await supabase
+      .from('social_group_members')
+      .select('social_groups(id, nombre, codigo, creador_id)')
+      .eq('user_id', userId);
+    const grupos = (memberships || []).map(m => m.social_groups).filter(Boolean);
+    res.json(grupos);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/grupos/ranking/:groupId/:challengeId', async (req, res) => {
+  const { groupId, challengeId } = req.params;
+  try {
+    const { data: members } = await supabase
+      .from('social_group_members')
+      .select('users(id, name, avatar_url)')
+      .eq('group_id', groupId);
+    if (!members?.length) return res.json([]);
+    const userIds = members.map(m => m.users?.id).filter(Boolean);
+    const { data: desafios } = await supabase
+      .from('user_challenges')
+      .select('user_id, km_completed, status, challenges(total_distance_km)')
+      .eq('challenge_id', challengeId)
+      .in('user_id', userIds);
+    const ranking = members.map(m => {
+      const user = m.users;
+      const desafio = desafios?.find(d => d.user_id === user?.id);
+      const kmTotal = desafio?.challenges?.total_distance_km || 100;
+      const km = parseFloat(desafio?.km_completed || 0);
+      const pct = Math.min((km / kmTotal) * 100, 100).toFixed(1);
+      return {
+        user_id: user?.id,
+        nombre: user?.name,
+        avatar: user?.avatar_url,
+        km_completados: km.toFixed(2),
+        porcentaje: pct,
+        status: desafio?.status || 'sin_desafio',
+      };
+    }).sort((a, b) => parseFloat(b.porcentaje) - parseFloat(a.porcentaje));
+    res.json(ranking);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
