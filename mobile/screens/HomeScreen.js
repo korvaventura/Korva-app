@@ -749,21 +749,22 @@ export default function HomeScreen({ navigation }) {
 
           {challengesActivos.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyEmoji}>🏃</Text>
-              <Text style={styles.emptyText}>¡Empezá a moverte!</Text>
-              <Text style={styles.emptySubtext}>Registrá tus km y acumulá logros gratis — no necesitás un challenge activo para empezar.</Text>
-              <View style={styles.emptyLogrosRow}>
-                <Text style={styles.emptyLogroItem}>👟 Distancia</Text>
-                <Text style={styles.emptyLogroItem}>🔥 Rachas</Text>
-                <Text style={styles.emptyLogroItem}>⚡ Actividades</Text>
+              <Text style={styles.emptyEmoji}>🏅</Text>
+              <Text style={styles.emptyText}>No tenés desafíos activos</Text>
+
+              {/* Si compraron pero no ven el desafío */}
+              <View style={{ backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, marginBottom: 16, width: '100%' }}>
+                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13, marginBottom: 6 }}>¿Ya compraste un desafío?</Text>
+                <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20 }}>Asegurate de estar registrado con el mismo email con el que compraste en korva.run. Una vez que iniciés sesión con ese email, el desafío aparece automáticamente.</Text>
               </View>
+
+              {/* Si no compraron todavía */}
               {challengesPending.length === 0 && (
                 <>
-                  <Text style={styles.emptySubtext}>Cuando quieras una medalla real, encontrá tu challenge acá:</Text>
+                  <Text style={styles.emptySubtext}>¿Todavía no tenés un desafío? Explorá nuestro catálogo:</Text>
                   <TouchableOpacity style={styles.irCatalogoBtn} onPress={() => navigation.navigate('Catalogo')}>
                     <View style={styles.btnRow}>
-                      <Text style={styles.irCatalogoBtnText}>Ver Catálogo</Text>
-                      <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                      <Text style={styles.irCatalogoBtnText}>Ver desafíos →</Text>
                     </View>
                   </TouchableOpacity>
                 </>
