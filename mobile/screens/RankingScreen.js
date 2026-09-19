@@ -18,8 +18,11 @@ export default function RankingScreen({ navigation }) {
   const [mostrarTodos, setMostrarTodos] = useState({});
   const [miNombre, setMiNombre] = useState('');
   const [miUserId, setMiUserId] = useState('');  // FIX: guardar user_id para comparar exacto
-  const [tabVista, setTabVista] = useState('ranking'); // 'ranking' o 'paises'
+  const [tabVista, setTabVista] = useState('ranking'); // 'ranking', 'paises' o 'grupo'
   const [modalInfoDistancia, setModalInfoDistancia] = useState(false);
+  const [misGruposRanking, setMisGruposRanking] = useState([]);
+  const [grupoSeleccionado, setGrupoSeleccionado] = useState(null);
+  const [rankingGrupo, setRankingGrupo] = useState([]);
   const [rankingPaises, setRankingPaises] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [tabActivo, setTabActivo] = useState('en_curso');
@@ -56,10 +59,28 @@ export default function RankingScreen({ navigation }) {
         setModalidades(mods);
         data.forEach(c => cargarRanking(c.id, 'run'));
         if (data[0]) cargarRankingPaises(data[0].id);
+        // Cargar grupos del usuario
+        if (userId) {
+          fetch(`${BACKEND_URL}/grupos/mis-grupos/${userId}`)
+            .then(r => r.json())
+            .then(grupos => {
+              setMisGruposRanking(Array.isArray(grupos) ? grupos : []);
+              if (grupos?.length > 0) setGrupoSeleccionado(grupos[0]);
+            })
+            .catch(() => {});
+        }
       }
     } catch (error) {
       console.error('Error:', error);
     }
+  };
+
+  const cargarRankingGrupo = async (groupId, challengeId) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/grupos/ranking/${groupId}/${challengeId}`);
+      const data = await res.json();
+      setRankingGrupo(Array.isArray(data) ? data : []);
+    } catch (e) {}
   };
 
   const cargarRankingPaises = async (cId) => {
@@ -381,13 +402,26 @@ export default function RankingScreen({ navigation }) {
             style={{ flex: 1, paddingVertical: 8, borderRadius: 8, backgroundColor: tabVista === 'ranking' ? '#FC4C02' : 'transparent', alignItems: 'center' }}
             onPress={() => setTabVista('ranking')}
           >
-            <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>🏅 Ranking</Text>
+            <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 }}>🏅 Ranking</Text>
           </TouchableOpacity>
+          {misGruposRanking.length > 0 && (
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: 8, borderRadius: 8, backgroundColor: tabVista === 'grupo' ? '#FC4C02' : 'transparent', alignItems: 'center' }}
+              onPress={() => {
+                setTabVista('grupo');
+                if (grupoSeleccionado && challenges[challengeIndex]) {
+                  cargarRankingGrupo(grupoSeleccionado.id, challenges[challengeIndex].id);
+                }
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 }}>👥 Mi grupo</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={{ flex: 1, paddingVertical: 8, borderRadius: 8, backgroundColor: tabVista === 'paises' ? '#FC4C02' : 'transparent', alignItems: 'center' }}
             onPress={() => setTabVista('paises')}
           >
-            <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>🌍 Países</Text>
+            <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 }}>🌍 Países</Text>
           </TouchableOpacity>
         </View>
 
@@ -450,6 +484,58 @@ export default function RankingScreen({ navigation }) {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {tabVista === 'grupo' && (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
+          {misGruposRanking.length > 1 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+              {misGruposRanking.map((g, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={{ backgroundColor: grupoSeleccionado?.id === g.id ? '#FC4C02' : '#1E3A5F', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8 }}
+                  onPress={() => {
+                    setGrupoSeleccionado(g);
+                    if (challenges[challengeIndex]) cargarRankingGrupo(g.id, challenges[challengeIndex].id);
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' }}>{g.nombre}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+          {grupoSeleccionado && (
+            <View style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ color: '#A8CFFF', fontSize: 13, flex: 1 }}>{grupoSeleccionado.nombre}</Text>
+              <Text style={{ color: '#FC4C02', fontWeight: 'bold', letterSpacing: 2, fontSize: 13 }}>{grupoSeleccionado.codigo}</Text>
+            </View>
+          )}
+          {rankingGrupo.length === 0 ? (
+            <Text style={{ color: '#4a6a8a', textAlign: 'center' }}>Cargando...</Text>
+          ) : (
+            rankingGrupo.map((item, i) => (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: item.user_id === miUserId ? '#1E3A5F' : '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: item.user_id === miUserId ? 1 : 0, borderColor: '#FC4C02' }}>
+                <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 18, width: 32 }}>#{i + 1}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>{item.nombre}{item.user_id === miUserId ? ' (vos)' : ''}</Text>
+                  <Text style={{ color: '#4a6a8a', fontSize: 12 }}>{item.km_completados} km</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 16 }}>{item.porcentaje}%</Text>
+                  {item.status === 'completed' || item.status === 'shipped' || item.status === 'cargado' ? (
+                    <Text style={{ fontSize: 14 }}>🏅</Text>
+                  ) : null}
+                </View>
+              </View>
+            ))
+          )}
+          <TouchableOpacity
+            style={{ marginTop: 16, alignItems: 'center' }}
+            onPress={() => navigation?.navigate('Perfil')}
+          >
+            <Text style={{ color: '#4a6a8a', fontSize: 12 }}>Gestionar grupos en el Perfil →</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
 
       {tabVista === 'paises' && (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>

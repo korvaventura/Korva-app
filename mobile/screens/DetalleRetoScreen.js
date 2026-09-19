@@ -173,7 +173,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
       </TouchableOpacity>
 
       <Text style={styles.titulo}>{item.challenge || '—'}</Text>
-      <Text style={styles.subtitulo}>{item.distancia_total}km</Text>
+      <Text style={styles.subtitulo}>Desafío virtual · {item.distancia_total}km</Text>
 
       <View style={styles.progresoCard}>
         <View style={styles.progresoHeader}>
@@ -268,14 +268,14 @@ export default function DetalleRetoScreen({ route, navigation }) {
       )}
 
       <View style={styles.historialSection}>
-        <Text style={styles.historialTitulo}>📖 Tu historia</Text>
+        <Text style={styles.historialTitulo}>📋 Actividades registradas</Text>
         {cargando ? (
           <ActivityIndicator color="#1E6FD9" />
         ) : actividadesConHito.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>🏁</Text>
             <Text style={styles.emptyText}>Sin actividades todavía</Text>
-            <Text style={styles.emptySubtext}>Registrá tu primer km para empezar tu historia</Text>
+            <Text style={styles.emptySubtext}>Registrá tu primer km — correr, caminar, bici o nadar, todo suma.</Text>
           </View>
         ) : (
           <View style={styles.timeline}>
