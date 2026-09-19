@@ -754,6 +754,11 @@ export default function PerfilScreen() {
           </TouchableOpacity>
         )}
         <Text style={styles.email}>{usuario?.email}</Text>
+        {stats?.total_km > 0 && (
+          <Text style={{ color: '#4a6a8a', fontSize: 12, marginTop: 6 }}>
+            🌍 {stats.total_km} km recorridos con Korva
+          </Text>
+        )}
       </View>
 
       {/* Banner dirección faltante */}
