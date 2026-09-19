@@ -323,53 +323,35 @@ const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad,
       html: wrapper(`
         ${badge('INSCRIPCIÓN CONFIRMADA')}
         <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
-        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tu inscripción al desafío <strong style="color: #FFFFFF;">${challenge}</strong> fue confirmada. Adjunto encontrás tu dorsal y tu postal de bienvenida.</p>
+        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tu inscripción al desafío <strong style="color: #FFFFFF;">${challenge}</strong> fue confirmada. Encontrás tu dorsal y postal adjuntos a este mail.</p>
 
         ${card(`
-          <p style="color: #FC4C02; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">TU DORSAL OFICIAL</p>
-          <p style="color: #FFFFFF; font-size: 32px; font-weight: bold; margin: 0 0 4px;">#${bibNumber}</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 0;">Guardalo, imprimilo o compartilo — es tuyo.</p>
+          <p style="color: #FC4C02; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">TU NÚMERO DE DORSAL</p>
+          <p style="color: #FFFFFF; font-size: 48px; font-weight: bold; margin: 0 0 8px; letter-spacing: 4px;">#${bibNumber}</p>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 0;">Tu dorsal y postal personalizados están adjuntos a este mail en formato PDF.</p>
         `, '#FC4C02')}
 
         ${card(`
-          <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 14px;">CÓMO EMPEZAR</p>
-
-          <p style="color: #FFFFFF; font-size: 14px; font-weight: bold; margin: 0 0 6px;">📱 ¿Tenés Android?</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 10px; line-height: 1.6;">Descargá la app, iniciá sesión con este email y tu desafío aparece automáticamente. ¿Algún problema? Escribinos por WhatsApp al <strong style="color: #FFFFFF;">+61474024238</strong></p>
-          <div style="margin: 8px 0 24px;">
-            <a href="https://play.google.com/store/apps/details?id=com.korva.mobile" style="display: inline-block; background: #FC4C02; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none;">Descargar app Korva en Google Play →</a>
+          <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 16px;">CÓMO EMPEZAR</p>
+          <p style="color: #A8CFFF; font-size: 14px; line-height: 1.8; margin: 0 0 16px;">
+            1️⃣ &nbsp;Descargá la app Korva<br>
+            2️⃣ &nbsp;Creá tu cuenta con <strong style="color: #FFFFFF;">este mismo email: ${email}</strong><br>
+            3️⃣ &nbsp;El desafío aparece automáticamente<br>
+            4️⃣ &nbsp;Empezá a registrar tus km — correr, caminar, bici o nadar, todo suma
+          </p>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <a href="https://apps.apple.com/app/korva-aventuras/id6795443954" style="display: inline-block; background: #1E3A5F; color: #FFFFFF; font-size: 13px; font-weight: bold; padding: 12px 20px; border-radius: 10px; text-decoration: none; border: 1px solid #1E6FD9; margin: 4px;">🍎 App Store</a>
+            <a href="https://play.google.com/store/apps/details?id=com.korva.mobile" style="display: inline-block; background: #FC4C02; color: #FFFFFF; font-size: 13px; font-weight: bold; padding: 12px 20px; border-radius: 10px; text-decoration: none; margin: 4px;">▶ Google Play</a>
           </div>
-
-          <p style="color: #FFFFFF; font-size: 14px; font-weight: bold; margin: 0 0 10px;">🍎 ¿Tenés iPhone?</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 10px; line-height: 1.6;">Descargá la app desde el App Store, iniciá sesión con tu email y el desafío aparece automáticamente.</p>
-          <div style="margin: 0 0 16px;">
-            <a href="https://apps.apple.com/app/korva-aventuras/id6795443954" style="display: inline-block; background: #1E3A5F; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none; border: 1px solid #1E6FD9;">Descargar app Korva en App Store →</a>
-          </div>
-
-          <div style="background: #1E3A5F; border-radius: 10px; padding: 14px 16px; margin: 0 0 8px; border-left: 3px solid #1E6FD9;">
-            <p style="color: #FFFFFF; font-size: 13px; font-weight: bold; margin: 0 0 8px;">📋 ¿Cómo funciona en iPhone?</p>
-            <p style="color: #A8CFFF; font-size: 13px; margin: 4px 0; line-height: 1.6;"><strong style="color: #FFFFFF;">1.</strong> Entrá al link de arriba desde Safari</p>
-            <p style="color: #A8CFFF; font-size: 13px; margin: 4px 0; line-height: 1.6;"><strong style="color: #FFFFFF;">2.</strong> Cargá tus km con tu nombre y este email: <strong style="color: #FC4C02;">${email}</strong></p>
-            <p style="color: #A8CFFF; font-size: 13px; margin: 4px 0; line-height: 1.6;"><strong style="color: #FFFFFF;">3.</strong> Usá siempre el mismo email — es lo que vincula tus km con tu desafío</p>
-          </div>
-          <p style="color: #4a6a8a; font-size: 12px; margin: 8px 0 0; line-height: 1.6;">¿Problemas? Escribinos por WhatsApp al +61474024238.</p>
         `, '#1E6FD9')}
-
-        ${card(`
-          <p style="color: #4a6a8a; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 10px;">CÓMO FUNCIONA</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">🏃 &nbsp;Registrá tus km — cada vez que entres y registres se va sumando</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">📈 &nbsp;Seguí tu progreso en tiempo real</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">📦 &nbsp;Al completar el 100%, cargá tu dirección de envío en el Perfil</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 6px 0;">🏅 &nbsp;Tu medalla sale en camino</p>
-        `, '#2a4a6a')}
 
         <div style="background: #1E3A5F; border-radius: 12px; padding: 16px 20px; margin: 24px 0; border-left: 4px solid #25D366;">
           <p style="color: #FFFFFF; font-size: 14px; font-weight: bold; margin: 0 0 8px;">👥 ¿Compraste para más personas?</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 12px; line-height: 1.6;">Escribinos por WhatsApp con el nombre y email de cada participante y los registramos a la brevedad.</p>
-          <a href="https://wa.me/61474024238" style="display: inline-block; background: #25D366; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 10px 20px; border-radius: 10px; text-decoration: none;">💬 Escribirnos por WhatsApp →</a>
+          <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 12px; line-height: 1.6;">Escribinos por WhatsApp con el nombre y email de cada participante y los activamos a la brevedad.</p>
+          <a href="https://wa.me/61474024238" style="display: inline-block; background: #25D366; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 10px 20px; border-radius: 10px; text-decoration: none;">💬 WhatsApp →</a>
         </div>
 
-        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6; margin-top: 16px;">¿Tenés alguna duda? Escribinos por Instagram <a href="https://instagram.com/korva.aventuras" style="color: #1E6FD9;">@korva.aventuras</a>, al email <a href="mailto:korvaventura@gmail.com" style="color: #1E6FD9;">korvaventura@gmail.com</a> o por WhatsApp al <strong style="color: #FFFFFF;">+61474024238</strong> — estamos para ayudarte.</p>
+        <p style="color: #4a6a8a; font-size: 13px; line-height: 1.6; margin-top: 16px; text-align: center;">¿Dudas? WhatsApp <a href="https://wa.me/61474024238" style="color: #1E6FD9;">+61474024238</a> · <a href="https://instagram.com/korva.aventuras" style="color: #1E6FD9;">@korva.aventuras</a></p>
         <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 16px;">El equipo Korva 🏅</p>
       `),
       attachments: [
