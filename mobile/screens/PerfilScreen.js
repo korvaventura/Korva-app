@@ -1028,13 +1028,42 @@ export default function PerfilScreen() {
           </TouchableOpacity>
         ) : (
           misGrupos.map((g, i) => (
-            <View key={i} style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#1E3A5F' }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>{g.nombre}</Text>
-                <Text style={{ color: '#4a6a8a', fontSize: 12, marginTop: 2 }}>Código: <Text style={{ color: '#FC4C02', fontWeight: 'bold', letterSpacing: 2 }}>{g.codigo}</Text></Text>
+            <View key={i} style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#1E3A5F' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>{g.nombre}</Text>
+                  <Text style={{ color: '#4a6a8a', fontSize: 12, marginTop: 2 }}>Código: <Text style={{ color: '#FC4C02', fontWeight: 'bold', letterSpacing: 2 }}>{g.codigo}</Text></Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => Linking.openURL(`https://wa.me/?text=Unite a mi grupo en Korva Aventuras con el código: *${g.codigo}* 🏅 Descargá la app en korva.run`)}
+                  style={{ backgroundColor: '#25D366', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginLeft: 8 }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' }}>💬 Compartir</Text>
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity onPress={() => { setCodigoGrupo(g.codigo); }}>
-                <Text style={{ color: '#1E6FD9', fontSize: 12 }}>Ver →</Text>
+              <TouchableOpacity
+                style={{ marginTop: 10, alignItems: 'center' }}
+                onPress={() => Alert.alert(
+                  'Salir del grupo',
+                  `¿Estás seguro que querés salir de "${g.nombre}"?`,
+                  [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'Salir', style: 'destructive', onPress: async () => {
+                      try {
+                        await fetch(`${BACKEND_URL}/grupos/salir`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ user_id: userId, group_id: g.id }),
+                        });
+                        setMisGrupos(prev => prev.filter(gr => gr.id !== g.id));
+                      } catch (e) {
+                        Alert.alert('Error', 'No se pudo salir del grupo.');
+                      }
+                    }}
+                  ]
+                )}
+              >
+                <Text style={{ color: '#4a6a8a', fontSize: 11 }}>Salir del grupo</Text>
               </TouchableOpacity>
             </View>
           ))

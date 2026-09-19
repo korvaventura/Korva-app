@@ -468,7 +468,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
         // Push notification al completar
         const { data: usuarioPush } = await supabase
           .from('users')
-          .select('push_token')
+          .select('push_token, name')
           .eq('id', user_id)
           .maybeSingle();
         if (usuarioPush?.push_token) {
@@ -477,6 +477,36 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
             '🏅 ¡Lo lograste!',
             `¡Lo lograste! 🎉 Completaste ${reto.challenges?.title}. Nuestro equipo procesará tu pedido en los próximos días hábiles.`
           );
+        }
+
+        // Notificar a los miembros de los grupos sociales del usuario
+        try {
+          const { data: memberships } = await supabase
+            .from('social_group_members')
+            .select('social_groups(id)')
+            .eq('user_id', user_id);
+
+          for (const m of (memberships || [])) {
+            const groupId = m.social_groups?.id;
+            if (!groupId) continue;
+            const { data: otrosMembers } = await supabase
+              .from('social_group_members')
+              .select('users(push_token)')
+              .eq('group_id', groupId)
+              .neq('user_id', user_id);
+
+            for (const om of (otrosMembers || [])) {
+              if (om.users?.push_token) {
+                await enviarPushNotification(
+                  om.users.push_token,
+                  '🏅 ¡Alguien de tu grupo completó!',
+                  `${usuarioPush?.name || 'Un compañero'} terminó ${reto.challenges?.title}. ¡Seguí vos también! 💪`
+                );
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Error notificando grupo:', e.message);
         }
       }
 
@@ -2352,6 +2382,12 @@ app.post('/grupos/unirse', async (req, res) => {
       .from('social_group_members').select('id')
       .eq('group_id', grupo.id).eq('user_id', user_id).single();
     if (yaEsMiembro) return res.json({ grupo, mensaje: 'Ya sos miembro de este grupo' });
+    // Verificar límite de miembros
+    const { count } = await supabase
+      .from('social_group_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('group_id', grupo.id);
+    if (count >= 50) return res.status(400).json({ error: 'El grupo está lleno (máximo 50 miembros).' });
     await supabase.from('social_group_members').insert({ group_id: grupo.id, user_id });
     res.json({ grupo, mensaje: 'Te uniste al grupo' });
   } catch (e) {
@@ -2398,12 +2434,22 @@ app.get('/grupos/ranking/:groupId/:challengeId', async (req, res) => {
       .select('user_id, km_completed, status, challenges(total_distance_km)')
       .eq('challenge_id', challengeId)
       .in('user_id', userIds);
+
+    // Última actividad de cada miembro
+    const { data: ultimasActs } = await supabase
+      .from('activities')
+      .select('user_id, recorded_at')
+      .in('user_id', userIds)
+      .eq('excluida', false)
+      .order('recorded_at', { ascending: false });
+
     const ranking = members.map(m => {
       const user = m.users;
       const desafio = desafios?.find(d => d.user_id === user?.id);
       const kmTotal = desafio?.challenges?.total_distance_km || 100;
       const km = parseFloat(desafio?.km_completed || 0);
       const pct = Math.min((km / kmTotal) * 100, 100).toFixed(1);
+      const ultimaAct = ultimasActs?.find(a => a.user_id === user?.id);
       return {
         user_id: user?.id,
         nombre: user?.name,
@@ -2411,6 +2457,7 @@ app.get('/grupos/ranking/:groupId/:challengeId', async (req, res) => {
         km_completados: km.toFixed(2),
         porcentaje: pct,
         status: desafio?.status || 'sin_desafio',
+        ultima_actividad: ultimaAct?.recorded_at || null,
       };
     }).sort((a, b) => parseFloat(b.porcentaje) - parseFloat(a.porcentaje));
     res.json(ranking);

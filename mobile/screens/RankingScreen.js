@@ -517,7 +517,13 @@ export default function RankingScreen({ navigation }) {
                 <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 18, width: 32 }}>#{i + 1}</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>{item.nombre}{item.user_id === miUserId ? ' (vos)' : ''}</Text>
-                  <Text style={{ color: '#4a6a8a', fontSize: 12 }}>{item.km_completados} km</Text>
+                  <Text style={{ color: '#4a6a8a', fontSize: 12 }}>
+                    {item.km_completados} km
+                    {item.ultima_actividad ? ` · activo ${(() => {
+                      const dias = Math.floor((new Date() - new Date(item.ultima_actividad)) / 86400000);
+                      return dias === 0 ? 'hoy' : dias === 1 ? 'ayer' : `hace ${dias} días`;
+                    })()}` : ''}
+                  </Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 16 }}>{item.porcentaje}%</Text>
