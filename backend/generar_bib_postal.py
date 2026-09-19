@@ -14,11 +14,19 @@ def reemplazar_en_pptx(pptx_bytes, reemplazos):
             if not shape.has_text_frame:
                 continue
             for paragraph in shape.text_frame.paragraphs:
-                for run in paragraph.runs:
-                    for key, value in reemplazos.items():
-                        placeholder = '{{' + key + '}}'
-                        if placeholder in run.text:
-                            run.text = run.text.replace(placeholder, str(value))
+                # Verificar si el párrafo completo contiene algún placeholder
+                texto_completo = ''.join(run.text for run in paragraph.runs)
+                for key, value in reemplazos.items():
+                    placeholder = '{{' + key + '}}'
+                    if placeholder in texto_completo:
+                        # El placeholder puede estar dividido en varios runs
+                        # Consolidar todo en el primer run y vaciar el resto
+                        nuevo_texto = texto_completo.replace(placeholder, str(value))
+                        if paragraph.runs:
+                            paragraph.runs[0].text = nuevo_texto
+                            for run in paragraph.runs[1:]:
+                                run.text = ''
+                        break
     output = io.BytesIO()
     prs.save(output)
     return output.getvalue()
