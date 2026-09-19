@@ -650,15 +650,20 @@ export default function PerfilScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalEmoji}>{modalCambioModalidad?.nuevaModalidad === 'run' ? '🏃' : '🚴'}</Text>
             <Text style={styles.modalTitulo}>
-              {modalCambioModalidad?.nuevaModalidad === 'run' ? 'Running' : 'Ciclismo'} — {modalCambioModalidad?.nuevaData?.distancia_km} km
+              {modalCambioModalidad?.nuevaData?.distancia_km} km
             </Text>
             <Text style={styles.modalSubtitulo}>{modalCambioModalidad?.inscripcion?.challenges?.title}</Text>
             <View style={styles.confirmInfoBox}>
               <Text style={styles.confirmInfoTexto}>
-                📏 La modalidad define tu meta personal — es un desafío contra vos mismo, no cambia tu medalla.
+                {(() => {
+                  const modalidades = modalCambioModalidad?.inscripcion?.challenges?.modalidades || [];
+                  const base = modalidades.find(m => m.tipo === 'run');
+                  const titulo = modalCambioModalidad?.inscripcion?.challenges?.title || '';
+                  return `🎯 Tu nueva meta será ${modalCambioModalidad?.nuevaData?.distancia_km} km — tu medalla sigue siendo la misma: ${base?.distancia_km || ''}km ${titulo}.`;
+                })()}
               </Text>
               <Text style={styles.confirmInfoTexto}>
-                🔄 Dentro de esta modalidad podés registrar cualquier actividad (correr, caminar, andar en bici) — todo suma hacia tus {modalCambioModalidad?.nuevaData?.distancia_km} km.
+                🏃 Cualquier actividad suma — correr, caminar, bici o nadar.
               </Text>
               {(() => {
                 const modalidades = modalCambioModalidad?.inscripcion?.challenges?.modalidades || [];
@@ -809,7 +814,7 @@ export default function PerfilScreen() {
                           disabled={cambiandoModalidad}
                         >
                           <Text style={[styles.modalidadBtnText, inscripcion.modalidad === m.tipo && styles.modalidadBtnTextActivo]}>
-                            {m.tipo === 'run' ? '🏃 Running' : '🚴 Ciclismo'}
+                            {m.distancia_km} km
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -959,7 +964,7 @@ export default function PerfilScreen() {
                 <View style={styles.actividadInfo}>
                   <Text style={styles.actividadFecha}>{formatearFechaCorta(act.recorded_at)}</Text>
                   <Text style={styles.actividadTipo}>
-                    {act.sport_type === 'run' ? 'Running' : act.sport_type === 'ride' ? 'Ciclismo' : act.sport_type}
+                    {act.sport_type || 'Actividad'}
                     {act.source === 'manual' ? ' · manual' : ' · Strava'}
                   </Text>
                 </View>

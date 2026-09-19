@@ -286,7 +286,7 @@ export default function CatalogoScreen() {
                 🎯 Tu meta: completar {modalConfirmModalidad?.distancia_km} km como quieras — corriendo, caminando, en bici o nadando.
               </Text>
               <Text style={styles.confirmInfoTexto}>
-                🏅 La medalla siempre dice <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>{challengeSeleccionado?.modalidades?.find(m => m.tipo === 'run')?.distancia_km || challengeSeleccionado?.total_distance_km} km</Text> — es la misma para todos sin importar la distancia que elijas.
+                🏅 Tu medalla siempre dice <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>{challengeSeleccionado?.modalidades?.find(m => m.tipo === 'run')?.distancia_km || challengeSeleccionado?.total_distance_km} km — {challengeSeleccionado?.title}</Text>. Es la misma para todos sin importar la distancia que elijas.
               </Text>
               <Text style={styles.confirmInfoTexto}>
                 📦 Cuando termines, ingresá tu dirección en el Perfil y procesamos el envío automáticamente.
