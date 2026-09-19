@@ -5,14 +5,14 @@ const getResend = () => new Resend(process.env.RESEND_API_KEY);
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
 const header = `
-  <div style="background: #0D1B2A; padding: 32px 40px 24px; border-bottom: 3px solid #FC4C02;">
+  <div style="background: #FC4C02; padding: 24px 40px; border-bottom: 3px solid #e03d00;">
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td>
-          <span style="font-size: 32px; font-weight: 900; color: #FFFFFF; letter-spacing: 4px;">🏅 KORVA</span>
+          <span style="font-size: 26px; font-weight: 900; color: #FFFFFF; letter-spacing: 4px;">🏅 KORVA</span>
         </td>
         <td align="right">
-          <span style="font-size: 12px; color: #4a6a8a; letter-spacing: 2px;">AVENTURAS</span>
+          <span style="font-size: 11px; color: rgba(255,255,255,0.8); letter-spacing: 3px;">AVENTURAS</span>
         </td>
       </tr>
     </table>
@@ -20,13 +20,11 @@ const header = `
 `;
 
 const footer = `
-  <div style="background: #060d14; padding: 28px 40px; text-align: center;">
-    <p style="color: #4a6a8a; font-size: 13px; margin: 0 0 8px;">Korva Aventuras · korva.run</p>
-    <p style="color: #4a6a8a; font-size: 12px; margin: 0;">Desafíos virtuales. Medallas reales.</p>
-    <div style="margin-top: 16px;">
-      <a href="mailto:korvaventura@gmail.com" style="color: #1E6FD9; font-size: 12px; text-decoration: none;">korvaventura@gmail.com</a>
-    </div>
-    <p style="color: #4a6a8a; font-size: 11px; margin: 16px 0 0;">© ${new Date().getFullYear()} Korva Adventures LLC. Todos los derechos reservados.</p>
+  <div style="background: #F5F7FA; padding: 28px 40px; text-align: center; border-top: 1px solid #E5E7EB;">
+    <p style="color: #6B7280; font-size: 13px; margin: 0 0 4px;">Korva Aventuras · <a href="https://korva.run" style="color: #FC4C02; text-decoration: none;">korva.run</a></p>
+    <p style="color: #9CA3AF; font-size: 12px; margin: 0 0 12px;">Desafíos virtuales. Medallas reales.</p>
+    <a href="mailto:korvaventura@gmail.com" style="color: #6B7280; font-size: 12px; text-decoration: none;">korvaventura@gmail.com</a>
+    <p style="color: #9CA3AF; font-size: 11px; margin: 12px 0 0;">© ${new Date().getFullYear()} Korva Adventures LLC.</p>
   </div>
 `;
 
@@ -34,8 +32,8 @@ const wrapper = (contenido) => `
   <!DOCTYPE html>
   <html>
   <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-  <body style="margin: 0; padding: 0; background: #060d14; font-family: Arial, sans-serif;">
-    <div style="max-width: 600px; margin: 20px auto; background: #0D1B2A; border-radius: 16px; overflow: hidden;">
+  <body style="margin: 0; padding: 0; background: #F3F4F6; font-family: Arial, sans-serif;">
+    <div style="max-width: 600px; margin: 20px auto; background: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
       ${header}
       <div style="padding: 40px;">
         ${contenido}
@@ -47,11 +45,11 @@ const wrapper = (contenido) => `
 `;
 
 const badge = (texto, color = '#FC4C02') => `
-  <span style="background: ${color}; color: #FFFFFF; font-size: 11px; font-weight: bold; padding: 4px 12px; border-radius: 20px; letter-spacing: 1px;">${texto}</span>
+  <span style="background: ${color}; color: #FFFFFF; font-size: 11px; font-weight: bold; padding: 4px 12px; border-radius: 20px; letter-spacing: 1px; display: inline-block; margin-bottom: 4px;">${texto}</span>
 `;
 
-const card = (contenido, borderColor = '#1E3A5F') => `
-  <div style="background: #1E3A5F; border-radius: 14px; padding: 24px; margin: 24px 0; border-left: 4px solid ${borderColor};">
+const card = (contenido, borderColor = '#FC4C02') => `
+  <div style="background: #F8F9FA; border-radius: 14px; padding: 24px; margin: 24px 0; border-left: 4px solid ${borderColor};">
     ${contenido}
   </div>
 `;
@@ -64,19 +62,19 @@ const enviarEmailInscripcion = async (email, nombre, challenge, modalidad) => {
       subject: `🏅 Inscripción confirmada — ${challenge}`,
       html: wrapper(`
         ${badge('INSCRIPCIÓN CONFIRMADA')}
-        <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
-        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tu inscripción al reto <strong style="color: #FFFFFF;">${challenge}</strong> fue confirmada.</p>
+        <h2 style="color: #0D1B2A; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
+        <p style="color: #4B5563; font-size: 15px; line-height: 1.6;">Tu inscripción al reto <strong style="color: #FFFFFF;">${challenge}</strong> fue confirmada.</p>
 
         ${card(`
           <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">TUS PRÓXIMOS PASOS</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">1️⃣ &nbsp; Descargá la app Korva</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">2️⃣ &nbsp; Registrá tus km desde la pestaña "Registrar"</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">3️⃣ &nbsp; Cargá tu dirección en el Perfil antes de terminar</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 8px 0;">4️⃣ &nbsp; Al llegar al 100%, procesamos el envío de tu medalla 📦</p>
-          <p style="color: #4a6a8a; font-size: 12px; margin: 12px 0 0;">También podés conectar Strava desde el Perfil para sincronización automática.</p>
+          <p style="color: #4B5563; font-size: 14px; margin: 8px 0;">1️⃣ &nbsp; Descargá la app Korva</p>
+          <p style="color: #4B5563; font-size: 14px; margin: 8px 0;">2️⃣ &nbsp; Registrá tus km desde la pestaña "Registrar"</p>
+          <p style="color: #4B5563; font-size: 14px; margin: 8px 0;">3️⃣ &nbsp; Cargá tu dirección en el Perfil antes de terminar</p>
+          <p style="color: #4B5563; font-size: 14px; margin: 8px 0;">4️⃣ &nbsp; Al llegar al 100%, procesamos el envío de tu medalla 📦</p>
+          <p style="color: #6B7280; font-size: 12px; margin: 12px 0 0;">También podés conectar Strava desde el Perfil para sincronización automática.</p>
         `, '#1E6FD9')}
 
-        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6;">Cada kilómetro cuenta. Cada salida te acerca a tu medalla. ¡A correr!</p>
+        <p style="color: #4B5563; font-size: 14px; line-height: 1.6;">Cada kilómetro cuenta. Cada salida te acerca a tu medalla. ¡A correr!</p>
         <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 24px;">El equipo Korva 🏅</p>
       `)
     });
@@ -96,12 +94,12 @@ const enviarEmailInvitacion = async (email, nombre, challenge, tokens) => {
       subject: `🎟️ Inscripción grupal confirmada — ${challenge}`,
       html: wrapper(`
         ${badge('🎟️ INSCRIPCIÓN GRUPAL')}
-        <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
+        <h2 style="color: #0D1B2A; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
         <p style="color: #A8CFFF; font-size: 15px; line-height: 1.7; margin-bottom: 8px;">Compraste <strong style="color: #FFFFFF;">${cantidadInvitados + 1} lugares</strong> en <strong style="color: #FC4C02;">${challenge}</strong>. Tu inscripción ya está activa 🎉</p>
 
         ${card(`
           <p style="color: #FC4C02; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 14px;">📋 PARA REGISTRAR A TUS COMPAÑEROS</p>
-          <p style="color: #A8CFFF; font-size: 14px; line-height: 1.7; margin: 0 0 16px;">
+          <p style="color: #4B5563; font-size: 14px; line-height: 1.7; margin: 0 0 16px;">
             Escribinos por WhatsApp con el <strong style="color: #FFFFFF;">nombre y email</strong> de cada participante y los activamos a la brevedad. También podés escribirnos ante cualquier duda.
           </p>
           <div style="margin: 8px 0;">
@@ -109,20 +107,20 @@ const enviarEmailInvitacion = async (email, nombre, challenge, tokens) => {
               💬 Escribirnos por WhatsApp →
             </a>
           </div>
-          <p style="color: #4a6a8a; font-size: 12px; margin: 12px 0 0;">+61474024238</p>
+          <p style="color: #6B7280; font-size: 12px; margin: 12px 0 0;">+61474024238</p>
         `, '#FC4C02')}
 
         ${card(`
           <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 14px;">CÓMO ACCEDER AL DESAFÍO</p>
 
           <p style="color: #FFFFFF; font-size: 14px; font-weight: bold; margin: 0 0 6px;">📱 ¿Tenés Android?</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 10px; line-height: 1.6;">Descargá la app, iniciá sesión con el email con el que te registraste y el desafío aparece automáticamente.</p>
+          <p style="color: #4B5563; font-size: 13px; margin: 0 0 10px; line-height: 1.6;">Descargá la app, iniciá sesión con el email con el que te registraste y el desafío aparece automáticamente.</p>
           <div style="margin: 8px 0 16px;">
             <a href="https://play.google.com/store/apps/details?id=com.korva.mobile" style="display: inline-block; background: #FC4C02; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none;">Descargar app Korva en Google Play →</a>
           </div>
 
           <p style="color: #FFFFFF; font-size: 14px; font-weight: bold; margin: 16px 0 6px;">🍎 ¿Tenés iPhone?</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 10px; line-height: 1.6;">Descargá la app desde el App Store, iniciá sesión con tu email y el desafío aparece automáticamente.</p>
+          <p style="color: #4B5563; font-size: 13px; margin: 0 0 10px; line-height: 1.6;">Descargá la app desde el App Store, iniciá sesión con tu email y el desafío aparece automáticamente.</p>
           <div style="margin: 8px 0 16px;">
             <a href="https://apps.apple.com/app/korva-aventuras/id6795443954" style="display: inline-block; background: #1E3A5F; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 12px 24px; border-radius: 10px; text-decoration: none; border: 1px solid #1E6FD9;">Descargar app Korva en App Store →</a>
           </div>
@@ -152,14 +150,14 @@ const enviarEmailCompletado = async (email, nombre, challenge, certificadoPdfBas
       if (tieneDir) {
         bloqueEnvio = card(`
           <p style="color: #FC4C02; font-size: 36px; text-align: center; margin: 0 0 12px;">🏅</p>
-          <p style="color: #FFFFFF; font-size: 18px; font-weight: bold; text-align: center; margin: 0 0 8px;">Tus datos están listos</p>
-          <p style="color: #A8CFFF; font-size: 14px; text-align: center; margin: 0; line-height: 1.6;">Cuando tu medalla sea despachada, te enviamos el número de seguimiento por email.</p>
+          <p style="color: #0D1B2A; font-size: 18px; font-weight: bold; text-align: center; margin: 0 0 8px;">Tus datos están listos</p>
+          <p style="color: #4B5563; font-size: 14px; text-align: center; margin: 0; line-height: 1.6;">Cuando tu medalla sea despachada, te enviamos el número de seguimiento por email.</p>
         `, '#FC4C02');
       } else {
         bloqueEnvio = card(`
           <p style="color: #FC4C02; font-size: 36px; text-align: center; margin: 0 0 12px;">📍</p>
-          <p style="color: #FFFFFF; font-size: 18px; font-weight: bold; text-align: center; margin: 0 0 8px;">Cargá tu dirección de envío</p>
-          <p style="color: #A8CFFF; font-size: 14px; text-align: center; margin: 0 0 16px; line-height: 1.6;">Para que podamos enviarte tu medalla, ingresá a la app y completá tu dirección en Perfil → Dirección de envío.</p>
+          <p style="color: #0D1B2A; font-size: 18px; font-weight: bold; text-align: center; margin: 0 0 8px;">Cargá tu dirección de envío</p>
+          <p style="color: #4B5563; font-size: 14px; text-align: center; margin: 0 0 16px; line-height: 1.6;">Para que podamos enviarte tu medalla, ingresá a la app y completá tu dirección en Perfil → Dirección de envío.</p>
           <a href="https://apps.apple.com/app/korva-aventuras/id6795443954" style="display: inline-block; background: #FC4C02; color: #FFFFFF; font-size: 13px; font-weight: bold; padding: 10px 20px; border-radius: 10px; text-decoration: none; margin: 4px;">Abrir app iOS →</a>
           <a href="https://play.google.com/store/apps/details?id=com.korva.mobile" style="display: inline-block; background: #1E3A5F; color: #FFFFFF; font-size: 13px; font-weight: bold; padding: 10px 20px; border-radius: 10px; text-decoration: none; margin: 4px; border: 1px solid #1E6FD9;">Abrir app Android →</a>
         `, '#FC4C02');
@@ -168,7 +166,7 @@ const enviarEmailCompletado = async (email, nombre, challenge, certificadoPdfBas
       // Comprador grupal
       const totalMedallas = miembros.length;
       const listaMiembros = miembros.map(m =>
-        `<p style="color: #A8CFFF; font-size: 13px; margin: 4px 0;">
+        `<p style="color: #4B5563; font-size: 13px; margin: 4px 0;">
           ${m.status === 'completed' || m.status === 'shipped' ? '✅' : '⏳'} ${m.nombre || 'Participante'}${m.esComprador ? ' <span style="color: #FC4C02;">(vos)</span>' : ''}
         </p>`
       ).join('');
@@ -176,15 +174,15 @@ const enviarEmailCompletado = async (email, nombre, challenge, certificadoPdfBas
       if (tieneDir) {
         bloqueEnvio = card(`
           <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">📦 PEDIDO GRUPAL — ${totalMedallas} MEDALLA${totalMedallas > 1 ? 'S' : ''}</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 0 0 14px; line-height: 1.6;">Las medallas del grupo se envían juntas a tu dirección cuando todos completen, o a las 2 semanas del primero en completar. Cuando el pedido sea despachado, te enviamos el número de seguimiento.</p>
-          <p style="color: #FFFFFF; font-size: 13px; font-weight: bold; margin: 0 0 8px;">Participantes:</p>
+          <p style="color: #4B5563; font-size: 14px; margin: 0 0 14px; line-height: 1.6;">Las medallas del grupo se envían juntas a tu dirección cuando todos completen, o a las 2 semanas del primero en completar. Cuando el pedido sea despachado, te enviamos el número de seguimiento.</p>
+          <p style="color: #0D1B2A; font-size: 13px; font-weight: bold; margin: 0 0 8px;">Participantes:</p>
           ${listaMiembros}
         `, '#1E6FD9');
       } else {
         bloqueEnvio = card(`
           <p style="color: #FC4C02; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">📍 CARGÁ TU DIRECCIÓN</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 0 0 14px; line-height: 1.6;">Tu pedido incluye ${totalMedallas} medalla${totalMedallas > 1 ? 's' : ''} que se envían juntas. Para despacharlas necesitamos tu dirección — ingresá a la app (Perfil → Dirección de envío).</p>
-          <p style="color: #FFFFFF; font-size: 13px; font-weight: bold; margin: 0 0 8px;">Participantes:</p>
+          <p style="color: #4B5563; font-size: 14px; margin: 0 0 14px; line-height: 1.6;">Tu pedido incluye ${totalMedallas} medalla${totalMedallas > 1 ? 's' : ''} que se envían juntas. Para despacharlas necesitamos tu dirección — ingresá a la app (Perfil → Dirección de envío).</p>
+          <p style="color: #0D1B2A; font-size: 13px; font-weight: bold; margin: 0 0 8px;">Participantes:</p>
           ${listaMiembros}
         `, '#FC4C02');
       }
@@ -192,8 +190,8 @@ const enviarEmailCompletado = async (email, nombre, challenge, certificadoPdfBas
       // Invitado grupal
       bloqueEnvio = card(`
         <p style="color: #FC4C02; font-size: 36px; text-align: center; margin: 0 0 12px;">🏅</p>
-        <p style="color: #FFFFFF; font-size: 18px; font-weight: bold; text-align: center; margin: 0 0 8px;">Tu medalla va con el grupo</p>
-        <p style="color: #A8CFFF; font-size: 14px; text-align: center; margin: 0; line-height: 1.6;">Las medallas del grupo se envían juntas a quien organizó la compra${nombreComprador ? ` (${nombreComprador})` : ''}. Cualquier consulta sobre el envío, coordiná con esa persona.</p>
+        <p style="color: #0D1B2A; font-size: 18px; font-weight: bold; text-align: center; margin: 0 0 8px;">Tu medalla va con el grupo</p>
+        <p style="color: #4B5563; font-size: 14px; text-align: center; margin: 0; line-height: 1.6;">Las medallas del grupo se envían juntas a quien organizó la compra${nombreComprador ? ` (${nombreComprador})` : ''}. Cualquier consulta sobre el envío, coordiná con esa persona.</p>
       `, '#FC4C02');
     }
 
@@ -203,8 +201,8 @@ const enviarEmailCompletado = async (email, nombre, challenge, certificadoPdfBas
       subject: `🎉 ¡Completaste ${challenge}! — Korva Aventuras`,
       html: wrapper(`
         ${badge('🎉 RETO COMPLETADO', '#1E6FD9')}
-        <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Lo lograste, ${nombre}!</h2>
-        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">${certificadoTexto}</p>
+        <h2 style="color: #0D1B2A; font-size: 26px; margin: 20px 0 8px;">¡Lo lograste, ${nombre}!</h2>
+        <p style="color: #4B5563; font-size: 15px; line-height: 1.6;">${certificadoTexto}</p>
         ${bloqueEnvio}
         <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 24px;">El equipo Korva 🏅</p>
       `),
@@ -225,7 +223,7 @@ const enviarEmailCompletado = async (email, nombre, challenge, certificadoPdfBas
 const enviarEmailAdminMedallaLista = async (nombre, email, challenge, tieneDir, esGrupo, miembros = []) => {
   try {
     const listaMiembrosHtml = esGrupo ? miembros.map(m =>
-      `<p style="color: #A8CFFF; font-size: 13px; margin: 4px 0;">
+      `<p style="color: #4B5563; font-size: 13px; margin: 4px 0;">
         ${m.status === 'completed' || m.status === 'shipped' ? '✅' : '⏳'}
         ${m.nombre || '?'} — ${m.email || ''}${m.esComprador ? ' 👑' : ''}
       </p>`
@@ -237,13 +235,13 @@ const enviarEmailAdminMedallaLista = async (nombre, email, challenge, tieneDir, 
       subject: `🏅 Medalla lista para despachar — ${nombre}`,
       html: wrapper(`
         ${badge('🏅 MEDALLA LISTA PARA DESPACHAR', '#4CAF50')}
-        <h2 style="color: #FFFFFF; font-size: 22px; margin: 20px 0 8px;">Nueva medalla para enviar</h2>
+        <h2 style="color: #0D1B2A; font-size: 22px; margin: 20px 0 8px;">Nueva medalla para enviar</h2>
 
         ${card(`
           <p style="color: #4CAF50; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">DATOS DEL PEDIDO</p>
-          <p style="color: #FFFFFF; font-size: 15px; font-weight: bold; margin: 0 0 4px;">${nombre}</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 4px;">${email}</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 12px;">🏔️ ${challenge}</p>
+          <p style="color: #0D1B2A; font-size: 15px; font-weight: bold; margin: 0 0 4px;">${nombre}</p>
+          <p style="color: #4B5563; font-size: 13px; margin: 0 0 4px;">${email}</p>
+          <p style="color: #4B5563; font-size: 13px; margin: 0 0 12px;">🏔️ ${challenge}</p>
           <p style="color: #4a6a8a; font-size: 11px; margin: 0;">* El nombre de envío puede ser diferente — verificar en Supabase.</p>
           <p style="color: ${tieneDir ? '#4CAF50' : '#FC4C02'}; font-size: 13px; font-weight: bold; margin: 0;">
             ${tieneDir ? '✅ Tiene dirección cargada' : '⚠️ SIN dirección — no despachar todavía'}
@@ -272,16 +270,16 @@ const enviarEmailMedallaEnCamino = async (email, nombre, challenge, tracking) =>
       subject: `📦 Tu medalla está en camino — ${challenge}`,
       html: wrapper(`
         ${badge('📦 MEDALLA EN CAMINO', '#4CAF50')}
-        <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Tu medalla está en camino, ${nombre}!</h2>
-        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tu medalla del reto <strong style="color: #FFFFFF;">${challenge}</strong> ya fue despachada y está en camino a tu puerta.</p>
+        <h2 style="color: #0D1B2A; font-size: 26px; margin: 20px 0 8px;">¡Tu medalla está en camino, ${nombre}!</h2>
+        <p style="color: #4B5563; font-size: 15px; line-height: 1.6;">Tu medalla del reto <strong style="color: #FFFFFF;">${challenge}</strong> ya fue despachada y está en camino a tu puerta.</p>
 
         ${card(`
           <p style="color: #4CAF50; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 8px;">NÚMERO DE SEGUIMIENTO</p>
           <p style="color: #FFFFFF; font-size: 28px; font-weight: bold; margin: 0; letter-spacing: 2px;">${tracking || 'En preparación'}</p>
         `, '#4CAF50')}
 
-        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6;">Los tiempos de entrega pueden variar según tu ubicación. Si tenés alguna consulta sobre el envío, escribinos a <a href="mailto:korvaventura@gmail.com" style="color: #1E6FD9;">korvaventura@gmail.com</a></p>
-        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6;">¡Mereces cada gramo de esa medalla!</p>
+        <p style="color: #4B5563; font-size: 14px; line-height: 1.6;">Los tiempos de entrega pueden variar según tu ubicación. Si tenés alguna consulta sobre el envío, escribinos a <a href="mailto:korvaventura@gmail.com" style="color: #1E6FD9;">korvaventura@gmail.com</a></p>
+        <p style="color: #4B5563; font-size: 14px; line-height: 1.6;">¡Mereces cada gramo de esa medalla!</p>
         <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 24px;">El equipo Korva 🏅</p>
       `)
     });
@@ -299,7 +297,7 @@ const enviarEmailAdmin = async (asunto, mensaje) => {
       subject: `⚠️ Korva Admin — ${asunto}`,
       html: wrapper(`
         ${badge('⚠️ ALERTA ADMIN', '#FC4C02')}
-        <h2 style="color: #FFFFFF; font-size: 22px; margin: 20px 0 8px;">${asunto}</h2>
+        <h2 style="color: #0D1B2A; font-size: 22px; margin: 20px 0 8px;">${asunto}</h2>
 
         ${card(`
           <pre style="color: #A8CFFF; white-space: pre-wrap; font-family: monospace; font-size: 13px; margin: 0;">${mensaje}</pre>
@@ -322,18 +320,18 @@ const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad,
       subject: `🏅 Inscripción confirmada — ${challenge}`,
       html: wrapper(`
         ${badge('INSCRIPCIÓN CONFIRMADA')}
-        <h2 style="color: #FFFFFF; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
-        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tu inscripción al desafío <strong style="color: #FFFFFF;">${challenge}</strong> fue confirmada. Encontrás tu dorsal y postal adjuntos a este mail.</p>
+        <h2 style="color: #0D1B2A; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
+        <p style="color: #4B5563; font-size: 15px; line-height: 1.6;">Tu inscripción al desafío <strong style="color: #FFFFFF;">${challenge}</strong> fue confirmada. Encontrás tu dorsal y postal adjuntos a este mail.</p>
 
         ${card(`
           <p style="color: #FC4C02; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">TU NÚMERO DE DORSAL</p>
           <p style="color: #FFFFFF; font-size: 48px; font-weight: bold; margin: 0 0 8px; letter-spacing: 4px;">#${bibNumber}</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 0;">Tu dorsal y postal personalizados están adjuntos a este mail en formato PDF.</p>
+          <p style="color: #4B5563; font-size: 13px; margin: 0;">Tu dorsal y postal personalizados están adjuntos a este mail en formato PDF.</p>
         `, '#FC4C02')}
 
         ${card(`
           <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 16px;">CÓMO EMPEZAR</p>
-          <p style="color: #A8CFFF; font-size: 14px; line-height: 1.8; margin: 0 0 16px;">
+          <p style="color: #4B5563; font-size: 14px; line-height: 1.8; margin: 0 0 16px;">
             1️⃣ &nbsp;Descargá la app Korva<br>
             2️⃣ &nbsp;Tocá <strong style="color: #FFFFFF;">Registrarse</strong> e ingresá <strong style="color: #FFFFFF;">este email: ${email}</strong> con una contraseña a tu elección<br>
             3️⃣ &nbsp;El desafío aparece automáticamente<br>
@@ -345,9 +343,9 @@ const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad,
           </div>
         `, '#1E6FD9')}
 
-        <div style="background: #1E3A5F; border-radius: 12px; padding: 16px 20px; margin: 24px 0; border-left: 4px solid #25D366;">
-          <p style="color: #FFFFFF; font-size: 14px; font-weight: bold; margin: 0 0 8px;">👥 ¿Compraste para más personas?</p>
-          <p style="color: #A8CFFF; font-size: 13px; margin: 0 0 12px; line-height: 1.6;">Escribinos por WhatsApp con el nombre y email de cada participante y los activamos a la brevedad.</p>
+        <div style="background: #F0FFF4; border-radius: 12px; padding: 16px 20px; margin: 24px 0; border-left: 4px solid #25D366;">
+          <p style="color: #0D1B2A; font-size: 14px; font-weight: bold; margin: 0 0 8px;">👥 ¿Compraste para más personas?</p>
+          <p style="color: #4B5563; font-size: 13px; margin: 0 0 12px; line-height: 1.6;">Escribinos por WhatsApp con el nombre y email de cada participante y los activamos a la brevedad.</p>
           <a href="https://wa.me/61474024238" style="display: inline-block; background: #25D366; color: #FFFFFF; font-size: 14px; font-weight: bold; padding: 10px 20px; border-radius: 10px; text-decoration: none;">💬 WhatsApp →</a>
         </div>
 
@@ -381,14 +379,14 @@ const enviarEmailCargado = async (email, nombre, challenge, mensajeExtra = '') =
       subject: `📦 Tus datos fueron registrados — ${challenge}`,
       html: wrapper(`
         ${badge('📦 DATOS REGISTRADOS', '#1E6FD9')}
-        <h2 style="color: #FFFFFF; font-size: 24px; margin: 20px 0 8px;">¡Hola, ${nombre}!</h2>
-        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tus datos para el envío de la medalla de <strong style="color: #FFFFFF;">${challenge}</strong> fueron registrados en nuestro sistema.</p>
+        <h2 style="color: #0D1B2A; font-size: 24px; margin: 20px 0 8px;">¡Hola, ${nombre}!</h2>
+        <p style="color: #4B5563; font-size: 15px; line-height: 1.6;">Tus datos para el envío de la medalla de <strong style="color: #FFFFFF;">${challenge}</strong> fueron registrados en nuestro sistema.</p>
 
         ${card(`
           <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">¿QUÉ PASA AHORA?</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 6px 0;">✅ &nbsp;Tus datos están confirmados</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 6px 0;">📬 &nbsp;Cuando tu medalla sea despachada, te enviamos el número de seguimiento por email</p>
-          <p style="color: #A8CFFF; font-size: 14px; margin: 6px 0;">🌍 &nbsp;Los tiempos de entrega varían según el destino — <a href="https://korva.run/pages/envios" style="color: #1E6FD9;">consultá los tiempos estimados acá</a></p>
+          <p style="color: #4B5563; font-size: 14px; margin: 6px 0;">✅ &nbsp;Tus datos están confirmados</p>
+          <p style="color: #4B5563; font-size: 14px; margin: 6px 0;">📬 &nbsp;Cuando tu medalla sea despachada, te enviamos el número de seguimiento por email</p>
+          <p style="color: #4B5563; font-size: 14px; margin: 6px 0;">🌍 &nbsp;Los tiempos de entrega varían según el destino — <a href="https://korva.run/pages/envios" style="color: #1E6FD9;">consultá los tiempos estimados acá</a></p>
         `, '#1E6FD9')}
 
         ${mensajeExtra}
