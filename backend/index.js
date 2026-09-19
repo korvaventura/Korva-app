@@ -1125,6 +1125,40 @@ app.post('/admin/marcar-cargado', async (req, res) => {
       }
     }
 
+    // Mandar email de confirmación al usuario
+    try {
+      const { data: usuario } = await supabase.from('users').select('email, name').eq('id', uc.user_id).single();
+      const tituloChallenge = uc.challenges?.title || 'tu desafío';
+
+      // Ver si tiene otros desafíos activos o completados en el mismo grupo
+      const { data: otrosRetos } = await supabase
+        .from('user_challenges')
+        .select('status, km_completed, challenges(title, total_distance_km)')
+        .eq('user_id', uc.user_id)
+        .neq('id', user_challenge_id)
+        .in('status', ['active', 'completed', 'cargado']);
+
+      const otrosActivos = (otrosRetos || []).filter(r => r.status === 'active');
+      const otrosCompletados = (otrosRetos || []).filter(r => ['completed', 'cargado'].includes(r.status));
+
+      let mensajeExtra = '';
+      if (otrosActivos.length > 0) {
+        const nombres = otrosActivos.map(r => r.challenges?.title).filter(Boolean).join(' y ');
+        mensajeExtra = `<p style="color: #A8CFFF; font-size: 14px; line-height: 1.6; margin-top: 16px;">Vemos que también tenés <strong style="color: #FFFFFF;">${nombres}</strong> en curso. ¡Seguí sumando — cuando esos estén listos, probablemente los despachemos juntos para ahorrarte tiempo de espera!</p>`;
+      }
+      if (otrosCompletados.length > 0) {
+        const nombres = otrosCompletados.map(r => r.challenges?.title).filter(Boolean).join(' y ');
+        mensajeExtra = `<p style="color: #A8CFFF; font-size: 14px; line-height: 1.6; margin-top: 16px;">Como también completaste <strong style="color: #FFFFFF;">${nombres}</strong>, es probable que despachemos tus medallas juntas.</p>`;
+      }
+
+      if (usuario) {
+        const { enviarEmailCargado } = require('./routes/emails');
+        await enviarEmailCargado(usuario.email, usuario.name, tituloChallenge, mensajeExtra);
+      }
+    } catch (e) {
+      console.error('Error enviando email cargado:', e.message);
+    }
+
     res.json({ mensaje: 'Marcado como cargado' });
   } catch (error) {
     res.json({ error: 'Error', detalle: error.message });
