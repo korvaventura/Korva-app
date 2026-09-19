@@ -12,6 +12,8 @@ const PLANTILLAS = {
 const DEFAULT_PLANTILLAS = { dorsal: 'Dorsales.pptx', postal: 'Postales.pptx' };
 
 const generarBibYPostal = async (supabase, nombre, bibNumber, challengeId) => {
+  // Formatear número de bib con padding a 4 dígitos
+  bibNumber = String(bibNumber).padStart(4, '0');
   try {
     const plantillas = PLANTILLAS[challengeId] || DEFAULT_PLANTILLAS;
     console.log('Descargando plantillas:', plantillas);
