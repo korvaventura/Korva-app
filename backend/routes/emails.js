@@ -332,11 +332,10 @@ const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad,
         <div style="background: #0D1B2A; border-radius: 14px; padding: 24px; margin: 24px 0; border-left: 4px solid #FC4C02;">
           <p style="color: #FC4C02; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 16px;">CÓMO EMPEZAR</p>
           <p style="color: #FFFFFF; font-size: 14px; line-height: 2; margin: 0 0 8px;">
-            1️⃣ &nbsp;Descargá la app Korva<br>
-            2️⃣ &nbsp;Tocá <strong style="color: #FC4C02; background: rgba(252,76,2,0.15); padding: 2px 6px; border-radius: 4px;">REGISTRARSE</strong> — no iniciar sesión<br>
-            3️⃣ &nbsp;Ingresá <strong style="color: #FC4C02;">${email}</strong> y creá una contraseña nueva a tu elección<br>
-            4️⃣ &nbsp;El desafío ya debería estar activo — si no aparece, cerrá sesión y volvé a entrar<br>
-            5️⃣ &nbsp;Empezá a registrar tus km — correr, caminar, bici o nadar, todo suma
+            1️⃣ &nbsp;Descargá la app Korva (o abrila si ya la tenés)<br>
+            2️⃣ &nbsp;<strong style="color: #FC4C02;">Primera vez:</strong> tocá <strong style="color: #FC4C02;">Registrarse</strong> con <strong style="color: #FC4C02;">${email}</strong> y creá una contraseña nueva · <strong style="color: #FC4C02;">Ya tenés cuenta:</strong> iniciá sesión normalmente<br>
+            3️⃣ &nbsp;El desafío ya debería estar activo en la pantalla principal<br>
+            4️⃣ &nbsp;Empezá a registrar tus km — correr, caminar, bici o nadar, todo suma
           </p>
           <div style="margin-top: 16px;">
             <a href="https://apps.apple.com/app/korva-aventuras/id6795443954" style="display: inline-block; background: #1E3A5F; color: #FFFFFF; font-size: 13px; font-weight: bold; padding: 12px 20px; border-radius: 10px; text-decoration: none; border: 1px solid #4a6a8a; margin: 4px;">🍎 App Store</a>
