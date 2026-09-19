@@ -323,25 +323,26 @@ const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad,
         <h2 style="color: #0D1B2A; font-size: 26px; margin: 20px 0 8px;">¡Hola, ${nombre}! 👋</h2>
         <p style="color: #4B5563; font-size: 15px; line-height: 1.6;">Tu inscripción al desafío <strong style="color: #FFFFFF;">${challenge}</strong> fue confirmada. Encontrás tu dorsal y postal adjuntos a este mail.</p>
 
-        ${card(`
-          <p style="color: #FC4C02; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">TU NÚMERO DE DORSAL</p>
-          <p style="color: #FFFFFF; font-size: 48px; font-weight: bold; margin: 0 0 8px; letter-spacing: 4px;">#${bibNumber}</p>
-          <p style="color: #4B5563; font-size: 13px; margin: 0;">Tu dorsal y postal personalizados están adjuntos a este mail en formato PDF.</p>
-        `, '#FC4C02')}
+        <div style="background: #FC4C02; border-radius: 14px; padding: 24px; margin: 24px 0; text-align: center;">
+          <p style="color: rgba(255,255,255,0.85); font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 8px;">TU NÚMERO DE DORSAL</p>
+          <p style="color: #FFFFFF; font-size: 56px; font-weight: 900; margin: 0 0 8px; letter-spacing: 6px;">#${bibNumber}</p>
+          <p style="color: rgba(255,255,255,0.9); font-size: 13px; margin: 0;">Tu dorsal y postal personalizados están adjuntos a este mail en PDF.</p>
+        </div>
 
-        ${card(`
-          <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 16px;">CÓMO EMPEZAR</p>
-          <p style="color: #4B5563; font-size: 14px; line-height: 1.8; margin: 0 0 16px;">
+        <div style="background: #0D1B2A; border-radius: 14px; padding: 24px; margin: 24px 0; border-left: 4px solid #FC4C02;">
+          <p style="color: #FC4C02; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 16px;">CÓMO EMPEZAR</p>
+          <p style="color: #FFFFFF; font-size: 14px; line-height: 2; margin: 0 0 8px;">
             1️⃣ &nbsp;Descargá la app Korva<br>
-            2️⃣ &nbsp;Tocá <strong style="color: #FFFFFF;">Registrarse</strong> e ingresá <strong style="color: #FFFFFF;">este email: ${email}</strong> con una contraseña a tu elección<br>
-            3️⃣ &nbsp;El desafío aparece automáticamente<br>
-            4️⃣ &nbsp;Empezá a registrar tus km — correr, caminar, bici o nadar, todo suma
+            2️⃣ &nbsp;Tocá <strong style="color: #FC4C02; background: rgba(252,76,2,0.15); padding: 2px 6px; border-radius: 4px;">REGISTRARSE</strong> — no iniciar sesión<br>
+            3️⃣ &nbsp;Ingresá <strong style="color: #FC4C02;">${email}</strong> y creá una contraseña nueva a tu elección<br>
+            4️⃣ &nbsp;El desafío ya debería estar activo — si no aparece, cerrá sesión y volvé a entrar<br>
+            5️⃣ &nbsp;Empezá a registrar tus km — correr, caminar, bici o nadar, todo suma
           </p>
-          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-            <a href="https://apps.apple.com/app/korva-aventuras/id6795443954" style="display: inline-block; background: #1E3A5F; color: #FFFFFF; font-size: 13px; font-weight: bold; padding: 12px 20px; border-radius: 10px; text-decoration: none; border: 1px solid #1E6FD9; margin: 4px;">🍎 App Store</a>
+          <div style="margin-top: 16px;">
+            <a href="https://apps.apple.com/app/korva-aventuras/id6795443954" style="display: inline-block; background: #1E3A5F; color: #FFFFFF; font-size: 13px; font-weight: bold; padding: 12px 20px; border-radius: 10px; text-decoration: none; border: 1px solid #4a6a8a; margin: 4px;">🍎 App Store</a>
             <a href="https://play.google.com/store/apps/details?id=com.korva.mobile" style="display: inline-block; background: #FC4C02; color: #FFFFFF; font-size: 13px; font-weight: bold; padding: 12px 20px; border-radius: 10px; text-decoration: none; margin: 4px;">▶ Google Play</a>
           </div>
-        `, '#1E6FD9')}
+        </div>
 
         <div style="background: #F0FFF4; border-radius: 12px; padding: 16px 20px; margin: 24px 0; border-left: 4px solid #25D366;">
           <p style="color: #0D1B2A; font-size: 14px; font-weight: bold; margin: 0 0 8px;">👥 ¿Compraste para más personas?</p>
