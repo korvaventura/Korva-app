@@ -53,12 +53,17 @@ def main():
 
     dorsal_modificado = reemplazar_en_pptx(dorsal_bytes, {
         'bib_number': bib_number,
-        'nombre_atleta': nombre
+        'nombre_atleta': nombre,
+        'nombre': nombre,
+        'numero': bib_number,
     })
     dorsal_pdf = pptx_a_pdf_base64(dorsal_modificado, 'dorsal')
 
     postal_modificado = reemplazar_en_pptx(postal_bytes, {
-        'nombre_atleta': nombre
+        'nombre_atleta': nombre,
+        'nombre': nombre,
+        'numero': bib_number,
+        'bib_number': bib_number,
     })
     postal_pdf = pptx_a_pdf_base64(postal_modificado, 'postal')
 
