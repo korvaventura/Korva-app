@@ -391,4 +391,34 @@ const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad,
   }
 };
 
-module.exports = { enviarEmailInscripcion, enviarEmailInscripcionConBib, enviarEmailInvitacion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdmin, enviarEmailAdminMedallaLista };
+const enviarEmailCargado = async (email, nombre, challenge, mensajeExtra = '') => {
+  try {
+    await getResend().emails.send({
+      from: 'Korva Aventuras <noreply@korva.run>',
+      to: email,
+      subject: `📦 Tus datos fueron registrados — ${challenge}`,
+      html: wrapper(`
+        ${badge('📦 DATOS REGISTRADOS', '#1E6FD9')}
+        <h2 style="color: #FFFFFF; font-size: 24px; margin: 20px 0 8px;">¡Hola, ${nombre}!</h2>
+        <p style="color: #A8CFFF; font-size: 15px; line-height: 1.6;">Tus datos para el envío de la medalla de <strong style="color: #FFFFFF;">${challenge}</strong> fueron registrados en nuestro sistema.</p>
+
+        ${card(`
+          <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">¿QUÉ PASA AHORA?</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 6px 0;">✅ &nbsp;Tus datos están confirmados</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 6px 0;">📬 &nbsp;Cuando tu medalla sea despachada, te enviamos el número de seguimiento por email</p>
+          <p style="color: #A8CFFF; font-size: 14px; margin: 6px 0;">🌍 &nbsp;Los tiempos de entrega varían según el destino — <a href="https://korva.run/pages/envios" style="color: #1E6FD9;">consultá los tiempos estimados acá</a></p>
+        `, '#1E6FD9')}
+
+        ${mensajeExtra}
+
+        <p style="color: #A8CFFF; font-size: 14px; line-height: 1.6; margin-top: 16px;">¿Tenés alguna consulta o necesitás cambiar tu dirección? Escribinos por WhatsApp al <strong style="color: #FFFFFF;">+61474024238</strong>.</p>
+        <p style="color: #FC4C02; font-weight: bold; font-size: 15px; margin-top: 24px;">El equipo Korva 🏅</p>
+      `)
+    });
+    console.log('Email cargado enviado a:', email);
+  } catch (error) {
+    console.error('Error enviando email cargado:', error);
+  }
+};
+
+module.exports = { enviarEmailInscripcion, enviarEmailInscripcionConBib, enviarEmailInvitacion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdmin, enviarEmailAdminMedallaLista, enviarEmailCargado };
