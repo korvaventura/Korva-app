@@ -2352,6 +2352,13 @@ app.post('/grupos/crear', async (req, res) => {
   const { user_id, nombre } = req.body;
   if (!user_id || !nombre?.trim()) return res.status(400).json({ error: 'Faltan datos' });
   try {
+    // Límite de 3 grupos por usuario
+    const { count: gruposCount } = await supabase
+      .from('social_group_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user_id);
+    if (gruposCount >= 3) return res.status(400).json({ error: 'Podés estar en hasta 3 grupos. Salí de uno antes de crear otro.' });
+
     let codigo, existe = true;
     while (existe) {
       codigo = generarCodigo();
@@ -2382,6 +2389,13 @@ app.post('/grupos/unirse', async (req, res) => {
       .from('social_group_members').select('id')
       .eq('group_id', grupo.id).eq('user_id', user_id).single();
     if (yaEsMiembro) return res.json({ grupo, mensaje: 'Ya sos miembro de este grupo' });
+    // Límite de 3 grupos por usuario
+    const { count: misGruposCount } = await supabase
+      .from('social_group_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user_id);
+    if (misGruposCount >= 3) return res.status(400).json({ error: 'Podés estar en hasta 3 grupos. Salí de uno antes de unirte a otro.' });
+
     // Verificar límite de miembros
     const { count } = await supabase
       .from('social_group_members')
