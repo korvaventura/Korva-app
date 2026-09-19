@@ -335,7 +335,7 @@ const enviarEmailInscripcionConBib = async (email, nombre, challenge, modalidad,
           <p style="color: #1E6FD9; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 16px;">CÓMO EMPEZAR</p>
           <p style="color: #A8CFFF; font-size: 14px; line-height: 1.8; margin: 0 0 16px;">
             1️⃣ &nbsp;Descargá la app Korva<br>
-            2️⃣ &nbsp;Creá tu cuenta con <strong style="color: #FFFFFF;">este mismo email: ${email}</strong><br>
+            2️⃣ &nbsp;Tocá <strong style="color: #FFFFFF;">Registrarse</strong> e ingresá <strong style="color: #FFFFFF;">este email: ${email}</strong> con una contraseña a tu elección<br>
             3️⃣ &nbsp;El desafío aparece automáticamente<br>
             4️⃣ &nbsp;Empezá a registrar tus km — correr, caminar, bici o nadar, todo suma
           </p>
