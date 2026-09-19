@@ -232,26 +232,26 @@ export default function RankingScreen({ navigation }) {
         <Text style={styles.challengeTitulo}>{challenge.title}</Text>
 
         {mods.length > 1 && (
-          <View style={styles.selectorRow}>
-            {mods.map((m, i) => (
-              <TouchableOpacity
-                key={i}
-                style={[styles.selectorBtn, mod === m.tipo && styles.selectorBtnActivo]}
-                onPress={() => cambiarModalidad(challenge.id, m.tipo)}
-              >
-                <Ionicons
-                  name={m.tipo === 'run' ? 'walk-outline' : 'bicycle-outline'}
-                  size={16}
-                  color={mod === m.tipo ? '#FFFFFF' : '#4a6a8a'}
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={[styles.selectorText, mod === m.tipo && styles.selectorTextActivo]}>
-                  {m.distancia_km}km · {m.tipo === 'run' ? 'Estándar' : 'Extendida 🚴'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          {mods.length > 1 && (
+          <View>
+            <View style={styles.selectorRow}>
+              {mods.map((m, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={[styles.selectorBtn, mod === m.tipo && styles.selectorBtnActivo]}
+                  onPress={() => cambiarModalidad(challenge.id, m.tipo)}
+                >
+                  <Ionicons
+                    name={m.tipo === 'run' ? 'walk-outline' : 'bicycle-outline'}
+                    size={16}
+                    color={mod === m.tipo ? '#FFFFFF' : '#4a6a8a'}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={[styles.selectorText, mod === m.tipo && styles.selectorTextActivo]}>
+                    {m.distancia_km}km · {m.tipo === 'run' ? 'Estándar' : 'Extendida 🚴'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             <TouchableOpacity
               style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 6, marginBottom: 4 }}
               onPress={() => setModalInfoDistancia(true)}
@@ -259,7 +259,7 @@ export default function RankingScreen({ navigation }) {
               <Text style={{ color: '#4a6a8a', fontSize: 11 }}>¿Cuál elegir? </Text>
               <Text style={{ color: '#1E6FD9', fontSize: 13 }}>ℹ️</Text>
             </TouchableOpacity>
-          )}
+          </View>
         )}
 
         {!cargandoThis && lista.length > 0 && miPosicion === -1 && (
