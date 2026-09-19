@@ -73,6 +73,7 @@ export default function HomeScreen({ navigation }) {
   const [bannerDireccionVisible, setBannerDireccionVisible] = useState(false);
   const [actividadesLibres, setActividadesLibres] = useState([]);
   const [modoLibre, setModoLibre] = useState(false);
+  const [statsLibre, setStatsLibre] = useState(null);
   const [cargandoBib, setCargandoBib] = useState(false);
   const [modalAyudaVisible, setModalAyudaVisible] = useState(false);
   const [faqAbierta, setFaqAbierta] = useState(null);
@@ -398,7 +399,17 @@ export default function HomeScreen({ navigation }) {
     .filter(c => !c.pending && parseFloat(c.porcentaje || 0) < 100 && !['completed','shipped','cargado'].includes(c.status))
     .sort((a, b) => parseFloat(b.porcentaje || 0) - parseFloat(a.porcentaje || 0)); // Más cerca de completar primero
   const challengesCompletados = challenges.filter(c => !c.pending && (parseFloat(c.porcentaje || 0) >= 100 || ['completed','shipped','cargado'].includes(c.status)));
-  const challengesActivos = challenges.filter(c => !c.pending);
+  const challengesActivos = challenges.filter(c => !c.pending && !['completed','shipped','cargado'].includes(c.status));
+  const esModoLibre = challengesActivos.length === 0 && challengesPending.length === 0;
+  if (esModoLibre !== modoLibre) {
+    setModoLibre(esModoLibre);
+    if (esModoLibre && userId && !statsLibre) {
+      fetch(`${BACKEND_URL}/perfil/${userId}`)
+        .then(r => r.json())
+        .then(d => setStatsLibre(d?.stats || null))
+        .catch(() => {});
+    }
+  }
 
   const scrollRef = useRef(null);
 
@@ -816,27 +827,74 @@ export default function HomeScreen({ navigation }) {
       {/* Modo libre — sin reto activo */}
       {modoLibre && (
         <View style={{ margin: 20 }}>
-          <View style={styles.modolLibreBanner}>
-            <Text style={styles.modoLibreEmoji}>🏃</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.modoLibreTitulo}>Modo libre</Text>
-              <Text style={styles.modoLibreDesc}>Estás registrando actividades sin un desafío activo. Los km se guardan en tu historial pero no cuentan para ningún reto.</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Catalogo')}>
-                <Text style={styles.modoLibreBtn}>Inscribite en un desafío →</Text>
-              </TouchableOpacity>
-            </View>
+
+          {/* Header modo libre */}
+          <View style={{ backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20, marginBottom: 16 }}>
+            <Text style={{ color: '#A8CFFF', fontSize: 11, letterSpacing: 2, fontWeight: 'bold', marginBottom: 8 }}>MODO LIBRE</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 22, fontWeight: 'bold', marginBottom: 4 }}>
+              {nombre ? `¡Seguís en movimiento, ${nombre}!` : '¡Seguís en movimiento!'}
+            </Text>
+            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20 }}>
+              Tus km se acumulan en tu historial y siguen sumando hacia logros — aunque no tengas un desafío activo.
+            </Text>
           </View>
+
+          {/* Stats globales */}
+          {statsLibre && (
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+              <View style={{ flex: 1, backgroundColor: '#0D1B2A', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E3A5F' }}>
+                <Text style={{ color: '#FC4C02', fontSize: 26, fontWeight: 'bold' }}>{statsLibre.total_km || 0}</Text>
+                <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 4 }}>km totales</Text>
+              </View>
+              <View style={{ flex: 1, backgroundColor: '#0D1B2A', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E3A5F' }}>
+                <Text style={{ color: '#FC4C02', fontSize: 26, fontWeight: 'bold' }}>🔥 {statsLibre.racha_actual || 0}</Text>
+                <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 4 }}>racha semanal</Text>
+              </View>
+              <View style={{ flex: 1, backgroundColor: '#0D1B2A', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E3A5F' }}>
+                <Text style={{ color: '#FC4C02', fontSize: 26, fontWeight: 'bold' }}>{statsLibre.medallas || 0}</Text>
+                <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 4 }}>🏅 medallas</Text>
+              </View>
+            </View>
+          )}
+
+          {/* Próximo logro */}
+          {statsLibre?.proximo_logro && (
+            <View style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#1E3A5F' }}>
+              <Text style={{ fontSize: 24, marginRight: 12 }}>🎯</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' }}>{statsLibre.proximo_logro.nombre}</Text>
+                <Text style={{ color: '#4a6a8a', fontSize: 12 }}>Faltan {statsLibre.proximo_logro.falta} {statsLibre.proximo_logro.unidad}</Text>
+              </View>
+            </View>
+          )}
+
+          {/* Actividades recientes */}
           {actividadesLibres.length > 0 && (
-            <View style={{ marginTop: 16 }}>
+            <View style={{ marginBottom: 16 }}>
               <Text style={[styles.seccionTitulo, { marginBottom: 12 }]}>Actividades recientes</Text>
               {actividadesLibres.slice(0, 5).map((a, i) => (
                 <View key={i} style={styles.actividadLibreCard}>
-                  <Text style={{ color: '#A8CFFF', fontSize: 13 }}>{a.sport_type === 'run' ? '🏃' : '🚴'} {parseFloat(a.distance_km).toFixed(1)} km</Text>
+                  <Text style={{ color: '#A8CFFF', fontSize: 13 }}>
+                    {a.sport_type === 'run' ? '🏃' : a.sport_type === 'ride' ? '🚴' : a.sport_type === 'swim' ? '🏊' : a.sport_type === 'walk' ? '🚶' : '⚡'} {parseFloat(a.distance_km).toFixed(1)} km
+                  </Text>
                   <Text style={{ color: '#4a6a8a', fontSize: 12 }}>{new Date(a.recorded_at).toLocaleDateString('es-AR')}</Text>
                 </View>
               ))}
             </View>
           )}
+
+          {/* CTA suave hacia el catálogo */}
+          <TouchableOpacity
+            style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#FC4C02' }}
+            onPress={() => navigation.navigate('Catalogo')}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>¿Listo para tu próxima aventura?</Text>
+              <Text style={{ color: '#4a6a8a', fontSize: 12, marginTop: 4 }}>Explorá los desafíos disponibles</Text>
+            </View>
+            <Text style={{ color: '#FC4C02', fontSize: 20 }}>→</Text>
+          </TouchableOpacity>
+
         </View>
       )}
 
