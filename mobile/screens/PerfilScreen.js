@@ -1079,17 +1079,11 @@ export default function PerfilScreen() {
               Creá un grupo con amigos o compañeros y vean su progreso juntos en el Ranking 🏆
             </Text>
             <View style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 20 }}>
-              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>
-                1️⃣ Creás el grupo y le ponés un nombre{'
-'}
-                2️⃣ Te genera un código único de 6 letras{'
-'}
-                3️⃣ Lo compartís con tus amigos por WhatsApp{'
-'}
-                4️⃣ Ellos ingresan el código en su Perfil{'
-'}
-                5️⃣ Se ven entre todos en el Ranking → "Mi grupo"
-              </Text>
+              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>1️⃣ Creás el grupo y le ponés un nombre</Text>
+              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>2️⃣ Te genera un código único de 6 letras</Text>
+              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>3️⃣ Lo compartís con tus amigos por WhatsApp</Text>
+              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>4️⃣ Ellos ingresan el código en su Perfil</Text>
+              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>5️⃣ Se ven entre todos en el Ranking - Mi grupo</Text>
               <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 10 }}>Podés estar en hasta 3 grupos · Máximo 50 miembros por grupo</Text>
             </View>
             <TouchableOpacity
