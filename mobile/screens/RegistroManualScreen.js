@@ -250,9 +250,8 @@ export default function RegistroManualScreen({ navigation }) {
       </View>
 
       {challengeTitle ? (
-        <View style={{ backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10, marginBottom: 12, flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ color: '#A8CFFF', fontSize: 13 }}>Sumando a: </Text>
-          <Text style={{ color: '#FC4C02', fontSize: 13, fontWeight: 'bold' }}>{challengeTitle}</Text>
+        <View style={{ backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10, marginBottom: 12 }}>
+          <Text style={{ color: '#A8CFFF', fontSize: 13 }}>💡 Esta actividad sumará a todos tus desafíos activos. Si querés pausar alguno, podés hacerlo desde la pantalla principal.</Text>
         </View>
       ) : null}
 
