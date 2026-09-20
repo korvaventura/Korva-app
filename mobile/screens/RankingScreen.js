@@ -33,7 +33,17 @@ export default function RankingScreen({ navigation }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.id) {
         setMiNombre(session.user.user_metadata?.name?.split(' ')[0] || '');
-        setMiUserId(session.user.id);  // FIX: guardar el user_id real
+        setMiUserId(session.user.id);
+        // Cargar grupos acá donde tenemos el userId seguro
+        fetch(`${BACKEND_URL}/grupos/mis-grupos/${session.user.id}`)
+          .then(r => r.json())
+          .then(grupos => {
+            if (Array.isArray(grupos) && grupos.length > 0) {
+              setMisGruposRanking(grupos);
+              setGrupoSeleccionado(grupos[0]);
+            }
+          })
+          .catch(() => {});
       }
     });
     cargarChallenges();
@@ -60,17 +70,7 @@ export default function RankingScreen({ navigation }) {
         data.forEach(c => cargarRanking(c.id, 'run'));
         if (data[0]) cargarRankingPaises(data[0].id);
         // Cargar grupos del usuario
-        if (userId) {
-          fetch(`${BACKEND_URL}/grupos/mis-grupos/${userId}`)
-            .then(r => r.json())
-            .then(grupos => {
-              if (Array.isArray(grupos) && grupos.length > 0) {
-                setMisGruposRanking(grupos);
-                setGrupoSeleccionado(grupos[0]);
-              }
-            })
-            .catch(() => {});
-        }
+
       }
     } catch (error) {
       console.error('Error:', error);
@@ -215,13 +215,7 @@ export default function RankingScreen({ navigation }) {
 
     // Auto-seleccionar tab solo cuando el ranking acaba de cargar (lista cambió de 0 a >0)
     // No sobreescribir si el usuario ya cambió el tab manualmente
-    if (lista.length > 0) {
-      const estaEnFinishers = listaFinishers.some(r => esPropio(r));
-      const estaEnCurso = listaEnCurso.some(r => esPropio(r));
-      if (estaEnFinishers && !estaEnCurso && tabActivo === 'en_curso') {
-        setTimeout(() => setTabActivo('finishers'), 0);
-      }
-    }
+    // Tab auto-selección se maneja afuera, no acá
 
     const listaBase = (tabActivo === 'finishers' ? listaFinishers : listaEnCurso)
       .map((r, i) => ({ ...r, posicion: i + 1 }));
