@@ -137,12 +137,12 @@ const CONFIGS = {
       { km: 30, x: 400, y: 115 },
       { km: 40, x: 500, y: 120 },
       { km: 45, x: 560, y: 130 },
-      { km: 50, x: 600, y: 115 },
-      { km: 54, x: 620, y: 95  },
-      { km: 58, x: 630, y: 70  },
-      { km: 61, x: 640, y: 30  },
-      { km: 65, x: 620, y: 55  },
-      { km: 68, x: 600, y: 80  },
+      { km: 50, x: 580, y: 120 },
+      { km: 54, x: 600, y: 100 },
+      { km: 58, x: 620, y: 65  },
+      { km: 61, x: 640, y: 20  },
+      { km: 65, x: 670, y: 55  },
+      { km: 68, x: 690, y: 90  },
     ],
     decoraciones: () => (
       <G pointerEvents="none">
@@ -151,9 +151,9 @@ const CONFIGS = {
         {/* Silueta del Fuji más prominente */}
         <Path d="M430,260 L615,15 L800,260 Z" fill="#475569" opacity="0.25" />
         {/* Nieve en la cima */}
-        <Path d="M590,50 L615,15 L640,50 L628,60 L602,60 Z" fill="#FFFFFF" opacity="0.6" />
+        <Path d="M620,45 L640,15 L660,45 L650,55 L630,55 Z" fill="#FFFFFF" opacity="0.6" />
         {/* Halo brillante en la cima */}
-        <Circle cx="615" cy="20" r="18" fill="#FFFFFF" opacity="0.08" />
+        <Circle cx="640" cy="18" r="18" fill="#FFFFFF" opacity="0.08" />
         {/* Lagos con más color */}
         <Ellipse cx="320" cy="122" rx="32" ry="12" fill="#0369A1" opacity="0.5" />
         <Ellipse cx="500" cy="124" rx="25" ry="10" fill="#0369A1" opacity="0.45" />
@@ -190,15 +190,15 @@ const CONFIGS = {
         pista: 'En este bosque las brújulas mienten. ¿Qué hay bajo la tierra que las confunde?',
         desc: '35 km² de bosque crecido sobre la lava de la erupción del año 864. Jukai significa Mar de Árboles en japonés. El suelo es roca volcánica pura con cuevas y cavidades.',
         datoRaro: '🧭 La roca volcánica tiene alto contenido de magnetita. Las brújulas comerciales se desorientan dentro del bosque. El ejército japonés entrena navegación aquí desde 1956.' },
-      { id: 'quinta_estacion', nombre: '5ª Estación', kmFisico: 54, emoji: '🚡', x: 620, y: 95, labelY: 80, labelAnchor: 'end',
+      { id: 'quinta_estacion', nombre: '5ª Estación', kmFisico: 54, emoji: '🚡', x: 600, y: 100, labelY: 116, labelAnchor: 'middle',
         pista: 'La puerta de la montaña. Desde aquí empieza el ascenso real al punto más alto de Japón.',
         desc: 'A 2.305 metros de altura, es la puerta de entrada oficial al ascenso. El Yoshida Trail parte desde aquí — la ruta más antigua y popular al Fuji.',
         datoRaro: '⛩️ Desde 2024 el Yoshida Trail cobra 2.000 yenes y limita el acceso a 4.000 personas por día. La montaña entera es propiedad privada del santuario Fujisan Hongu Sengen Taisha.' },
-      { id: 'cumbre', nombre: 'Cima 3.776m', kmFisico: 61, emoji: '🗻', x: 640, y: 30, labelY: 16, labelAnchor: 'middle',
+      { id: 'cumbre', nombre: 'Cima 3.776m', kmFisico: 61, emoji: '🗻', x: 640, y: 20, labelY: 8, labelAnchor: 'middle',
         pista: 'El punto más alto de Japón. ¿Cuánto mide el cráter que hay debajo?',
         desc: 'El punto más alto de Japón a 3.776 metros. Desde aquí se ven los Alpes del Norte en días despejados. La caminata por el borde del cráter lleva 90 minutos.',
         datoRaro: '🌋 El cráter tiene 780 metros de diámetro y 250 metros de profundidad — tan grande que el Tokyo Skytree caería tumbado dentro. La última erupción en 1707 cubrió de ceniza a Tokio.' },
-      { id: 'llegada', nombre: 'Meta Final 🏁', kmFisico: 68, emoji: '🏁', x: 600, y: 80, labelY: 98, labelAnchor: 'end',
+      { id: 'llegada', nombre: 'Meta Final 🏁', kmFisico: 68, emoji: '🏁', x: 690, y: 90, labelY: 108, labelAnchor: 'middle',
         pista: 'El final de la expedición. Cultura, lagos, bosque y cumbre en 68 kilómetros.',
         desc: '¡Lo lograste! Completaste una expedición completa alrededor y hasta la cima del Monte Fuji. Templos, lagos, el bosque de Aokigahara y el punto más alto de Japón.',
         datoRaro: '🎌 Hay un dicho japonés: El sabio sube el Fuji una vez. Solo el tonto lo sube dos. Vos lo hiciste a tu manera — 68 kilómetros a puro esfuerzo.' },
