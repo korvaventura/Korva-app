@@ -146,52 +146,59 @@ const CONFIGS = {
     ],
     decoraciones: () => (
       <G pointerEvents="none">
-        <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#e0f2fe" opacity="0.12" />
-        {/* Cielo y nieve en la cima */}
-        <Path d="M580,0 L640,0 L640,50 L610,80 L580,50 Z" fill="#FFFFFF" opacity="0.4" />
-        {/* Silueta del Fuji */}
-        <Path d="M480,260 L610,30 L740,260 Z" fill="#64748b" opacity="0.12" />
-        {/* Lagos */}
-        <Ellipse cx="330" cy="125" rx="28" ry="10" fill="#0284C7" opacity="0.35" />
-        <SvgText x="330" y="123" fill="#7DD3FC" fontSize="9" textAnchor="middle">Kawaguchiko</SvgText>
-        <Ellipse cx="500" cy="122" rx="22" ry="8" fill="#0284C7" opacity="0.35" />
-        <SvgText x="500" y="120" fill="#7DD3FC" fontSize="9" textAnchor="middle">Saiko</SvgText>
+        {/* Cielo degradé */}
+        <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="100" fill="#1e3a5f" opacity="0.3" />
+        {/* Silueta del Fuji más prominente */}
+        <Path d="M430,260 L615,15 L800,260 Z" fill="#475569" opacity="0.25" />
+        {/* Nieve en la cima */}
+        <Path d="M590,50 L615,15 L640,50 L628,60 L602,60 Z" fill="#FFFFFF" opacity="0.6" />
+        {/* Halo brillante en la cima */}
+        <Circle cx="615" cy="20" r="18" fill="#FFFFFF" opacity="0.08" />
+        {/* Lagos con más color */}
+        <Ellipse cx="320" cy="122" rx="32" ry="12" fill="#0369A1" opacity="0.5" />
+        <Ellipse cx="500" cy="124" rx="25" ry="10" fill="#0369A1" opacity="0.45" />
         {/* Bosque Aokigahara */}
-        <Rect x="535" y="118" width="50" height="25" fill="#15803d" opacity="0.2" rx="4" />
-        <SvgText x="400" y="250" fill="#94a3b8" fontSize="11" textAnchor="middle">Yamanashi · Japón 🇯🇵</SvgText>
-        <SvgText x="640" y="25" fill="#FFFFFF" fontSize="10" textAnchor="middle">3.776m</SvgText>
+        <Rect x="535" y="118" width="55" height="28" fill="#166534" opacity="0.35" rx="6" />
+        {/* Torii rojo */}
+        <Rect x="56" y="160" width="8" height="25" fill="#DC2626" opacity="0.7" />
+        <Rect x="48" y="155" width="8" height="25" fill="#DC2626" opacity="0.7" />
+        <Rect x="44" y="160" width="24" height="4" fill="#DC2626" opacity="0.7" rx="1" />
+        <Rect x="46" y="155" width="20" height="3" fill="#DC2626" opacity="0.7" rx="1" />
+        {/* Texto de ubicación */}
+        <SvgText x="400" y="252" fill="#94a3b8" fontSize="12" textAnchor="middle">Yamanashi · Japón 🇯🇵</SvgText>
+        <SvgText x="615" y="10" fill="#FFFFFF" fontSize="10" textAnchor="middle" fontWeight="bold">3.776m ⛰️</SvgText>
       </G>
     ),
     checkpoints: [
-      { id: 'fujiyoshida', nombre: 'Fujiyoshida & Chureito', kmFisico: 0, emoji: '⛩️', x: 60, y: 180,
+      { id: 'fujiyoshida', nombre: 'Fujiyoshida & Chureito', kmFisico: 0, emoji: '⛩️', x: 60, y: 180, labelY: 200, labelAnchor: 'start',
         pista: 'Por estas escaleras sube quien busca la foto perfecta del Fuji. ¿Cuántas hay?',
         desc: 'Punto de partida entre templos y tradición japonesa. La Pagoda Chureito fue construida en 1963 como memorial de paz para los 960 ciudadanos de Fujiyoshida caídos en guerra.',
         datoRaro: '🪜 Para llegar a la pagoda hay que subir 398 escalones de piedra — y la foto del Fuji desde ahí es una de las más reproducidas del mundo.' },
-      { id: 'oshino_hakkai', nombre: 'Oshino Hakkai', kmFisico: 18, emoji: '💧', x: 260, y: 130,
+      { id: 'oshino_hakkai', nombre: 'Oshino Hakkai', kmFisico: 18, emoji: '💧', x: 260, y: 130, labelY: 150,
         pista: 'Este agua cayó sobre el Fuji hace décadas. ¿Cuántos años tardó en llegar hasta acá?',
         desc: 'Ocho manantiales sagrados alimentados por el deshielo del Fuji, declarados Monumento Natural Nacional en 1934. Pilgrims del Fuji-ko purificaban su cuerpo aquí antes del ascenso.',
         datoRaro: '⏳ El agua que brota aquí tardó más de 80 años en filtrarse desde la cima a través de roca volcánica. Podés tomarla directo del manantial.' },
-      { id: 'kawaguchiko', nombre: 'Lago Kawaguchiko', kmFisico: 22, emoji: '🏔️', x: 320, y: 120,
+      { id: 'kawaguchiko', nombre: 'Lago Kawaguchiko', kmFisico: 22, emoji: '🏔️', x: 320, y: 120, labelY: 108,
         pista: 'En este lago, el Fuji aparece dos veces. Una arriba y una abajo.',
         desc: 'El más accesible de los Cinco Lagos del Fuji, a 830 metros sobre el nivel del mar. Su reflejo del Fuji durante la floración de los cerezos es una de las imágenes más buscadas de Japón.',
         datoRaro: '📸 Millones de turistas llegan solo por esa foto del reflejo. En temporada de cerezos, el lago se convierte en el lugar más fotografiado de Japón.' },
-      { id: 'saiko', nombre: 'Lago Saiko', kmFisico: 40, emoji: '🎣', x: 500, y: 122,
+      { id: 'saiko', nombre: 'Lago Saiko', kmFisico: 40, emoji: '🎣', x: 500, y: 122, labelY: 142,
         pista: 'El más salvaje de los Cinco Lagos. El menos visitado. El más auténtico.',
         desc: 'El lago más salvaje y menos visitado de los Cinco Lagos. Conectado con el Lago Motosu por corrientes subterráneas. Los Cinco Lagos se formaron por erupciones del Fuji hace más de 1.000 años.',
         datoRaro: '🌊 Las erupciones del Fuji bloquearon ríos con lava y crearon cuencas naturales — los lagos son cicatrices volcánicas llenas de agua.' },
-      { id: 'aokigahara', nombre: 'Aokigahara — Jukai', kmFisico: 45, emoji: '🌲', x: 560, y: 130,
+      { id: 'aokigahara', nombre: 'Aokigahara', kmFisico: 45, emoji: '🌲', x: 560, y: 130, labelY: 112,
         pista: 'En este bosque las brújulas mienten. ¿Qué hay bajo la tierra que las confunde?',
         desc: '35 km² de bosque crecido sobre la lava de la erupción del año 864. Jukai significa Mar de Árboles en japonés. El suelo es roca volcánica pura con cuevas y cavidades.',
         datoRaro: '🧭 La roca volcánica tiene alto contenido de magnetita. Las brújulas comerciales se desorientan dentro del bosque. El ejército japonés entrena navegación aquí desde 1956.' },
-      { id: 'quinta_estacion', nombre: '5ª Estación — Subaru Line', kmFisico: 54, emoji: '🚡', x: 620, y: 95,
+      { id: 'quinta_estacion', nombre: '5ª Estación', kmFisico: 54, emoji: '🚡', x: 620, y: 95, labelY: 80, labelAnchor: 'end',
         pista: 'La puerta de la montaña. Desde aquí empieza el ascenso real al punto más alto de Japón.',
         desc: 'A 2.305 metros de altura, es la puerta de entrada oficial al ascenso. El Yoshida Trail parte desde aquí — la ruta más antigua y popular al Fuji.',
         datoRaro: '⛩️ Desde 2024 el Yoshida Trail cobra 2.000 yenes y limita el acceso a 4.000 personas por día. La montaña entera es propiedad privada del santuario Fujisan Hongu Sengen Taisha.' },
-      { id: 'cumbre', nombre: 'Kengamine — Cima 3.776m', kmFisico: 61, emoji: '🗻', x: 640, y: 30,
+      { id: 'cumbre', nombre: 'Cima 3.776m', kmFisico: 61, emoji: '🗻', x: 640, y: 30, labelY: 16, labelAnchor: 'middle',
         pista: 'El punto más alto de Japón. ¿Cuánto mide el cráter que hay debajo?',
         desc: 'El punto más alto de Japón a 3.776 metros. Desde aquí se ven los Alpes del Norte en días despejados. La caminata por el borde del cráter lleva 90 minutos.',
         datoRaro: '🌋 El cráter tiene 780 metros de diámetro y 250 metros de profundidad — tan grande que el Tokyo Skytree caería tumbado dentro. La última erupción en 1707 cubrió de ceniza a Tokio.' },
-      { id: 'llegada', nombre: 'Descenso — Meta Final', kmFisico: 68, emoji: '🏁', x: 600, y: 80,
+      { id: 'llegada', nombre: 'Meta Final 🏁', kmFisico: 68, emoji: '🏁', x: 600, y: 80, labelY: 98, labelAnchor: 'end',
         pista: 'El final de la expedición. Cultura, lagos, bosque y cumbre en 68 kilómetros.',
         desc: '¡Lo lograste! Completaste una expedición completa alrededor y hasta la cima del Monte Fuji. Templos, lagos, el bosque de Aokigahara y el punto más alto de Japón.',
         datoRaro: '🎌 Hay un dicho japonés: El sabio sube el Fuji una vez. Solo el tonto lo sube dos. Vos lo hiciste a tu manera — 68 kilómetros a puro esfuerzo.' },
@@ -517,7 +524,14 @@ function MapaSVG({ config, kmFisicos, pinPos, rutaBasePath, pathCompletado, puls
           <React.Fragment key={cp.id}>
             <Circle cx={cp.x} cy={cp.y} r={isDesbloqueado ? 12 : 10} fill={isDesbloqueado ? '#F97316' : '#334155'} stroke={isDesbloqueado ? '#FFFFFF' : '#64748B'} strokeWidth="3" onPress={() => onCheckpointPress(cp)} />
             {!isDesbloqueado && <SvgText x={cp.x} y={cp.y + 4} fill="#94A3B8" fontSize="10" textAnchor="middle">🔒</SvgText>}
-            <SvgText x={cp.x} y={cp.y - 18} fill="#F8FAFC" fontSize="12" textAnchor="middle" fontWeight="bold">{cp.nombre}</SvgText>
+            <SvgText 
+              x={cp.labelX !== undefined ? cp.labelX : cp.x} 
+              y={cp.labelY !== undefined ? cp.labelY : cp.y - 18} 
+              fill={isDesbloqueado ? '#F8FAFC' : '#64748B'} 
+              fontSize="11" 
+              textAnchor={cp.labelAnchor || 'middle'} 
+              fontWeight="bold"
+            >{cp.nombre}</SvgText>
           </React.Fragment>
         );
       })}

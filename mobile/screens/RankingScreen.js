@@ -64,8 +64,10 @@ export default function RankingScreen({ navigation }) {
           fetch(`${BACKEND_URL}/grupos/mis-grupos/${userId}`)
             .then(r => r.json())
             .then(grupos => {
-              setMisGruposRanking(Array.isArray(grupos) ? grupos : []);
-              if (grupos?.length > 0) setGrupoSeleccionado(grupos[0]);
+              if (Array.isArray(grupos) && grupos.length > 0) {
+                setMisGruposRanking(grupos);
+                setGrupoSeleccionado(grupos[0]);
+              }
             })
             .catch(() => {});
         }
@@ -410,7 +412,7 @@ export default function RankingScreen({ navigation }) {
               onPress={() => {
                 setTabVista('grupo');
                 if (grupoSeleccionado && challenges[challengeIndex]) {
-                  cargarRankingGrupo(grupoSeleccionado.id, challenges[challengeIndex].id);
+                  if (challenges[challengeIndex]) cargarRankingGrupo(grupoSeleccionado.id, challenges[challengeIndex].id);
                 }
               }}
             >
@@ -495,7 +497,7 @@ export default function RankingScreen({ navigation }) {
                   style={{ backgroundColor: grupoSeleccionado?.id === g.id ? '#FC4C02' : '#1E3A5F', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8 }}
                   onPress={() => {
                     setGrupoSeleccionado(g);
-                    if (challenges[challengeIndex]) cargarRankingGrupo(g.id, challenges[challengeIndex].id);
+                    if (challenges?.[challengeIndex]?.id) cargarRankingGrupo(g.id, challenges[challengeIndex].id);
                   }}
                 >
                   <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' }}>{g.nombre}</Text>

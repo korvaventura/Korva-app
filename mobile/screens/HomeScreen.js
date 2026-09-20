@@ -40,6 +40,7 @@ const getSubtitulo = (challengeTitle) => {
   const t = (challengeTitle || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   if (t.includes('dubrovnik')) return 'Pile Gate → Ploče Gate';
   if (t.includes('andres') || t.includes('san andr')) return 'San Luis → Punta Sur';
+  if (t.includes('fuji') || t.includes('monte fuji')) return 'Fujiyoshida → Cima 3.776m';
   return 'Tolhuin → Ushuaia';
 };
 
