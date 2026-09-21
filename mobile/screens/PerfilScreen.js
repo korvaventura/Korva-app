@@ -314,9 +314,14 @@ export default function PerfilScreen() {
 
   const guardarDireccion = async () => {
     const { nombre, direccion, ciudad, pais, telefono, codigo_postal } = formDireccion;
-    if (!nombre || !direccion || !ciudad || !pais) {
+    // Usar la búsqueda como dirección si no eligieron de la lista
+    const direccionFinal = direccion || busquedaDireccion;
+    if (!nombre?.trim() || !direccionFinal?.trim() || !ciudad?.trim() || !pais?.trim()) {
       Alert.alert('Faltan datos', 'Por favor completá nombre, dirección, ciudad y país.');
       return;
+    }
+    if (!formDireccion.direccion && busquedaDireccion) {
+      setFormDireccion(prev => ({ ...prev, direccion: busquedaDireccion }));
     }
     // Solo advertencia si tiene una sola palabra — no bloquea
     const partesNombre = nombre.trim().split(' ').filter(Boolean);
@@ -326,8 +331,9 @@ export default function PerfilScreen() {
     }
     // CP opcional — algunos países no usan
     // if (!codigo_postal || codigo_postal.trim().length < 3) { ... }
-    if (!telefono || telefono.trim().length < 7) {
-      Alert.alert('Teléfono requerido', 'Ingresá tu número de celular con código de país (ej: +54 11 1234 5678). Lo necesitamos para coordinar el envío de tu medalla.');
+    // Teléfono recomendado pero no bloquea
+    if (telefono && telefono.trim().length > 0 && telefono.trim().length < 6) {
+      Alert.alert('Teléfono inválido', 'El teléfono parece muy corto. Ingresá el número con código de país.');
       return;
     }
     // CUIL recomendado pero no bloquea
