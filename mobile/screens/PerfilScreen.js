@@ -253,7 +253,7 @@ export default function PerfilScreen() {
     const d = usuario?.shipping_address;
     // FIX: referencia cargada correctamente al abrir edición
     setFormDireccion({
-      nombre: d?.nombre || '',
+      nombre: d?.nombre || usuario?.name || '',
       direccion: d?.direccion || '',
       referencia: d?.referencia || '',
       ciudad: d?.ciudad || '',
@@ -272,6 +272,8 @@ export default function PerfilScreen() {
 
   const buscarDirecciones = async (texto) => {
     setBusquedaDireccion(texto);
+    // Sincronizar siempre — así funciona aunque no elijan de la lista
+    setFormDireccion(prev => ({ ...prev, direccion: texto }));
     setDireccionConfirmada(false);
     if (texto.trim().length < 3) {
       setSugerenciasDireccion([]);
@@ -314,14 +316,9 @@ export default function PerfilScreen() {
 
   const guardarDireccion = async () => {
     const { nombre, direccion, ciudad, pais, telefono, codigo_postal } = formDireccion;
-    // Usar la búsqueda como dirección si no eligieron de la lista
-    const direccionFinal = direccion || busquedaDireccion;
-    if (!nombre?.trim() || !direccionFinal?.trim() || !ciudad?.trim() || !pais?.trim()) {
+    if (!nombre?.trim() || !direccion?.trim() || !ciudad?.trim() || !pais?.trim()) {
       Alert.alert('Faltan datos', 'Por favor completá nombre, dirección, ciudad y país.');
       return;
-    }
-    if (!formDireccion.direccion && busquedaDireccion) {
-      setFormDireccion(prev => ({ ...prev, direccion: busquedaDireccion }));
     }
     // Solo advertencia si tiene una sola palabra — no bloquea
     const partesNombre = nombre.trim().split(' ').filter(Boolean);
