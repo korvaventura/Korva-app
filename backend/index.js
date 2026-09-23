@@ -443,12 +443,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
       const seCompletaAhora = nuevoStatus === 'completed' && !yaEstabaCompletado && !yaEraShipped;
 
       // No bajar status de shipped/completed aunque bajen los km
-      // Fix: si los km superan el 100% pero sigue en active, forzar completed
-      const superaDistancia = kmFinal >= distanciaTotal;
-      const nuevoStatusFinal = (yaEraShipped || yaEstabaCompletado) 
-        ? reto.status 
-        : (superaDistancia ? 'completed' : nuevoStatus);
-      const seCompletaAhoraFixed = nuevoStatusFinal === 'completed' && !yaEstabaCompletado && !yaEraShipped;
+      const nuevoStatusFinal = (yaEraShipped || yaEstabaCompletado) ? reto.status : nuevoStatus;
 
       // No bajar km_completed si el nuevo valor es menor — protege contra actividades faltantes
       const { data: ucActual } = await supabase
@@ -468,7 +463,6 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
         })
         .eq('id', reto.id);
 
-      const seCompletaAhora = seCompletaAhoraFixed;
       if (seCompletaAhora) {
         await enviarCertificadoFinisher(user_id, reto, distanciaTotal);
         // Push notification al completar
