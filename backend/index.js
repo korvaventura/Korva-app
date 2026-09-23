@@ -442,9 +442,6 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
       const yaEraShipped = reto.status === 'shipped' || reto.status === 'cargado';
       const seCompletaAhora = nuevoStatus === 'completed' && !yaEstabaCompletado && !yaEraShipped;
 
-      // No bajar status de shipped/completed aunque bajen los km
-      const nuevoStatusFinal = (yaEraShipped || yaEstabaCompletado) ? reto.status : nuevoStatus;
-
       // No bajar km_completed si el nuevo valor es menor — protege contra actividades faltantes
       const { data: ucActual } = await supabase
         .from('user_challenges')
@@ -453,6 +450,13 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
         .single();
       const kmActual = parseFloat(ucActual?.km_completed || 0);
       const kmFinal = Math.max(totalKm, kmActual);
+
+      // No bajar status de shipped/completed aunque bajen los km
+      // Fix: si los km superan el 100% forzar completed aunque no haya disparado el evento
+      const superaDistancia = kmFinal >= distanciaTotal;
+      const nuevoStatusFinal = (yaEraShipped || yaEstabaCompletado) 
+        ? reto.status 
+        : (superaDistancia ? 'completed' : nuevoStatus);
 
       await supabase
         .from('user_challenges')
@@ -468,7 +472,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
         // Push notification al completar
         const { data: usuarioPush } = await supabase
           .from('users')
-          .select('push_token, name')
+          .select('push_token')
           .eq('id', user_id)
           .maybeSingle();
         if (usuarioPush?.push_token) {
@@ -477,36 +481,6 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
             '🏅 ¡Lo lograste!',
             `¡Lo lograste! 🎉 Completaste ${reto.challenges?.title}. Nuestro equipo procesará tu pedido en los próximos días hábiles.`
           );
-        }
-
-        // Notificar a los miembros de los grupos sociales del usuario
-        try {
-          const { data: memberships } = await supabase
-            .from('social_group_members')
-            .select('social_groups(id)')
-            .eq('user_id', user_id);
-
-          for (const m of (memberships || [])) {
-            const groupId = m.social_groups?.id;
-            if (!groupId) continue;
-            const { data: otrosMembers } = await supabase
-              .from('social_group_members')
-              .select('users(push_token)')
-              .eq('group_id', groupId)
-              .neq('user_id', user_id);
-
-            for (const om of (otrosMembers || [])) {
-              if (om.users?.push_token) {
-                await enviarPushNotification(
-                  om.users.push_token,
-                  '🏅 ¡Alguien de tu grupo completó!',
-                  `${usuarioPush?.name || 'Un compañero'} terminó ${reto.challenges?.title}. ¡Seguí vos también! 💪`
-                );
-              }
-            }
-          }
-        } catch (e) {
-          console.error('Error notificando grupo:', e.message);
         }
       }
 
@@ -573,20 +547,8 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
       .maybeSingle();
 
     const groupId = ucCompleto?.group_id;
-    // Solo es grupo si hay OTRO usuario con el mismo group_id en este challenge
-    const esComprador = !!groupId && (groupId === user_id);
-    // Verificar si hay otros miembros reales en el grupo
-    let hayOtrosMiembros = false;
-    if (groupId) {
-      const { data: otrosMiembros } = await supabase
-        .from('user_challenges')
-        .select('user_id')
-        .eq('group_id', groupId)
-        .eq('challenge_id', reto.challenge_id)
-        .neq('user_id', user_id);
-      hayOtrosMiembros = (otrosMiembros || []).length > 0;
-    }
-    const esGrupo = hayOtrosMiembros;
+    const esGrupo = !!groupId;
+    const esComprador = esGrupo && (groupId === user_id);
     const tieneDir = !!usuario.shipping_address;
 
     if (esGrupo && !esComprador) {
@@ -1155,40 +1117,6 @@ app.post('/admin/marcar-cargado', async (req, res) => {
       }
     }
 
-    // Mandar email de confirmación al usuario
-    try {
-      const { data: usuario } = await supabase.from('users').select('email, name').eq('id', uc.user_id).single();
-      const tituloChallenge = uc.challenges?.title || 'tu desafío';
-
-      // Ver si tiene otros desafíos activos o completados en el mismo grupo
-      const { data: otrosRetos } = await supabase
-        .from('user_challenges')
-        .select('status, km_completed, challenges(title, total_distance_km)')
-        .eq('user_id', uc.user_id)
-        .neq('id', user_challenge_id)
-        .in('status', ['active', 'completed', 'cargado']);
-
-      const otrosActivos = (otrosRetos || []).filter(r => r.status === 'active');
-      const otrosCompletados = (otrosRetos || []).filter(r => ['completed', 'cargado'].includes(r.status));
-
-      let mensajeExtra = '';
-      if (otrosActivos.length > 0) {
-        const nombres = otrosActivos.map(r => r.challenges?.title).filter(Boolean).join(' y ');
-        mensajeExtra = `<p style="color: #A8CFFF; font-size: 14px; line-height: 1.6; margin-top: 16px;">Vemos que también tenés <strong style="color: #FFFFFF;">${nombres}</strong> en curso. ¡Seguí sumando — cuando esos estén listos, probablemente los despachemos juntos para ahorrarte tiempo de espera!</p>`;
-      }
-      if (otrosCompletados.length > 0) {
-        const nombres = otrosCompletados.map(r => r.challenges?.title).filter(Boolean).join(' y ');
-        mensajeExtra = `<p style="color: #A8CFFF; font-size: 14px; line-height: 1.6; margin-top: 16px;">Como también completaste <strong style="color: #FFFFFF;">${nombres}</strong>, es probable que despachemos tus medallas juntas.</p>`;
-      }
-
-      if (usuario) {
-        const { enviarEmailCargado } = require('./routes/emails');
-        await enviarEmailCargado(usuario.email, usuario.name, tituloChallenge, mensajeExtra);
-      }
-    } catch (e) {
-      console.error('Error enviando email cargado:', e.message);
-    }
-
     res.json({ mensaje: 'Marcado como cargado' });
   } catch (error) {
     res.json({ error: 'Error', detalle: error.message });
@@ -1691,30 +1619,14 @@ Al entrar al sistema fijate si este usuario tiene el reto activo.`
   }
 });
 
-app.post('/usuarios/nombre', async (req, res) => {
-  const { user_id, nombre } = req.body;
-  try {
-    if (!user_id || !nombre?.trim() || nombre.trim().length < 2) {
-      return res.status(400).json({ error: 'Nombre inválido' });
-    }
-    // Verificar que el usuario existe
-    const { data: user } = await supabase.from('users').select('id').eq('id', user_id).single();
-    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
-
-    const { error } = await supabase.from('users').update({ name: nombre.trim() }).eq('id', user_id);
-    if (error) throw error;
-    res.json({ ok: true, nombre: nombre.trim() });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 app.post('/usuarios/direccion', async (req, res) => {
   const { user_id, shipping_address, nombre_completo } = req.body;
   try {
     const updateData = { shipping_address };
-    // NO actualizar users.name desde la dirección — ese campo es para certificados
-    // El nombre de envío va solo en shipping_address.nombre
+    // Si viene nombre_completo, actualizar también users.name
+    if (nombre_completo && nombre_completo.trim().split(' ').filter(Boolean).length >= 2) {
+      updateData.name = nombre_completo.trim();
+    }
     // Actualizar pais desde la dirección
     if (shipping_address?.pais) {
       updateData.pais = shipping_address.pais;
@@ -2336,147 +2248,6 @@ app.delete('/usuarios/:userId', async (req, res) => {
   } catch (error) {
     console.error('Error eliminando cuenta:', error.message);
     res.status(500).json({ error: 'Error eliminando cuenta', detalle: error.message });
-  }
-});
-
-// ========== GRUPOS SOCIALES ==========
-
-const generarCodigo = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let codigo = '';
-  for (let i = 0; i < 6; i++) codigo += chars[Math.floor(Math.random() * chars.length)];
-  return codigo;
-};
-
-app.post('/grupos/crear', async (req, res) => {
-  const { user_id, nombre } = req.body;
-  if (!user_id || !nombre?.trim()) return res.status(400).json({ error: 'Faltan datos' });
-  try {
-    // Límite de 3 grupos por usuario
-    const { count: gruposCount } = await supabase
-      .from('social_group_members')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user_id);
-    if (gruposCount >= 3) return res.status(400).json({ error: 'Podés estar en hasta 3 grupos. Salí de uno antes de crear otro.' });
-
-    let codigo, existe = true;
-    while (existe) {
-      codigo = generarCodigo();
-      const { data } = await supabase.from('social_groups').select('id').eq('codigo', codigo).single();
-      existe = !!data;
-    }
-    const { data: grupo, error } = await supabase
-      .from('social_groups')
-      .insert({ nombre: nombre.trim(), codigo, creador_id: user_id })
-      .select().single();
-    if (error) throw error;
-    await supabase.from('social_group_members').insert({ group_id: grupo.id, user_id });
-    res.json({ grupo });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.post('/grupos/unirse', async (req, res) => {
-  const { user_id, codigo } = req.body;
-  if (!user_id || !codigo?.trim()) return res.status(400).json({ error: 'Faltan datos' });
-  try {
-    const { data: grupo } = await supabase
-      .from('social_groups').select('id, nombre, codigo')
-      .eq('codigo', codigo.trim().toUpperCase()).single();
-    if (!grupo) return res.status(404).json({ error: 'Código no encontrado. Revisá que esté bien escrito.' });
-    const { data: yaEsMiembro } = await supabase
-      .from('social_group_members').select('id')
-      .eq('group_id', grupo.id).eq('user_id', user_id).single();
-    if (yaEsMiembro) return res.json({ grupo, mensaje: 'Ya sos miembro de este grupo' });
-    // Límite de 3 grupos por usuario
-    const { count: misGruposCount } = await supabase
-      .from('social_group_members')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user_id);
-    if (misGruposCount >= 3) return res.status(400).json({ error: 'Podés estar en hasta 3 grupos. Salí de uno antes de unirte a otro.' });
-
-    // Verificar límite de miembros
-    const { count } = await supabase
-      .from('social_group_members')
-      .select('*', { count: 'exact', head: true })
-      .eq('group_id', grupo.id);
-    if (count >= 50) return res.status(400).json({ error: 'El grupo está lleno (máximo 50 miembros).' });
-    await supabase.from('social_group_members').insert({ group_id: grupo.id, user_id });
-    res.json({ grupo, mensaje: 'Te uniste al grupo' });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.post('/grupos/salir', async (req, res) => {
-  const { user_id, group_id } = req.body;
-  if (!user_id || !group_id) return res.status(400).json({ error: 'Faltan datos' });
-  try {
-    await supabase.from('social_group_members').delete().eq('group_id', group_id).eq('user_id', user_id);
-    res.json({ mensaje: 'Saliste del grupo' });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.get('/grupos/mis-grupos/:userId', async (req, res) => {
-  const { userId } = req.params;
-  try {
-    const { data: memberships } = await supabase
-      .from('social_group_members')
-      .select('social_groups(id, nombre, codigo, creador_id)')
-      .eq('user_id', userId);
-    const grupos = (memberships || []).map(m => m.social_groups).filter(Boolean);
-    res.json(grupos);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.get('/grupos/ranking/:groupId/:challengeId', async (req, res) => {
-  const { groupId, challengeId } = req.params;
-  try {
-    const { data: members } = await supabase
-      .from('social_group_members')
-      .select('users(id, name, avatar_url)')
-      .eq('group_id', groupId);
-    if (!members?.length) return res.json([]);
-    const userIds = members.map(m => m.users?.id).filter(Boolean);
-    const { data: desafios } = await supabase
-      .from('user_challenges')
-      .select('user_id, km_completed, status, challenges(total_distance_km)')
-      .eq('challenge_id', challengeId)
-      .in('user_id', userIds);
-
-    // Última actividad de cada miembro
-    const { data: ultimasActs } = await supabase
-      .from('activities')
-      .select('user_id, recorded_at')
-      .in('user_id', userIds)
-      .eq('excluida', false)
-      .order('recorded_at', { ascending: false });
-
-    const ranking = members.map(m => {
-      const user = m.users;
-      const desafio = desafios?.find(d => d.user_id === user?.id);
-      const kmTotal = desafio?.challenges?.total_distance_km || 100;
-      const km = parseFloat(desafio?.km_completed || 0);
-      const pct = Math.min((km / kmTotal) * 100, 100).toFixed(1);
-      const ultimaAct = ultimasActs?.find(a => a.user_id === user?.id);
-      return {
-        user_id: user?.id,
-        nombre: user?.name,
-        avatar: user?.avatar_url,
-        km_completados: km.toFixed(2),
-        porcentaje: pct,
-        status: desafio?.status || 'sin_desafio',
-        ultima_actividad: ultimaAct?.recorded_at || null,
-      };
-    }).sort((a, b) => parseFloat(b.porcentaje) - parseFloat(a.porcentaje));
-    res.json(ranking);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
   }
 });
 
