@@ -7,6 +7,21 @@ import { supabase } from '../supabase';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
+// Adjunta la sesión real de Supabase Auth del admin logueado a cada request /admin/*.
+// El backend todavía no exige este header (se activa en un paso posterior, aparte),
+// así que esto es aditivo y no cambia ningún comportamiento actual.
+const adminFetch = async (path, options = {}) => {
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) {
+    throw new Error('Sesión de admin inválida o expirada. Volvé a iniciar sesión.');
+  }
+  const headers = {
+    ...(options.headers || {}),
+    Authorization: `Bearer ${session.access_token}`,
+  };
+  return fetch(`${BACKEND_URL}${path}`, { ...options, headers });
+};
+
 const CHECKPOINTS_DEFAULT = [
   { id: 'tolhuin', nombre: 'Tolhuin', kmFisico: 0, emoji: '🏘️', desc: 'El corazón de Tierra del Fuego.', datoRaro: '🧭 Km 0 de tu aventura.' },
   { id: 'lago_fagnano', nombre: 'Lago Fagnano', kmFisico: 20, emoji: '💧', desc: 'Lago partido por la Falla de Magallanes.', datoRaro: '⚡ Estás corriendo sobre una falla activa.' },
@@ -63,7 +78,7 @@ export default function AdminScreen() {
   const cargarRegistroGrupos = async () => {
     setCargandoRegistro(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/admin/registro-grupos`);
+      const res = await adminFetch('/admin/registro-grupos');
       const data = await res.json();
       setRegistroGrupos(Array.isArray(data) ? data : []);
     } catch (e) {
@@ -76,7 +91,7 @@ export default function AdminScreen() {
   const cargarPedidosGrupales = async () => {
     setCargandoGrupos(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/admin/pedidos-grupales`);
+      const res = await adminFetch('/admin/pedidos-grupales');
       const data = await res.json();
       setPedidosGrupales(Array.isArray(data) ? data : []);
     } catch (e) {
@@ -91,7 +106,7 @@ export default function AdminScreen() {
     if (ids.length === 0) return;
     setEnviandoGrupo(grupo.group_id);
     try {
-      const res = await fetch(`${BACKEND_URL}/admin/grupo-enviado`, {
+      const res = await adminFetch('/admin/grupo-enviado', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_challenge_ids: ids, tracking_number: trackingGrupo[grupo.group_id] || '' })
@@ -110,7 +125,7 @@ export default function AdminScreen() {
   const cargarMetricas = async () => {
     setCargandoMetricas(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/admin/metricas`);
+      const res = await adminFetch('/admin/metricas');
       const data = await res.json();
       setMetricas(data);
     } catch (e) {
@@ -166,7 +181,7 @@ export default function AdminScreen() {
 
   const cargarChallenges = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/admin/challenges-activos`);
+      const res = await adminFetch('/admin/challenges-activos');
       const data = await res.json();
       setChallenges(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -277,7 +292,7 @@ export default function AdminScreen() {
     }
     setGuardandoEdicion(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/admin/challenges/${retoEditando}`, {
+      const res = await adminFetch(`/admin/challenges/${retoEditando}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -315,7 +330,7 @@ export default function AdminScreen() {
   const guardarMapa = async () => {
     setGuardandoMapa(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/admin/challenges/${challengeMapa.id}`, {
+      const res = await adminFetch(`/admin/challenges/${challengeMapa.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -352,7 +367,7 @@ export default function AdminScreen() {
   const enviarMedalla = async (ucId, nombre) => {
     const trackingNum = tracking[ucId] || '';
     try {
-      const res = await fetch(`${BACKEND_URL}/admin/medalla-enviada`, {
+      const res = await adminFetch('/admin/medalla-enviada', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_challenge_id: ucId, tracking_number: trackingNum })
@@ -419,7 +434,7 @@ export default function AdminScreen() {
     setCreando(true);
     try {
       const modalidadesFormateadas = modalidades.map(m => ({ tipo: m.tipo, label: m.label, distancia_km: parseFloat(m.distancia_km) }));
-      const res = await fetch(`${BACKEND_URL}/admin/challenges`, {
+      const res = await adminFetch('/admin/challenges', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, description, historia, price_usd: parseFloat(price_usd), price_ars: price_ars ? parseInt(price_ars) : null, medal_image_url, link_mercadopago, link_shopify, modalidades: modalidadesFormateadas, sport_type: modalidades.length > 1 ? 'multi' : modalidades[0].tipo })
