@@ -84,9 +84,9 @@ const enviarEmailInscripcion = async (email, nombre, challenge, modalidad) => {
   }
 };
 
-const enviarEmailInvitacion = async (email, nombre, challenge, tokens) => {
+const enviarEmailInvitacion = async (email, nombre, challenge, cantidadAdicional) => {
   try {
-    const cantidadInvitados = tokens.length;
+    const cantidadInvitados = cantidadAdicional;
 
     await getResend().emails.send({
       from: 'Korva Aventuras <noreply@korva.run>',

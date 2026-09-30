@@ -249,20 +249,11 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
           `👥 Compra grupal — activación manual requerida`,
           `Email: ${email}\nNombre: ${nombreCompleto}\nDesafío: ${pendiente.challenges?.title}\nCantidad total: ${cantidadItem}\nGroup ID (usar al activar): ${user.id}\n\nActivar manualmente a ${cantidadItem - 1} persona(s) adicional(es) para este desafío con group_id = ${user.id}`
         );
-        // Generar tokens de invitación para el email al comprador
-        const tokens = [];
-        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-        for (let i = 0; i < cantidadItem - 1; i++) {
-          const token = generarToken();
-          await supabase.from('invitations').insert({
-            token,
-            challenge_id: pendiente.challenge_id,
-            created_by: user.id,
-            expires_at: expiresAt.toISOString()
-          });
-          tokens.push(token);
-        }
-        enviarEmailInvitacion(user.email, user.name, pendiente.challenges?.title, tokens);
+        // Etapa 1 de retiro gradual de `invitations` (30/09/2026): ya no se generan tokens
+        // ni se insertan filas nuevas en `invitations` — el autocanje público sigue montado
+        // (GET/POST /invitaciones/:token) solo para que las invitaciones históricas ya
+        // generadas puedan agotar su ventana normal de 30 días.
+        enviarEmailInvitacion(user.email, user.name, pendiente.challenges?.title, cantidadItem - 1);
       }
     }
 
