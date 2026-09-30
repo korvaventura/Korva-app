@@ -488,7 +488,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
       }
 
       // Solo mandar notificación de dirección si RECIÉN cruzó el 75% (no si ya estaba arriba)
-        const porcentajeAntes = Math.min((kmActual / modalidadElegida.distancia_km) * 100, 100);
+      const porcentajeAntes = Math.min((kmActual / modalidadElegida.distancia_km) * 100, 100);
       if (porcentaje >= 75 && porcentajeAntes < 75 && !yaEstabaCompletado) {
         const { data: usuario } = await supabase
           .from('users')
@@ -1258,11 +1258,77 @@ const csvEscape = (val) => {
   return str;
 };
 
+async function obtenerPedidosGrupales() {
+  const { data, error } = await supabase
+    .from('user_challenges')
+    .select('id, user_id, challenge_id, group_id, modalidad, km_completed, status, completed_at, tracking_number')
+    .in('status', ['active', 'completed'])
+    .not('group_id', 'is', null);
+
+  if (error) throw error;
+
+  const usuarios = await getUsersByIds(data.map(u => u.user_id));
+  const challenges = await getChallengesByIds(data.map(u => u.challenge_id));
+
+  const grupos = {};
+  for (const uc of data) {
+    const gid = uc.group_id;
+    if (!grupos[gid]) grupos[gid] = [];
+    grupos[gid].push(uc);
+  }
+
+  const DOS_SEMANAS_MS = 14 * 24 * 60 * 60 * 1000;
+  const ahora = Date.now();
+
+  const resultado = [];
+  for (const [groupId, miembros] of Object.entries(grupos)) {
+    const totalMiembros = miembros.length;
+    const completados = miembros.filter(m => m.status === 'completed');
+    const todosCompletados = completados.length === totalMiembros;
+
+    if (completados.length === 0) continue;
+
+    const primerCompletado = completados
+      .map(m => new Date(m.completed_at).getTime())
+      .sort((a, b) => a - b)[0];
+
+    const diasDesdeElPrimero = Math.floor((ahora - primerCompletado) / (1000 * 60 * 60 * 24));
+    const esEnvioParcial = !todosCompletados && (ahora - primerCompletado) >= DOS_SEMANAS_MS;
+
+    if (!todosCompletados && !esEnvioParcial) continue;
+
+    const comprador = miembros.find(m => m.user_id === groupId) || miembros[0];
+    const compradorUsuario = usuarios[comprador.user_id];
+
+    resultado.push({
+      group_id: groupId,
+      comprador: compradorUsuario?.name,
+      email: compradorUsuario?.email,
+      direccion: compradorUsuario?.shipping_address,
+      total_miembros: totalMiembros,
+      completados: completados.length,
+      envio_parcial: esEnvioParcial,
+      dias_desde_primero: diasDesdeElPrimero,
+      miembros: miembros.map(m => ({
+        id: m.id,
+        usuario: usuarios[m.user_id]?.name,
+        email: usuarios[m.user_id]?.email,
+        challenge: challenges[m.challenge_id]?.title,
+        modalidad: m.modalidad,
+        km_completados: m.km_completed,
+        status: m.status,
+        completed_at: m.completed_at,
+        tracking_number: m.tracking_number,
+      })),
+    });
+  }
+
+  return resultado;
+}
+
 app.get('/admin/export-envios', async (req, res) => {
   try {
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const pedidosRes = await fetch(`${baseUrl}/admin/pedidos-grupales`);
-    const pedidos = await pedidosRes.json();
+    const pedidos = await obtenerPedidosGrupales();
 
     const filas = [];
     for (const grupo of pedidos) {
@@ -1408,70 +1474,7 @@ app.get('/admin/registro-grupos', async (req, res) => {
 
 app.get('/admin/pedidos-grupales', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('user_challenges')
-      .select('id, user_id, challenge_id, group_id, modalidad, km_completed, status, completed_at, tracking_number')
-      .in('status', ['active', 'completed'])
-      .not('group_id', 'is', null);
-
-    if (error) throw error;
-
-    const usuarios = await getUsersByIds(data.map(u => u.user_id));
-    const challenges = await getChallengesByIds(data.map(u => u.challenge_id));
-
-    const grupos = {};
-    for (const uc of data) {
-      const gid = uc.group_id;
-      if (!grupos[gid]) grupos[gid] = [];
-      grupos[gid].push(uc);
-    }
-
-    const DOS_SEMANAS_MS = 14 * 24 * 60 * 60 * 1000;
-    const ahora = Date.now();
-
-    const resultado = [];
-    for (const [groupId, miembros] of Object.entries(grupos)) {
-      const totalMiembros = miembros.length;
-      const completados = miembros.filter(m => m.status === 'completed');
-      const todosCompletados = completados.length === totalMiembros;
-
-      if (completados.length === 0) continue;
-
-      const primerCompletado = completados
-        .map(m => new Date(m.completed_at).getTime())
-        .sort((a, b) => a - b)[0];
-
-      const diasDesdeElPrimero = Math.floor((ahora - primerCompletado) / (1000 * 60 * 60 * 24));
-      const esEnvioParcial = !todosCompletados && (ahora - primerCompletado) >= DOS_SEMANAS_MS;
-
-      if (!todosCompletados && !esEnvioParcial) continue;
-
-      const comprador = miembros.find(m => m.user_id === groupId) || miembros[0];
-      const compradorUsuario = usuarios[comprador.user_id];
-
-      resultado.push({
-        group_id: groupId,
-        comprador: compradorUsuario?.name,
-        email: compradorUsuario?.email,
-        direccion: compradorUsuario?.shipping_address,
-        total_miembros: totalMiembros,
-        completados: completados.length,
-        envio_parcial: esEnvioParcial,
-        dias_desde_primero: diasDesdeElPrimero,
-        miembros: miembros.map(m => ({
-          id: m.id,
-          usuario: usuarios[m.user_id]?.name,
-          email: usuarios[m.user_id]?.email,
-          challenge: challenges[m.challenge_id]?.title,
-          modalidad: m.modalidad,
-          km_completados: m.km_completed,
-          status: m.status,
-          completed_at: m.completed_at,
-          tracking_number: m.tracking_number,
-        })),
-      });
-    }
-
+    const resultado = await obtenerPedidosGrupales();
     res.json(resultado);
   } catch (error) {
     res.json({ error: 'Error', detalle: error.message });
