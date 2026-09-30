@@ -264,8 +264,11 @@ app.get('/usuarios/bib/:userId', async (req, res) => {
     const dorsalBuffer = Buffer.from(pdfs.dorsalPdf, 'base64');
     const postalBuffer = Buffer.from(pdfs.postalPdf, 'base64');
 
-    const dorsalPath = `dorsales/dorsal_${bibNumber}.pdf`;
-    const postalPath = `postales/postal_${bibNumber}.pdf`;
+    // El número de dorsal arranca en 1 en cada desafío, así que dos desafíos
+    // distintos pueden generar el mismo número — hay que separar por challenge_id
+    // para que no se pisen los archivos entre sí.
+    const dorsalPath = `dorsales/${challengeId}/dorsal_${bibNumber}.pdf`;
+    const postalPath = `postales/${challengeId}/postal_${bibNumber}.pdf`;
 
     await supabase.storage.from('korva-images').upload(dorsalPath, dorsalBuffer, { contentType: 'application/pdf', upsert: true });
     await supabase.storage.from('korva-images').upload(postalPath, postalBuffer, { contentType: 'application/pdf', upsert: true });
@@ -1036,8 +1039,9 @@ app.post('/actividades/manual', async (req, res) => {
       }
     }
 
-    // Recalcular solo retos activos y no pausados
-    await recalcularKmUsuario(user_id, challenge_id || null);
+    // Recalcular TODOS los retos activos y no pausados del usuario —
+    // una actividad manual suma a todos los desafíos activos, no solo al elegido al cargarla.
+    await recalcularKmUsuario(user_id);
     await verificarYEnviarNotificacionRacha(user_id);
 
     if (ucAntes) {

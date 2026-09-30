@@ -193,7 +193,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
         <View style={styles.statsCompletadoCard}>
           <Text style={styles.statsCompletadoTitulo}>🏅 Reto completado</Text>
           <Text style={styles.statsCompletadoFrase}>
-            Cruzaste el fin del mundo en {stats.diasTotales} días
+            Completaste {item.challenge || 'tu desafío'} en {stats.diasTotales} días
           </Text>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
