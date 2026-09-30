@@ -34,6 +34,7 @@ export default function RegistroManualScreen({ navigation }) {
   const [evidenciaUrl, setEvidenciaUrl] = useState(null);
   const [horas, setHoras] = useState('');
   const [minutos, setMinutos] = useState('');
+  const [segundos, setSegundos] = useState('');
 
   useFocusEffect(useCallback(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -164,7 +165,8 @@ export default function RegistroManualScreen({ navigation }) {
       const fechaActividad = getFecha(diasAtras);
       const h = parseInt(horas) || 0;
       const m = parseInt(minutos) || 0;
-      const duracionSegundos = (h * 3600 + m * 60) || null;
+      const s = parseInt(segundos) || 0;
+      const duracionSegundos = (h * 3600 + m * 60 + s) || null;
 
       const res = await fetch(`${BACKEND_URL}/actividades/manual`, {
         method: 'POST',
@@ -195,6 +197,7 @@ export default function RegistroManualScreen({ navigation }) {
         setEvidenciaUrl(null);
         setHoras('');
         setMinutos('');
+        setSegundos('');
         setTimeout(() => { setMensaje(''); setExito(false); }, 3000);
       }
     } catch (error) {
@@ -318,6 +321,18 @@ export default function RegistroManualScreen({ navigation }) {
               maxLength={2}
             />
             <Text style={styles.tiempoUnidad}>min</Text>
+          </View>
+          <View style={styles.tiempoInputWrapper}>
+            <TextInput
+              style={styles.tiempoInput}
+              value={segundos}
+              onChangeText={setSegundos}
+              keyboardType="number-pad"
+              placeholder="0"
+              placeholderTextColor="#2a4a6a"
+              maxLength={2}
+            />
+            <Text style={styles.tiempoUnidad}>seg</Text>
           </View>
         </View>
       </View>

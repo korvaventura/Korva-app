@@ -2255,6 +2255,15 @@ app.delete('/usuarios/:userId', async (req, res) => {
   }
 });
 
+// Red de contención: si algo falla fuera de un try/catch, lo logueamos
+// pero NO apagamos el servidor entero (por default Node mata el proceso).
+process.on('uncaughtException', (err) => {
+  console.error('uncaughtException:', err);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('unhandledRejection:', err);
+});
+
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
