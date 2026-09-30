@@ -58,6 +58,9 @@ app.use('/shopify', shopifyRoutes);
 
 app.use(express.json({ limit: '10mb' }));
 
+const requireAdmin = require('./middleware/requireAdmin');
+app.use('/admin', requireAdmin);
+
 app.get('/test/bib/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
