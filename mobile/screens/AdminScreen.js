@@ -1,6 +1,8 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Clipboard, Alert, Image, Linking } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Clipboard, Alert, Image } from 'react-native';
 import { useState, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
 import { supabase } from '../supabase';
@@ -647,7 +649,23 @@ export default function AdminScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.editarBtn, { flex: 1, borderColor: '#4CAF50' }]}
-                    onPress={() => Linking.openURL(`${BACKEND_URL}/admin/export-envios`)}
+                    onPress={async () => {
+                      try {
+                        const res = await adminFetch('/admin/export-envios');
+                        if (!res.ok) throw new Error('No se pudo exportar el CSV.');
+                        const csvText = await res.text();
+                        const fileUri = `${FileSystem.cacheDirectory}korva_envios.csv`;
+                        await FileSystem.writeAsStringAsync(fileUri, csvText, {
+                          encoding: FileSystem.EncodingType.UTF8,
+                        });
+                        await Sharing.shareAsync(fileUri, {
+                          mimeType: 'text/csv',
+                          dialogTitle: 'Exportar CSV de envíos',
+                        });
+                      } catch (error) {
+                        Alert.alert('Error', 'No se pudo exportar el CSV.');
+                      }
+                    }}
                   >
                     <Text style={[styles.editarBtnText, { color: '#4CAF50' }]}>⬇️ Exportar CSV</Text>
                   </TouchableOpacity>
