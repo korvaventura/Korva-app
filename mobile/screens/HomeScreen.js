@@ -347,6 +347,7 @@ export default function HomeScreen({ navigation }) {
   };
 
   const [modalCompartirItem, setModalCompartirItem] = useState(null);
+  const scrollRef = useRef(null);
   const shareCardRef = useRef(null);
 
   const compartirProgreso = async (index) => {
@@ -412,7 +413,6 @@ export default function HomeScreen({ navigation }) {
     }
   }
 
-  const scrollRef = useRef(null);
 
   return (
     <ScrollView
