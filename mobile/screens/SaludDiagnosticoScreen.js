@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Share, Alert } from 'react-native';
 import { estadoSalud, conectar, leerDiagnostico, plataformaSoportada } from '../services/health/healthkitDiagnostico';
+import { construirPayload, enviarMovimiento } from '../services/health/movimientoSync';
 
 const CLAVES = ['caminando', 'bici', 'pasos'];
 const ETIQUETAS = { caminando: 'Caminando/corriendo', bici: 'Bici', pasos: 'Pasos' };
@@ -35,7 +36,7 @@ const fuentesDelDia = (dia) => {
   return [...nombres];
 };
 
-const armarTextoCompartir = (diag) => {
+const armarTextoCompartir = (diag, sync) => {
   const comparaciones = diag.dias.map((dia) => ({
     fecha: dia.fecha,
     ...Object.fromEntries(CLAVES.map((clave) => [clave, comparar(dia, clave)])),
@@ -47,6 +48,9 @@ const armarTextoCompartir = (diag) => {
     `Período: ${diag.desde} a ${diag.hasta}`,
     '',
     JSON.stringify({ comparaciones, ...diag }, null, 2),
+    '',
+    'Resultado del sync:',
+    sync ? JSON.stringify(sync, null, 2) : '(no se sincronizó en esta lectura)',
   ].join('\n');
 };
 
@@ -56,6 +60,8 @@ export default function SaludDiagnosticoScreen({ navigation }) {
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
   const [diaAbierto, setDiaAbierto] = useState(null);
+  const [sync, setSync] = useState(null);
+  const [enviando, setEnviando] = useState(false);
 
   const refrescarEstado = useCallback(async () => {
     try {
@@ -84,6 +90,7 @@ export default function SaludDiagnosticoScreen({ navigation }) {
     setCargando(true);
     try {
       setDiag(await leerDiagnostico());
+      setSync(null);
     } catch (e) {
       setError(e?.message || String(e));
     } finally {
@@ -94,10 +101,47 @@ export default function SaludDiagnosticoScreen({ navigation }) {
   const onCompartir = async () => {
     if (!diag) return;
     try {
-      await Share.share({ message: armarTextoCompartir(diag) });
+      await Share.share({ message: armarTextoCompartir(diag, sync) });
     } catch (e) {
       Alert.alert('Error', e?.message || 'No se pudo compartir.');
     }
+  };
+
+  const onSincronizar = () => {
+    if (!diag || enviando) return;
+    const prep = construirPayload(diag);
+    const base = { generado: new Date().toISOString(), enviados: prep.enviados, omitidosLocales: prep.omitidosLocales };
+
+    if (prep.errorLocal) {
+      setSync({ ...base, errorLocal: prep.errorLocal, respuesta: null });
+      return;
+    }
+    if (!prep.payload) {
+      setSync({ ...base, errorLocal: 'Todos los días quedaron omitidos; no se llamó al backend.', respuesta: null });
+      return;
+    }
+
+    Alert.alert(
+      'Sincronizar con daily_movement',
+      `Se van a enviar ${prep.enviados.length} días y omitir ${prep.omitidosLocales.length}. ¿Continuar?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Enviar',
+          onPress: async () => {
+            setEnviando(true);
+            try {
+              const respuesta = await enviarMovimiento(prep.payload);
+              setSync({ ...base, errorLocal: null, respuesta });
+            } catch (e) {
+              setSync({ ...base, errorLocal: e?.message || String(e), respuesta: null });
+            } finally {
+              setEnviando(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -108,7 +152,7 @@ export default function SaludDiagnosticoScreen({ navigation }) {
 
       <Text style={styles.titulo}>❤️ Diagnóstico Apple Health</Text>
       <Text style={styles.aviso}>
-        Pantalla temporal, solo para admins. Solo lee datos de Salud y los muestra acá. No guarda ni envía nada a Korva.
+        Pantalla temporal, solo para admins. La lectura de Salud es local. Solo se envían datos a Korva si tocás manualmente “Sincronizar con daily_movement”.
       </Text>
 
       <View style={styles.card}>
@@ -138,10 +182,66 @@ export default function SaludDiagnosticoScreen({ navigation }) {
               <Text style={styles.botonTexto}>Compartir diagnóstico</Text>
             </TouchableOpacity>
           )}
+          {diag && (
+            <TouchableOpacity
+              style={[styles.boton, styles.botonSync, enviando && styles.botonDeshabilitado]}
+              onPress={onSincronizar}
+              disabled={enviando}
+            >
+              <Text style={styles.botonTexto}>{enviando ? 'Enviando…' : 'Sincronizar con daily_movement'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
       {!!error && <Text style={styles.error}>Error: {error}</Text>}
+
+      {sync && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitulo}>Resultado del sync</Text>
+          <Text style={styles.textoChico}>
+            Días enviados: {sync.enviados.length ? sync.enviados.join(', ') : 'ninguno'}
+          </Text>
+          <Text style={styles.textoChico}>Omitidos localmente:</Text>
+          {sync.omitidosLocales.length === 0 ? (
+            <Text style={styles.textoChico}>  ninguno</Text>
+          ) : (
+            sync.omitidosLocales.map((o) => (
+              <Text key={o.fecha} style={styles.textoChico}>  • {o.fecha}: {o.motivo}</Text>
+            ))
+          )}
+          {!!sync.errorLocal && <Text style={styles.error}>{sync.errorLocal}</Text>}
+          {sync.respuesta && (
+            <>
+              <Text style={styles.texto}>Status HTTP: {sync.respuesta.status ?? 'sin respuesta'}</Text>
+              <Text style={styles.textoChico}>
+                Guardados backend: {Array.isArray(sync.respuesta.cuerpo?.guardados) && sync.respuesta.cuerpo.guardados.length
+                  ? sync.respuesta.cuerpo.guardados.join(', ')
+                  : 'ninguno'}
+              </Text>
+              <Text style={styles.textoChico}>Omitidos backend:</Text>
+              {Array.isArray(sync.respuesta.cuerpo?.omitidos) && sync.respuesta.cuerpo.omitidos.length ? (
+                sync.respuesta.cuerpo.omitidos.map((o, i) => (
+                  <Text key={`${o.fecha}-${i}`} style={styles.textoChico}>  • {o.fecha}: {o.motivo}</Text>
+                ))
+              ) : (
+                <Text style={styles.textoChico}>  ninguno</Text>
+              )}
+              {!!sync.respuesta.error && <Text style={styles.error}>Error: {sync.respuesta.error}</Text>}
+              {Array.isArray(sync.respuesta.cuerpo?.detalle) &&
+                sync.respuesta.cuerpo.detalle.map((d, i) => (
+                  <Text key={i} style={styles.error}>• {d}</Text>
+                ))}
+              <Text style={styles.textoChico}>Respuesta cruda:</Text>
+              <Text style={styles.codigo}>
+                {typeof sync.respuesta.cuerpo === 'string'
+                  ? sync.respuesta.cuerpo
+                  : JSON.stringify(sync.respuesta.cuerpo, null, 2)}
+              </Text>
+            </>
+          )}
+        </View>
+      )}
 
       {diag && (
         <>
@@ -245,6 +345,9 @@ const styles = StyleSheet.create({
   botones: { gap: 10, marginBottom: 16 },
   boton: { backgroundColor: '#FC4C02', borderRadius: 12, padding: 14, alignItems: 'center' },
   botonSecundario: { backgroundColor: '#1E6FD9' },
+  botonSync: { backgroundColor: '#2E7D32' },
+  botonDeshabilitado: { opacity: 0.5 },
+  codigo: { color: '#C9D6E3', fontSize: 11, fontFamily: 'Courier', marginTop: 4 },
   botonTexto: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
   error: { color: '#FF6B6B', fontSize: 13, marginBottom: 8 },
   seccion: { color: '#A8CFFF', fontWeight: 'bold', fontSize: 13, letterSpacing: 1, marginTop: 8, marginBottom: 6 },
