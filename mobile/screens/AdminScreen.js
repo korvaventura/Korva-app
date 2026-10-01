@@ -10,8 +10,9 @@ import { supabase } from '../supabase';
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
 // Adjunta la sesión real de Supabase Auth del admin logueado a cada request /admin/*.
-// El backend todavía no exige este header (se activa en un paso posterior, aparte),
-// así que esto es aditivo y no cambia ningún comportamiento actual.
+// Si la respuesta no es OK (401/403/500, etc.), lanza una excepción en vez de
+// devolver la response: así ningún llamador llega a parsear un cuerpo de error
+// como si fueran los datos reales, y el estado previo del panel no se pisa.
 const adminFetch = async (path, options = {}) => {
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   if (sessionError || !session?.access_token) {
@@ -21,7 +22,28 @@ const adminFetch = async (path, options = {}) => {
     ...(options.headers || {}),
     Authorization: `Bearer ${session.access_token}`,
   };
-  return fetch(`${BACKEND_URL}${path}`, { ...options, headers });
+  const res = await fetch(`${BACKEND_URL}${path}`, { ...options, headers });
+  if (!res.ok) {
+    let detalle = '';
+    try {
+      const body = await res.json();
+      detalle = body?.error || '';
+    } catch {
+      // el body no era JSON o vino vacío; seguimos solo con el status
+    }
+    throw new Error(`Admin request falló (${res.status}): ${detalle || res.statusText}`);
+  }
+  return res;
+};
+
+// Evita mostrar varios Alert superpuestos cuando fallan varias cargas del panel
+// al mismo tiempo (por ejemplo, un token vencido afecta a 2-3 requests a la vez).
+let ultimaAlertaAuthAdmin = 0;
+const mostrarErrorAuthAdmin = (mensaje) => {
+  const ahora = Date.now();
+  if (ahora - ultimaAlertaAuthAdmin < 4000) return;
+  ultimaAlertaAuthAdmin = ahora;
+  Alert.alert('Error de autenticación de Admin', mensaje || 'No se pudieron cargar los datos del panel. Volvé a iniciar sesión si el problema persiste.');
 };
 
 const CHECKPOINTS_DEFAULT = [
@@ -85,6 +107,7 @@ export default function AdminScreen() {
       setRegistroGrupos(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error('Error cargando registro grupos:', e);
+      mostrarErrorAuthAdmin(e.message);
     } finally {
       setCargandoRegistro(false);
     }
@@ -98,6 +121,7 @@ export default function AdminScreen() {
       setPedidosGrupales(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error('Error cargando pedidos grupales:', e);
+      mostrarErrorAuthAdmin(e.message);
     } finally {
       setCargandoGrupos(false);
     }
@@ -132,6 +156,7 @@ export default function AdminScreen() {
       setMetricas(data);
     } catch (e) {
       console.error('Error cargando métricas:', e);
+      mostrarErrorAuthAdmin(e.message);
     } finally {
       setCargandoMetricas(false);
     }
@@ -188,6 +213,7 @@ export default function AdminScreen() {
       setChallenges(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error:', error);
+      mostrarErrorAuthAdmin(error.message);
     } finally {
       setCargando(false);
     }
