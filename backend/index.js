@@ -6,6 +6,7 @@ const stravaRoutes = require('./routes/strava');
 const shopifyRoutes = require('./routes/shopify');
 const mercadopagoRoutes = require('./routes/mercadopago');
 const invitacionesRoutes = require('./routes/invitaciones');
+const movimientoRoutes = require('./routes/movimiento');
 const { enviarEmailInscripcion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdminMedallaLista } = require('./routes/emails');
 const { enviarNotificacionProgreso } = require('./routes/notificaciones');
 const { generarCertificado } = require('./generador_bib');
@@ -325,6 +326,7 @@ app.post('/upload', async (req, res) => {
 app.use('/strava', stravaRoutes);
 app.use('/mercadopago', mercadopagoRoutes);
 app.use('/invitaciones', invitacionesRoutes);
+app.use('/movimiento-diario', movimientoRoutes);
 
 const enviarPushNotification = async (pushToken, title, body) => {
   try {
@@ -2255,6 +2257,9 @@ app.delete('/usuarios/:userId', async (req, res) => {
 
     // 3. Borrar actividades (datos personales de movimiento)
     await supabase.from('activities').delete().eq('user_id', userId);
+
+    // 3b. Borrar movimiento diario (Apple Health / Health Connect)
+    await supabase.from('daily_movement').delete().eq('user_id', userId);
 
     // 4. Eliminar usuario de Auth de Supabase (requiere service role)
     const { createClient } = require('@supabase/supabase-js');
