@@ -40,6 +40,25 @@
         {
           "photosPermission": "Korva necesita acceso a tu galería para que puedas subir tu foto de perfil."
         }
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "Korva lee tu distancia caminada, corrida y en bici desde Salud para mostrar tu movimiento diario.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
+        }
+      ],
+      "react-native-health-connect",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "minSdkVersion": 26
+          }
+        }
       ]
     ],
     "extra": {
