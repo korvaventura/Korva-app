@@ -192,13 +192,9 @@ export default function AdminScreen() {
   const cargarEvidencias = async () => {
     setCargandoEvidencias(true);
     try {
-      const { data, error } = await supabase
-        .from('activities')
-        .select('id, user_id, distance_km, sport_type, recorded_at, evidencia_url, users(name, email)')
-        .eq('source', 'manual')
-        .not('evidencia_url', 'is', null)
-        .order('recorded_at', { ascending: false });
-      if (!error) setEvidenciasAdmin(data || []);
+      const res = await adminFetch('/admin/evidencias');
+      const data = await res.json();
+      setEvidenciasAdmin(data || []);
     } catch (e) {
       console.error('Error cargando evidencias:', e);
     } finally {
