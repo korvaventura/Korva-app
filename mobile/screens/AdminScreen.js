@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useCallback } from 'react';
 import { supabase } from '../supabase';
 
@@ -55,6 +55,7 @@ const CHECKPOINTS_DEFAULT = [
 ];
 
 export default function AdminScreen() {
+  const navigation = useNavigation();
   const [challenges, setChallenges] = useState([]);
   const [challengesActivos, setChallengesActivos] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -509,6 +510,15 @@ export default function AdminScreen() {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>⚙️ Admin</Text>
+
+      {/* Temporal: diagnóstico de Apple Health (solo lectura, no envía nada) */}
+      <TouchableOpacity
+        style={[styles.menuBtn, { marginBottom: 12 }]}
+        onPress={() => navigation.navigate('SaludDiagnostico')}
+      >
+        <Text style={styles.menuBtnEmoji}>❤️</Text>
+        <Text style={styles.menuBtnLabel}>Diagnóstico Apple Health (temporal)</Text>
+      </TouchableOpacity>
 
       {/* Menú desplegable */}
       <View style={styles.menuWrapper}>

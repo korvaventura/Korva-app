@@ -18,6 +18,7 @@ import OnboardingScreen from './screens/OnboardingScreen';
 import TerminosScreen from './screens/TerminosScreen';
 import ResetPasswordScreen from './screens/ResetPasswordScreen';
 import DetalleRetoScreen from './screens/DetalleRetoScreen';
+import SaludDiagnosticoScreen from './screens/SaludDiagnosticoScreen';
 
 // ACÁ AGRUPAMOS TODO LO DE REACT NATIVE EN UNA SOLA LÍNEA Y AGREGAMOS 'View':
 import { View, Text, TextInput, Platform, ActivityIndicator } from 'react-native';
@@ -203,6 +204,9 @@ export default function App() {
           {() => <HomeTabs esAdmin={esAdmin} />}
         </Stack.Screen>
         <Stack.Screen name="DetalleReto" component={DetalleRetoScreen} />
+        {esAdmin && (
+          <Stack.Screen name="SaludDiagnostico" component={SaludDiagnosticoScreen} />
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
