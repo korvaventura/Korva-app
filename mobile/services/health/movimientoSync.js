@@ -36,11 +36,18 @@ const modelosPorFuente = (diag) => {
 const desgloseMinimo = (lista, redondeo) =>
   (lista || []).map((f) => ({ bundleIdentifier: f.bundleIdentifier, valor: redondeo(f.valor || 0) }));
 
-export function construirPayload(diag) {
+// origen: 'diagnostico_manual_v1' (botón manual) o 'sync_auto_v1' (sync automático).
+export function construirPayload(diag, { origen = 'diagnostico_manual_v1' } = {}) {
   const resultado = { payload: null, enviados: [], omitidosLocales: [], errorLocal: null };
 
   if (!diag || !Array.isArray(diag.dias)) {
     resultado.errorLocal = 'No hay una lectura de Salud para sincronizar.';
+    return resultado;
+  }
+  // Si falló algún total consolidado no se envía nada: un tipo faltante se
+  // mandaría como 0 y pisaría un valor bueno ya guardado.
+  if (diag.lecturaCompleta === false) {
+    resultado.errorLocal = 'La lectura de Salud quedó incompleta; no se envía nada para no pisar datos.';
     return resultado;
   }
   if (!diag.zonaHoraria || diag.zonaHoraria === 'desconocida') {
@@ -86,7 +93,7 @@ export function construirPayload(diag) {
       tipo_medicion: 'medido',
       fuente_dispositivo: fuenteDispositivo,
       raw_payload: {
-        origen: 'diagnostico_manual_v1',
+        origen,
         por_fuente: {
           caminando: desgloseMinimo(dia.porFuente?.caminando, redondear3),
           bici: desgloseMinimo(dia.porFuente?.bici, redondear3),

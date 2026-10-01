@@ -19,6 +19,7 @@ import TerminosScreen from './screens/TerminosScreen';
 import ResetPasswordScreen from './screens/ResetPasswordScreen';
 import DetalleRetoScreen from './screens/DetalleRetoScreen';
 import SaludDiagnosticoScreen from './screens/SaludDiagnosticoScreen';
+import useHealthAutoSync from './services/health/useHealthAutoSync';
 
 // ACÁ AGRUPAMOS TODO LO DE REACT NATIVE EN UNA SOLA LÍNEA Y AGREGAMOS 'View':
 import { View, Text, TextInput, Platform, ActivityIndicator } from 'react-native';
@@ -109,6 +110,10 @@ export default function App() {
   const [mostrarTerminos, setMostrarTerminos] = useState(false);
   const [mostrarOnboarding, setMostrarOnboarding] = useState(false);
   const [mostrarReset, setMostrarReset] = useState(false);
+
+  // Sync automático de Apple Health: solo iOS y, por ahora, solo admins (con opt-in en el diagnóstico).
+  // Va antes de cualquier return para no cambiar el orden de los hooks.
+  useHealthAutoSync(usuario && ADMINS.includes(usuario.email?.toLowerCase()) ? usuario.id : null);
 
   useEffect(() => {
     const handleDeepLink = async (url) => {

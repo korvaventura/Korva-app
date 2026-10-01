@@ -2,9 +2,11 @@
 // Muestra lo que Korva puede leer de Salud. No guarda ni envía nada:
 // solo comparte un texto si el admin toca "Compartir diagnóstico".
 import { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Share, Alert } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Share, Alert, Switch } from 'react-native';
 import { estadoSalud, conectar, leerDiagnostico, plataformaSoportada } from '../services/health/healthkitDiagnostico';
 import { construirPayload, enviarMovimiento } from '../services/health/movimientoSync';
+import { autoSyncActivado, setAutoSyncActivado, leerEstadoAutoSync } from '../services/health/syncAutomatico';
+import { supabase } from '../supabase';
 
 const CLAVES = ['caminando', 'bici', 'pasos'];
 const ETIQUETAS = { caminando: 'Caminando/corriendo', bici: 'Bici', pasos: 'Pasos' };
@@ -36,7 +38,16 @@ const fuentesDelDia = (dia) => {
   return [...nombres];
 };
 
-const armarTextoCompartir = (diag, sync) => {
+const TEXTO_RESULTADO_AUTO = {
+  ok: 'OK',
+  sin_datos: 'Sin días con distancia (no se envió nada)',
+  sin_permiso: 'Sin permiso de Salud (no se pide automáticamente)',
+  error: 'Error',
+};
+
+const fechaHora = (ms) => (ms ? new Date(ms).toLocaleString() : '—');
+
+const armarTextoCompartir = (diag, sync, estadoAuto) => {
   const comparaciones = diag.dias.map((dia) => ({
     fecha: dia.fecha,
     ...Object.fromEntries(CLAVES.map((clave) => [clave, comparar(dia, clave)])),
@@ -51,6 +62,9 @@ const armarTextoCompartir = (diag, sync) => {
     '',
     'Resultado del sync:',
     sync ? JSON.stringify(sync, null, 2) : '(no se sincronizó en esta lectura)',
+    '',
+    'Último sync automático:',
+    estadoAuto ? JSON.stringify(estadoAuto, null, 2) : '(sin registros)',
   ].join('\n');
 };
 
@@ -62,6 +76,9 @@ export default function SaludDiagnosticoScreen({ navigation }) {
   const [diaAbierto, setDiaAbierto] = useState(null);
   const [sync, setSync] = useState(null);
   const [enviando, setEnviando] = useState(false);
+  const [userId, setUserId] = useState(null);
+  const [autoActivado, setAutoActivado] = useState(false);
+  const [estadoAuto, setEstadoAuto] = useState(null);
 
   const refrescarEstado = useCallback(async () => {
     try {
@@ -74,6 +91,30 @@ export default function SaludDiagnosticoScreen({ navigation }) {
   useEffect(() => {
     refrescarEstado();
   }, [refrescarEstado]);
+
+  const refrescarAuto = useCallback(async (id) => {
+    if (!id) return;
+    setAutoActivado(await autoSyncActivado(id));
+    setEstadoAuto(await leerEstadoAutoSync(id));
+  }, []);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      const id = data?.session?.user?.id || null;
+      setUserId(id);
+      refrescarAuto(id);
+    });
+  }, [refrescarAuto]);
+
+  const onCambiarAuto = async (valor) => {
+    if (!userId) return;
+    try {
+      await setAutoSyncActivado(userId, valor);
+      setAutoActivado(valor);
+    } catch (e) {
+      Alert.alert('Error', e?.message || 'No se pudo guardar la preferencia.');
+    }
+  };
 
   const onConectar = async () => {
     setError('');
@@ -101,7 +142,7 @@ export default function SaludDiagnosticoScreen({ navigation }) {
   const onCompartir = async () => {
     if (!diag) return;
     try {
-      await Share.share({ message: armarTextoCompartir(diag, sync) });
+      await Share.share({ message: armarTextoCompartir(diag, sync, estadoAuto) });
     } catch (e) {
       Alert.alert('Error', e?.message || 'No se pudo compartir.');
     }
@@ -191,6 +232,48 @@ export default function SaludDiagnosticoScreen({ navigation }) {
               <Text style={styles.botonTexto}>{enviando ? 'Enviando…' : 'Sincronizar con daily_movement'}</Text>
             </TouchableOpacity>
           )}
+        </View>
+      )}
+
+      {plataformaSoportada && estado?.disponible && (
+        <View style={styles.card}>
+          <View style={styles.fila}>
+            <Text style={[styles.cardTitulo, styles.filaTexto]}>Sync automático (máx. cada 3 h)</Text>
+            <Switch value={autoActivado} onValueChange={onCambiarAuto} disabled={!userId} />
+          </View>
+          <Text style={styles.textoChico}>
+            Envía los últimos 7 días al abrir la app o al volver a ella. No pide permisos: usa el permiso ya dado.
+          </Text>
+          {estado.estadoPermiso !== 'ya_pedido' && (
+            <Text style={styles.error}>Primero tocá "Conectar Apple Health"; sin eso el sync automático no corre.</Text>
+          )}
+          <Text style={styles.desgloseTitulo}>Último sync automático</Text>
+          {!estadoAuto ? (
+            <Text style={styles.textoChico}>Sin registros todavía.</Text>
+          ) : (
+            <>
+              <Text style={styles.textoChico}>Intento: {fechaHora(estadoAuto.ultimoIntentoMs)}</Text>
+              <Text style={styles.textoChico}>
+                Resultado: {TEXTO_RESULTADO_AUTO[estadoAuto.resultado] || estadoAuto.resultado}
+                {estadoAuto.status ? ` (HTTP ${estadoAuto.status})` : ''}
+              </Text>
+              <Text style={styles.textoChico}>Último éxito: {fechaHora(estadoAuto.ultimoExitoMs)}</Text>
+              {Array.isArray(estadoAuto.guardados) && estadoAuto.guardados.length > 0 && (
+                <Text style={styles.textoChico}>Guardados: {estadoAuto.guardados.join(', ')}</Text>
+              )}
+              {Array.isArray(estadoAuto.omitidosLocales) && estadoAuto.omitidosLocales.length > 0 && (
+                <Text style={styles.textoChico}>
+                  Omitidos localmente: {estadoAuto.omitidosLocales.map((o) => `${o.fecha} (${o.motivo})`).join(', ')}
+                </Text>
+              )}
+              {!!estadoAuto.error && <Text style={styles.error}>Error: {estadoAuto.error}</Text>}
+              {Array.isArray(estadoAuto.detalle) &&
+                estadoAuto.detalle.map((d, i) => <Text key={i} style={styles.error}>• {d}</Text>)}
+            </>
+          )}
+          <TouchableOpacity onPress={() => refrescarAuto(userId)} style={styles.volver}>
+            <Text style={styles.volverTexto}>↻ Actualizar estado</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -355,4 +438,6 @@ const styles = StyleSheet.create({
   desglose: { marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#2C4A6E' },
   desgloseTitulo: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13, marginBottom: 4 },
   fuente: { marginBottom: 8 },
+  fila: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  filaTexto: { flex: 1, marginRight: 12 },
 });
