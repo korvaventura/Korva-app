@@ -9,6 +9,7 @@ const invitacionesRoutes = require('./routes/invitaciones');
 const { enviarEmailInscripcion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdminMedallaLista } = require('./routes/emails');
 const { enviarNotificacionProgreso } = require('./routes/notificaciones');
 const { generarCertificado } = require('./generador_bib');
+const requireAdmin = require('./middleware/requireAdmin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1372,6 +1373,24 @@ app.get('/admin/todos-inscriptos', async (req, res) => {
     res.json(data || []);
   } catch (error) {
     res.json({ error: 'Error', detalle: error.message });
+  }
+});
+
+// Evidencias de actividades manuales para AdminScreen. Reemplaza la lectura directa
+// que hacía la app sobre activities + users. Protegida solo esta ruta con requireAdmin.
+app.get('/admin/evidencias', requireAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('activities')
+      .select('id, user_id, distance_km, sport_type, recorded_at, evidencia_url, users(name, email)')
+      .eq('source', 'manual')
+      .not('evidencia_url', 'is', null)
+      .order('recorded_at', { ascending: false });
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error) {
+    console.error('Error en /admin/evidencias:', error.message);
+    res.status(500).json({ error: 'No se pudieron cargar las evidencias.' });
   }
 });
 
