@@ -9,6 +9,10 @@ const invitacionesRoutes = require('./routes/invitaciones');
 const movimientoRoutes = require('./routes/movimiento');
 const residualAdminRoutes = require('./routes/residualAdmin');
 const progresoSombraAdminRoutes = require('./routes/progresoSombraAdmin');
+const { writerMotorActivo } = require('./lib/flagsMotor');
+const { crearRepositorioSupabase } = require('./lib/progresoRepositorioSupabase');
+const { reanudarDesafioConMotor } = require('./lib/reanudarDesafio');
+const { iniciarRecuperacion } = require('./lib/recuperacionRecalculo');
 const { enviarEmailInscripcion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdminMedallaLista } = require('./routes/emails');
 const { enviarNotificacionProgreso } = require('./routes/notificaciones');
 const { generarCertificado } = require('./generador_bib');
@@ -1766,6 +1770,17 @@ app.post('/challenges/pausar', async (req, res) => {
 app.post('/challenges/reanudar', async (req, res) => {
   const { user_id, challenge_id } = req.body;
   try {
+    // Etapa 4A-3c: canario del motor unificado, solo si MOTOR_PROGRESO_WRITERS incluye "reanudar".
+    // Con la flag apagada se ejecuta el código viejo de abajo, sin cambios.
+    if (writerMotorActivo('reanudar')) {
+      const resultado = await reanudarDesafioConMotor({
+        repo: crearRepositorioSupabase(supabase),
+        userId: user_id,
+        challengeId: challenge_id,
+      });
+      return res.status(resultado.status).json(resultado.body);
+    }
+
     const { data: uc } = await supabase
       .from('user_challenges')
       .select('id, pausado, pausado_at, periodos_pausados')
@@ -2298,3 +2313,13 @@ process.on('unhandledRejection', (err) => {
 app.listen(PORT, () => {
   console.log(`Servidor Korva corriendo en puerto ${PORT}`);
 });
+
+// Etapa 4A-3c: recuperación de recálculos marcados como pendientes
+// (user_challenges.recalculo_pendiente_desde). Con "reanudar" encendido corre al arrancar
+// (+30 s) y cada 10 min. Con "reanudar" apagado hace UNA consulta al arrancar: si no hay marcas
+// no queda ningún timer; si quedaron marcas, las drena y se detiene sola.
+// Timers con unref(): no frenan el apagado. No procesa efectos de progreso_eventos.
+iniciarRecuperacion({
+  crearRepo: () => crearRepositorioSupabase(supabase),
+  reanudarActivo: writerMotorActivo('reanudar'),
+}).catch((e) => console.error('Error iniciando recuperación de progreso:', e.message));
