@@ -8,6 +8,7 @@ const mercadopagoRoutes = require('./routes/mercadopago');
 const invitacionesRoutes = require('./routes/invitaciones');
 const movimientoRoutes = require('./routes/movimiento');
 const residualAdminRoutes = require('./routes/residualAdmin');
+const progresoSombraAdminRoutes = require('./routes/progresoSombraAdmin');
 const { enviarEmailInscripcion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdminMedallaLista } = require('./routes/emails');
 const { enviarNotificacionProgreso } = require('./routes/notificaciones');
 const { generarCertificado } = require('./generador_bib');
@@ -329,6 +330,7 @@ app.use('/mercadopago', mercadopagoRoutes);
 app.use('/invitaciones', invitacionesRoutes);
 app.use('/movimiento-diario', movimientoRoutes);
 app.use('/admin/residual', residualAdminRoutes); // Etapa 3: residual en modo sombra, solo admin, solo lectura
+app.use('/admin/progreso-sombra', progresoSombraAdminRoutes); // Etapa 4A: progreso unificado en modo sombra, solo admin, solo lectura
 
 const enviarPushNotification = async (pushToken, title, body) => {
   try {
