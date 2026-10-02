@@ -13,7 +13,7 @@ const TABLAS_PERMITIDAS = ['user_challenges', 'challenges', 'activities'];
 const TAMANO_PAGINA = 1000;
 const TAMANO_LOTE_IDS = 100;
 
-const CAMPOS_USER_CHALLENGE = 'id, user_id, challenge_id, status, started_at, pausado, pausado_at, periodos_pausados, modalidad, km_completed';
+const CAMPOS_USER_CHALLENGE = 'id, user_id, challenge_id, status, started_at, pausado, pausado_at, periodos_pausados, modalidad, km_completed, km_base, km_base_motivo';
 const CAMPOS_CHALLENGE = 'id, title, modalidades, total_distance_km';
 const CAMPOS_ACTIVIDAD = 'id, user_id, distance_km, recorded_at, excluida';
 

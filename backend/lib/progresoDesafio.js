@@ -4,19 +4,25 @@
 // del sistema (el instante de referencia llega como parámetro "ahoraMs").
 //
 // 4A usa SOLO user_challenges, challenges y activities. No lee Health,
-// daily_movement ni residual. km_base todavía no existe: acá solo se
-// informa un "km_base_candidato" como diagnóstico, sin alterar el resultado.
+// daily_movement ni residual.
+//
+// km_base (desde 4A-2c): km históricos preservados en user_challenges.km_base.
+//  - El motor solo LEE el valor actual de cada fila y lo suma como constante.
+//  - Ningún cálculo crea, modifica, recalcula ni absorbe diferencias en km_base.
+//  - No se asume qué desafíos tienen base (no hay ids fijos): cualquier fila
+//    puede tenerla, porque una operación administrativa explícita (migración o
+//    corrección) puede cargarla o corregirla en el futuro.
 //
 // Reglas canónicas 4A (ver etapa4-progreso-unificado-diseno.md, sección 7):
 //  1. Solo los desafíos 'active' se recalcularían; terminales congelados; 'pending' sin cálculo.
 //  2. Cuentan las actividades del usuario con excluida === false, recorded_at >= started_at,
 //     fuera de todo período de periodos_pausados (bordes inclusivos) y anteriores a
 //     pausado_at si el desafío está pausado. Cualquier deporte, challenge_id y modalidad.
-//  3. km_reconstruido = Σ distance_km de las actividades que cuentan.
+//  3. km_progreso = km_base + Σ distance_km de las actividades que cuentan.
 //  4. Objetivo = modalidad elegida → primera modalidad → total_distance_km.
 //  5. Todos los instantes se interpretan como UTC aunque no traigan zona.
 
-const REGLA_VERSION = 'progreso_4a_v1_2026-10-02';
+const REGLA_VERSION = 'progreso_4a_v2_2026-10-02';
 
 const ESTADOS_TERMINALES = ['completed', 'cargado', 'shipped'];
 
@@ -119,7 +125,20 @@ const motivoActividad = (actividad, inicioMs, pausas) => {
   return { motivo: MOTIVOS.CUENTA, ms };
 };
 
-/** Clasifica la diferencia guardado − reconstruido (solo diagnóstico, solo activos). */
+/**
+ * km_base de la fila tal como está guardado. Solo lectura: nunca se corrige acá.
+ * Si viniera inválido (no numérico o negativo; la base de datos lo impide con un CHECK),
+ * no se suma y se marca, para que el problema se vea en vez de esconderse.
+ */
+const leerKmBase = (uc) => {
+  const valor = uc.km_base;
+  if (valor === null || valor === undefined) return { kmBase: 0, valido: true, presente: false };
+  const n = typeof valor === 'number' ? valor : parseFloat(valor);
+  if (!Number.isFinite(n) || n < 0) return { kmBase: 0, valido: false, presente: true };
+  return { kmBase: n, valido: true, presente: true };
+};
+
+/** Clasifica la diferencia guardado − progreso (solo diagnóstico, solo activos). */
 const clasificarDiferencia = ({ diferencia, kmPorMotivo, actividadesTotalesUsuario }) => {
   if (Math.abs(diferencia) <= TOLERANCIA_IGUAL_KM) return CATEGORIAS.COINCIDE;
   if (diferencia < 0) return CATEGORIAS.RECONSTRUIDO_MAYOR;
@@ -170,9 +189,11 @@ const calcularProgresoChallenge = ({ uc, challenge, actividades, incluirDetalle 
     }
   });
 
-  const kmReconstruido = kmPorMotivo[MOTIVOS.CUENTA];
+  const kmActividades = kmPorMotivo[MOTIVOS.CUENTA];
+  const { kmBase, valido: kmBaseValido, presente: kmBasePresente } = leerKmBase(uc);
+  const kmProgreso = kmBase + kmActividades;
   const kmGuardado = numero(uc.km_completed);
-  const diferencia = kmGuardado - kmReconstruido;
+  const diferencia = kmGuardado - kmProgreso;
   const status = uc.status;
   const esActivo = status === 'active';
   const esTerminal = ESTADOS_TERMINALES.includes(status);
@@ -191,6 +212,9 @@ const calcularProgresoChallenge = ({ uc, challenge, actividades, incluirDetalle 
   if (cantidadPorMotivo[MOTIVOS.FECHA_INVALIDA] > 0) flags.push('actividades_con_fecha_invalida');
   if (cantidadPorMotivo[MOTIVOS.CUENTA] === 0) flags.push('sin_actividades_que_cuenten');
   if (lista.length === 0) flags.push('usuario_sin_actividades');
+  if (kmBase > 0) flags.push('tiene_km_base');
+  if (!kmBasePresente) flags.push('km_base_no_leido');
+  if (!kmBaseValido) flags.push('km_base_invalido');
   if (cantidadPorMotivo[MOTIVOS.EXCLUIDA] > 0) flags.push('hay_actividades_excluidas');
   if (cantidadPorMotivo[MOTIVOS.ANTERIOR_AL_INICIO] > 0) flags.push('hay_actividades_anteriores_al_inicio');
   if (cantidadPorMotivo[MOTIVOS.EN_PAUSA] + cantidadPorMotivo[MOTIVOS.EN_PAUSA_ABIERTA] > 0) flags.push('hay_actividades_en_pausa');
@@ -198,8 +222,8 @@ const calcularProgresoChallenge = ({ uc, challenge, actividades, incluirDetalle 
   if (esActivo) {
     if (diferencia > TOLERANCIA_IGUAL_KM) flags.push('el_calculo_nuevo_bajaria_km');
     if (diferencia < -TOLERANCIA_IGUAL_KM) flags.push('el_calculo_nuevo_subiria_km');
-    if (objetivo_km !== null && kmReconstruido >= objetivo_km) flags.push('reconstruido_alcanza_objetivo');
-    if (objetivo_km !== null && kmGuardado >= objetivo_km && kmReconstruido < objetivo_km) flags.push('guardado_alcanza_objetivo_pero_reconstruido_no');
+    if (objetivo_km !== null && kmProgreso >= objetivo_km) flags.push('progreso_alcanza_objetivo');
+    if (objetivo_km !== null && kmGuardado >= objetivo_km && kmProgreso < objetivo_km) flags.push('guardado_alcanza_objetivo_pero_progreso_no');
   }
 
   const categoria = esActivo
@@ -225,10 +249,13 @@ const calcularProgresoChallenge = ({ uc, challenge, actividades, incluirDetalle 
       periodos_invalidos: pausas.invalidos.length,
     },
     km_completed_actual: redondear(kmGuardado),
-    km_reconstruido_actividades: redondear(kmReconstruido),
+    km_base: kmBase,
+    km_base_motivo: uc.km_base_motivo ?? null,
+    km_actividades: redondear(kmActividades),
+    km_progreso_sombra: redondear(kmProgreso),
     diferencia_km: redondear(diferencia),
-    km_base_candidato: esActivo ? redondear(Math.max(0, diferencia)) : null,
-    porcentaje_reconstruido: objetivo_km ? redondear(Math.min((kmReconstruido / objetivo_km) * 100, 100), 1) : null,
+    diferencia_sin_explicar_km: esActivo ? redondear(Math.max(0, diferencia)) : null,
+    porcentaje_progreso: objetivo_km ? redondear(Math.min((kmProgreso / objetivo_km) * 100, 100), 1) : null,
     actividades: {
       total_usuario: lista.length,
       cuentan: { cantidad: cantidadPorMotivo[MOTIVOS.CUENTA], km: redondear(kmPorMotivo[MOTIVOS.CUENTA]) },
@@ -255,9 +282,9 @@ const resumirResultados = (resultados) => {
   const activos = resultados.filter((r) => r.se_recalcularia);
   const porCategoria = {};
   activos.forEach((r) => {
-    const c = porCategoria[r.categoria_diferencia] || { desafios: 0, km_base_candidato: 0 };
+    const c = porCategoria[r.categoria_diferencia] || { desafios: 0, diferencia_sin_explicar_km: 0 };
     c.desafios += 1;
-    c.km_base_candidato = redondear(c.km_base_candidato + (r.km_base_candidato || 0));
+    c.diferencia_sin_explicar_km = redondear(c.diferencia_sin_explicar_km + (r.diferencia_sin_explicar_km || 0));
     porCategoria[r.categoria_diferencia] = c;
   });
   return {
@@ -266,7 +293,9 @@ const resumirResultados = (resultados) => {
     coinciden: activos.filter((r) => r.categoria_diferencia === CATEGORIAS.COINCIDE).length,
     nuevo_bajaria: activos.filter((r) => r.flags.includes('el_calculo_nuevo_bajaria_km')).length,
     nuevo_subiria: activos.filter((r) => r.flags.includes('el_calculo_nuevo_subiria_km')).length,
-    km_base_candidato_total: redondear(activos.reduce((acc, r) => acc + (r.km_base_candidato || 0), 0)),
+    desafios_activos_con_km_base: activos.filter((r) => r.km_base > 0).length,
+    km_base_total_activos: redondear(activos.reduce((acc, r) => acc + r.km_base, 0), 4),
+    diferencia_sin_explicar_total: redondear(activos.reduce((acc, r) => acc + (r.diferencia_sin_explicar_km || 0), 0)),
     por_categoria: porCategoria,
   };
 };
@@ -281,6 +310,7 @@ module.exports = {
   instanteUTC,
   resolverObjetivo,
   normalizarPausas,
+  leerKmBase,
   calcularProgresoChallenge,
   resumirResultados,
 };

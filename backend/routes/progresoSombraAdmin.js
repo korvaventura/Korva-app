@@ -25,8 +25,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 const AVISOS = [
   'Modo sombra 4A: no escribe nada; km_completed y los estados no se modifican.',
-  'Cálculo solo con activities (sin Health, sin residual, sin km_base).',
-  'km_base_candidato es solo diagnóstico: no se asigna ni altera el resultado (decisión D7 pendiente).',
+  'progreso_sombra = km_base + actividades válidas (sin Health, sin residual).',
+  'km_base se lee tal cual está guardado: el cálculo nunca lo crea, modifica ni absorbe diferencias.',
+  'diferencia_sin_explicar_km es solo diagnóstico: no se convierte en km_base.',
   'Desafíos terminales (completed/cargado/shipped) se informan pero quedarían congelados.',
 ];
 
