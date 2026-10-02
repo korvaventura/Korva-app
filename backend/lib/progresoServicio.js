@@ -8,7 +8,8 @@
 //   leerEstadoUsuario(userId)                       → { userChallenges, challenges (Map), actividades }
 //   actualizarKmCAS({ id, kmLeido, kmNuevo })       → true si escribió (solo si status sigue 'active'
 //                                                     y km_completed sigue siendo kmLeido)
-//   completarCAS({ id, kmLeido, kmNuevo, completedAtIso }) → true si ESTA llamada hizo active → completed
+//   completarCAS({ id, kmLeido, kmNuevo, completedAtIso, datos }) → { gano, eventoId, eventoNuevo }:
+//                                                     ESTA llamada hizo active → completed y su evento
 //   registrarEvento({ userChallengeId, userId, tipo, datos }) → { creado, id }  (único por desafío y tipo)
 //
 // Garantías:
@@ -17,9 +18,10 @@
 //  - Concurrencia: escritura condicional (compare-and-set). Si otro proceso escribió en el medio,
 //    se relee todo y se recalcula (hasta maxIntentos). Si se agotan, se informa el conflicto; el
 //    próximo recálculo lo corrige (el valor es un caché reconstruible).
-//  - La transición active → completed la gana UNA sola llamada; solo esa registra el evento
-//    'completado'. Los efectos (certificado, email, push) NO se ejecutan acá: los procesa
-//    completionEventos.procesarEventosPendientes, de forma explícita y observable.
+//  - La transición active → completed la gana UNA sola llamada, y en la MISMA transacción se registra
+//    su evento 'completado' (RPC completar_desafio_motor, migración 4A-3e-a). Los efectos
+//    (certificado, email, push) NO se ejecutan acá: los procesa completionEventos, de forma
+//    explícita y observable.
 //  - km_base nunca se escribe ni se recalcula.
 const { calcularProgresoChallenge } = require('./progresoDesafio');
 const { decidirAccion, ACCIONES } = require('./progresoDecision');
@@ -62,6 +64,7 @@ const recalcularProgresoUsuario = async ({
     escrituras: 0,
     completados: [],
     eventos_creados: [],
+    eventos_para_procesar: [], // ids de eventos de efectos de las escrituras que SÍ ganó este recálculo
     conflictos_sin_resolver: [],
   };
 
@@ -109,30 +112,34 @@ const recalcularProgresoUsuario = async ({
               userChallengeId: uc.id, userId, tipo: TIPOS_EVENTO.CRUCE_75,
               datos: { km: decision.kmNuevo, objetivo_km: resultado.objetivo_km, motivo },
             });
-            if (ev && ev.creado) informe.eventos_creados.push({ id: ev.id, tipo: TIPOS_EVENTO.CRUCE_75, user_challenge_id: uc.id });
+            if (ev && ev.creado) {
+              informe.eventos_creados.push({ id: ev.id, tipo: TIPOS_EVENTO.CRUCE_75, user_challenge_id: uc.id });
+              informe.eventos_para_procesar.push(ev.id);
+            }
           }
         }
       }
 
       if (modo === MODOS.ESCRIBIR && decision.accion === ACCIONES.COMPLETAR) {
-        const ok = await repo.completarCAS({
+        // 4A-3e: completitud ATÓMICA. La RPC completar_desafio_motor hace, en una sola transacción,
+        // el CAS active→completed + km_completed + completed_at y registra el evento 'completado'.
+        // No existe un desafío completado sin evento ni un evento sin completitud.
+        const r = await repo.completarCAS({
           id: uc.id,
           kmLeido: decision.kmLeido,
           kmNuevo: decision.kmNuevo,
           completedAtIso: new Date(ahoraMs).toISOString(),
+          datos: { km: decision.kmNuevo, objetivo_km: resultado.objetivo_km, motivo, challenge_titulo: resultado.challenge_titulo },
         });
-        if (!ok) {
+        if (!r || !r.gano) {
           conflictos.push(uc.id);
           registro.conflicto = true;
         } else {
           registro.escrito = true;
           informe.escrituras += 1;
           informe.completados.push(uc.id);
-          const ev = await repo.registrarEvento({
-            userChallengeId: uc.id, userId, tipo: TIPOS_EVENTO.COMPLETADO,
-            datos: { km: decision.kmNuevo, objetivo_km: resultado.objetivo_km, motivo, challenge_titulo: resultado.challenge_titulo },
-          });
-          if (ev && ev.creado) informe.eventos_creados.push({ id: ev.id, tipo: TIPOS_EVENTO.COMPLETADO, user_challenge_id: uc.id });
+          if (r.eventoNuevo) informe.eventos_creados.push({ id: r.eventoId, tipo: TIPOS_EVENTO.COMPLETADO, user_challenge_id: uc.id });
+          if (r.eventoId) informe.eventos_para_procesar.push(r.eventoId);
         }
       }
 

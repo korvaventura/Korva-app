@@ -13,15 +13,50 @@ const path = require('path');
 const { crearSupabaseMemoria } = require('./supabaseMemoria');
 
 const tablas = JSON.parse(fs.readFileSync(process.env.PRUEBA_DB_JSON, 'utf8'));
-const memoria = crearSupabaseMemoria(tablas);
+
+// Efectos externos del código viejo (emails por Resend, push por Expo): se registran, no salen.
+const efectos = { emails: [], push: [] };
+
+// PRUEBA_MOTOR_GANA_ANTES_DE=<user_challenge_id>: justo antes de que un writer viejo ejecute el
+// UPDATE que completa ese desafío, el motor lo completa por la RPC (la carrera de convivencia).
+const idCarrera = process.env.PRUEBA_MOTOR_GANA_ANTES_DE || null;
+let carreraHecha = false;
+let memoria;
+const interceptar = (op) => {
+  if (!idCarrera || carreraHecha || op.tabla !== 'user_challenges' || op.tipo !== 'update') return false;
+  if (!op.valores || op.valores.status !== 'completed') return false;
+  if (!op.filtros.some(([t, c, v]) => t === 'eq' && c === 'id' && v === idCarrera)) return false;
+  carreraHecha = true;
+  const fila = memoria.db.user_challenges.find((u) => u.id === idCarrera);
+  memoria.cliente.rpc('completar_desafio_motor', {
+    p_id: idCarrera, p_km_leido: fila.km_completed ?? null, p_km_nuevo: op.valores.km_completed,
+    p_completed_at: new Date().toISOString(), p_datos: { motivo: 'carrera_de_prueba' },
+  });
+  return false; // el UPDATE viejo sigue y se ejecuta DESPUÉS de la completitud del motor
+};
+memoria = crearSupabaseMemoria(tablas, { fallar: interceptar });
+
+const fetchOriginal = global.fetch;
+global.fetch = async (url, init) => {
+  if (String(url).startsWith('https://exp.host/')) {
+    efectos.push.push(JSON.parse(init.body));
+    return { ok: true, status: 200, json: async () => ({ data: { status: 'ok' } }) };
+  }
+  return fetchOriginal(url, init);
+};
 
 const original = Module._load;
 Module._load = function cargar(pedido, padre, esPrincipal) {
   if (pedido === '@supabase/supabase-js') {
     return { createClient: () => memoria.cliente };
   }
+  // PRUEBA_PDF_FALSO=1: el certificado se "genera" sin Python ni Storage (PDF de prueba).
+  if (process.env.PRUEBA_PDF_FALSO === '1' && /generador_bib$/.test(pedido)) {
+    const real = original.apply(this, [pedido, padre, esPrincipal]);
+    return { ...real, generarCertificado: async (_s, nombre, desafio, km, bib, fecha, serial) => Buffer.from(`PDF ${serial} ${nombre} ${desafio}`).toString('base64') };
+  }
   if (pedido === 'resend') {
-    return { Resend: class { constructor() { this.emails = { send: async () => ({ id: 'simulado' }) }; } } };
+    return { Resend: class { constructor() { this.emails = { send: async (payload) => { efectos.emails.push({ para: payload.to, asunto: payload.subject, adjuntos: (payload.attachments || []).length }); return { data: { id: `simulado-${efectos.emails.length}` }, error: null }; } }; } } };
   }
   return original.apply(this, [pedido, padre, esPrincipal]);
 };
@@ -30,7 +65,7 @@ Module._load = function cargar(pedido, padre, esPrincipal) {
 // pueda mostrar la causa exacta en vez de un ENOENT.
 const volcar = () => {
   try {
-    fs.writeFileSync(process.env.PRUEBA_SALIDA, JSON.stringify({ db: memoria.db, registro: memoria.registro }));
+    fs.writeFileSync(process.env.PRUEBA_SALIDA, JSON.stringify({ db: memoria.db, registro: memoria.registro, efectos }));
   } catch (e) {
     process.stderr.write(`[precarga] no se pudo escribir ${process.env.PRUEBA_SALIDA}: ${e && e.stack}\n`);
     process.exit(3);

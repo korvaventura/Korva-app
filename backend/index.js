@@ -9,15 +9,22 @@ const invitacionesRoutes = require('./routes/invitaciones');
 const movimientoRoutes = require('./routes/movimiento');
 const residualAdminRoutes = require('./routes/residualAdmin');
 const progresoSombraAdminRoutes = require('./routes/progresoSombraAdmin');
-const { writerMotorActivo, algunWriterMotorActivo } = require('./lib/flagsMotor');
+const { writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva } = require('./lib/flagsMotor');
 const { crearRepositorioSupabase } = require('./lib/progresoRepositorioSupabase');
 const { reanudarDesafioConMotor } = require('./lib/reanudarDesafio');
 const { eliminarActividadConMotor } = require('./lib/eliminarActividad');
+const { cambiarModalidadConMotor } = require('./lib/cambiarModalidad');
+const { crearEfectosCompletado } = require('./lib/efectosCompletado');
+const { crearProcesadorEventos } = require('./lib/completionEventos');
+const { logMotor } = require('./lib/recuperacionRecalculo');
 const { iniciarRecuperacion } = require('./lib/recuperacionRecalculo');
+const { reservarSerialCertificado, liberarSerialCAS } = require('./lib/certificadoSerial');
+const { actualizarConCompletitudCondicional } = require('./lib/completitudLegada');
 const { enviarEmailInscripcion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdminMedallaLista } = require('./routes/emails');
 const { enviarNotificacionProgreso } = require('./routes/notificaciones');
 const { generarCertificado } = require('./generador_bib');
 const requireAdmin = require('./middleware/requireAdmin');
+const emailsModulo = require('./routes/emails');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,6 +33,20 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SECRET
 );
+
+// Etapa 4A-3e: efectos de progreso_eventos (certificado, emails, push) y su procesador.
+// Solo se usan si MOTOR_PROGRESO_WRITERS incluye "efectos".
+const efectosMotor = crearEfectosCompletado({
+  supabase,
+  generarCertificado,
+  emails: emailsModulo,
+  obtenerResend: () => emailsModulo.getResend(),
+});
+const procesadorEventos = crearProcesadorEventos({
+  crearRepo: () => crearRepositorioSupabase(supabase),
+  efectos: efectosMotor,
+  log: (datos) => logMotor({ writer: 'efectos', ...datos }),
+});
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -99,8 +120,11 @@ app.get('/test/certificado/:userId/:challengeId', async (req, res) => {
       .eq('user_id', userId).eq('challenge_id', challengeId).maybeSingle();
     if (!uc) return res.json({ error: 'Challenge no encontrado' });
 
-    const { data: serie } = await supabase.rpc('get_next_certificado_serial');
-    const numeroSerie = serie || `KORVA-${new Date().getFullYear()}-0000`;
+    // 4A-3e: nunca se pisa un serial. Si el desafío ya tiene uno, se reenvía ESE certificado (sin
+    // escribir nada); si no tiene, se reserva con compare-and-set antes de generar el PDF.
+    const reserva = await reservarSerialCertificado(supabase, uc.id);
+    const numeroSerie = reserva.serial;
+    if (!numeroSerie) return res.json({ error: 'No se pudo asignar el número de serie' });
 
     const fechaCompletado = uc.completed_at
       ? new Date(uc.completed_at).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -110,9 +134,11 @@ app.get('/test/certificado/:userId/:challengeId', async (req, res) => {
     const distanciaTotal = uc.challenges?.total_distance_km || uc.km_completed;
 
     const certificadoPdf = await generarCertificado(supabase, usuario.name, tituloChallenge, distanciaTotal, usuario.bib_number || '---', fechaCompletado, numeroSerie);
-    if (!certificadoPdf) return res.json({ error: 'No se pudo generar el certificado' });
+    if (!certificadoPdf) {
+      if (reserva.reservado) await liberarSerialCAS(supabase, uc.id, numeroSerie); // se puede reintentar
+      return res.json({ error: 'No se pudo generar el certificado' });
+    }
 
-    await supabase.from('user_challenges').update({ certificado_serial: numeroSerie }).eq('id', uc.id);
     await enviarEmailCompletado(usuario.email, usuario.name, tituloChallenge, certificadoPdf, {
       tieneDir: !!usuario.shipping_address, esGrupo: false, esComprador: true, miembros: []
     });
@@ -138,17 +164,22 @@ app.get('/test/reenviar-certificados', async (req, res) => {
       const { data: usuario } = await supabase.from('users').select('email, name, bib_number, shipping_address').eq('id', uc.user_id).single();
       if (!usuario) { resultados.push({ user_id: uc.user_id, error: 'usuario no encontrado' }); continue; }
       try {
-        let numeroSerie = 'KORVA-' + new Date().getFullYear() + '-0000';
-        const { data: serie } = await supabase.rpc('get_next_certificado_serial');
-        if (serie) numeroSerie = serie;
+        // 4A-3e: reserva con compare-and-set ANTES de generar; si otro camino lo emitió en el medio,
+        // se saltea (nunca se pisa un serial ni se manda un segundo certificado).
+        const reserva = await reservarSerialCertificado(supabase, uc.id);
+        if (!reserva.reservado) { resultados.push({ email: usuario.email, omitido: `ya tiene serial ${reserva.serial}` }); continue; }
+        const numeroSerie = reserva.serial;
         const fechaCompletado = uc.completed_at
           ? new Date(uc.completed_at).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
           : new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
         const tituloChallenge = uc.challenges?.title || 'Desafío Korva';
         const distanciaTotal = uc.challenges?.total_distance_km || uc.km_completed;
         const certificadoPdf = await generarCertificado(supabase, usuario.name, tituloChallenge, distanciaTotal, usuario.bib_number || '---', fechaCompletado, numeroSerie);
-        if (!certificadoPdf) { resultados.push({ email: usuario.email, error: 'PDF falló' }); continue; }
-        await supabase.from('user_challenges').update({ certificado_serial: numeroSerie }).eq('id', uc.id);
+        if (!certificadoPdf) {
+          await liberarSerialCAS(supabase, uc.id, numeroSerie); // queda para el próximo reintento, como antes
+          resultados.push({ email: usuario.email, error: 'PDF falló' });
+          continue;
+        }
         await enviarEmailCompletado(usuario.email, usuario.name, tituloChallenge, certificadoPdf, {
           tieneDir: !!usuario.shipping_address, esGrupo: false, esComprador: true, miembros: []
         });
@@ -473,16 +504,20 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
         ? reto.status 
         : (superaDistancia ? 'completed' : nuevoStatus);
 
-      await supabase
-        .from('user_challenges')
-        .update({
+      // 4A-3e (convivencia): si este UPDATE es la completitud, es condicional y solo se mandan los
+      // efectos si ESTA llamada la ganó (otro camino pudo completarlo en el medio).
+      const { gano: ganoCompletitud } = await actualizarConCompletitudCondicional(supabase, {
+        id: reto.id,
+        valores: {
           km_completed: kmFinal,
           status: nuevoStatusFinal,
           completed_at: nuevoStatusFinal === 'active' ? null : (seCompletaAhora ? new Date().toISOString() : undefined),
-        })
-        .eq('id', reto.id);
+        },
+        completa: seCompletaAhora,
+        origen: 'recalcularKmUsuario',
+      });
 
-      if (seCompletaAhora) {
+      if (ganoCompletitud) {
         await enviarCertificadoFinisher(user_id, reto, distanciaTotal);
         // Push notification al completar
         const { data: usuarioPush } = await supabase
@@ -530,14 +565,15 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
       .single();
     if (!usuario) return;
 
-    // Número de serie
-    let numeroSerie = 'KORVA-' + new Date().getFullYear() + '-0000';
-    try {
-      const { data: serie, error: errorSerie } = await supabase.rpc('get_next_certificado_serial');
-      if (!errorSerie && serie) numeroSerie = serie;
-    } catch (e) {
-      console.error('Error generando numero de serie:', e.message);
+    // Número de serie: reserva atómica ANTES de generar o enviar nada (Etapa 4A-3e).
+    // Si el desafío ya tenía certificado (otro camino lo emitió, o una llamada simultánea ganó),
+    // no se emite un segundo certificado ni se repiten los emails.
+    const reserva = await reservarSerialCertificado(supabase, reto.id);
+    if (!reserva.reservado) {
+      console.log(`Certificado ya emitido para ${reto.id} (${reserva.serial || 'sin serial'}): no se reenvía`);
+      return;
     }
+    const numeroSerie = reserva.serial;
 
     const fechaCompletado = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
     const tituloChallenge = reto.challenges?.title || 'Desafío Korva';
@@ -552,7 +588,6 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
       numeroSerie
     );
 
-    await supabase.from('user_challenges').update({ certificado_serial: numeroSerie }).eq('id', reto.id);
 
     // Determinar contexto: individual, comprador grupal o invitado grupal
     const { data: ucCompleto } = await supabase
@@ -1068,7 +1103,10 @@ app.post('/actividades/manual', async (req, res) => {
       const modalidadElegida = modalidades.find(m => m.tipo === ucAntes.modalidad) || modalidades[0];
       const distanciaTotal = modalidadElegida?.distancia_km || ucAntes.challenges?.total_distance_km || 100;
 
-      if (ucAntes.status !== 'completed') {
+      // 4A-3e (convivencia): si el desafío quedó completado, el push de completitud ya lo mandó quien
+      // ganó la completitud (recalcularKmUsuario o el motor); acá no se repite.
+      const quedoTerminal = ['completed', 'cargado', 'shipped'].includes(ucDespues?.status);
+      if (ucAntes.status !== 'completed' && !quedoTerminal) {
         await enviarNotificacionProgreso(
           supabase, user_id,
           challenge_id, ucAntes.challenges?.title,
@@ -2069,6 +2107,22 @@ app.put('/usuarios/modalidad', async (req, res) => {
   }
 
   try {
+    // Etapa 4A-3e: motor unificado, solo si MOTOR_PROGRESO_WRITERS incluye "modalidad" Y "efectos".
+    // Con la flag apagada (o sin "efectos") se ejecuta el código viejo de abajo, sin cambios.
+    if (writerMotorActivo('modalidad') && !efectosMotorActivos()) {
+      logMotor({ writer: 'modalidad', resultado: 'ignorado_sin_efectos', aviso: 'modalidad requiere efectos: se usa el camino viejo' });
+    }
+    if (modalidadMotorActiva()) {
+      const resultado = await cambiarModalidadConMotor({
+        repo: crearRepositorioSupabase(supabase),
+        userId: user_id,
+        challengeId: challenge_id,
+        modalidad,
+        dispararEfectos: (ids) => procesadorEventos.disparar(ids),
+      });
+      return res.status(resultado.status).json(resultado.body);
+    }
+
     const { data, error } = await supabase
       .from('user_challenges')
       .update({ modalidad })
@@ -2330,8 +2384,11 @@ app.listen(PORT, () => {
 // (user_challenges.recalculo_pendiente_desde). Con ALGÚN writer del motor encendido
 // (MOTOR_PROGRESO_WRITERS) corre al arrancar (+30 s) y cada 10 min. Con todos apagados hace UNA
 // consulta al arrancar: si no hay marcas no queda ningún timer; si quedaron marcas, las drena y se
-// detiene sola. Timers con unref(): no frenan el apagado. No procesa efectos de progreso_eventos.
+// detiene sola. Timers con unref(): no frenan el apagado. Con "efectos" encendido, también procesa los
+// efectos pendientes de progreso_eventos (4A-3e).
 iniciarRecuperacion({
   crearRepo: () => crearRepositorioSupabase(supabase),
   motorActivo: algunWriterMotorActivo(),
+  // 4A-3e: con "efectos" encendido, cada ronda también procesa los efectos de progreso_eventos.
+  procesarEventos: efectosMotorActivos() ? ({ repo, ids }) => procesadorEventos.ronda({ repo, ids }) : undefined,
 }).catch((e) => console.error('Error iniciando recuperación de progreso:', e.message));

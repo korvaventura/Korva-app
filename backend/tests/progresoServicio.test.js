@@ -6,7 +6,6 @@ const assert = require('node:assert/strict');
 const { calcularProgresoChallenge } = require('../lib/progresoDesafio');
 const { decidirAccion, ACCIONES } = require('../lib/progresoDecision');
 const { recalcularProgresoUsuario, MODOS, TIPOS_EVENTO } = require('../lib/progresoServicio');
-const { procesarEvento, procesarEventosPendientes, ESTADOS } = require('../lib/completionEventos');
 const { crearRepositorioSupabase } = require('../lib/progresoRepositorioSupabase');
 
 // ---------------------------------------------------------------------------
@@ -49,13 +48,19 @@ const crearRepoMemoria = ({ userChallenges = [], challenges = [CH, CH2], activid
       uc.km_completed = kmNuevo;
       return true;
     },
-    completarCAS: async ({ id, kmLeido, kmNuevo, completedAtIso }) => {
+    // Como la RPC completar_desafio_motor (4A-3e-a): completitud + evento, todo o nada.
+    completarCAS: async ({ id, kmLeido, kmNuevo, completedAtIso, datos }) => {
       llamadas.push(`completar:${id}`);
       if (hooks.antesDeEscribir) await hooks.antesDeEscribir(id);
       const uc = db.userChallenges.find((u) => u.id === id);
-      if (!uc || uc.status !== 'active' || uc.km_completed !== kmLeido) return false;
+      if (!uc || uc.status !== 'active' || uc.km_completed !== kmLeido) return { gano: false, eventoId: null, eventoNuevo: false };
       Object.assign(uc, { status: 'completed', completed_at: completedAtIso, km_completed: kmNuevo });
-      return true;
+      llamadas.push(`evento:completado:${id}`);
+      const existente = db.eventos.find((e) => e.user_challenge_id === id && e.tipo === 'completado');
+      if (existente) return { gano: true, eventoId: existente.id, eventoNuevo: false };
+      const ev = { id: `ev${db.eventos.length + 1}`, user_challenge_id: id, user_id: uc.user_id, tipo: 'completado', datos: { ...datos, origen: 'motor' }, estado: 'pendiente', intentos: 0, resultado: {}, procesando_desde: null };
+      db.eventos.push(ev);
+      return { gano: true, eventoId: ev.id, eventoNuevo: true };
     },
     registrarEvento: async ({ userChallengeId, userId, tipo, datos }) => {
       llamadas.push(`evento:${tipo}:${userChallengeId}`);
@@ -283,85 +288,9 @@ test('servicio: paridad con el núcleo en 300 estados aleatorios (lo escrito = k
 });
 
 // ---------------------------------------------------------------------------
-// Eventos de completar (outbox)
+// Eventos de completar (outbox): desde 4A-3e sus tests están en tests/completionEventos.test.js
+// (reclamo con fencing, pasos parciales, reintentos, máximo de intentos, leases vencidos).
 // ---------------------------------------------------------------------------
-
-const efectosContados = (fallar = {}) => {
-  const llamados = { certificado: 0, push_completado: 0, push_aviso_direccion: 0 };
-  const efectos = {};
-  for (const nombre of Object.keys(llamados)) {
-    efectos[nombre] = async () => {
-      llamados[nombre] += 1;
-      if (fallar[nombre] && fallar[nombre] >= llamados[nombre]) throw new Error(`falla simulada ${nombre}`);
-    };
-  }
-  return { efectos, llamados };
-};
-
-const repoConEvento = async () => {
-  const repo = crearRepoMemoria({ userChallenges: [ucBase({ km_completed: 90 })], actividades: [act('2026-09-02T00:00:00', 104)] });
-  await correr(repo);
-  return repo;
-};
-
-test('eventos: completar dispara certificado y push una sola vez', async () => {
-  const repo = await repoConEvento();
-  const { efectos, llamados } = efectosContados();
-  const r1 = await procesarEventosPendientes({ repo, efectos });
-  const r2 = await procesarEventosPendientes({ repo, efectos });
-  assert.equal(r1[0].estado, ESTADOS.HECHO);
-  assert.equal(r2.length, 0);
-  assert.deepEqual(llamados, { certificado: 1, push_completado: 1, push_aviso_direccion: 0 });
-});
-
-test('eventos: dos procesadores a la vez → solo uno reclama el evento', async () => {
-  const repo = await repoConEvento();
-  const { efectos, llamados } = efectosContados();
-  const [evento] = await repo.listarEventosProcesables({ limite: 10, vencidoAntesDeIso: '2000-01-01T00:00:00Z' });
-  const [a, b] = await Promise.all([procesarEvento({ repo, efectos, evento }), procesarEvento({ repo, efectos, evento })]);
-  assert.equal([a, b].filter((r) => r.procesado).length, 1);
-  assert.equal(llamados.certificado, 1);
-});
-
-test('eventos: si falla el push, el reintento NO reenvía el certificado', async () => {
-  const repo = await repoConEvento();
-  const { efectos, llamados } = efectosContados({ push_completado: 1 });
-  const r1 = await procesarEventosPendientes({ repo, efectos });
-  assert.equal(r1[0].estado, ESTADOS.ERROR);
-  const r2 = await procesarEventosPendientes({ repo, efectos });
-  assert.equal(r2[0].estado, ESTADOS.HECHO);
-  assert.deepEqual(llamados, { certificado: 1, push_completado: 2, push_aviso_direccion: 0 });
-});
-
-test('eventos: un procesamiento colgado se puede reclamar después del plazo, no antes', async () => {
-  const repo = await repoConEvento();
-  const ev = repo.db.eventos[0];
-  ev.estado = 'procesando';
-  ev.procesando_desde = '2026-10-02T10:00:00.000Z';
-  const { efectos, llamados } = efectosContados();
-  const antes = await procesarEventosPendientes({ repo, efectos, ahoraMs: Date.parse('2026-10-02T10:05:00Z'), leaseMs: 10 * 60 * 1000 });
-  assert.equal(antes.length, 0);
-  const despues = await procesarEventosPendientes({ repo, efectos, ahoraMs: Date.parse('2026-10-02T10:11:00Z'), leaseMs: 10 * 60 * 1000 });
-  assert.equal(despues[0].estado, ESTADOS.HECHO);
-  assert.equal(llamados.certificado, 1);
-});
-
-test('eventos: efecto no configurado queda en error (no se pierde en silencio)', async () => {
-  const repo = await repoConEvento();
-  const r = await procesarEventosPendientes({ repo, efectos: {} });
-  assert.equal(r[0].estado, ESTADOS.ERROR);
-  assert.match(repo.db.eventos[0].ultimo_error, /no configurado/);
-});
-
-test('eventos: después de max intentos deja de reintentar', async () => {
-  const repo = await repoConEvento();
-  repo.db.eventos[0].intentos = 5;
-  repo.db.eventos[0].estado = 'error';
-  const { efectos, llamados } = efectosContados();
-  const r = await procesarEventosPendientes({ repo, efectos, maxIntentosPorEvento: 5 });
-  assert.equal(r[0].motivo, 'max_intentos');
-  assert.equal(llamados.certificado, 0);
-});
 
 // ---------------------------------------------------------------------------
 // Repositorio Supabase (con cliente simulado): qué escribe y con qué condiciones
@@ -387,7 +316,8 @@ const clienteSupabaseSimulado = (respuestas = {}) => {
     };
     return q;
   };
-  return { cliente: { from }, registro };
+  const rpc = async (nombre, args) => { registro.push({ tabla: `rpc:${nombre}`, metodo: 'rpc', payload: args, filtros: [] }); return respuestas.rpc || { data: [{ gano: false, evento_id: null, evento_nuevo: false }], error: null }; };
+  return { cliente: { from, rpc }, registro };
 };
 
 test('repo Supabase: actualizar km es condicional y nunca incluye km_base', async () => {
@@ -399,13 +329,17 @@ test('repo Supabase: actualizar km es condicional y nunca incluye km_base', asyn
   assert.deepEqual(op.filtros, ['eq:id=uc1', 'eq:status=active', 'eq:km_completed=10']);
 });
 
-test('repo Supabase: completar es condicional a active y al km leído; payload sin km_base', async () => {
-  const { cliente, registro } = clienteSupabaseSimulado({ update: { data: [], error: null } });
+test('repo Supabase: completar usa la RPC atómica (CAS + evento) con los parámetros exactos y sin km_base', async () => {
+  const { cliente, registro } = clienteSupabaseSimulado({ rpc: { data: [{ gano: true, evento_id: 'ev9', evento_nuevo: true }], error: null } });
   const repo = crearRepositorioSupabase(cliente);
-  assert.equal(await repo.completarCAS({ id: 'uc1', kmLeido: null, kmNuevo: 103, completedAtIso: '2026-10-02T10:00:00.000Z' }), false);
-  const op = registro.find((r) => r.metodo === 'update');
-  assert.deepEqual(Object.keys(op.payload).sort(), ['completed_at', 'km_completed', 'status']);
-  assert.deepEqual(op.filtros, ['eq:id=uc1', 'eq:status=active', 'is:km_completed=null']);
+  const r = await repo.completarCAS({ id: 'uc1', kmLeido: null, kmNuevo: 103, completedAtIso: '2026-10-02T10:00:00.000Z', datos: { motivo: 'x' } });
+  assert.deepEqual(r, { gano: true, eventoId: 'ev9', eventoNuevo: true });
+  const op = registro.find((x) => x.metodo === 'rpc');
+  assert.equal(op.tabla, 'rpc:completar_desafio_motor');
+  assert.deepEqual(op.payload, { p_id: 'uc1', p_km_leido: null, p_km_nuevo: 103, p_completed_at: '2026-10-02T10:00:00.000Z', p_datos: { motivo: 'x' } });
+  assert.ok(!registro.some((x) => x.metodo === 'update' && x.tabla === 'user_challenges'), 'la completitud no usa un UPDATE directo');
+  const perdio = crearRepositorioSupabase(clienteSupabaseSimulado().cliente);
+  assert.deepEqual(await perdio.completarCAS({ id: 'uc1', kmLeido: 1, kmNuevo: 2, completedAtIso: 'x' }), { gano: false, eventoId: null, eventoNuevo: false });
 });
 
 test('repo Supabase: evento duplicado (23505) devuelve creado=false sin error', async () => {
@@ -420,8 +354,9 @@ test('repo Supabase: solo escribe en user_challenges y progreso_eventos', async 
   await repo.leerEstadoUsuario('u1');
   await repo.actualizarKmCAS({ id: 'uc1', kmLeido: 1, kmNuevo: 2 });
   await repo.registrarEvento({ userChallengeId: 'uc1', userId: 'u1', tipo: 'completado' });
-  await repo.reclamarEvento({ id: 'ev1', ahoraIso: 'a', vencidoAntesDeIso: 'b' });
-  await repo.guardarResultadoEvento({ id: 'ev1', estado: 'hecho', resultado: {}, intentos: 1 });
+  await repo.reclamarEventoCAS({ leido: { id: 'ev1', estado: 'pendiente', intentos: 0, procesando_desde: null }, token: 't' });
+  await repo.guardarAvanceEventoCAS({ id: 'ev1', token: 't', resultado: {} });
+  await repo.finalizarEventoCAS({ id: 'ev1', token: 't', estado: 'hecho', resultado: {} });
   const escrituras = registro.filter((r) => r.metodo === 'update' || r.metodo === 'insert');
   assert.ok(escrituras.every((r) => ['user_challenges', 'progreso_eventos'].includes(r.tabla)));
   assert.ok(escrituras.every((r) => !('km_base' in (r.payload || {})) && !('km_base_motivo' in (r.payload || {}))));

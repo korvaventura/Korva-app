@@ -4,7 +4,31 @@
 //   filtros: eq, is, in, gte, lt, neq, not(is null) ; order, range, limit ; terminales: then, single, maybeSingle
 //   select('..., challenges(...)') adjunta el challenge (como el join de PostgREST).
 // Registra cada operación en `registro` para poder afirmar qué se leyó y qué se escribió.
+// progreso_eventos imita la base: creado_at/actualizado_at al insertar y el trigger que pone
+// actualizado_at en cada UPDATE (con `opciones.reloj`, inyectable en los tests).
+// Migración 4A-3e-a (probada en Postgres real), imitada acá con la misma semántica:
+//  - rpc('completar_desafio_motor'): CAS active→completed + km + completed_at + evento 'completado'
+//    (origen motor, pendiente), todo o nada. `opciones.fallar({ tabla: 'rpc', nombre })` la hace fallar
+//    SIN cambiar nada (como el rollback de la transacción).
+//  - trg_completado_legado: un UPDATE de status active/pending → completed/cargado/shipped (fuera de
+//    la RPC) crea el evento 'completado' origen 'legado' ya 'hecho'.
+//  - trg_proteger_certificado_serial: reemplazar un serial asignado por otro valor → error P0001.
+const TERMINALES = ['completed', 'cargado', 'shipped'];
+
 const crearSupabaseMemoria = (tablas = {}, opciones = {}) => {
+  const ahoraIso = () => new Date(opciones.reloj ? opciones.reloj() : Date.now()).toISOString();
+  let nEventos = 0;
+  const insertarEvento = (fila) => {
+    if (!db.progreso_eventos) db.progreso_eventos = [];
+    const existente = db.progreso_eventos.find((e) => e.user_challenge_id === fila.user_challenge_id && e.tipo === fila.tipo);
+    if (existente) return { creado: false, evento: existente };
+    const evento = {
+      id: `ev-${++nEventos}`, estado: 'pendiente', intentos: 0, resultado: {}, procesando_desde: null, ultimo_error: null,
+      creado_at: ahoraIso(), actualizado_at: ahoraIso(), datos: null, ...fila,
+    };
+    db.progreso_eventos.push(evento);
+    return { creado: true, evento };
+  };
   const db = JSON.parse(JSON.stringify(tablas));
   const registro = [];
   let secuencia = 0;
@@ -38,18 +62,34 @@ const crearSupabaseMemoria = (tablas = {}, opciones = {}) => {
       if (opciones.fallar && opciones.fallar(op)) return { data: null, error: { message: 'falla simulada', code: 'XX000' } };
       if (op.tipo === 'insert') {
         const fila = { id: `id-${++secuencia}`, ...op.valores };
+        if (tabla === 'progreso_eventos') delete fila.id; // id lo pone insertarEvento
+        if (tabla === 'activities' && fila.excluida === undefined) fila.excluida = false; // DEFAULT false de la base
         if (tabla === 'progreso_eventos') {
-          if (db[tabla].some((e) => e.user_challenge_id === fila.user_challenge_id && e.tipo === fila.tipo)) {
-            return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "progreso_eventos_unico"' } };
-          }
-          Object.assign(fila, { estado: 'pendiente', intentos: 0, resultado: {}, procesando_desde: null, ...op.valores });
+          const r = insertarEvento({ ...op.valores });
+          if (!r.creado) return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "progreso_eventos_unico"' } };
+          return { data: op.devolver ? [proyectar(r.evento)] : null, error: null };
         }
         db[tabla].push(fila);
         return { data: op.devolver ? [proyectar(fila)] : null, error: null };
       }
       let filas = db[tabla].filter(coincide);
       if (op.tipo === 'update') {
-        filas.forEach((f) => Object.assign(f, JSON.parse(JSON.stringify(op.valores))));
+        if (tabla === 'user_challenges' && 'certificado_serial' in op.valores) {
+          const pisa = filas.find((f) => f.certificado_serial && op.valores.certificado_serial && op.valores.certificado_serial !== f.certificado_serial);
+          if (pisa) return { data: null, error: { code: 'P0001', message: `certificado_serial ya asignado (${pisa.certificado_serial}): no se puede reemplazar` } };
+        }
+        filas.forEach((f) => {
+          const statusAntes = f.status;
+          Object.assign(f, JSON.parse(JSON.stringify(op.valores)));
+          if (tabla === 'progreso_eventos') f.actualizado_at = ahoraIso(); // trigger de la base
+          if (tabla === 'user_challenges' && ['active', 'pending'].includes(statusAntes) && TERMINALES.includes(f.status)) {
+            // trg_completado_legado (fuera de la RPC del motor)
+            insertarEvento({
+              user_challenge_id: f.id, user_id: f.user_id, tipo: 'completado', estado: 'hecho',
+              datos: { origen: 'legado', status: f.status }, resultado: { origen: 'legado', efectos: 'codigo_viejo' },
+            });
+          }
+        });
         return { data: op.devolver ? filas.map(proyectar) : null, error: null };
       }
       if (op.rango) filas = filas.slice(op.rango[0], op.rango[1] + 1);
@@ -90,7 +130,26 @@ const crearSupabaseMemoria = (tablas = {}, opciones = {}) => {
     return q;
   };
 
-  return { cliente: { from, rpc: async () => ({ data: null, error: null }) }, db, registro };
+  /** RPC completar_desafio_motor: todo o nada (síncrono = atómico en este doble). */
+  const completarDesafioMotor = (args) => {
+    const op = { tabla: 'rpc', tipo: 'rpc', nombre: 'completar_desafio_motor', args, valores: { status: 'completed', km_completed: args.p_km_nuevo, completed_at: args.p_completed_at }, filtros: [] };
+    registro.push(op);
+    if (opciones.fallar && opciones.fallar(op)) return { data: null, error: { message: 'falla simulada', code: 'XX000' } };
+    const fila = (db.user_challenges || []).find((u) => u.id === args.p_id);
+    const kmGuardado = fila ? (fila.km_completed ?? null) : undefined;
+    const kmLeido = args.p_km_leido ?? null;
+    if (!fila || fila.status !== 'active' || kmGuardado !== kmLeido) {
+      return { data: [{ gano: false, evento_id: null, evento_nuevo: false }], error: null };
+    }
+    Object.assign(fila, { status: 'completed', km_completed: args.p_km_nuevo, completed_at: args.p_completed_at });
+    const r = insertarEvento({ user_challenge_id: fila.id, user_id: fila.user_id, tipo: 'completado', datos: { ...(args.p_datos || {}), origen: 'motor' } });
+    return { data: [{ gano: true, evento_id: r.evento.id, evento_nuevo: r.creado }], error: null };
+  };
+  const rpc = async (nombre, args) => {
+    if (nombre === 'completar_desafio_motor') return completarDesafioMotor(args);
+    return opciones.rpc && opciones.rpc[nombre] ? opciones.rpc[nombre](args) : { data: null, error: null };
+  };
+  return { cliente: { from, rpc }, db, registro };
 };
 
 module.exports = { crearSupabaseMemoria };

@@ -135,8 +135,9 @@ const enviarEmailInvitacion = async (email, nombre, challenge, cantidadAdicional
   }
 };
 
-const enviarEmailCompletado = async (email, nombre, challenge, certificadoPdfBase64 = null, opciones = {}) => {
-  try {
+/** Arma el email sin enviarlo. Lo usan enviarEmailCompletado y los efectos del motor (4A-3e). */
+const construirEmailCompletado = (email, nombre, challenge, certificadoPdfBase64 = null, opciones = {}) => {
+  {
     const { tieneDir = true, esGrupo = false, esComprador = true, miembros = [], nombreComprador = '' } = opciones;
 
     const certificadoTexto = certificadoPdfBase64
@@ -195,7 +196,7 @@ const enviarEmailCompletado = async (email, nombre, challenge, certificadoPdfBas
       `, '#FC4C02');
     }
 
-    await getResend().emails.send({
+    return {
       from: 'Korva Aventuras <noreply@korva.run>',
       to: email,
       subject: `🎉 ¡Completaste ${challenge}! — Korva Aventuras`,
@@ -213,15 +214,22 @@ const enviarEmailCompletado = async (email, nombre, challenge, certificadoPdfBas
           content_type: 'application/pdf',
         }],
       } : {}),
-    });
+    };
+  }
+};
+
+const enviarEmailCompletado = async (email, nombre, challenge, certificadoPdfBase64 = null, opciones = {}) => {
+  try {
+    await getResend().emails.send(construirEmailCompletado(email, nombre, challenge, certificadoPdfBase64, opciones));
     console.log('Email de completado enviado a:', email);
   } catch (error) {
     console.error('Error enviando email de completado:', error);
   }
 };
 
-const enviarEmailAdminMedallaLista = async (nombre, email, challenge, tieneDir, esGrupo, miembros = []) => {
-  try {
+/** Arma el email sin enviarlo. Lo usan enviarEmailAdminMedallaLista y los efectos del motor (4A-3e). */
+const construirEmailAdminMedallaLista = (nombre, email, challenge, tieneDir, esGrupo, miembros = []) => {
+  {
     const listaMiembrosHtml = esGrupo ? miembros.map(m =>
       `<p style="color: #4B5563; font-size: 13px; margin: 4px 0;">
         ${m.status === 'completed' || m.status === 'shipped' ? '✅' : '⏳'}
@@ -229,7 +237,7 @@ const enviarEmailAdminMedallaLista = async (nombre, email, challenge, tieneDir, 
       </p>`
     ).join('') : '';
 
-    await getResend().emails.send({
+    return {
       from: 'Korva Aventuras <noreply@korva.run>',
       to: 'korvaventura@gmail.com',
       subject: `🏅 Medalla lista para despachar — ${nombre}`,
@@ -255,7 +263,13 @@ const enviarEmailAdminMedallaLista = async (nombre, email, challenge, tieneDir, 
 
         <p style="color: #4a6a8a; font-size: 12px; margin-top: 16px;">Email automático del sistema Korva.</p>
       `)
-    });
+    };
+  }
+};
+
+const enviarEmailAdminMedallaLista = async (nombre, email, challenge, tieneDir, esGrupo, miembros = []) => {
+  try {
+    await getResend().emails.send(construirEmailAdminMedallaLista(nombre, email, challenge, tieneDir, esGrupo, miembros));
     console.log('Email admin medalla lista enviado para:', nombre);
   } catch (error) {
     console.error('Error enviando email admin medalla lista:', error.message);
@@ -289,9 +303,10 @@ const enviarEmailMedallaEnCamino = async (email, nombre, challenge, tracking) =>
   }
 };
 
-const enviarEmailAdmin = async (asunto, mensaje) => {
-  try {
-    await getResend().emails.send({
+/** Arma el email sin enviarlo. Lo usan enviarEmailAdmin y los efectos del motor (4A-3e). */
+const construirEmailAdmin = (asunto, mensaje) => {
+  {
+    return {
       from: 'Korva Aventuras <noreply@korva.run>',
       to: 'korvaventura@gmail.com',
       subject: `⚠️ Korva Admin — ${asunto}`,
@@ -305,7 +320,13 @@ const enviarEmailAdmin = async (asunto, mensaje) => {
 
         <p style="color: #4a6a8a; font-size: 12px;">Este es un email automático del sistema Korva.</p>
       `)
-    });
+    };
+  }
+};
+
+const enviarEmailAdmin = async (asunto, mensaje) => {
+  try {
+    await getResend().emails.send(construirEmailAdmin(asunto, mensaje));
     console.log('Email admin enviado:', asunto);
   } catch (error) {
     console.error('Error enviando email admin:', error);
@@ -401,4 +422,4 @@ const enviarEmailCargado = async (email, nombre, challenge, mensajeExtra = '') =
   }
 };
 
-module.exports = { enviarEmailInscripcion, enviarEmailInscripcionConBib, enviarEmailInvitacion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdmin, enviarEmailAdminMedallaLista, enviarEmailCargado };
+module.exports = { getResend, construirEmailCompletado, construirEmailAdminMedallaLista, construirEmailAdmin, enviarEmailInscripcion, enviarEmailInscripcionConBib, enviarEmailInvitacion, enviarEmailMedallaEnCamino, enviarEmailCompletado, enviarEmailAdmin, enviarEmailAdminMedallaLista, enviarEmailCargado };

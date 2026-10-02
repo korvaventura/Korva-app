@@ -5,14 +5,17 @@
 // ELIMINAR ACTIVIDAD (4A-3d), y la recuperación de recálculos pendientes.
 //
 // Escrituras posibles (y solo estas):
-//  - user_challenges: km_completed, y en la transición también status='completed' + completed_at.
-//    Siempre condicionadas (compare-and-set) a status='active' y al km_completed leído.
+//  - user_challenges: km_completed (CAS sobre status='active' y el km leído). La transición a
+//    'completed' (+ completed_at + evento 'completado') va por la RPC completar_desafio_motor, atómica.
 //  - user_challenges: cierre de una pausa (pausado, pausado_at, periodos_pausados) junto con la
 //    marca persistente recalculo_pendiente_desde, en el MISMO update; condicionado a que siga
 //    pausada con el mismo pausado_at leído y (si se indica) con la misma marca leída.
 //  - user_challenges.recalculo_pendiente_desde: poner/renovar la marca (compare-and-set sobre el
 //    valor leído) y borrarla (compare-and-set sobre el valor propio). Ver lib/marcaRecalculo.js.
 //  - activities.excluida = true de UNA actividad del usuario (eliminar actividad, igual que hoy).
+//  - user_challenges.modalidad (4A-3e), condicionada al status leído y, si está activo, junto con
+//    la marca de recálculo en el MISMO update.
+//  - progreso_eventos: reclamo, avance y resultado de los efectos, siempre con fencing por token.
 //  - Nunca se escriben km_base ni km_base_motivo.
 //  - progreso_eventos (4A-3a): alta de eventos y su estado. actualizado_at lo pone la base (trigger).
 const { clienteSoloLectura, traerTodo } = require('./progresoSombra');
@@ -21,6 +24,7 @@ const CAMPOS_USER_CHALLENGE = 'id, user_id, challenge_id, status, started_at, pa
 const CAMPOS_CHALLENGE = 'id, title, modalidades, total_distance_km';
 const CAMPOS_ACTIVIDAD = 'id, user_id, distance_km, recorded_at, excluida';
 const TAMANO_LOTE_IDS = 100;
+const CAMPOS_EVENTO = 'id, user_challenge_id, user_id, tipo, estado, intentos, datos, resultado, ultimo_error, procesando_desde, creado_at, actualizado_at';
 
 const filtrarKmLeido = (consulta, kmLeido) =>
   kmLeido === null || kmLeido === undefined ? consulta.is('km_completed', null) : consulta.eq('km_completed', kmLeido);
@@ -68,6 +72,39 @@ const crearRepositorioSupabase = (supabase) => {
       const { data, error } = await consulta.select('id');
       if (error) throw error;
       return Array.isArray(data) && data.length === 1;
+    },
+
+    /**
+     * Desafío para cambiar de modalidad, buscado igual que el writer viejo (user_id + challenge_id).
+     * Devuelve { estado: 'ok' | 'no_encontrado' | 'duplicado', uc }.
+     */
+    leerDesafioParaModalidad: async ({ userId, challengeId }) => {
+      if (!userId || !challengeId) return { estado: 'no_encontrado', uc: null };
+      const { data, error } = await lectura
+        .from('user_challenges')
+        .select('id, user_id, challenge_id, status, modalidad, recalculo_pendiente_desde')
+        .eq('user_id', userId)
+        .eq('challenge_id', challengeId)
+        .limit(2);
+      if (error) throw error;
+      if (!data || data.length === 0) return { estado: 'no_encontrado', uc: null };
+      if (data.length > 1) return { estado: 'duplicado', uc: null };
+      return { estado: 'ok', uc: data[0] };
+    },
+
+    /**
+     * Cambia la modalidad con compare-and-set sobre el status leído. Si `marcaNueva` viene
+     * (desafío activo), en el MISMO update pone la marca de recálculo, condicionado a la marca
+     * leída. Devuelve la fila completa actualizada (igual que el viejo `.select()`) o null.
+     */
+    cambiarModalidadCAS: async ({ id, statusLeido, modalidad, marcaLeida, marcaNueva }) => {
+      const valores = { modalidad };
+      if (marcaNueva !== undefined) valores.recalculo_pendiente_desde = marcaNueva;
+      let consulta = supabase.from('user_challenges').update(valores).eq('id', id).eq('status', statusLeido);
+      if (marcaNueva !== undefined) consulta = filtrarMarcaLeida(consulta, marcaLeida);
+      const { data, error } = await consulta.select();
+      if (error) throw error;
+      return Array.isArray(data) && data.length === 1 ? data[0] : null;
     },
 
     /** Desafíos 'active' del usuario con su marca actual (para marcarlos antes de excluir una actividad). */
@@ -164,16 +201,22 @@ const crearRepositorioSupabase = (supabase) => {
       return Array.isArray(data) && data.length === 1;
     },
 
-    /** active → completed. Devuelve true solo para la llamada que hizo la transición. */
-    completarCAS: async ({ id, kmLeido, kmNuevo, completedAtIso }) => {
-      const consulta = supabase
-        .from('user_challenges')
-        .update({ status: 'completed', completed_at: completedAtIso, km_completed: kmNuevo })
-        .eq('id', id)
-        .eq('status', 'active');
-      const { data, error } = await filtrarKmLeido(consulta, kmLeido).select('id');
+    /**
+     * active → completed + evento 'completado', ATÓMICO (RPC completar_desafio_motor, 4A-3e-a).
+     * Devuelve { gano, eventoId, eventoNuevo }: gano solo para la llamada que hizo la transición.
+     * La RPC nunca toca km_base.
+     */
+    completarCAS: async ({ id, kmLeido, kmNuevo, completedAtIso, datos }) => {
+      const { data, error } = await supabase.rpc('completar_desafio_motor', {
+        p_id: id,
+        p_km_leido: kmLeido === undefined ? null : kmLeido,
+        p_km_nuevo: kmNuevo,
+        p_completed_at: completedAtIso,
+        p_datos: datos || {},
+      });
       if (error) throw error;
-      return Array.isArray(data) && data.length === 1;
+      const fila = Array.isArray(data) ? data[0] : data;
+      return { gano: !!(fila && fila.gano), eventoId: (fila && fila.evento_id) || null, eventoNuevo: !!(fila && fila.evento_nuevo) };
     },
 
     /** Alta de evento; la clave única (user_challenge_id, tipo) impide duplicados. */
@@ -190,39 +233,83 @@ const crearRepositorioSupabase = (supabase) => {
       return { creado: true, id: data.id };
     },
 
-    listarEventosProcesables: async ({ limite, vencidoAntesDeIso, ids = null }) => {
+    /**
+     * Eventos que podrían procesarse: pendiente/error con intentos < máximo, y 'procesando'
+     * (para detectar leases vencidos o eventos que agotaron intentos en pleno procesamiento).
+     * El filtro fino (gracia, espera entre reintentos, lease) lo hace completionEventos.
+     */
+    listarEventosProcesables: async ({ limite, ids = null, maxIntentos }) => {
+      const base = () => {
+        let c = supabase.from('progreso_eventos').select(CAMPOS_EVENTO);
+        if (Array.isArray(ids)) c = c.in('id', ids);
+        return c;
+      };
+      const [libres, enProceso] = await Promise.all([
+        base().in('estado', ['pendiente', 'error']).lt('intentos', maxIntentos).order('creado_at', { ascending: true }).limit(limite),
+        base().eq('estado', 'procesando').order('creado_at', { ascending: true }).limit(limite),
+      ]);
+      if (libres.error) throw libres.error;
+      if (enProceso.error) throw enProceso.error;
+      return [...(libres.data || []), ...(enProceso.data || [])];
+    },
+
+    /**
+     * Reclamo con compare-and-set sobre la versión leída (estado, intentos y procesando_desde).
+     * En el MISMO update: estado 'procesando', token propio en procesando_desde e intentos + 1.
+     * Devuelve el evento reclamado o null si otro lo tomó/cambió.
+     */
+    reclamarEventoCAS: async ({ leido, token }) => {
       let consulta = supabase
         .from('progreso_eventos')
-        .select('id, user_challenge_id, user_id, tipo, estado, intentos, datos, resultado, procesando_desde')
-        .or(`estado.in.(pendiente,error),and(estado.eq.procesando,procesando_desde.lt."${vencidoAntesDeIso}")`)
-        .order('creado_at', { ascending: true })
-        .limit(limite);
-      if (Array.isArray(ids)) consulta = consulta.in('id', ids);
-      const { data, error } = await consulta;
+        .update({ estado: 'procesando', procesando_desde: token, intentos: (leido.intentos || 0) + 1 })
+        .eq('id', leido.id)
+        .eq('estado', leido.estado)
+        .eq('intentos', leido.intentos || 0);
+      consulta = leido.procesando_desde ? consulta.eq('procesando_desde', leido.procesando_desde) : consulta.is('procesando_desde', null);
+      const { data, error } = await consulta.select(CAMPOS_EVENTO);
       if (error) throw error;
-      return data || [];
+      return Array.isArray(data) && data.length === 1 ? data[0] : null;
     },
 
-    /** Reclamo atómico: solo un procesador pasa el evento a 'procesando'. */
-    reclamarEvento: async ({ id, ahoraIso, vencidoAntesDeIso }) => {
+    /** Guarda el avance de los pasos SOLO si el evento sigue siendo de este procesador (fencing). */
+    guardarAvanceEventoCAS: async ({ id, token, resultado }) => {
       const { data, error } = await supabase
         .from('progreso_eventos')
-        .update({ estado: 'procesando', procesando_desde: ahoraIso })
+        .update({ resultado })
         .eq('id', id)
-        .or(`estado.in.(pendiente,error),and(estado.eq.procesando,procesando_desde.lt."${vencidoAntesDeIso}")`)
-        .select('id, user_challenge_id, user_id, tipo, estado, intentos, datos, resultado')
-        .maybeSingle();
+        .eq('estado', 'procesando')
+        .eq('procesando_desde', token)
+        .select('id');
       if (error) throw error;
-      return data || null;
+      return Array.isArray(data) && data.length === 1;
     },
 
-    guardarResultadoEvento: async ({ id, estado, resultado, ultimoError, intentos }) => {
-      const { error } = await supabase
+    /** Resultado final (hecho / error), con fencing. `intentos` solo si hay que fijarlo (al máximo). */
+    finalizarEventoCAS: async ({ id, token, estado, resultado, ultimoError, intentos }) => {
+      const valores = { estado, resultado, ultimo_error: ultimoError || null, procesando_desde: null };
+      if (intentos !== undefined) valores.intentos = intentos;
+      const { data, error } = await supabase
         .from('progreso_eventos')
-        .update({ estado, resultado, ultimo_error: ultimoError || null, intentos, procesando_desde: null })
+        .update(valores)
         .eq('id', id)
-        .eq('estado', 'procesando');
+        .eq('estado', 'procesando')
+        .eq('procesando_desde', token)
+        .select('id');
       if (error) throw error;
+      return Array.isArray(data) && data.length === 1;
+    },
+
+    /** Un 'procesando' abandonado que ya agotó los intentos: pasa a error para intervención. */
+    cerrarEventoAgotadoCAS: async ({ leido, resultado, ultimoError }) => {
+      const { data, error } = await supabase
+        .from('progreso_eventos')
+        .update({ estado: 'error', resultado, ultimo_error: ultimoError, procesando_desde: null })
+        .eq('id', leido.id)
+        .eq('estado', 'procesando')
+        .eq('procesando_desde', leido.procesando_desde)
+        .select('id');
+      if (error) throw error;
+      return Array.isArray(data) && data.length === 1;
     },
   });
 };

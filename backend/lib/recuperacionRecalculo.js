@@ -7,7 +7,9 @@
 //   - recalcularConReintentos: reintentos inmediatos y acotados dentro del mismo pedido.
 //   - recuperarRecalculosPendientes: busca marcas viejas y recalcula esos desafíos.
 //   - iniciarRecuperacionPeriodica: corre lo anterior al arrancar el backend y cada N minutos.
-// No procesa efectos de progreso_eventos: solo recalcula progreso.
+// Si recibe `procesarEventos` (flag "efectos" encendida, 4A-3e), cada ronda además procesa los
+// efectos de progreso_eventos: primero los que creó la misma ronda y después los pendientes, con
+// error ya vencido o con lease vencido. Así una caída después de completar converge sola.
 const { recalcularProgresoUsuario, MODOS } = require('./progresoServicio');
 
 const ESPERAS_REINTENTO_MS = [0, 250, 1000]; // 3 intentos dentro del mismo pedido
@@ -84,19 +86,21 @@ const recuperarRecalculosPendientes = async ({
     anteriorAIso: new Date(ahoraMs - antiguedadMinimaMs).toISOString(),
   });
   const resultados = [];
+  const eventosCreados = [];
   for (const p of pendientes) {
     const r = await recalcularConReintentos({
       repo, userId: p.user_id, challengeId: p.challenge_id,
       marcasALimpiar: [{ id: p.id, marca: p.recalculo_pendiente_desde }],
       motivo: 'recuperacion', ahoraMs, esperasMs, esperar,
     });
+    if (r.ok) r.informe.eventos_para_procesar.forEach((id) => eventosCreados.push(id));
     log({
       writer: 'recuperacion', resultado: r.ok ? 'recuperado' : 'sigue_pendiente', user_challenge_id: p.id,
       marca: p.recalculo_pendiente_desde, intentos: r.intentos, error: r.error && r.error.message,
     });
     resultados.push({ user_challenge_id: p.id, ok: r.ok });
   }
-  return { revisados: pendientes.length, recuperados: resultados.filter((r) => r.ok).length, resultados };
+  return { revisados: pendientes.length, recuperados: resultados.filter((r) => r.ok).length, resultados, eventosCreados };
 };
 
 const MARCA_FUTURA_ISO = '9999-12-31T00:00:00.000Z';
@@ -113,7 +117,7 @@ const hayRecalculosPendientes = async (repo) =>
  */
 const iniciarRecuperacionPeriodica = ({
   crearRepo, intervaloMs = INTERVALO_MS, demoraInicialMs = DEMORA_INICIAL_MS, log = logMotor, alTerminarRonda,
-  noRetenerProceso = true, detenerSiNoQuedanPendientes = false, alDetenerse,
+  noRetenerProceso = true, detenerSiNoQuedanPendientes = false, alDetenerse, procesarEventos,
   temporizadores = { setTimeout, clearTimeout },
 }) => {
   let temporizador = null;
@@ -138,6 +142,15 @@ const iniciarRecuperacionPeriodica = ({
       const repo = crearRepo();
       const r = await recuperarRecalculosPendientes({ repo, log });
       if (r.revisados > 0) log({ writer: 'recuperacion', resultado: 'ronda', revisados: r.revisados, recuperados: r.recuperados });
+      if (procesarEventos) {
+        // Efectos (4A-3e): un fallo acá no frena la recuperación de marcas.
+        try {
+          if (r.eventosCreados.length > 0) await procesarEventos({ repo, ids: r.eventosCreados });
+          await procesarEventos({ repo });
+        } catch (e) {
+          log({ writer: 'efectos', resultado: 'ronda_eventos_fallida', error: e && e.message });
+        }
+      }
       if (alTerminarRonda) alTerminarRonda(r);
       if (detenerSiNoQuedanPendientes && !(await hayRecalculosPendientes(repo))) {
         log({ writer: 'recuperacion', resultado: 'drenaje_terminado' });

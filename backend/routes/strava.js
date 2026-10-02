@@ -1,4 +1,5 @@
 const express = require('express');
+const { actualizarConCompletitudCondicional } = require('../lib/completitudLegada');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const { enviarNotificacionProgreso } = require('../routes/notificaciones');
@@ -249,16 +250,19 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
     const yaCompletado = ['completed', 'cargado', 'shipped'].includes(uc.status);
     const nuevoStatus = porcentaje >= 100 ? 'completed' : uc.status;
 
-    await supabase
-      .from('user_challenges')
-      .update({
+    // 4A-3e (convivencia): la completitud es condicional; efectos solo si ESTE update la ganó.
+    const { gano: ganoCompletitud } = await actualizarConCompletitudCondicional(supabase, {
+      id: uc.id,
+      valores: {
         km_completed: kmFinal,
         status: nuevoStatus,
         completed_at: porcentaje >= 100 ? new Date().toISOString() : uc.completed_at
-      })
-      .eq('id', uc.id);
+      },
+      completa: porcentaje >= 100 && !yaCompletado,
+      origen: 'strava_webhook',
+    });
 
-    if (porcentaje >= 100 && !yaCompletado) {
+    if (ganoCompletitud) {
       const { data: usuario } = await supabase
         .from('users')
         .select('email, name')
@@ -270,7 +274,10 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
       }
     }
 
-    if (!yaCompletado) {
+    // 4A-3e (convivencia): si este update intentaba completar y perdió (otro camino completó), no se
+    // manda la notificación (su rama de 100% es el push de completitud).
+    const intentabaCompletar = porcentaje >= 100 && !yaCompletado;
+    if (!yaCompletado && (!intentabaCompletar || ganoCompletitud)) {
       await enviarNotificacionProgreso(
         supabase, userId,
         uc.challenge_id, uc.challenges.title,
@@ -467,13 +474,19 @@ router.get('/actividades/:userId', async (req, res) => {
         const porcentaje = Math.min((kmFinal / modalidadElegida.distancia_km) * 100, 100);
         const nuevoStatus = porcentaje >= 100 ? 'completed' : 'active';
 
-        await supabase.from('user_challenges').update({
-          km_completed: kmFinal,
-          status: nuevoStatus,
-          completed_at: nuevoStatus === 'completed' ? new Date().toISOString() : uc.completed_at
-        }).eq('id', uc.id);
+        // 4A-3e (convivencia): la completitud es condicional; efectos solo si ESTE update la ganó.
+        const { gano: ganoCompletitud } = await actualizarConCompletitudCondicional(supabase, {
+          id: uc.id,
+          valores: {
+            km_completed: kmFinal,
+            status: nuevoStatus,
+            completed_at: nuevoStatus === 'completed' ? new Date().toISOString() : uc.completed_at
+          },
+          completa: nuevoStatus === 'completed',
+          origen: 'strava_importacion',
+        });
 
-        if (nuevoStatus === 'completed') {
+        if (ganoCompletitud) {
           const { data: usuario } = await supabase.from('users').select('email, name, push_token').eq('id', userId).maybeSingle();
           if (usuario?.email) {
             const { enviarEmailCompletado } = require('../routes/emails');
@@ -569,18 +582,22 @@ router.get('/progreso/:userId', async (req, res) => {
       const nuevoStatus = parseFloat(porcentaje) >= 100 ? 'completed' : uc.status;
 
       // No actualizar retos pausados
+      // 4A-3e (convivencia): la completitud es condicional; efectos solo si ESTE update la ganó.
+      let ganoCompletitud = false;
       if (!uc.pausado) {
-        await supabase
-          .from('user_challenges')
-          .update({
+        ({ gano: ganoCompletitud } = await actualizarConCompletitudCondicional(supabase, {
+          id: uc.id,
+          valores: {
             km_completed: kmFinal,
             status: nuevoStatus,
             completed_at: parseFloat(porcentaje) >= 100 ? new Date().toISOString() : uc.completed_at
-          })
-          .eq('id', uc.id);
+          },
+          completa: parseFloat(porcentaje) >= 100 && !yaCompletado,
+          origen: 'strava_progreso',
+        }));
       }
 
-      if (parseFloat(porcentaje) >= 100 && !yaCompletado) {
+      if (ganoCompletitud) {
         const { data: usuario } = await supabase
           .from('users')
           .select('email, name, push_token')

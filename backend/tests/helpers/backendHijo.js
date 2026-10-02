@@ -23,9 +23,10 @@ const ESPERA_CIERRE_MS = 10000;
  * @param {object} opciones
  * @param {string} opciones.flag      valor de MOTOR_PROGRESO_WRITERS
  * @param {object} opciones.tablas    tablas iniciales de la base en memoria
+ * @param {object} [opciones.entorno] variables de entorno extra para el proceso hijo
  * @returns {Promise<{ pedir, cerrar, forzarCierre }>}
  */
-const levantarBackend = async ({ flag, tablas }) => {
+const levantarBackend = async ({ flag, tablas, entorno = {} }) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'korva-backend-'));
   const dbJson = path.join(dir, 'db.json');
   const salida = path.join(dir, 'salida.json');
@@ -36,7 +37,7 @@ const levantarBackend = async ({ flag, tablas }) => {
   const estado = { stdout: '', stderr: '', errores: [], exitCode: undefined, signal: undefined, cerrado: false };
   const hijo = spawn(process.execPath, args, {
     cwd: RAIZ_BACKEND,
-    env: { ...process.env, PORT: String(puerto), TZ: 'UTC', MOTOR_PROGRESO_WRITERS: flag, PRUEBA_DB_JSON: dbJson, PRUEBA_SALIDA: salida, SUPABASE_URL: 'http://memoria', SUPABASE_SECRET: 'x' },
+    env: { ...process.env, PORT: String(puerto), TZ: 'UTC', MOTOR_PROGRESO_WRITERS: flag, PRUEBA_DB_JSON: dbJson, PRUEBA_SALIDA: salida, SUPABASE_URL: 'http://memoria', SUPABASE_SECRET: 'x', ...entorno },
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
     shell: false,
     windowsHide: true,
