@@ -13,6 +13,8 @@
 //  - user_challenges.recalculo_pendiente_desde: poner/renovar la marca (compare-and-set sobre el
 //    valor leído) y borrarla (compare-and-set sobre el valor propio). Ver lib/marcaRecalculo.js.
 //  - activities.excluida = true de UNA actividad del usuario (eliminar actividad, igual que hoy).
+//  - activities: alta de una actividad manual y user_challenges.started_at (corrimiento por una
+//    actividad anterior al inicio), igual que el camino viejo (carga manual, 4A-6).
 //  - user_challenges.version (4A-3e; modalidad la sincroniza el trigger de la base), condicionada al
 //    status leído y, si está activo, junto con la marca de recálculo en el MISMO update.
 //  - progreso_eventos: reclamo, avance y resultado de los efectos, siempre con fencing por token.
@@ -155,6 +157,41 @@ const crearRepositorioSupabase = (supabase) => {
         .select('id');
       if (error) throw error;
       return { encontrada: Array.isArray(data) && data.length === 1 };
+    },
+
+    /**
+     * Carga manual (4A-6): el mismo INSERT de activities que hace el camino viejo. Devuelve la fila.
+     */
+    insertarActividadManual: async ({ actividad }) => {
+      const { data, error } = await supabase.from('activities').insert(actividad).select().single();
+      if (error) throw error;
+      return data;
+    },
+
+    /**
+     * Carga manual (4A-6): misma regla que el camino viejo para una actividad anterior al inicio del
+     * desafío elegido: corre started_at hacia atrás hasta la fecha de la actividad, como máximo 30
+     * días antes del inicio actual. Misma comparación que el viejo (texto ISO). Si el desafío no se
+     * encuentra o está duplicado, no hace nada (el viejo tampoco: maybeSingle sin fila).
+     * Devuelve true si corrió el inicio.
+     */
+    correrInicioPorActividad: async ({ userId, challengeId, recordedAt }) => {
+      const { data, error } = await lectura
+        .from('user_challenges')
+        .select('id, started_at')
+        .eq('user_id', userId)
+        .eq('challenge_id', challengeId)
+        .limit(2);
+      if (error) throw error;
+      if (!Array.isArray(data) || data.length !== 1) return false;
+      const ucCorte = data[0];
+      if (!(ucCorte && recordedAt < ucCorte.started_at)) return false;
+      const limiteMinimo = new Date(ucCorte.started_at);
+      limiteMinimo.setDate(limiteMinimo.getDate() - 30);
+      const nuevoCorte = new Date(recordedAt) < limiteMinimo ? limiteMinimo.toISOString() : recordedAt;
+      const { error: e2 } = await supabase.from('user_challenges').update({ started_at: nuevoCorte }).eq('id', ucCorte.id);
+      if (e2) throw e2;
+      return true;
     },
 
     /** Quita la marca de recálculo pendiente solo si sigue siendo la misma que se puso (no borra una más nueva). */

@@ -9,11 +9,12 @@ const invitacionesRoutes = require('./routes/invitaciones');
 const movimientoRoutes = require('./routes/movimiento');
 const residualAdminRoutes = require('./routes/residualAdmin');
 const progresoSombraAdminRoutes = require('./routes/progresoSombraAdmin');
-const { writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva } = require('./lib/flagsMotor');
+const { writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva } = require('./lib/flagsMotor');
 const { crearRepositorioSupabase } = require('./lib/progresoRepositorioSupabase');
 const { reanudarDesafioConMotor } = require('./lib/reanudarDesafio');
 const { eliminarActividadConMotor } = require('./lib/eliminarActividad');
 const { cambiarModalidadConMotor } = require('./lib/cambiarModalidad');
+const { registrarActividadManualConMotor } = require('./lib/actividadManual');
 const { VERSIONES, versionDesdePedido, versionDeInscripcion, etiquetaVersion, objetivoDeInscripcion, versionesDelDesafio } = require('./lib/versionDesafio');
 
 // Distancia objetivo de la VERSIÓN elegida (Estándar/Extendida) con el mismo respaldo que tenía el
@@ -1051,6 +1052,73 @@ app.post('/actividades/manual', async (req, res) => {
     }
   }
   // Si no viene challenge_id → modo libre, se permite igual
+
+  // Etapa 4A-6: motor unificado, solo si MOTOR_PROGRESO_WRITERS incluye "actividad_manual" Y "efectos".
+  // Con la flag apagada (o sin "efectos") se ejecuta el código viejo de abajo, sin cambios.
+  if (writerMotorActivo('actividad_manual') && !efectosMotorActivos()) {
+    logMotor({ writer: 'actividad_manual', resultado: 'ignorado_sin_efectos', aviso: 'actividad_manual requiere efectos: se usa el camino viejo' });
+  }
+  if (actividadManualMotorActiva()) {
+    try {
+      // Para la notificación de progreso (checkpoints / hitos), igual que el camino viejo.
+      const { data: ucAntes } = challenge_id
+        ? await supabase
+          .from('user_challenges')
+          .select('km_completed, status, challenge_id, version, modalidad, challenges(title, modalidades, total_distance_km)')
+          .eq('user_id', user_id)
+          .eq('challenge_id', challenge_id)
+          .maybeSingle()
+        : { data: null };
+
+      const resultado = await registrarActividadManualConMotor({
+        repo: crearRepositorioSupabase(supabase),
+        userId: user_id,
+        challengeId: challenge_id || null,
+        recordedAt: recorded_at,
+        actividad: {
+          user_id,
+          challenge_id: challenge_id || null,
+          source: 'manual',
+          external_id: `manual_${user_id}_${Date.now()}`,
+          sport_type, distance_km: distanciaFloat,
+          duration_seconds: duration_seconds || null,
+          recorded_at: recorded_at || new Date().toISOString(),
+          evidencia_url: evidencia_url || null,
+        },
+        dispararEfectos: (ids) => procesadorEventos.disparar(ids),
+      });
+
+      if (resultado.status === 200) try {
+        // La actividad quedó registrada: racha como siempre.
+        await verificarYEnviarNotificacionRacha(user_id);
+        // Notificación de progreso del desafío elegido (no la de completitud: esa la manda el
+        // procesador de efectos del evento 'completado').
+        if (ucAntes && resultado.body.progreso && resultado.body.progreso.recalculo === 'ok') {
+          const { data: ucDespues } = await supabase
+            .from('user_challenges')
+            .select('km_completed, status')
+            .eq('user_id', user_id)
+            .eq('challenge_id', challenge_id)
+            .maybeSingle();
+          const quedoTerminal = ['completed', 'cargado', 'shipped'].includes(ucDespues?.status);
+          if (ucAntes.status !== 'completed' && !quedoTerminal) {
+            await enviarNotificacionProgreso(
+              supabase, user_id,
+              challenge_id, ucAntes.challenges?.title,
+              ucAntes.km_completed || 0, ucDespues?.km_completed || 0,
+              distanciaDeLaVersion(ucAntes, ucAntes.challenges)
+            );
+          }
+        }
+      } catch (e) {
+        // Las notificaciones no cambian el resultado: la actividad y el progreso ya están guardados.
+        console.error('[actividad_manual] notificaciones:', e.message);
+      }
+      return res.status(resultado.status).json(resultado.body);
+    } catch (error) {
+      return res.status(500).json({ error: 'Error registrando actividad', detalle: error.message });
+    }
+  }
 
   try {
     const { data: nuevaActividad, error: errorActividad } = await supabase
