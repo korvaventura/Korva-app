@@ -6,6 +6,10 @@ import * as Sharing from 'expo-sharing';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
 import { supabase } from '../supabase';
+import { ESTANDAR, EXTENDIDA, etiquetaVersion, etiquetaDeInscripcion, modalidadLegacy } from '../utils/versionDesafio';
+
+// Versión nueva para el formulario de alta de desafíos (tipo run/ride solo por compatibilidad).
+const versionNueva = (version) => ({ version, tipo: modalidadLegacy(version), label: etiquetaVersion(version), distancia_km: '' });
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -68,7 +72,7 @@ export default function AdminScreen() {
   const [nuevoReto, setNuevoReto] = useState({
     title: '', description: '', historia: '', price_usd: '', price_ars: '',
     medal_image_url: '', link_mercadopago: '', link_shopify: '',
-    modalidades: [{ tipo: 'run', label: 'Running', distancia_km: '' }],
+    modalidades: [versionNueva(ESTANDAR)],
   });
   const [creando, setCreando] = useState(false);
 
@@ -417,7 +421,7 @@ export default function AdminScreen() {
       `---`,
       `Usuario: ${item.usuario}`,
       `Email: ${item.email}`,
-      `Reto: ${item.challenge} (${item.modalidad === 'run' ? 'Running' : 'Ciclismo'})`,
+      `Reto: ${item.challenge}${item.version || item.modalidad ? ` (versión ${etiquetaDeInscripcion(item)})` : ''}`,
       `Km completados: ${item.km_completados}`,
     ].filter(Boolean).join('\n');
     Clipboard.setString(texto);
@@ -430,14 +434,14 @@ export default function AdminScreen() {
   };
 
   const agregarModalidad = () => {
-    const tipos = nuevoReto.modalidades.map(m => m.tipo);
-    const siguiente = !tipos.includes('run') ? 'run' : !tipos.includes('ride') ? 'ride' : null;
-    if (!siguiente) { Alert.alert('Máximo 2 modalidades'); return; }
-    setNuevoReto(prev => ({ ...prev, modalidades: [...prev.modalidades, { tipo: siguiente, label: siguiente === 'run' ? 'Running' : 'Ciclismo', distancia_km: '' }] }));
+    const versiones = nuevoReto.modalidades.map(m => m.version);
+    const siguiente = !versiones.includes(ESTANDAR) ? ESTANDAR : !versiones.includes(EXTENDIDA) ? EXTENDIDA : null;
+    if (!siguiente) { Alert.alert('Máximo 2 versiones (Estándar y Extendida)'); return; }
+    setNuevoReto(prev => ({ ...prev, modalidades: [...prev.modalidades, versionNueva(siguiente)] }));
   };
 
   const quitarModalidad = (index) => {
-    if (nuevoReto.modalidades.length === 1) { Alert.alert('Mínimo 1 modalidad'); return; }
+    if (nuevoReto.modalidades.length === 1) { Alert.alert('Mínimo 1 versión'); return; }
     setNuevoReto(prev => ({ ...prev, modalidades: prev.modalidades.filter((_, i) => i !== index) }));
   };
 
@@ -457,16 +461,16 @@ export default function AdminScreen() {
     }
     setCreando(true);
     try {
-      const modalidadesFormateadas = modalidades.map(m => ({ tipo: m.tipo, label: m.label, distancia_km: parseFloat(m.distancia_km) }));
+      const modalidadesFormateadas = modalidades.map(m => ({ version: m.version, tipo: modalidadLegacy(m.version), label: etiquetaVersion(m.version), distancia_km: parseFloat(m.distancia_km) }));
       const res = await adminFetch('/admin/challenges', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, historia, price_usd: parseFloat(price_usd), price_ars: price_ars ? parseInt(price_ars) : null, medal_image_url, link_mercadopago, link_shopify, modalidades: modalidadesFormateadas, sport_type: modalidades.length > 1 ? 'multi' : modalidades[0].tipo })
+        body: JSON.stringify({ title, description, historia, price_usd: parseFloat(price_usd), price_ars: price_ars ? parseInt(price_ars) : null, medal_image_url, link_mercadopago, link_shopify, modalidades: modalidadesFormateadas, sport_type: 'multi' }) // cualquier deporte suma
       });
       const data = await res.json();
       if (data.error) throw new Error(data.detalle);
       Alert.alert('🎉 Reto creado', `"${title}" fue creado exitosamente.`);
-      setNuevoReto({ title: '', description: '', historia: '', price_usd: '', price_ars: '', medal_image_url: '', link_mercadopago: '', link_shopify: '', modalidades: [{ tipo: 'run', label: 'Running', distancia_km: '' }] });
+      setNuevoReto({ title: '', description: '', historia: '', price_usd: '', price_ars: '', medal_image_url: '', link_mercadopago: '', link_shopify: '', modalidades: [versionNueva(ESTANDAR)] });
       setVista('envios');
       cargarChallengesActivos();
     } catch (error) {
@@ -573,7 +577,7 @@ export default function AdminScreen() {
                 <View key={index} style={[styles.card, urgente && styles.cardUrgente]}>
                   <View style={styles.cardHeader}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.deporte}>{item.modalidad === 'run' ? '🏃 RUNNING' : '🚴 CICLISMO'}</Text>
+                      <Text style={styles.deporte}>VERSIÓN {etiquetaDeInscripcion(item).toUpperCase()}</Text>
                       <Text style={styles.nombre}>{item.usuario}</Text>
                       <Text style={styles.challenge}>{item.challenge}</Text>
                     </View>
@@ -613,7 +617,7 @@ export default function AdminScreen() {
                 <View key={index} style={styles.cardShipped}>
                   <View style={styles.cardHeader}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.deporte}>{item.modalidad === 'run' ? '🏃 RUNNING' : '🚴 CICLISMO'}</Text>
+                      <Text style={styles.deporte}>VERSIÓN {etiquetaDeInscripcion(item).toUpperCase()}</Text>
                       <Text style={styles.nombre}>{item.usuario}</Text>
                       <Text style={styles.challenge}>{item.challenge}</Text>
                     </View>
@@ -725,7 +729,7 @@ export default function AdminScreen() {
                                     {m.status === 'completed' ? '✅' : '⏳'} {m.usuario}
                                   </Text>
                                   <Text style={{ color: '#A8CFFF', fontSize: 11 }}>
-                                    {m.modalidad === 'run' ? '🏃' : '🚴'} {m.challenge} · {m.km_completados} km
+                                    {m.challenge} ({etiquetaDeInscripcion(m)}) · {m.km_completados} km
                                   </Text>
                                 </View>
                                 {m.status !== 'completed' && (
@@ -746,7 +750,7 @@ export default function AdminScreen() {
                             usuario: grupo.comprador,
                             email: grupo.email,
                             challenge: grupo.miembros.map(m => `${m.usuario} (${m.challenge})`).join(', '),
-                            modalidad: 'run',
+                            // grupo: sin versión individual
                             km_completados: '—',
                           })}>
                             <Text style={styles.copiarBtnText}>📋 Copiar datos de envío</Text>
@@ -1176,7 +1180,7 @@ export default function AdminScreen() {
                               </Text>
                               <Text style={{ color: '#A8CFFF', fontSize: 12, marginTop: 2 }}>{m.email}</Text>
                               <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 2 }}>
-                                {m.modalidad === 'run' ? '🏃' : '🚴'} {m.challenge} · {parseFloat(m.km_completados || 0).toFixed(1)} km
+                                {m.challenge} ({etiquetaDeInscripcion(m)}) · {parseFloat(m.km_completados || 0).toFixed(1)} km
                               </Text>
                             </View>
                             <View style={{ alignItems: 'flex-end' }}>
@@ -1218,17 +1222,17 @@ export default function AdminScreen() {
           <TextInput style={styles.input} value={nuevoReto.link_mercadopago} onChangeText={v => setNuevoReto(p => ({ ...p, link_mercadopago: v }))} placeholder="https://mercadopago.com..." placeholderTextColor="#4a6a8a" />
           <Text style={styles.formLabel}>🌍 Link Shopify</Text>
           <TextInput style={styles.input} value={nuevoReto.link_shopify} onChangeText={v => setNuevoReto(p => ({ ...p, link_shopify: v }))} placeholder="https://korva.run/..." placeholderTextColor="#4a6a8a" />
-          <Text style={styles.formLabel}>Modalidades *</Text>
+          <Text style={styles.formLabel}>Versiones (distancia) *</Text>
           {nuevoReto.modalidades.map((m, i) => (
             <View key={i} style={styles.modalidadRow}>
-              <View style={styles.modalidadTipo}><Text style={styles.modalidadTipoText}>{m.tipo === 'run' ? '🏃 Running' : '🚴 Ciclismo'}</Text></View>
+              <View style={styles.modalidadTipo}><Text style={styles.modalidadTipoText}>{etiquetaVersion(m.version)}</Text></View>
               <TextInput style={[styles.input, { flex: 1, marginBottom: 0 }]} value={m.distancia_km} onChangeText={v => actualizarModalidad(i, 'distancia_km', v)} placeholder="km" placeholderTextColor="#4a6a8a" keyboardType="numeric" />
               <TouchableOpacity style={styles.quitarBtn} onPress={() => quitarModalidad(i)}><Text style={styles.quitarBtnText}>✕</Text></TouchableOpacity>
             </View>
           ))}
           {nuevoReto.modalidades.length < 2 && (
             <TouchableOpacity style={styles.agregarModalidadBtn} onPress={agregarModalidad}>
-              <Text style={styles.agregarModalidadText}>+ Agregar modalidad</Text>
+              <Text style={styles.agregarModalidadText}>+ Agregar versión</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity style={styles.crearBtn} onPress={crearReto} disabled={creando}>

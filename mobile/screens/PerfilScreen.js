@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
+import { versionDeInscripcion, versionesDelDesafio, distanciaDeVersion, distanciaDeInscripcion, etiquetaVersion, modalidadLegacy, planDeVersion } from '../utils/versionDesafio';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -177,7 +178,7 @@ export default function PerfilScreen() {
     try {
       const { data, error } = await supabase
         .from('user_challenges')
-        .select('id, modalidad, challenge_id, meta_fecha, km_completed, status, pausado, challenges(title, modalidades)')
+        .select('id, version, modalidad, challenge_id, meta_fecha, km_completed, status, pausado, challenges(title, modalidades, total_distance_km)')
         .eq('user_id', userId)
         .in('status', ['active', 'completed', 'shipped', 'cargado']);
       if (!error && data) {
@@ -189,30 +190,32 @@ export default function PerfilScreen() {
     } catch (error) {}
   };
 
-  const cambiarModalidad = (inscripcion, nuevaModalidad) => {
-    if (nuevaModalidad === inscripcion.modalidad) return;
-    const modalidades = inscripcion.challenges?.modalidades || [];
-    const nuevaData = modalidades.find(m => m.tipo === nuevaModalidad);
-    setModalCambioModalidad({ inscripcion, nuevaModalidad, nuevaData });
+  // Cambio de VERSIÓN (Estándar/Extendida). Los km no cambian: solo la distancia a completar.
+  const cambiarModalidad = (inscripcion, nuevaVersion) => {
+    if (nuevaVersion === versionDeInscripcion(inscripcion)) return;
+    const nuevaData = { version: nuevaVersion, label: etiquetaVersion(nuevaVersion), distancia_km: distanciaDeVersion(inscripcion.challenges, nuevaVersion) };
+    setModalCambioModalidad({ inscripcion, nuevaVersion, nuevaData });
   };
 
   const confirmarCambioModalidad = async () => {
     if (!modalCambioModalidad) return;
-    const { inscripcion, nuevaModalidad } = modalCambioModalidad;
+    const { inscripcion, nuevaVersion } = modalCambioModalidad;
     setModalCambioModalidad(null);
     setCambiandoModalidad(true);
     try {
-      await fetch(`${BACKEND_URL}/usuarios/modalidad`, {
+      // `version` es lo que usa el backend; `modalidad` va por compatibilidad.
+      const res = await fetch(`${BACKEND_URL}/usuarios/modalidad`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, challenge_id: inscripcion.challenge_id, modalidad: nuevaModalidad })
+        body: JSON.stringify({ user_id: userId, challenge_id: inscripcion.challenge_id, version: nuevaVersion, modalidad: modalidadLegacy(nuevaVersion) })
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setInscripcionesActivas(prev => prev.map(i =>
-        i.challenge_id === inscripcion.challenge_id ? { ...i, modalidad: nuevaModalidad } : i
+        i.challenge_id === inscripcion.challenge_id ? { ...i, version: nuevaVersion, modalidad: modalidadLegacy(nuevaVersion) } : i
       ));
-      Alert.alert('✅ Modalidad actualizada');
+      Alert.alert(`✅ Versión ${etiquetaVersion(nuevaVersion)} activada`, 'Tus km no cambiaron: solo cambió la distancia a completar.');
     } catch (error) {
-      Alert.alert('Error', 'No se pudo cambiar la modalidad');
+      Alert.alert('Error', 'No se pudo cambiar la versión');
     } finally { setCambiandoModalidad(false); }
   };
 
@@ -672,30 +675,24 @@ export default function PerfilScreen() {
       <Modal visible={!!modalCambioModalidad} transparent animationType="fade" onRequestClose={() => setModalCambioModalidad(null)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalEmoji}>{modalCambioModalidad?.nuevaModalidad === 'run' ? '🏃' : '🚴'}</Text>
+            <Text style={styles.modalEmoji}>🎯</Text>
             <Text style={styles.modalTitulo}>
-              {modalCambioModalidad?.nuevaData?.distancia_km} km
+              Versión {modalCambioModalidad?.nuevaData?.label} · {modalCambioModalidad?.nuevaData?.distancia_km} km
             </Text>
             <Text style={styles.modalSubtitulo}>{modalCambioModalidad?.inscripcion?.challenges?.title}</Text>
             <View style={styles.confirmInfoBox}>
               <Text style={styles.confirmInfoTexto}>
-                {(() => {
-                  const modalidades = modalCambioModalidad?.inscripcion?.challenges?.modalidades || [];
-                  const base = modalidades.find(m => m.tipo === 'run');
-                  const titulo = modalCambioModalidad?.inscripcion?.challenges?.title || '';
-                  return `🎯 Tu nueva meta será ${modalCambioModalidad?.nuevaData?.distancia_km} km — tu medalla sigue siendo la misma: ${base?.distancia_km || ''}km ${titulo}.`;
-                })()}
+                {`🎯 Tu nueva meta será ${modalCambioModalidad?.nuevaData?.distancia_km} km. Tus km acumulados no cambian. Tu certificado va a mostrar la distancia de la versión que completes.`}
               </Text>
               <Text style={styles.confirmInfoTexto}>
-                🏃 Cualquier actividad suma — correr, caminar, bici o nadar.
+                👟 En cualquier versión podés caminar, correr o andar en bici: todos los km cuentan igual.
               </Text>
               {(() => {
-                const modalidades = modalCambioModalidad?.inscripcion?.challenges?.modalidades || [];
-                const baseRun = modalidades.find(m => m.tipo === 'run');
-                if (modalCambioModalidad?.nuevaModalidad !== 'run' && baseRun && baseRun.distancia_km !== modalCambioModalidad?.nuevaData?.distancia_km) {
+                const estandarKm = distanciaDeVersion(modalCambioModalidad?.inscripcion?.challenges, 'estandar');
+                if (modalCambioModalidad?.nuevaVersion !== 'estandar' && estandarKm && estandarKm !== modalCambioModalidad?.nuevaData?.distancia_km) {
                   return (
                     <Text style={styles.confirmInfoTexto}>
-                      🏅 Tu medalla física dirá <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>{baseRun.distancia_km}K</Text> — el diseño es el mismo para todas las modalidades del desafío.
+                      🏅 Tu medalla física dirá <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>{estandarKm}K</Text> — el diseño es el mismo para las dos versiones del desafío.
                     </Text>
                   );
                 }
@@ -813,14 +810,15 @@ export default function PerfilScreen() {
           >
             {inscripcionesActivas.map((inscripcion, idx) => {
               const cId = inscripcion.challenge_id;
-              const modalidades = inscripcion.challenges?.modalidades || [];
-              const modalidadData = modalidades.find(m => m.tipo === inscripcion.modalidad);
-              const distanciaTotal = modalidadData?.distancia_km || 0;
+              const versionActual = versionDeInscripcion(inscripcion);
+              const versiones = versionesDelDesafio(inscripcion.challenges).filter(v => v.distancia_km !== null);
+              const distanciaTotal = distanciaDeInscripcion(inscripcion, inscripcion.challenges) || 0;
+              const puedeCambiarVersion = inscripcion.status === 'active'; // terminados: congelados
               const kmCompletados = inscripcion.km_completed || 0;
               const pct = distanciaTotal > 0 ? Math.min((kmCompletados / distanciaTotal) * 100, 100) : 0;
               const mFecha = metaFecha[cId];
-              const factorDescanso = inscripcion.modalidad === 'run' ? 0.6 : 0.75;
-              const sesionesporSemana = inscripcion.modalidad === 'run' ? 4 : 5;
+              // El plan escala solo por la distancia de la versión (no asume deporte).
+              const { factorDescanso, sesionesPorSemana: sesionesporSemana } = planDeVersion(versionActual);
 
               return (
                 <View key={cId} style={{ width: SCREEN_WIDTH, paddingHorizontal: 24 }}>
@@ -833,17 +831,17 @@ export default function PerfilScreen() {
                       <Text style={styles.retoProgressPct}>{pct.toFixed(0)}%</Text>
                     </View>
                     <Text style={styles.retoKm}>{kmCompletados.toFixed(1)} km de {distanciaTotal} km</Text>
-                    <Text style={styles.modalidadLabel}>Modalidad</Text>
+                    <Text style={styles.modalidadLabel}>Versión · caminando, corriendo o en bici, todo suma</Text>
                     <View style={styles.modalidadBtns}>
-                      {modalidades.map((m, i) => (
+                      {versiones.map((v) => (
                         <TouchableOpacity
-                          key={i}
-                          style={[styles.modalidadBtn, inscripcion.modalidad === m.tipo && styles.modalidadBtnActivo]}
-                          onPress={() => cambiarModalidad(inscripcion, m.tipo)}
-                          disabled={cambiandoModalidad}
+                          key={v.version}
+                          style={[styles.modalidadBtn, versionActual === v.version && styles.modalidadBtnActivo]}
+                          onPress={() => cambiarModalidad(inscripcion, v.version)}
+                          disabled={cambiandoModalidad || !puedeCambiarVersion}
                         >
-                          <Text style={[styles.modalidadBtnText, inscripcion.modalidad === m.tipo && styles.modalidadBtnTextActivo]}>
-                            {m.distancia_km} km
+                          <Text style={[styles.modalidadBtnText, versionActual === v.version && styles.modalidadBtnTextActivo]}>
+                            {v.label} · {v.distancia_km} km
                           </Text>
                         </TouchableOpacity>
                       ))}

@@ -2,6 +2,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Alert,
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { versionDeInscripcion, etiquetaDeInscripcion, planDeVersion } from '../utils/versionDesafio';
 
 const aplicarMascaraFecha = (texto) => {
   const numeros = texto.replace(/[^0-9]/g, '');
@@ -10,9 +11,6 @@ const aplicarMascaraFecha = (texto) => {
   return `${numeros.slice(0,2)}/${numeros.slice(2,4)}/${numeros.slice(4,8)}`;
 };
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
-
-const LIMITE_KM_DIA_RUN = 15;
-const LIMITE_KM_DIA_RIDE = 40;
 
 const formatearFecha = (fecha) => {
   if (!fecha) return '';
@@ -47,8 +45,9 @@ export default function DetalleRetoScreen({ route, navigation }) {
 
   const pct = Math.min(parseFloat(item.porcentaje || 0), 100);
   const estaCompletado = pct >= 100;
-  const modalidad = item.modalidad === 'Running' ? 'run' : 'ride';
-  const limiteDiario = modalidad === 'run' ? LIMITE_KM_DIA_RUN : LIMITE_KM_DIA_RIDE;
+  // Versión Estándar/Extendida (solo distancia; cualquier deporte suma 1:1).
+  const version = versionDeInscripcion(item);
+  const versionLabel = etiquetaDeInscripcion(item);
 
   useEffect(() => {
     cargarActividades();
@@ -94,21 +93,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
     if (isNaN(fecha.getTime())) { Alert.alert('Fecha inválida'); return; }
     if (fecha <= new Date()) { Alert.alert('La fecha debe ser futura'); return; }
 
-    const kmRestantes = Math.max(0, parseFloat(item.distancia_total || 0) - parseFloat(item.km_completados || 0));
-    const diasRestantes = Math.max(1, diasEntre(new Date(), fecha));
-    const kmPorDia = kmRestantes / diasRestantes;
-
-    if (isFinite(kmPorDia) && kmPorDia > limiteDiario) {
-      Alert.alert(
-        '⚠️ Ritmo elevado',
-        `Para llegar a tiempo necesitarías ${kmPorDia.toFixed(1)}km por día.\n\n¿Querés guardar igual?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Guardar igual', onPress: () => saveFecha(fecha.toISOString()) }
-        ]
-      );
-      return;
-    }
+    // Sin límite diario: la versión no es un deporte y todos los km suman igual.
     saveFecha(fecha.toISOString());
   };
 
@@ -154,8 +139,8 @@ export default function DetalleRetoScreen({ route, navigation }) {
   const diasParaTerminar = ritmoDiario > 0 ? Math.ceil(kmRestantes / ritmoDiario) : null;
   const fechaEstimada = diasParaTerminar ? new Date(Date.now() + diasParaTerminar * 86400000) : null;
 
-  const factorDescanso = modalidad === 'run' ? 0.6 : 0.75;
-  const sesionesporSemana = modalidad === 'run' ? 4 : 5;
+  // El plan escala solo por la distancia de la versión.
+  const { factorDescanso, sesionesPorSemana: sesionesporSemana } = planDeVersion(version);
   let acumulado = 0;
   const actividadesConHito = [...actividades].reverse().map((act, i) => {
     acumulado += act.distance_km;
@@ -173,7 +158,8 @@ export default function DetalleRetoScreen({ route, navigation }) {
       </TouchableOpacity>
 
       <Text style={styles.titulo}>{item.challenge || '—'}</Text>
-      <Text style={styles.subtitulo}>Desafío virtual · {item.distancia_total}km</Text>
+      <Text style={styles.subtitulo}>Desafío virtual · Versión {versionLabel} · {item.distancia_total}km</Text>
+      <Text style={styles.subtituloVersion}>Caminando, corriendo o en bici: todos los km suman igual.</Text>
 
       <View style={styles.progresoCard}>
         <View style={styles.progresoHeader}>
@@ -313,7 +299,8 @@ const styles = StyleSheet.create({
   backBtn: { marginBottom: 16 },
   backBtnText: { color: '#1E6FD9', fontSize: 15, fontWeight: 'bold' },
   titulo: { fontSize: 26, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  subtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 20 },
+  subtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 4 },
+  subtituloVersion: { fontSize: 12, color: '#4a6a8a', marginBottom: 20 },
   progresoCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 20, marginBottom: 16 },
   progresoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 },
   progresoKm: { fontSize: 32, fontWeight: 'bold', color: '#FFFFFF' },

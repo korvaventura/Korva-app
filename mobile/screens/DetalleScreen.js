@@ -2,11 +2,12 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Modal } fr
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import MapaRecorrido from './MapaRecorrido';
+import { versionesDelDesafio, distanciaDeVersion } from '../utils/versionDesafio';
 
 const COMO_FUNCIONA = [
   { emoji: '1️⃣', titulo: 'Comprá en la tienda', desc: 'Una vez confirmado el pago, el desafío se activa automáticamente en la app.' },
   { emoji: '2️⃣', titulo: 'Registrá tus km', desc: 'Cargá tus actividades manualmente desde la app. Strava estará disponible próximamente.' },
-  { emoji: '3️⃣', titulo: 'Corré a tu ritmo', desc: 'No hay límite de tiempo para completar la distancia.' },
+  { emoji: '3️⃣', titulo: 'Movete a tu ritmo', desc: 'Caminá, corré o pedaleá: todos los km cuentan igual. No hay límite de tiempo para completar la distancia.' },
   { emoji: '4️⃣', titulo: 'Recibí tu medalla', desc: 'Al completar el reto, iniciamos el envío de tu medalla física.' },
 ];
 
@@ -17,9 +18,10 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
 
   if (!challenge) return null;
 
-  const modalidades = challenge.modalidades || [];
+  // Versiones Estándar / Extendida: solo distancia, no deporte.
+  const versiones = versionesDelDesafio(challenge).filter(v => v.distancia_km !== null);
   const galeria = Array.isArray(challenge.galeria) ? challenge.galeria : [];
-  const distanciaTotal = modalidades[0]?.distancia_km || challenge.total_distance_km || 0;
+  const distanciaTotal = distanciaDeVersion(challenge, 'estandar') || versiones[0]?.distancia_km || challenge.total_distance_km || 0;
 
   return (
     <>
@@ -51,6 +53,21 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
         <Text style={styles.titulo}>{challenge.title}</Text>
         <Text style={styles.descripcion}>{challenge.description}</Text>
       </View>
+
+      {versiones.length > 0 && (
+        <View style={styles.seccion}>
+          <Text style={styles.seccionTitulo}>📏 Versiones del desafío</Text>
+          <View style={styles.modalidadesRow}>
+            {versiones.map((v) => (
+              <View key={v.version} style={styles.modalidadCard}>
+                <Text style={styles.modalidadLabel}>{v.label}</Text>
+                <Text style={styles.modalidadKm}>{v.distancia_km} km</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={styles.mapaSubtitulo}>Empezás en la Estándar y podés pasarte a la Extendida desde el Perfil. En cualquier versión podés caminar, correr o andar en bici: todos los km suman igual.</Text>
+        </View>
+      )}
 
 
 
@@ -157,8 +174,8 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
                   a: 'Sí. Podés registrar actividades y acumular logros sin costo. Los desafíos son para quienes quieren una meta con medalla física incluida.'
                 },
                 {
-                  q: '¿Puedo cambiar la distancia elegida?',
-                  a: 'Sí, desde el Perfil podés cambiar entre las opciones de distancia disponibles cuando quieras.'
+                  q: '¿Puedo cambiar la versión elegida?',
+                  a: 'Sí, desde el Perfil podés cambiar entre la versión Estándar y la Extendida. Tus km no cambian: solo cambia la distancia a completar.'
                 },
                 {
                   q: '¿Puedo tener varios desafíos a la vez?',
@@ -217,7 +234,7 @@ const styles = StyleSheet.create({
   deporte: { fontSize: 11, fontWeight: 'bold', color: '#1E6FD9', letterSpacing: 1, marginBottom: 8 },
   titulo: { fontSize: 26, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 10 },
   descripcion: { fontSize: 14, color: '#A8CFFF', lineHeight: 22 },
-  modalidadesRow: { flexDirection: 'row', gap: 12 },
+  modalidadesRow: { flexDirection: 'row', gap: 12, marginBottom: 10 },
   modalidadCard: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 14, padding: 16, alignItems: 'center' },
   modalidadEmoji: { fontSize: 28, marginBottom: 6 },
   modalidadLabel: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },

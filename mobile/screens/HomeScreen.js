@@ -11,6 +11,7 @@ import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import MapaRecorrido from './MapaRecorrido';
 import { Ionicons } from '@expo/vector-icons';
+import { etiquetaDeInscripcion } from '../utils/versionDesafio';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -467,13 +468,13 @@ export default function HomeScreen({ navigation }) {
               {[
                 { q: '¿Cómo funciona Korva?', a: 'Elegís un desafío en el Catálogo y lo comprás. Una vez confirmado el pago, el desafío se activa en la app. Registrás tus km corriendo o pedaleando en el mundo real, y cuando completás la distancia total se inicia automáticamente la orden de envío de tu medalla.' },
                 { q: '¿Necesito completar el desafío de una sola vez?', a: 'No. Podés salir a correr o pedalear cuando quieras — salidas cortas, largas, a tu ritmo. Los km se van acumulando hasta completar la distancia total del desafío.' },
-                { q: '¿Puedo mezclar actividades?', a: 'Sí. Si elegiste Running podés sumar km corriendo, caminando, trotando o incluso en bicicleta — todo se acumula hacia tu meta. La modalidad que elegís define la distancia del desafío, no el tipo de actividad que podés registrar.' },
+                { q: '¿Puedo mezclar actividades?', a: 'Sí. Podés sumar km caminando, corriendo o en bicicleta, y todos cuentan igual (1 km = 1 km) hacia tu meta. La versión que elegís (Estándar o Extendida) solo define la distancia del desafío, no el tipo de actividad.' },
                 { q: '¿Cómo registro mis kilómetros?', a: 'Desde la pestaña "Registrar" cargás tus km manualmente en segundos. La integración con Strava para sincronización automática estará disponible próximamente.' },
                 { q: '¿Cómo cargo mi dirección de envío?', a: 'Desde la pestaña "Perfil", sección "Dirección de envío". Asegurate de tenerla cargada antes de completar el desafío para que el envío salga sin demoras.' },
                 { q: '¿Cuándo llega mi medalla?', a: 'Cuando completás el 100% del desafío se inicia la orden de envío automáticamente. Los tiempos varían según tu país — podés consultar los tiempos estimados en korva.run.' },
                 { q: '¿Qué son los logros?', a: 'Los logros son badges gratuitos que ganás por tu actividad — km recorridos, rachas de días activos, cantidad de salidas y más. Se acumulan siempre, tengas o no un desafío activo.' },
                 { q: '¿Puedo usar la app sin comprar un desafío?', a: 'Sí. Podés registrar actividades y acumular logros sin costo. Los desafíos son para quienes quieren una meta con medalla física incluida.' },
-                { q: '¿Puedo cambiar mi modalidad?', a: 'Sí, desde "Mis retos activos" en el Perfil podés cambiar entre Running y Ciclismo cuando quieras.' },
+                { q: '¿Puedo cambiar la versión de mi desafío?', a: 'Sí, desde "Mis retos activos" en el Perfil podés cambiar entre la versión Estándar y la Extendida. Tus km no cambian: solo cambia la distancia a completar.' },
                 { q: '¿Puedo tener varios desafíos a la vez?', a: 'Sí. Podés inscribirte en más de un desafío al mismo tiempo — cada uno tiene su propio progreso y se completan de forma independiente. En la app vas a ver una pestaña para cada desafío activo.' },
                 { q: '¿Mis datos están seguros?', a: 'Sí. Solo vos podés ver tu perfil, dirección y actividades. No compartimos tu información con terceros.' },
                 { q: '¿Necesito Strava?', a: 'No. El registro manual es suficiente para sumar tus km. Strava estará disponible próximamente como opción de sincronización automática.' },
@@ -748,7 +749,7 @@ export default function HomeScreen({ navigation }) {
                     <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 12 }}>✕</Text>
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.pendingModalidad}>{item.modalidad}</Text>
+                <Text style={styles.pendingModalidad}>Versión {etiquetaDeInscripcion(item)}</Text>
                 <Text style={styles.pendingTexto}>Esperando confirmación de pago. Si ya pagaste, puede demorar unos minutos.</Text>
                 {item.link_shopify && (
                   <TouchableOpacity style={styles.pendingBtn} onPress={() => Linking.openURL(item.link_shopify)}>
@@ -913,7 +914,7 @@ export default function HomeScreen({ navigation }) {
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.completadoChallenge}>{item.challenge || item.challenge_title || '—'}</Text>
-                  <Text style={styles.completadoKm}>{parseFloat(item.km_completados || 0).toFixed(1)} km · {item.modalidad || 'run'}</Text>
+                  <Text style={styles.completadoKm}>{parseFloat(item.km_completados || 0).toFixed(1)} km · {etiquetaDeInscripcion(item)}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end', gap: 4 }}>
                   <Text style={styles.completadoBadge}>{item.status === 'shipped' || item.status === 'cargado' ? '📦 Enviado' : '🏅 Completado'}</Text>
@@ -966,21 +967,21 @@ export default function HomeScreen({ navigation }) {
       <Modal visible={modalModalidadVisible} transparent animationType="fade" onRequestClose={() => setModalModalidadVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalEmoji}>🏃</Text>
-            <Text style={styles.modalTitulo}>Tu modalidad activa</Text>
-            <Text style={styles.modalSubtitulo}>Así funciona el sistema de modalidades en Korva:</Text>
+            <Text style={styles.modalEmoji}>🎯</Text>
+            <Text style={styles.modalTitulo}>La versión de tu desafío</Text>
+            <Text style={styles.modalSubtitulo}>Cada desafío tiene una versión Estándar y una Extendida (más larga). La versión solo define la distancia.</Text>
             <View style={styles.modalPaso}>
               <Text style={styles.modalPasoEmoji}>✅</Text>
               <View style={styles.modalPasoInfo}>
                 <Text style={styles.modalPasoTitulo}>Todo suma hacia tu meta</Text>
-                <Text style={styles.modalPasoDesc}>Dentro de tu modalidad podés registrar cualquier actividad — correr, caminar o andar en bici. Todo se acumula hacia tu distancia total.</Text>
+                <Text style={styles.modalPasoDesc}>En cualquier versión podés caminar, correr o andar en bici. Todos los km cuentan igual hacia tu distancia total.</Text>
               </View>
             </View>
             <View style={styles.modalPaso}>
               <Text style={styles.modalPasoEmoji}>🔄</Text>
               <View style={styles.modalPasoInfo}>
-                <Text style={styles.modalPasoTitulo}>¿Querés cambiar de modalidad?</Text>
-                <Text style={styles.modalPasoDesc}>Podés cambiar entre Running y Ciclismo desde la pestaña Perfil → Mis retos activos.</Text>
+                <Text style={styles.modalPasoTitulo}>¿Querés cambiar de versión?</Text>
+                <Text style={styles.modalPasoDesc}>Podés cambiar entre Estándar y Extendida desde la pestaña Perfil → Mis retos activos. Tus km no cambian.</Text>
               </View>
             </View>
             <TouchableOpacity style={styles.modalBtn} onPress={() => setModalModalidadVisible(false)}>
@@ -1007,9 +1008,8 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
   const mostrarCardMeta = metaVisibles[item.challenge_id];
   const metaFormateada = formatearFechaMeta(item.meta_fecha);
   const bordeCard = estaCompletado ? '#FC4C02' : pct >= 75 ? '#FC4C02' : '#1E3A5F';
-  const modalidadLabel = item.modalidad === 'Running' ? '🏃 RUNNING'
-    : item.modalidad === 'Ciclismo' ? '🚴 CICLISMO'
-    : '🏊 NATACIÓN';
+  // Versión del desafío (Estándar/Extendida), no deporte. Fallback a `modalidad` de respuestas viejas.
+  const modalidadLabel = `VERSIÓN ${etiquetaDeInscripcion(item).toUpperCase()}`;
 
   return (
     <View>

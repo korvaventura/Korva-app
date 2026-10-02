@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import DetalleScreen from './DetalleScreen';
 import { Ionicons } from '@expo/vector-icons';
+import { ESTANDAR, versionesDelDesafio, distanciaDeVersion, etiquetaVersion, modalidadLegacy } from '../utils/versionDesafio';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -17,7 +18,7 @@ export default function CatalogoScreen() {
   const [challengesBloqueados, setChallengesBloqueados] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [modalModalidad, setModalModalidad] = useState(false);
-  const [modalConfirmModalidad, setModalConfirmModalidad] = useState(null); // { tipo, label, distancia_km }
+  const [modalConfirmModalidad, setModalConfirmModalidad] = useState(null); // { version, label, distancia_km }
   const [cantidad, setCantidad] = useState(1);
   const [challengeSeleccionado, setChallengeSeleccionado] = useState(null);
   const [detalleVisible, setDetalleVisible] = useState(false);
@@ -81,13 +82,14 @@ export default function CatalogoScreen() {
     }
   };
 
-  // Mantener elegirModalidad por compatibilidad con flujo existente
-  const elegirModalidad = async (modalidad) => {
+  // Inscribe en una VERSIÓN (Estándar por defecto; después se puede pasar a Extendida desde el Perfil).
+  // Se manda también `modalidad` legacy por compatibilidad; el backend usa `version`.
+  const elegirModalidad = async (version = ESTANDAR) => {
     try {
       await fetch(`${BACKEND_URL}/challenges/inscribir`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, challenge_id: challengeSeleccionado.id, modalidad })
+        body: JSON.stringify({ user_id: userId, challenge_id: challengeSeleccionado.id, version, modalidad: modalidadLegacy(version) })
       });
       setModalModalidad(false);
       irALaTienda();
@@ -132,7 +134,7 @@ export default function CatalogoScreen() {
       <View style={styles.cardBody}>
         <View style={styles.deporteRow}>
           <Text style={styles.deporte}>
-            {item.sport_type === 'run' ? '🏃 RUNNING' : item.sport_type === 'ride' ? '🚴 CICLISMO' : '🌐 MULTIDEPORTE'}
+            {versionesDelDesafio(item).filter(v => v.distancia_km !== null).map(v => `${v.label.toUpperCase()} ${v.distancia_km} KM`).join(' · ') || '🌐 CAMINÁ, CORRÉ O PEDALEÁ'}
           </Text>
           <View>
             <Text style={styles.precio}>USD ${item.price_usd}</Text>
@@ -178,10 +180,10 @@ export default function CatalogoScreen() {
 
         {item.modalidades && (
           <View style={styles.modalidadesContainer}>
-            {item.modalidades.map((m, i) => (
+            {versionesDelDesafio(item).map((v, i) => (
               <View key={i} style={styles.modalidadTag}>
-                <Text style={styles.modalidadEmoji}>{m.tipo === 'run' ? '🏃' : '🚴'}</Text>
-                <Text style={styles.modalidadText}>{m.distancia_km}km</Text>
+                <Text style={styles.modalidadEmoji}>{v.label}</Text>
+                <Text style={styles.modalidadText}>{v.distancia_km}km</Text>
               </View>
             ))}
           </View>
@@ -213,10 +215,10 @@ export default function CatalogoScreen() {
         <Text style={styles.precioBloqueado}>USD ${item.price_usd}</Text>
         <View style={styles.modalidadesContainerBloqueado}>
           <View style={styles.modalidadTagBloqueado}>
-            <Text style={styles.modalidadTextBloqueado}>🏃 Running</Text>
+            <Text style={styles.modalidadTextBloqueado}>{etiquetaVersion('estandar')}</Text>
           </View>
           <View style={styles.modalidadTagBloqueado}>
-            <Text style={styles.modalidadTextBloqueado}>🚴 Ciclismo</Text>
+            <Text style={styles.modalidadTextBloqueado}>{etiquetaVersion('extendida')}</Text>
           </View>
         </View>
       </View>
@@ -261,10 +263,11 @@ export default function CatalogoScreen() {
             <Text style={styles.modalTitulo}>{challengeSeleccionado?.title}</Text>
             <View style={styles.modalidadInfoBox}>
               <Text style={styles.modalidadInfoTexto}>🛒 Comprá el desafío en la tienda — una vez confirmado se activa automáticamente en la app.</Text>
-              <Text style={styles.modalidadInfoTexto}>🏃 Empezás a sumar km como quieras — correr, caminar, bici o nadar. Todo cuenta.</Text>
+              <Text style={styles.modalidadInfoTexto}>🎯 Arrancás en la versión Estándar{distanciaDeVersion(challengeSeleccionado, 'estandar') ? ` (${distanciaDeVersion(challengeSeleccionado, 'estandar')} km)` : ''}. Si querés más desafío, después podés pasarte a la Extendida{distanciaDeVersion(challengeSeleccionado, 'extendida') ? ` (${distanciaDeVersion(challengeSeleccionado, 'extendida')} km)` : ''} desde el Perfil.</Text>
+              <Text style={styles.modalidadInfoTexto}>👟 Sumás km como quieras — caminando, corriendo o en bici. Todos cuentan igual.</Text>
               <Text style={styles.modalidadInfoTexto}>📦 Al completar la distancia, procesamos el despacho de tu medalla con la dirección que cargaste en el Perfil.</Text>
             </View>
-            <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#1E6FD9' }]} onPress={() => { setModalModalidad(false); elegirModalidad('run'); }}>
+            <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#1E6FD9' }]} onPress={() => { setModalModalidad(false); elegirModalidad(ESTANDAR); }}>
               <Text style={[styles.modalButtonTitulo, { color: '#FFFFFF', textAlign: 'center', width: '100%' }]}>Ir a la tienda →</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalModalidad(false)}>
@@ -283,20 +286,20 @@ export default function CatalogoScreen() {
 
             <View style={styles.confirmInfoBox}>
               <Text style={styles.confirmInfoTexto}>
-                🎯 Tu meta: completar {modalConfirmModalidad?.distancia_km} km como quieras — corriendo, caminando, en bici o nadando.
+                🎯 Tu meta (versión {modalConfirmModalidad?.label}): completar {modalConfirmModalidad?.distancia_km} km como quieras — caminando, corriendo o en bici. Todos los km cuentan igual.
               </Text>
               <Text style={styles.confirmInfoTexto}>
-                🏅 Tu medalla siempre dice <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>{challengeSeleccionado?.modalidades?.find(m => m.tipo === 'run')?.distancia_km || challengeSeleccionado?.total_distance_km} km — {challengeSeleccionado?.title}</Text>. Es la misma para todos sin importar la distancia que elijas.
+                📜 Tu certificado muestra la distancia de la versión que completes: <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>{modalConfirmModalidad?.distancia_km} km — {challengeSeleccionado?.title}</Text>.
               </Text>
               <Text style={styles.confirmInfoTexto}>
                 📦 Cuando termines, ingresá tu dirección en el Perfil y procesamos el envío automáticamente.
               </Text>
               {(() => {
-                const baseRun = challengeSeleccionado?.modalidades?.find(m => m.tipo === 'run');
-                if (modalConfirmModalidad?.tipo !== 'run' && baseRun && baseRun.distancia_km !== modalConfirmModalidad?.distancia_km) {
+                const estandarKm = distanciaDeVersion(challengeSeleccionado, 'estandar');
+                if (modalConfirmModalidad?.version !== 'estandar' && estandarKm && estandarKm !== modalConfirmModalidad?.distancia_km) {
                   return (
                     <Text style={styles.confirmInfoTexto}>
-                      🏅 Tu medalla física dirá <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>{baseRun.distancia_km}K</Text> — el diseño es el mismo para todas las modalidades del desafío.
+                      🏅 Tu medalla física dirá <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>{estandarKm}K</Text> — el diseño es el mismo para las dos versiones del desafío.
                     </Text>
                   );
                 }
@@ -339,7 +342,7 @@ export default function CatalogoScreen() {
               </Text>
             </View>
 
-            <TouchableOpacity style={styles.modalButton} onPress={() => { elegirModalidad(modalConfirmModalidad.tipo); setModalConfirmModalidad(null); }}>
+            <TouchableOpacity style={styles.modalButton} onPress={() => { elegirModalidad(modalConfirmModalidad.version); setModalConfirmModalidad(null); }}>
               <View style={{ flex: 1, alignItems: 'center' }}>
                 <Text style={styles.modalButtonTitulo}>Entendido, ir a la tienda</Text>
               </View>

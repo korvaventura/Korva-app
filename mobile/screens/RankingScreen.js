@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { ESTANDAR, versionDeInscripcion, versionesDelDesafio, iconoVersion } from '../utils/versionDesafio';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 const BANDERAS = {"Argentina": "🇦🇷", "Colombia": "🇨🇴", "Uruguay": "🇺🇾", "España": "🇪🇸", "Ecuador": "🇪🇨", "México": "🇲🇽", "Mexico": "🇲🇽", "Costa Rica": "🇨🇷", "Chile": "🇨🇱", "Estados Unidos": "🇺🇸", "Perú": "🇵🇪", "Peru": "🇵🇪", "Puerto Rico": "🇵🇷", "Venezuela": "🇻🇪", "República Dominicana": "🇩🇴", "Republica Dominicana": "🇩🇴", "Panamá": "🇵🇦", "Panama": "🇵🇦", "Brasil": "🇧🇷", "Australia": "🇦🇺", "El Salvador": "🇸🇻", "Guatemala": "🇬🇹", "Paraguay": "🇵🇾", "Bolivia": "🇧🇴", "Cuba": "🇨🇺", "Honduras": "🇭🇳", "Nicaragua": "🇳🇮", "Alemania": "🇩🇪", "Italia": "🇮🇹", "Francia": "🇫🇷", "Aruba": "🇦🇼", "Curacao": "🇨🇼", "Corea del Sur": "🇰🇷"};
@@ -12,7 +13,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 export default function RankingScreen({ navigation }) {
   const [challenges, setChallenges] = useState([]);
   const [challengeIndex, setChallengeIndex] = useState(0);
-  const [modalidades, setModalidades] = useState({});
+  const [modalidades, setModalidades] = useState({}); // challenge_id → versión elegida en el selector ('estandar' | 'extendida')
   const [rankings, setRankings] = useState({});
   const [cargando, setCargando] = useState({});
   const [mostrarTodos, setMostrarTodos] = useState({});
@@ -52,7 +53,7 @@ export default function RankingScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       challenges.forEach(c => {
-        const mod = modalidades[c.id] || 'run';
+        const mod = modalidades[c.id] || ESTANDAR;
         cargarRanking(c.id, mod);
       });
     }, [challenges])
@@ -65,9 +66,9 @@ export default function RankingScreen({ navigation }) {
       if (Array.isArray(data) && data.length > 0) {
         setChallenges(data);
         const mods = {};
-        data.forEach(c => { mods[c.id] = 'run'; });
+        data.forEach(c => { mods[c.id] = ESTANDAR; });
         setModalidades(mods);
-        data.forEach(c => cargarRanking(c.id, 'run'));
+        data.forEach(c => cargarRanking(c.id, ESTANDAR));
         if (data[0]) cargarRankingPaises(data[0].id);
         // Cargar grupos del usuario
 
@@ -99,7 +100,8 @@ export default function RankingScreen({ navigation }) {
     try {
       const res = await fetch(`${BACKEND_URL}/ranking/${cId}`);
       const data = await res.json();
-      const filtrado = Array.isArray(data) ? data.filter(r => r.modalidad === mod) : [];
+      // Filtra por VERSIÓN (version del backend; fallback a modalidad legacy).
+      const filtrado = Array.isArray(data) ? data.filter(r => versionDeInscripcion(r) === mod) : [];
       const reordenado = filtrado.sort((a, b) => b.km_completados - a.km_completados)
         .map((r, i) => ({ ...r, posicion: i + 1 }));
       setRankings(prev => ({ ...prev, [key]: reordenado }));
@@ -193,12 +195,12 @@ export default function RankingScreen({ navigation }) {
   };
 
   const RankingPage = ({ challenge }) => {
-    const mod = modalidades[challenge.id] || 'run';
+    const mod = modalidades[challenge.id] || ESTANDAR;
     const key = `${challenge.id}_${mod}`;
     const lista = rankings[key] || [];
     const cargandoThis = cargando[key];
     const mostrar = mostrarTodos[key];
-    const mods = challenge.modalidades || [];
+    const mods = versionesDelDesafio(challenge).filter(v => v.distancia_km !== null);
 
     const listaEnCurso = lista
       .filter(r => parseFloat(r.porcentaje) < 100)
@@ -251,20 +253,20 @@ export default function RankingScreen({ navigation }) {
         {mods.length > 1 && (
           <View>
             <View style={styles.selectorRow}>
-              {mods.map((m, i) => (
+              {mods.map((m) => (
                 <TouchableOpacity
-                  key={i}
-                  style={[styles.selectorBtn, mod === m.tipo && styles.selectorBtnActivo]}
-                  onPress={() => cambiarModalidad(challenge.id, m.tipo)}
+                  key={m.version}
+                  style={[styles.selectorBtn, mod === m.version && styles.selectorBtnActivo]}
+                  onPress={() => cambiarModalidad(challenge.id, m.version)}
                 >
                   <Ionicons
-                    name={m.tipo === 'run' ? 'walk-outline' : 'bicycle-outline'}
+                    name={iconoVersion(m.version)}
                     size={16}
-                    color={mod === m.tipo ? '#FFFFFF' : '#4a6a8a'}
+                    color={mod === m.version ? '#FFFFFF' : '#4a6a8a'}
                     style={{ marginRight: 6 }}
                   />
-                  <Text style={[styles.selectorText, mod === m.tipo && styles.selectorTextActivo]}>
-                    {m.distancia_km}km · {m.tipo === 'run' ? 'Estándar' : 'Extendida 🚴'}
+                  <Text style={[styles.selectorText, mod === m.version && styles.selectorTextActivo]}>
+                    {m.distancia_km}km · {m.label}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -464,16 +466,16 @@ export default function RankingScreen({ navigation }) {
       <Modal visible={modalInfoDistancia} transparent animationType="fade" onRequestClose={() => setModalInfoDistancia(false)}>
         <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 }} activeOpacity={1} onPress={() => setModalInfoDistancia(false)}>
           <View style={{ backgroundColor: '#0D1B2A', borderRadius: 20, padding: 24, width: '100%', borderWidth: 1, borderColor: '#1E3A5F' }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }}>🏅 ¿Qué distancia elegir?</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }}>🏅 ¿Qué versión elegir?</Text>
             <View style={{ backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, marginBottom: 12 }}>
-              <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 13, marginBottom: 6 }}>Distancia estándar</Text>
-              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20 }}>Para todos — correr, caminar, bici, nadar o cualquier actividad. Ideal si vas principalmente a pie o combinás distintos deportes.</Text>
+              <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 13, marginBottom: 6 }}>Versión Estándar</Text>
+              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20 }}>La distancia normal del desafío. Podés completarla caminando, corriendo o en bici.</Text>
             </View>
             <View style={{ backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, marginBottom: 16 }}>
-              <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 13, marginBottom: 6 }}>Distancia extendida 🚴</Text>
-              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20 }}>Para quienes van principalmente en bici o quieren un reto mayor. También vale correr o caminar.</Text>
+              <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 13, marginBottom: 6 }}>Versión Extendida</Text>
+              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20 }}>Una distancia mayor, para quien quiere un reto más largo. También se completa caminando, corriendo o en bici: todos los km cuentan igual.</Text>
             </View>
-            <Text style={{ color: '#4a6a8a', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>La medalla es la misma para ambas opciones 🏅</Text>
+            <Text style={{ color: '#4a6a8a', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>La medalla es la misma para las dos versiones 🏅</Text>
             <TouchableOpacity style={{ backgroundColor: '#FC4C02', borderRadius: 12, padding: 14, alignItems: 'center' }} onPress={() => setModalInfoDistancia(false)}>
               <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>Entendido</Text>
             </TouchableOpacity>
