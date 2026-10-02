@@ -13,7 +13,34 @@
 //  - trg_completado_legado: un UPDATE de status active/pending → completed/cargado/shipped (fuera de
 //    la RPC) crea el evento 'completado' origen 'legado' ya 'hecho'.
 //  - trg_proteger_certificado_serial: reemplazar un serial asignado por otro valor → error P0001.
+// Migración "versión del desafío" (probada en Postgres real), imitada acá:
+//  - trg_sincronizar_version_modalidad: espejo modalidad ↔ version en INSERT y en UPDATE que nombre
+//    alguna de las dos (manda la que cambió; si cambian las dos deben coincidir → 23514).
+//    Las filas iniciales se dejan como vienen: una fila SIN version imita un objeto/cliente viejo.
 const TERMINALES = ['completed', 'cargado', 'shipped'];
+const VERSIONES = ['estandar', 'extendida'];
+const versionDe = (modalidad) => (modalidad === 'ride' ? 'extendida' : 'estandar');
+const modalidadDe = (version) => (version === 'extendida' ? 'ride' : 'run');
+const errorVersion = (m) => ({ code: '23514', message: m });
+
+/** Igual que la función del trigger. Devuelve un error o null; modifica `nueva`. */
+const espejoInsert = (nueva) => {
+  if (nueva.version != null && !VERSIONES.includes(nueva.version)) return errorVersion(`version inválida: ${nueva.version}`);
+  if (nueva.version == null) nueva.version = versionDe(nueva.modalidad);
+  else if (nueva.modalidad == null) nueva.modalidad = modalidadDe(nueva.version);
+  else if (nueva.version !== versionDe(nueva.modalidad)) return errorVersion('modalidad y version no coinciden');
+  return null;
+};
+const espejoUpdate = (vieja, nueva) => {
+  if (nueva.version === null) return { code: '23502', message: 'null value in column "version" violates not-null constraint' };
+  if (nueva.version != null && !VERSIONES.includes(nueva.version)) return errorVersion(`version inválida: ${nueva.version}`);
+  const versionVieja = vieja.version ?? versionDe(vieja.modalidad);
+  const versionNueva = nueva.version ?? versionDe(nueva.modalidad);
+  if (versionNueva === versionVieja) nueva.version = versionDe(nueva.modalidad);
+  else if ((nueva.modalidad ?? null) === (vieja.modalidad ?? null)) nueva.modalidad = modalidadDe(versionNueva);
+  else if (versionNueva !== versionDe(nueva.modalidad)) return errorVersion('modalidad y version no coinciden');
+  return null;
+};
 
 const crearSupabaseMemoria = (tablas = {}, opciones = {}) => {
   const ahoraIso = () => new Date(opciones.reloj ? opciones.reloj() : Date.now()).toISOString();
@@ -69,6 +96,10 @@ const crearSupabaseMemoria = (tablas = {}, opciones = {}) => {
           if (!r.creado) return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "progreso_eventos_unico"' } };
           return { data: op.devolver ? [proyectar(r.evento)] : null, error: null };
         }
+        if (tabla === 'user_challenges') {
+          const e = espejoInsert(fila);
+          if (e) return { data: null, error: e };
+        }
         db[tabla].push(fila);
         return { data: op.devolver ? [proyectar(fila)] : null, error: null };
       }
@@ -78,9 +109,22 @@ const crearSupabaseMemoria = (tablas = {}, opciones = {}) => {
           const pisa = filas.find((f) => f.certificado_serial && op.valores.certificado_serial && op.valores.certificado_serial !== f.certificado_serial);
           if (pisa) return { data: null, error: { code: 'P0001', message: `certificado_serial ya asignado (${pisa.certificado_serial}): no se puede reemplazar` } };
         }
+        if (tabla === 'user_challenges' && ('modalidad' in op.valores || 'version' in op.valores)) {
+          // trg_sincronizar_version_modalidad: se calcula para todas las filas antes de escribir (todo o nada)
+          const nuevas = [];
+          for (const f of filas) {
+            const nueva = { ...f, ...JSON.parse(JSON.stringify(op.valores)) };
+            const e = espejoUpdate(f, nueva);
+            if (e) return { data: null, error: e };
+            nuevas.push(nueva);
+          }
+          filas.forEach((f, i) => { f.modalidad = nuevas[i].modalidad; f.version = nuevas[i].version; });
+        }
         filas.forEach((f) => {
           const statusAntes = f.status;
+          const espejo = tabla === 'user_challenges' ? { modalidad: f.modalidad, version: f.version } : null;
           Object.assign(f, JSON.parse(JSON.stringify(op.valores)));
+          if (espejo && ('modalidad' in op.valores || 'version' in op.valores)) Object.assign(f, espejo);
           if (tabla === 'progreso_eventos') f.actualizado_at = ahoraIso(); // trigger de la base
           if (tabla === 'user_challenges' && ['active', 'pending'].includes(statusAntes) && TERMINALES.includes(f.status)) {
             // trg_completado_legado (fuera de la RPC del motor)

@@ -15,7 +15,7 @@ const { crearSupabaseMemoria } = require('./supabaseMemoria');
 const tablas = JSON.parse(fs.readFileSync(process.env.PRUEBA_DB_JSON, 'utf8'));
 
 // Efectos externos del código viejo (emails por Resend, push por Expo): se registran, no salen.
-const efectos = { emails: [], push: [] };
+const efectos = { emails: [], push: [], certificados: [] };
 
 // PRUEBA_MOTOR_GANA_ANTES_DE=<user_challenge_id>: justo antes de que un writer viejo ejecute el
 // UPDATE que completa ese desafío, el motor lo completa por la RPC (la carrera de convivencia).
@@ -53,7 +53,15 @@ Module._load = function cargar(pedido, padre, esPrincipal) {
   // PRUEBA_PDF_FALSO=1: el certificado se "genera" sin Python ni Storage (PDF de prueba).
   if (process.env.PRUEBA_PDF_FALSO === '1' && /generador_bib$/.test(pedido)) {
     const real = original.apply(this, [pedido, padre, esPrincipal]);
-    return { ...real, generarCertificado: async (_s, nombre, desafio, km, bib, fecha, serial) => Buffer.from(`PDF ${serial} ${nombre} ${desafio}`).toString('base64') };
+    return {
+      ...real,
+      generarCertificado: async (_s, nombre, desafio, km, bib, fecha, serial) => {
+        efectos.certificados.push({ nombre, desafio, km, serial }); // la distancia impresa (D-V1)
+        return Buffer.from(`PDF ${serial} ${nombre} ${desafio} ${km}`).toString('base64');
+      },
+      generarBibYPostal: async () => null, // sin plantillas ni Storage: el código manda el email sin adjuntos
+      asignarBibNumber: async () => '0001',
+    };
   }
   if (pedido === 'resend') {
     return { Resend: class { constructor() { this.emails = { send: async (payload) => { efectos.emails.push({ para: payload.to, asunto: payload.subject, adjuntos: (payload.attachments || []).length }); return { data: { id: `simulado-${efectos.emails.length}` }, error: null }; } }; } } };

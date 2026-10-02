@@ -1,4 +1,21 @@
 const express = require('express');
+const { objetivoDeInscripcion, versionDeInscripcion, etiquetaVersion } = require('../lib/versionDesafio');
+
+// Distancia objetivo de la VERSIÓN elegida (Estándar/Extendida). El deporte no interviene.
+// Misma cadena de respaldo que antes: versión elegida → primera → total_distance_km.
+const distanciaObjetivo = (uc) => objetivoDeInscripcion(uc, uc.challenges).objetivo_km ?? uc.challenges?.total_distance_km;
+
+// Campos de versión para la Home. `modalidad` ('Running'/'Ciclismo') se mantiene SOLO porque las apps
+// ya publicadas lo usan para elegir ícono/etiqueta (sin él mostrarían otra cosa); NO es un deporte:
+// 'Running' = Estándar, 'Ciclismo' = Extendida. Las apps nuevas deben usar `version`/`version_label`.
+const camposVersion = (uc) => {
+  const version = versionDeInscripcion(uc);
+  return {
+    version,
+    version_label: etiquetaVersion(version),
+    modalidad: version === 'extendida' ? 'Ciclismo' : 'Running', // legacy, ver arriba
+  };
+};
 const { actualizarConCompletitudCondicional } = require('../lib/completitudLegada');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
@@ -238,9 +255,7 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
   }, { onConflict: 'external_id' });
 
   for (const uc of userChallenges || []) {
-    const modalidades = uc.challenges.modalidades || [];
-    const modalidadElegida = modalidades.find(m => m.tipo === uc.modalidad) ||
-      { distancia_km: uc.challenges.total_distance_km };
+    const modalidadElegida = { distancia_km: distanciaObjetivo(uc) };
 
     const kmAntes = uc.km_completed || 0;
     const totalKm = await calcularKmDeChallenge(supabase, userId, uc);
@@ -464,9 +479,7 @@ router.get('/actividades/:userId', async (req, res) => {
         .eq('pausado', false);
 
       for (const uc of ucActivos || []) {
-        const modalidades = uc.challenges.modalidades || [];
-        const modalidadElegida = modalidades.find(m => m.tipo === uc.modalidad) ||
-          { distancia_km: uc.challenges.total_distance_km };
+        const modalidadElegida = { distancia_km: distanciaObjetivo(uc) };
 
         const kmAntes = uc.km_completed || 0;
         const totalKm = await calcularKmDeChallenge(supabase, userId, uc);
@@ -535,8 +548,8 @@ router.get('/progreso/:userId', async (req, res) => {
         return {
           challenge: uc.challenges.title,
           challenge_id: uc.challenge_id,
-          modalidad: uc.modalidad === 'run' ? 'Running' : uc.modalidad === 'ride' ? 'Ciclismo' : 'General',
-          distancia_total: uc.challenges.total_distance_km,
+          ...camposVersion(uc),
+          distancia_total: distanciaObjetivo(uc),
           km_completados: '0.00',
           porcentaje: '0.0',
           checkpoints: uc.challenges.checkpoints || null,
@@ -548,9 +561,7 @@ router.get('/progreso/:userId', async (req, res) => {
         };
       }
 
-      const modalidades = uc.challenges.modalidades || [];
-      const modalidadElegida = modalidades.find(m => m.tipo === uc.modalidad) ||
-        { distancia_km: uc.challenges.total_distance_km };
+      const modalidadElegida = { distancia_km: distanciaObjetivo(uc) };
 
       const yaCompletado = ['completed', 'cargado', 'shipped'].includes(uc.status);
 
@@ -562,7 +573,7 @@ router.get('/progreso/:userId', async (req, res) => {
         return {
           challenge: uc.challenges.title,
           challenge_id: uc.challenge_id,
-          modalidad: uc.modalidad === 'run' ? 'Running' : uc.modalidad === 'ride' ? 'Ciclismo' : 'General',
+          ...camposVersion(uc),
           distancia_total: modalidadElegida.distancia_km,
           km_completados: kmFinal.toFixed ? kmFinal.toFixed(2) : kmFinal,
           porcentaje,
@@ -621,7 +632,7 @@ router.get('/progreso/:userId', async (req, res) => {
       return {
         challenge: uc.challenges.title,
         challenge_id: uc.challenge_id,
-        modalidad: uc.modalidad === 'run' ? 'Running' : uc.modalidad === 'ride' ? 'Ciclismo' : 'General',
+        ...camposVersion(uc),
         distancia_total: modalidadElegida.distancia_km,
         km_completados: kmFinal.toFixed(2),
         porcentaje: porcentaje,

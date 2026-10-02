@@ -1,4 +1,5 @@
 const express = require('express');
+const { versionDeInscripcion, etiquetaVersion } = require('../lib/versionDesafio');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const { enviarEmailInscripcion, enviarEmailAdmin } = require('../routes/emails');
@@ -52,7 +53,7 @@ router.post('/webhook', async (req, res) => {
 
     const { data: pendiente } = await supabase
       .from('user_challenges')
-      .select('id, modalidad, challenges(title)')
+      .select('id, version, modalidad, challenges(title)')
       .eq('user_id', user.id)
       .eq('status', 'pending')
       .order('started_at', { ascending: false })
@@ -72,7 +73,7 @@ router.post('/webhook', async (req, res) => {
           user.email,
           user.name,
           pendiente.challenges.title,
-          pendiente.modalidad === 'run' ? 'Running' : 'Ciclismo'
+          etiquetaVersion(versionDeInscripcion(pendiente))
         );
       }
     }

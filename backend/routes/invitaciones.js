@@ -1,4 +1,5 @@
 const express = require('express');
+const { VERSIONES, versionDesdePedido, etiquetaVersion, versionesDelDesafio } = require('../lib/versionDesafio');
 const router = express.Router();
 
 // Parsear body de forms HTML (application/x-www-form-urlencoded)
@@ -35,7 +36,9 @@ router.get('/:token', async (req, res) => {
 // POST /invitaciones/:token — procesa el registro
 router.post('/:token', async (req, res) => {
   const { token } = req.params;
-  const { nombre, email: emailRaw, modalidad } = req.body;
+  const { nombre, email: emailRaw } = req.body;
+  // Versión elegida (estandar/extendida). Un formulario viejo cacheado puede mandar modalidad run/ride.
+  const version = versionDesdePedido(req.body) || VERSIONES.ESTANDAR;
   const email = (emailRaw || '').trim().toLowerCase();
   const nombreLimpio = (nombre || '').trim();
   const supabase = getSupabase();
@@ -84,6 +87,7 @@ router.post('/:token', async (req, res) => {
       .select('id')
       .eq('user_id', userId)
       .eq('challenge_id', invitacion.challenge_id)
+      .limit(1)
       .maybeSingle();
 
     if (yaInscripto) return res.send(paginaError('Ya estás anotado', 'Este email ya está registrado en este desafío. ¡Ya podés descargarte la app y empezar!'));
@@ -102,7 +106,7 @@ router.post('/:token', async (req, res) => {
     await supabase.from('user_challenges').insert({
       user_id: userId,
       challenge_id: invitacion.challenge_id,
-      modalidad: modalidad || 'run',
+      version, // modalidad (legacy) la completa el trigger de la base
       status: 'active',
       km_completed: 0,
       started_at: new Date().toISOString(),
@@ -123,22 +127,22 @@ router.post('/:token', async (req, res) => {
 
     // Generar dorsal y postal PDF
     const pdfs = await generarBibYPostal(supabase, nombreLimpio, bibNumber, invitacion.challenge_id);
-    const modalidadTexto = modalidad === 'ride' ? 'Ciclismo' : 'Running';
+    const versionTexto = etiquetaVersion(version);
 
     if (pdfs) {
       await enviarEmailInscripcionConBib(
         email, nombreLimpio,
         invitacion.challenges.title,
-        modalidadTexto,
+        versionTexto,
         pdfs.dorsalPdf,
         pdfs.postalPdf,
         bibNumber
       );
     } else {
-      await enviarEmailInscripcion(email, nombreLimpio, invitacion.challenges.title, modalidadTexto);
+      await enviarEmailInscripcion(email, nombreLimpio, invitacion.challenges.title, versionTexto);
     }
 
-    res.send(paginaExito(nombreLimpio, invitacion.challenges.title, modalidadTexto));
+    res.send(paginaExito(nombreLimpio, invitacion.challenges.title, versionTexto));
 
   } catch (error) {
     console.error('Error procesando invitación:', error);
@@ -294,7 +298,11 @@ const baseHtml = (titulo, contenido) => `
 `;
 
 const paginaRegistro = (token, challengeTitle, modalidades) => {
-  const tieneRide = modalidades.some(m => m.tipo === 'ride');
+  // Versiones Estándar / Extendida del desafío (solo distancia; no es deporte).
+  const opciones = versionesDelDesafio({ modalidades }).filter((v) => v.distancia_km !== null);
+  const opcionesHtml = (opciones.length > 0 ? opciones : [{ version: VERSIONES.ESTANDAR, distancia_km: null }])
+    .map((v) => `<option value="${v.version}">${etiquetaVersion(v.version)}${v.distancia_km !== null ? ` — ${v.distancia_km} km` : ''}</option>`)
+    .join('\n        ');
   return baseHtml('Activá tu lugar', `
     <div class="badge">🎟️ INVITACIÓN PERSONAL</div>
     <h1>¡Alguien te invitó a un desafío Korva! 🏅</h1>
@@ -313,14 +321,13 @@ const paginaRegistro = (token, challengeTitle, modalidades) => {
       <input type="email" name="email" placeholder="Ej: maria@gmail.com" required autocomplete="email" />
       <p style="color: #4a6a8a; font-size: 11px; margin-top: 6px;">⚠️ Usá el mismo email para registrarte en la app — así tu desafío aparece automáticamente</p>
 
-      <label>Modalidad *</label>
-      <select name="modalidad" required>
-        <option value="run">🏃 Running — ${modalidades.find(m => m.tipo === 'run')?.distancia_km || '103'} km</option>
-        ${tieneRide ? `<option value="ride">🚴 Ciclismo — ${modalidades.find(m => m.tipo === 'ride')?.distancia_km || '309'} km</option>` : ''}
+      <label>Versión *</label>
+      <select name="version" required>
+        ${opcionesHtml}
       </select>
 
       <div class="info-box">
-        <p>💡 <strong style="color:#FFFFFF">¿No sabés cuál elegir?</strong> Elegí Running si vas a ir a pie (corriendo o caminando). Ciclismo si vas en bici. Podés cambiarlo después desde la app.</p>
+        <p>💡 <strong style="color:#FFFFFF">¿No sabés cuál elegir?</strong> La versión solo define la distancia: Estándar o Extendida. Cualquiera se completa caminando, corriendo o en bici, y todos los km suman igual. Podés cambiarla después desde la app.</p>
       </div>
 
       <button type="submit">Activar mi lugar →</button>
@@ -330,11 +337,11 @@ const paginaRegistro = (token, challengeTitle, modalidades) => {
   `);
 };
 
-const paginaExito = (nombre, challengeTitle, modalidad) => baseHtml('¡Listo!', `
+const paginaExito = (nombre, challengeTitle, versionTexto) => baseHtml('¡Listo!', `
   <span class="success-emoji">🎉</span>
   <div class="badge" style="background: #22c55e; display: block; text-align: center;">¡LUGAR ACTIVADO!</div>
   <h1 style="text-align: center; margin-top: 16px;">¡Bienvenido/a, ${nombre}!</h1>
-  <p class="subtitle" style="text-align: center;">Tu lugar en <strong style="color: #FFFFFF">${challengeTitle}</strong> (${modalidad}) está activo. En breve te llega un email con tu número de dorsal.</p>
+  <p class="subtitle" style="text-align: center;">Tu lugar en <strong style="color: #FFFFFF">${challengeTitle}</strong> (versión ${versionTexto}) está activo. En breve te llega un email con tu número de dorsal.</p>
 
   <div class="divider"></div>
 

@@ -14,6 +14,12 @@ const { crearRepositorioSupabase } = require('./lib/progresoRepositorioSupabase'
 const { reanudarDesafioConMotor } = require('./lib/reanudarDesafio');
 const { eliminarActividadConMotor } = require('./lib/eliminarActividad');
 const { cambiarModalidadConMotor } = require('./lib/cambiarModalidad');
+const { VERSIONES, versionDesdePedido, versionDeInscripcion, etiquetaVersion, objetivoDeInscripcion, versionesDelDesafio } = require('./lib/versionDesafio');
+
+// Distancia objetivo de la VERSIÓN elegida (Estándar/Extendida) con el mismo respaldo que tenía el
+// código viejo (versión → primera → total_distance_km → 100). El deporte no interviene.
+const distanciaDeLaVersion = (uc, challenge) =>
+  objetivoDeInscripcion(uc, challenge).objetivo_km || challenge?.total_distance_km || 100;
 const { crearEfectosCompletado } = require('./lib/efectosCompletado');
 const { crearProcesadorEventos } = require('./lib/completionEventos');
 const { logMotor } = require('./lib/recuperacionRecalculo');
@@ -99,7 +105,7 @@ app.get('/test/bib/:userId', async (req, res) => {
     if (!bibNumber) bibNumber = await asignarBibNumber(supabase, userId);
     const pdfs = await generarBibYPostal(supabase, user.name, bibNumber, 'ae54af78-dc6f-4cf5-af31-2c077ba58048');
     if (!pdfs) return res.json({ error: 'No se pudieron generar los PDFs' });
-    await enviarEmailInscripcionConBib(user.email, user.name, 'Desafío Fin del Mundo', 'Running', pdfs.dorsalPdf, pdfs.postalPdf, bibNumber);
+    await enviarEmailInscripcionConBib(user.email, user.name, 'Desafío Fin del Mundo', etiquetaVersion(VERSIONES.ESTANDAR), pdfs.dorsalPdf, pdfs.postalPdf, bibNumber);
     res.json({ ok: true, mensaje: `Bib #${bibNumber} enviado a ${user.email}` });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -116,7 +122,7 @@ app.get('/test/certificado/:userId/:challengeId', async (req, res) => {
     if (!usuario) return res.json({ error: 'Usuario no encontrado' });
 
     const { data: uc } = await supabase.from('user_challenges')
-      .select('id, km_completed, completed_at, challenges(title, total_distance_km)')
+      .select('id, km_completed, completed_at, version, modalidad, challenges(title, modalidades, total_distance_km)')
       .eq('user_id', userId).eq('challenge_id', challengeId).maybeSingle();
     if (!uc) return res.json({ error: 'Challenge no encontrado' });
 
@@ -131,7 +137,8 @@ app.get('/test/certificado/:userId/:challengeId', async (req, res) => {
       : new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
 
     const tituloChallenge = uc.challenges?.title || 'Desafío Korva';
-    const distanciaTotal = uc.challenges?.total_distance_km || uc.km_completed;
+    // D-V1: el certificado lleva la distancia de la versión elegida (Estándar o Extendida).
+    const distanciaTotal = objetivoDeInscripcion(uc, uc.challenges).objetivo_km || uc.km_completed;
 
     const certificadoPdf = await generarCertificado(supabase, usuario.name, tituloChallenge, distanciaTotal, usuario.bib_number || '---', fechaCompletado, numeroSerie);
     if (!certificadoPdf) {
@@ -156,7 +163,7 @@ app.get('/test/reenviar-certificados', async (req, res) => {
   try {
     const { data: ucs } = await supabase
       .from('user_challenges')
-      .select('id, user_id, challenge_id, km_completed, completed_at, challenges(title, total_distance_km)')
+      .select('id, user_id, challenge_id, km_completed, completed_at, version, modalidad, challenges(title, modalidades, total_distance_km)')
       .in('status', ['completed', 'shipped', 'cargado'])
       .is('certificado_serial', null);
 
@@ -173,7 +180,7 @@ app.get('/test/reenviar-certificados', async (req, res) => {
           ? new Date(uc.completed_at).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
           : new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
         const tituloChallenge = uc.challenges?.title || 'Desafío Korva';
-        const distanciaTotal = uc.challenges?.total_distance_km || uc.km_completed;
+        const distanciaTotal = objetivoDeInscripcion(uc, uc.challenges).objetivo_km || uc.km_completed; // D-V1
         const certificadoPdf = await generarCertificado(supabase, usuario.name, tituloChallenge, distanciaTotal, usuario.bib_number || '---', fechaCompletado, numeroSerie);
         if (!certificadoPdf) {
           await liberarSerialCAS(supabase, uc.id, numeroSerie); // queda para el próximo reintento, como antes
@@ -208,7 +215,7 @@ app.get('/test/reenviar-todos-bibs-nuevos', async (req, res) => {
       const { data: challenge } = await supabase.from('challenges').select('title').eq('id', challengeId).single();
       const { data: ucs } = await supabase
         .from('user_challenges')
-        .select('user_id, numero_bib, modalidad, dorsal_url')
+        .select('user_id, numero_bib, version, modalidad, dorsal_url')
         .eq('challenge_id', challengeId)
         .not('numero_bib', 'is', null)
         .in('status', ['active', 'completed', 'shipped', 'cargado']);
@@ -221,7 +228,7 @@ app.get('/test/reenviar-todos-bibs-nuevos', async (req, res) => {
         try {
           const pdfs = await generarBibYPostal(supabase, user.name, uc.numero_bib, challengeId);
           if (!pdfs) { resultados.push({ email: user.email, challenge: challenge.title, error: 'PDFs fallaron' }); continue; }
-          await enviarEmailInscripcionConBib(user.email, user.name, challenge.title, uc.modalidad === 'run' ? 'Running' : 'Ciclismo', pdfs.dorsalPdf, pdfs.postalPdf, uc.numero_bib);
+          await enviarEmailInscripcionConBib(user.email, user.name, challenge.title, etiquetaVersion(versionDeInscripcion(uc)), pdfs.dorsalPdf, pdfs.postalPdf, uc.numero_bib);
           resultados.push({ email: user.email, challenge: challenge.title, bib: uc.numero_bib, ok: true });
         } catch (e) {
           resultados.push({ email: user.email, challenge: challenge.title, error: e.message });
@@ -242,14 +249,14 @@ app.get('/test/bib/:userId/:challengeId', async (req, res) => {
     const { data: challenge } = await supabase.from('challenges').select('title').eq('id', challengeId).single();
     if (!challenge) return res.json({ error: 'Challenge no encontrado' });
     // Usar numero_bib del user_challenge específico
-    const { data: uc } = await supabase.from('user_challenges').select('numero_bib').eq('user_id', userId).eq('challenge_id', challengeId).maybeSingle();
+    const { data: uc } = await supabase.from('user_challenges').select('numero_bib, version, modalidad').eq('user_id', userId).eq('challenge_id', challengeId).maybeSingle();
     const bibNumber = uc?.numero_bib;
     if (!bibNumber) return res.json({ error: 'No tiene numero_bib asignado para este desafío' });
     const { generarBibYPostal } = require('./generador_bib');
     const { enviarEmailInscripcionConBib } = require('./routes/emails');
     const pdfs = await generarBibYPostal(supabase, user.name, bibNumber, challengeId);
     if (!pdfs) return res.json({ error: 'No se pudieron generar los PDFs' });
-    await enviarEmailInscripcionConBib(user.email, user.name, challenge.title, 'Running', pdfs.dorsalPdf, pdfs.postalPdf, bibNumber);
+    await enviarEmailInscripcionConBib(user.email, user.name, challenge.title, etiquetaVersion(versionDeInscripcion(uc)), pdfs.dorsalPdf, pdfs.postalPdf, bibNumber);
     res.json({ ok: true, mensaje: `Bib #${bibNumber} de ${challenge.title} enviado a ${user.email}` });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -450,7 +457,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
   try {
     let query = supabase
       .from('user_challenges')
-      .select('id, started_at, challenge_id, status, modalidad, pausado, periodos_pausados, challenges(title, modalidades, total_distance_km)')
+      .select('id, started_at, challenge_id, status, version, modalidad, pausado, periodos_pausados, challenges(title, modalidades, total_distance_km)')
       .eq('user_id', user_id)
       .in('status', ['active'])
       .eq('pausado', false);
@@ -478,9 +485,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
 
       const totalKm = actividadesValidas.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0);
 
-      const modalidades = reto.challenges?.modalidades || [];
-      const modalidadElegida = modalidades.find(m => m.tipo === reto.modalidad) || modalidades[0];
-      const distanciaTotal = modalidadElegida?.distancia_km || reto.challenges?.total_distance_km || 100;
+      const distanciaTotal = distanciaDeLaVersion(reto, reto.challenges); // versión elegida (D-V1 en el certificado)
       const porcentaje = (totalKm / distanciaTotal) * 100;
 
       const yaEstabaCompletado = reto.status === 'completed';
@@ -535,7 +540,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
       }
 
       // Solo mandar notificación de dirección si RECIÉN cruzó el 75% (no si ya estaba arriba)
-      const porcentajeAntes = Math.min((kmActual / modalidadElegida.distancia_km) * 100, 100);
+      const porcentajeAntes = Math.min((kmActual / distanciaTotal) * 100, 100);
       if (porcentaje >= 75 && porcentajeAntes < 75 && !yaEstabaCompletado) {
         const { data: usuario } = await supabase
           .from('users')
@@ -736,27 +741,36 @@ app.get('/challenges/todos', async (req, res) => {
 });
 
 app.post('/challenges/inscribir', async (req, res) => {
-  const { user_id, challenge_id, modalidad } = req.body;
+  const { user_id, challenge_id } = req.body;
+  // Versión elegida: app nueva manda `version` (estandar/extendida); app vieja manda `modalidad`
+  // (run/ride). Sin ninguna → Estándar. La versión NO es deporte.
+  const sinVersion = (req.body.version === undefined || req.body.version === null || req.body.version === '')
+    && (req.body.modalidad === undefined || req.body.modalidad === null || req.body.modalidad === '');
+  const version = sinVersion ? VERSIONES.ESTANDAR : versionDesdePedido(req.body);
+  if (!version) return res.status(400).json({ error: 'Versión inválida' });
   try {
-    const { data: existente } = await supabase
+    // D-V3: una inscripción por usuario + desafío (sin importar la versión). No se resuelven ni se
+    // tocan duplicados viejos: si ya hay alguna, no se crea otra.
+    const { data: existentes, error: errorExistente } = await supabase
       .from('user_challenges')
       .select('id, status')
       .eq('user_id', user_id)
       .eq('challenge_id', challenge_id)
-      .eq('modalidad', modalidad)
-      .single();
+      .limit(2);
+    if (errorExistente) throw errorExistente;
+    const existente = (existentes || []).find((e) => e.status === 'pending') || (existentes || [])[0] || null;
 
     if (existente) {
       if (existente.status === 'pending') {
         return res.json({ mensaje: 'Aguardando confirmación de pago. Te llevamos a completar tu compra.', id: existente.id, pendienteDePago: true });
       }
-      return res.json({ mensaje: 'Ya estas inscripto en este challenge con esta modalidad' });
+      return res.json({ mensaje: 'Ya estás inscripto en este desafío' });
     }
 
     const { data, error } = await supabase
       .from('user_challenges')
       .insert({
-        user_id, challenge_id, modalidad,
+        user_id, challenge_id, version,
         status: 'pending', km_completed: 0,
         started_at: new Date().toISOString()
       })
@@ -1058,7 +1072,7 @@ app.post('/actividades/manual', async (req, res) => {
 
     const { data: ucAntes } = await supabase
       .from('user_challenges')
-      .select('km_completed, status, challenge_id, modalidad, challenges(title, modalidades, total_distance_km)')
+      .select('km_completed, status, challenge_id, version, modalidad, challenges(title, modalidades, total_distance_km)')
       .eq('user_id', user_id)
       .eq('challenge_id', challenge_id)
       .maybeSingle();
@@ -1099,9 +1113,7 @@ app.post('/actividades/manual', async (req, res) => {
         .eq('challenge_id', challenge_id)
         .maybeSingle();
 
-      const modalidades = ucAntes.challenges?.modalidades || [];
-      const modalidadElegida = modalidades.find(m => m.tipo === ucAntes.modalidad) || modalidades[0];
-      const distanciaTotal = modalidadElegida?.distancia_km || ucAntes.challenges?.total_distance_km || 100;
+      const distanciaTotal = distanciaDeLaVersion(ucAntes, ucAntes.challenges);
 
       // 4A-3e (convivencia): si el desafío quedó completado, el push de completitud ya lo mandó quien
       // ganó la completitud (recalcularKmUsuario o el motor); acá no se repite.
@@ -1145,7 +1157,7 @@ app.post('/admin/marcar-cargado', async (req, res) => {
   try {
     const { data: uc } = await supabase
       .from('user_challenges')
-      .select('id, user_id, challenge_id, certificado_serial, status, challenges(*), km_completed')
+      .select('id, user_id, challenge_id, certificado_serial, status, version, modalidad, challenges(*), km_completed')
       .eq('id', user_challenge_id)
       .single();
 
@@ -1161,8 +1173,7 @@ app.post('/admin/marcar-cargado', async (req, res) => {
 
     // Si no tiene certificado, mandarlo ahora
     if (!uc.certificado_serial) {
-      const modalidades = uc.challenges?.modalidades || [];
-      const distanciaTotal = modalidades[0]?.distancia_km || uc.challenges?.total_distance_km || 100;
+      const distanciaTotal = distanciaDeLaVersion(uc, uc.challenges); // D-V1: distancia de la versión elegida
       try {
         await enviarCertificadoFinisher(uc.user_id, { ...uc, challenges: uc.challenges }, distanciaTotal);
         console.log(`Certificado enviado al marcar cargado: ${user_challenge_id}`);
@@ -1311,7 +1322,7 @@ const csvEscape = (val) => {
 async function obtenerPedidosGrupales() {
   const { data, error } = await supabase
     .from('user_challenges')
-    .select('id, user_id, challenge_id, group_id, modalidad, km_completed, status, completed_at, tracking_number')
+    .select('id, user_id, challenge_id, group_id, version, modalidad, km_completed, status, completed_at, tracking_number')
     .in('status', ['active', 'completed'])
     .not('group_id', 'is', null);
 
@@ -1364,7 +1375,8 @@ async function obtenerPedidosGrupales() {
         usuario: usuarios[m.user_id]?.name,
         email: usuarios[m.user_id]?.email,
         challenge: challenges[m.challenge_id]?.title,
-        modalidad: m.modalidad,
+        version: versionDeInscripcion(m),
+        modalidad: m.modalidad, // legacy (espejo de version) para la app de admin publicada
         km_completados: m.km_completed,
         status: m.status,
         completed_at: m.completed_at,
@@ -1447,7 +1459,7 @@ app.get('/admin/challenges-activos', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('user_challenges')
-      .select('id, user_id, challenge_id, modalidad, km_completed, tracking_number, completed_at, status')
+      .select('id, user_id, challenge_id, version, modalidad, km_completed, tracking_number, completed_at, status')
       .in('status', ['completed', 'shipped'])
       .order('completed_at', { ascending: false });
 
@@ -1472,7 +1484,8 @@ app.get('/admin/challenges-activos', async (req, res) => {
         usuario: usuario?.name,
         email: usuario?.email,
         challenge: challenges[uc.challenge_id]?.title,
-        modalidad: uc.modalidad,
+        version: versionDeInscripcion(uc),
+        modalidad: uc.modalidad, // legacy
         km_completados: uc.km_completed,
         tracking_number: uc.tracking_number,
         direccion: usuario?.shipping_address,
@@ -1492,7 +1505,7 @@ app.get('/admin/registro-grupos', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('user_challenges')
-      .select('id, user_id, challenge_id, group_id, modalidad, km_completed, status, completed_at, started_at')
+      .select('id, user_id, challenge_id, group_id, version, modalidad, km_completed, status, completed_at, started_at')
       .not('group_id', 'is', null)
       .order('started_at', { ascending: false });
 
@@ -1526,7 +1539,8 @@ app.get('/admin/registro-grupos', async (req, res) => {
           usuario: usuarios[m.user_id]?.name,
           email: usuarios[m.user_id]?.email,
           challenge: challenges[m.challenge_id]?.title,
-          modalidad: m.modalidad,
+          version: versionDeInscripcion(m),
+          modalidad: m.modalidad, // legacy
           km_completados: m.km_completed,
           status: m.status,
           es_comprador: m.user_id === groupId,
@@ -1854,7 +1868,7 @@ const recalcularKmConPausas = async (user_id, challenge_id, periodos) => {
   try {
     const { data: uc } = await supabase
       .from('user_challenges')
-      .select('id, started_at, status, challenges(title, modalidades, total_distance_km), modalidad')
+      .select('id, started_at, status, challenges(title, modalidades, total_distance_km), version, modalidad')
       .eq('user_id', user_id)
       .eq('challenge_id', challenge_id)
       .single();
@@ -1879,9 +1893,7 @@ const recalcularKmConPausas = async (user_id, challenge_id, periodos) => {
 
     const totalKm = actividadesValidas.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0);
 
-    const modalidades = uc.challenges?.modalidades || [];
-    const modalidadElegida = modalidades.find(m => m.tipo === uc.modalidad) || modalidades[0];
-    const distanciaTotal = modalidadElegida?.distancia_km || uc.challenges?.total_distance_km || 100;
+    const distanciaTotal = distanciaDeLaVersion(uc, uc.challenges);
     const porcentaje = (totalKm / distanciaTotal) * 100;
     const nuevoStatus = porcentaje >= 100 ? 'completed' : uc.status;
 
@@ -1960,7 +1972,7 @@ app.get('/ranking/:challengeId', async (req, res) => {
   try {
     const { data: ucsRaw, error } = await supabase
       .from('user_challenges')
-      .select('user_id, km_completed, modalidad, status')
+      .select('user_id, km_completed, version, modalidad, status')
       .eq('challenge_id', challengeId)
       .in('status', ['active', 'completed', 'shipped', 'cargado'])
       .order('km_completed', { ascending: false });
@@ -1991,9 +2003,7 @@ app.get('/ranking/:challengeId', async (req, res) => {
     }
 
     const resultado = (ucs || []).map((uc, index) => {
-      const modalidades = challenge?.modalidades || [];
-      const modalidadData = modalidades.find(m => m.tipo === uc.modalidad);
-      const distancia = modalidadData?.distancia_km || challenge?.total_distance_km || 100;
+      const distancia = distanciaDeLaVersion(uc, challenge);
       const usuario = usuariosMap[uc.user_id];
 
       return {
@@ -2006,7 +2016,8 @@ app.get('/ranking/:challengeId', async (req, res) => {
         })(),
         avatar: usuario?.avatar_url,
         km_completados: uc.km_completed,
-        modalidad: uc.modalidad,
+        version: versionDeInscripcion(uc),
+        modalidad: uc.modalidad, // legacy: la app publicada filtra el ranking por run/ride (= estándar/extendida)
         porcentaje: Math.min((uc.km_completed / distancia) * 100, 100).toFixed(1)
       };
     });
@@ -2028,16 +2039,26 @@ app.post('/usuarios/push-token', async (req, res) => {
 });
 
 app.post('/admin/challenges', async (req, res) => {
-  const { title, description, historia, sport_type, price_usd, medal_image_url, link_mercadopago, link_shopify, modalidades } = req.body;
+  const { title, description, historia, sport_type, price_usd, medal_image_url, link_mercadopago, link_shopify } = req.body;
+  // Versiones Estándar/Extendida: se guarda `version` + label nuevo y se mantiene `tipo` (run/ride)
+  // solo por compatibilidad con apps publicadas. La versión no es deporte.
+  const modalidades = Array.isArray(req.body.modalidades)
+    ? req.body.modalidades.map((m, i) => {
+      const v = versionesDelDesafio({ modalidades: [m] })[0];
+      const version = v ? v.version : VERSIONES.ESTANDAR;
+      return { ...m, tipo: version === VERSIONES.EXTENDIDA ? 'ride' : 'run', version, label: etiquetaVersion(version) };
+    })
+    : req.body.modalidades;
+  const estandar = Array.isArray(modalidades) ? (modalidades.find((m) => m.version === VERSIONES.ESTANDAR) || modalidades[0]) : null;
   try {
     const { data, error } = await supabase
       .from('challenges')
       .insert({
         title, description, historia,
-        sport_type: sport_type || 'run',
+        sport_type: sport_type || 'multi', // cualquier deporte suma
         price_usd, medal_image_url, link_mercadopago, link_shopify, modalidades,
         is_active: true,
-        total_distance_km: modalidades?.[0]?.distancia_km || 0
+        total_distance_km: estandar?.distancia_km || 0
       })
       .select()
       .single();
@@ -2100,10 +2121,11 @@ app.put('/admin/challenges/:id', async (req, res) => {
 });
 
 app.put('/usuarios/modalidad', async (req, res) => {
-  const { user_id, challenge_id, modalidad } = req.body;
-
-  if (!['run', 'ride'].includes(modalidad)) {
-    return res.status(400).json({ error: 'Modalidad inválida' });
+  const { user_id, challenge_id } = req.body;
+  // Cambia la VERSIÓN (estandar/extendida). La app vieja manda modalidad run/ride (= estándar/extendida).
+  const version = versionDesdePedido(req.body);
+  if (!version) {
+    return res.status(400).json({ error: 'Versión inválida' });
   }
 
   try {
@@ -2117,7 +2139,7 @@ app.put('/usuarios/modalidad', async (req, res) => {
         repo: crearRepositorioSupabase(supabase),
         userId: user_id,
         challengeId: challenge_id,
-        modalidad,
+        version,
         dispararEfectos: (ids) => procesadorEventos.disparar(ids),
       });
       return res.status(resultado.status).json(resultado.body);
@@ -2125,7 +2147,7 @@ app.put('/usuarios/modalidad', async (req, res) => {
 
     const { data, error } = await supabase
       .from('user_challenges')
-      .update({ modalidad })
+      .update({ version }) // modalidad la sincroniza el trigger de la base
       .eq('user_id', user_id)
       .eq('challenge_id', challenge_id)
       .in('status', ['active', 'pending'])

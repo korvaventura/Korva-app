@@ -80,12 +80,16 @@ const levantarBackend = async ({ flag, tablas, entorno = {} }) => {
   }
 
   /** Pedido HTTP al backend hijo, igual que la app (JSON en el body). */
-  const pedir = async ({ metodo, ruta, body }) => {
+  // `crudo`: body tal cual (p. ej. webhook firmado); `headers`: extra. Respuestas no JSON → body = texto.
+  const pedir = async ({ metodo, ruta, body, headers = {}, crudo }) => {
     try {
       const res = await fetch(`http://127.0.0.1:${puerto}${ruta}`, {
-        method: metodo, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        method: metodo, headers: { 'Content-Type': 'application/json', ...headers }, body: crudo !== undefined ? crudo : JSON.stringify(body),
       });
-      return { status: res.status, body: await res.json() };
+      const texto = await res.text();
+      let cuerpo;
+      try { cuerpo = JSON.parse(texto); } catch (e) { cuerpo = texto; }
+      return { status: res.status, body: cuerpo };
     } catch (e) {
       await forzarCierre();
       throw new Error(`${diagnostico(`Falló el pedido ${metodo} ${ruta}`)}\n  error: ${e && e.stack}`);

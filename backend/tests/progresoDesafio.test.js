@@ -215,9 +215,11 @@ test('estados: active se recalcularía; pending y terminales no', () => {
 // Objetivo / modalidad
 // ---------------------------------------------------------------------------
 
-test('objetivo: modalidad elegida → primera modalidad → total_distance_km → sin objetivo', () => {
-  assert.deepEqual(resolverObjetivo({ modalidad: 'ride' }, CHALLENGE), { objetivo_km: 300, origen: 'modalidad_elegida' });
-  assert.deepEqual(resolverObjetivo({ modalidad: 'swim' }, CHALLENGE), { objetivo_km: 100, origen: 'primera_modalidad' });
+test('objetivo (legacy, sin version): modalidad → versión → primera → total_distance_km → sin objetivo', () => {
+  assert.deepEqual(resolverObjetivo({ modalidad: 'ride' }, CHALLENGE), { objetivo_km: 300, origen: 'version_elegida' });
+  // modalidad desconocida = estándar (misma regla que el trigger de la base); mismo objetivo que antes
+  assert.deepEqual(resolverObjetivo({ modalidad: 'swim' }, CHALLENGE), { objetivo_km: 100, origen: 'version_elegida' });
+  assert.deepEqual(resolverObjetivo({ modalidad: 'ride' }, { modalidades: [{ tipo: 'run', distancia_km: 100 }] }), { objetivo_km: 100, origen: 'primera_version' });
   assert.deepEqual(resolverObjetivo({ modalidad: 'run' }, { modalidades: [], total_distance_km: 42 }), { objetivo_km: 42, origen: 'total_distance_km' });
   assert.deepEqual(resolverObjetivo({ modalidad: 'run' }, { modalidades: null, total_distance_km: null }), { objetivo_km: null, origen: 'sin_objetivo' });
   const r = calc({}, [act('2026-09-02T07:00:00', 10)], { title: 'x', modalidades: [], total_distance_km: null });

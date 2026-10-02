@@ -1,4 +1,5 @@
 const express = require('express');
+const { versionDeInscripcion, etiquetaVersion } = require('../lib/versionDesafio');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
@@ -63,7 +64,7 @@ const activarChallengeYEnviarBib = async (supabase, user, pendiente, enviarBib =
       user.email,
       user.name,
       pendiente.challenges?.title,
-      pendiente.modalidad === 'run' ? 'Running' : 'Ciclismo',
+      etiquetaVersion(versionDeInscripcion(pendiente)),
       pdfs.dorsalPdf,
       pdfs.postalPdf,
       bibNumber
@@ -73,7 +74,7 @@ const activarChallengeYEnviarBib = async (supabase, user, pendiente, enviarBib =
       user.email,
       user.name,
       pendiente.challenges?.title,
-      pendiente.modalidad === 'run' ? 'Running' : 'Ciclismo'
+      etiquetaVersion(versionDeInscripcion(pendiente))
     );
     console.warn('Bib no generado para:', user.email, '— email enviado sin adjuntos');
   }
@@ -195,7 +196,7 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
       let pendiente = null;
       const { data: pendienteExistente } = await supabase
         .from('user_challenges')
-        .select('id, modalidad, challenge_id, challenges(title)')
+        .select('id, version, modalidad, challenge_id, challenges(title)')
         .eq('user_id', user.id)
         .eq('challenge_id', challengeIdFromProduct)
         .eq('status', 'pending')
@@ -210,13 +211,13 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
           .insert({
             user_id: user.id,
             challenge_id: challengeIdFromProduct,
-            modalidad: 'run',
+            version: 'estandar', // D-V4: Shopify activa Estándar; el usuario puede pasar a Extendida después (modalidad la completa el trigger)
             status: 'pending',
             km_completed: 0,
             started_at: new Date().toISOString(),
             group_id: user.id,
           })
-          .select('id, modalidad, challenge_id, challenges(title)')
+          .select('id, version, modalidad, challenge_id, challenges(title)')
           .single();
 
         if (nuevaInscripcion) pendiente = nuevaInscripcion;

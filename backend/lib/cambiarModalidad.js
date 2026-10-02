@@ -3,13 +3,14 @@
 // Se usa solo si MOTOR_PROGRESO_WRITERS incluye "modalidad" Y "efectos" (ver flagsMotor). Con la
 // flag apagada, PUT /usuarios/modalidad sigue ejecutando exactamente el código viejo.
 //
-// Cambiar de modalidad no cambia los km (cuentan todas las actividades) pero sí el objetivo: pasar
-// de ride a run lo divide por 3 y puede completar el desafío en el acto.
+// Cambia la VERSIÓN (estandar/extendida; la app vieja manda modalidad run/ride y se traduce). La
+// versión no es deporte: no cambia los km (cuentan todas las actividades, 1:1) pero sí el objetivo:
+// pasar de Extendida a Estándar lo baja y puede completar el desafío en el acto.
 //
 // Flujo:
 //  1. Leer el desafío (user_id + challenge_id) con su status y su marca. Duplicado → 500 SIN escribir.
-//  2. 'pending': solo se cambia la modalidad (CAS sobre el status). El motor no calcula pending.
-//  3. 'active': UN update atómico con la modalidad y una marca nueva de recálculo, condicionado al
+//  2. 'pending': solo se cambia la versión (CAS sobre el status). El motor no calcula pending.
+//  3. 'active': UN update atómico con la versión y una marca nueva de recálculo, condicionado al
 //     status y a la marca leídos (protocolo de lib/marcaRecalculo.js). Si algo cambió, relee.
 //  4. Recalcular ese desafío con el motor (base sumada, pausas, un pausado no se completa, sin
 //     objetivo nunca se completa). Si completa, se registra el evento 'completado' (una vez).
@@ -19,6 +20,7 @@
 const { recalcularConReintentos, logMotor } = require('./recuperacionRecalculo');
 const { generarMarcaUnica, distintaDe } = require('./marcaRecalculo');
 const { candadoPorUsuario } = require('./candadoUsuario');
+const { versionDesdePedido } = require('./versionDesafio');
 
 const INTENTOS_CAMBIO = 4;
 const MENSAJE_OK = 'Modalidad actualizada y kilómetros recalculados';
@@ -31,9 +33,11 @@ const logModalidad = (datos) => logMotor({ writer: 'modalidad', ...datos });
  * @returns {Promise<{ status: number, body: object }>}
  */
 const cambiarModalidadConMotor = async ({
-  repo, userId, challengeId, modalidad, ahoraMs = Date.now(), log = logModalidad, esperasMs, esperar,
+  repo, userId, challengeId, version: versionPedida, modalidad, ahoraMs = Date.now(), log = logModalidad, esperasMs, esperar,
   generarMarca = generarMarcaUnica, candado = candadoPorUsuario, dispararEfectos = () => {},
 }) => candado(String(userId), async () => {
+  const version = versionDesdePedido({ version: versionPedida, modalidad });
+  if (!version) return { status: 400, body: { error: 'Versión inválida' } };
   let uc = null;
   let fila = null;
   let marca = null;
@@ -49,9 +53,9 @@ const cambiarModalidadConMotor = async ({
     uc = lectura.uc;
 
     if (uc.status === 'pending') {
-      fila = await repo.cambiarModalidadCAS({ id: uc.id, statusLeido: 'pending', modalidad });
+      fila = await repo.cambiarModalidadCAS({ id: uc.id, statusLeido: 'pending', version });
       if (fila) {
-        log({ resultado: 'modalidad_pending', user_challenge_id: uc.id, modalidad });
+        log({ resultado: 'modalidad_pending', user_challenge_id: uc.id, version });
         return { status: 200, body: { mensaje: MENSAJE_OK, data: fila, progreso: { motor: true, recalculo: 'no_aplica' } } };
       }
       continue;
@@ -59,7 +63,7 @@ const cambiarModalidadConMotor = async ({
 
     marcaLeida = uc.recalculo_pendiente_desde ?? null;
     marca = distintaDe(generarMarca(ahoraMs), marcaLeida);
-    fila = await repo.cambiarModalidadCAS({ id: uc.id, statusLeido: 'active', modalidad, marcaLeida, marcaNueva: marca });
+    fila = await repo.cambiarModalidadCAS({ id: uc.id, statusLeido: 'active', version, marcaLeida, marcaNueva: marca });
   }
   if (!fila) {
     log({ resultado: 'cambio_no_logrado', user_challenge_id: uc && uc.id });
@@ -97,7 +101,7 @@ const cambiarModalidadConMotor = async ({
     resultado: 'modalidad_cambiada',
     recalculo: 'ok',
     user_challenge_id: uc.id,
-    modalidad,
+    version,
     accion: registro && registro.accion,
     km_leido: registro && registro.km_leido,
     km_nuevo: registro && registro.km_nuevo,

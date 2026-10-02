@@ -22,6 +22,7 @@
 //    protege un reenvío: solo se reintenta si el fallo fue seguro (no salió). Dudoso → 'incierto'.
 //  - push: Expo no tiene idempotencia. Intención antes de enviar; dudoso → 'incierto'. A lo sumo una vez.
 const { pedirSerial, leerSerial, reservarSerialCAS } = require('./certificadoSerial');
+const { objetivoDeInscripcion } = require('./versionDesafio');
 
 const VENTANA_IDEMPOTENCIA_MS = 23 * 60 * 60 * 1000;
 const RESULTADO = { OK: 'ok', OMITIDO: 'omitido', ERROR: 'error', DEFINITIVO: 'definitivo', INCIERTO: 'incierto' };
@@ -158,7 +159,7 @@ const crearEfectosCompletado = ({ supabase, generarCertificado, emails, obtenerR
         const ev = ctx.evento;
         const { data: uc, error: e1 } = await supabase
           .from('user_challenges')
-          .select('id, user_id, challenge_id, group_id, completed_at, status, challenges(title, modalidades, total_distance_km)')
+          .select('id, user_id, challenge_id, group_id, completed_at, status, version, modalidad, challenges(title, modalidades, total_distance_km)')
           .eq('id', ev.user_challenge_id)
           .maybeSingle();
         if (e1) throw e1;
@@ -193,7 +194,8 @@ const crearEfectosCompletado = ({ supabase, generarCertificado, emails, obtenerR
           estado: RESULTADO.OK,
           datos: {
             titulo,
-            distancia_km: datos.objetivo_km ?? null,
+            // D-V1: distancia de la versión elegida (la que fijó el motor al completar; si faltara, se recalcula).
+            distancia_km: datos.objetivo_km ?? objetivoDeInscripcion(uc, uc.challenges).objetivo_km,
             fecha_completado: formatearFecha(uc.completed_at || ev.creado_at),
             tieneDir: !!usuario.shipping_address,
             esGrupo,

@@ -13,14 +13,14 @@
 //  - user_challenges.recalculo_pendiente_desde: poner/renovar la marca (compare-and-set sobre el
 //    valor leído) y borrarla (compare-and-set sobre el valor propio). Ver lib/marcaRecalculo.js.
 //  - activities.excluida = true de UNA actividad del usuario (eliminar actividad, igual que hoy).
-//  - user_challenges.modalidad (4A-3e), condicionada al status leído y, si está activo, junto con
-//    la marca de recálculo en el MISMO update.
+//  - user_challenges.version (4A-3e; modalidad la sincroniza el trigger de la base), condicionada al
+//    status leído y, si está activo, junto con la marca de recálculo en el MISMO update.
 //  - progreso_eventos: reclamo, avance y resultado de los efectos, siempre con fencing por token.
 //  - Nunca se escriben km_base ni km_base_motivo.
 //  - progreso_eventos (4A-3a): alta de eventos y su estado. actualizado_at lo pone la base (trigger).
 const { clienteSoloLectura, traerTodo } = require('./progresoSombra');
 
-const CAMPOS_USER_CHALLENGE = 'id, user_id, challenge_id, status, started_at, pausado, pausado_at, periodos_pausados, modalidad, km_completed, km_base, km_base_motivo';
+const CAMPOS_USER_CHALLENGE = 'id, user_id, challenge_id, status, started_at, pausado, pausado_at, periodos_pausados, version, modalidad, km_completed, km_base, km_base_motivo';
 const CAMPOS_CHALLENGE = 'id, title, modalidades, total_distance_km';
 const CAMPOS_ACTIVIDAD = 'id, user_id, distance_km, recorded_at, excluida';
 const TAMANO_LOTE_IDS = 100;
@@ -75,14 +75,14 @@ const crearRepositorioSupabase = (supabase) => {
     },
 
     /**
-     * Desafío para cambiar de modalidad, buscado igual que el writer viejo (user_id + challenge_id).
+     * Desafío para cambiar de versión (estandar/extendida), buscado igual que el writer viejo (user_id + challenge_id).
      * Devuelve { estado: 'ok' | 'no_encontrado' | 'duplicado', uc }.
      */
     leerDesafioParaModalidad: async ({ userId, challengeId }) => {
       if (!userId || !challengeId) return { estado: 'no_encontrado', uc: null };
       const { data, error } = await lectura
         .from('user_challenges')
-        .select('id, user_id, challenge_id, status, modalidad, recalculo_pendiente_desde')
+        .select('id, user_id, challenge_id, status, version, modalidad, recalculo_pendiente_desde')
         .eq('user_id', userId)
         .eq('challenge_id', challengeId)
         .limit(2);
@@ -93,12 +93,14 @@ const crearRepositorioSupabase = (supabase) => {
     },
 
     /**
-     * Cambia la modalidad con compare-and-set sobre el status leído. Si `marcaNueva` viene
+     * Cambia la VERSIÓN con compare-and-set sobre el status leído (modalidad la sincroniza el trigger
+     * trg_sincronizar_version_modalidad). Si `marcaNueva` viene
      * (desafío activo), en el MISMO update pone la marca de recálculo, condicionado a la marca
      * leída. Devuelve la fila completa actualizada (igual que el viejo `.select()`) o null.
      */
-    cambiarModalidadCAS: async ({ id, statusLeido, modalidad, marcaLeida, marcaNueva }) => {
-      const valores = { modalidad };
+    cambiarModalidadCAS: async ({ id, statusLeido, version, marcaLeida, marcaNueva }) => {
+      if (version !== 'estandar' && version !== 'extendida') throw new Error(`version inválida: ${version}`);
+      const valores = { version };
       if (marcaNueva !== undefined) valores.recalculo_pendiente_desde = marcaNueva;
       let consulta = supabase.from('user_challenges').update(valores).eq('id', id).eq('status', statusLeido);
       if (marcaNueva !== undefined) consulta = filtrarMarcaLeida(consulta, marcaLeida);

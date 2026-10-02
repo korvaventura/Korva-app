@@ -17,12 +17,16 @@
 //  1. Solo los desafíos 'active' se recalcularían; terminales congelados; 'pending' sin cálculo.
 //  2. Cuentan las actividades del usuario con excluida === false, recorded_at >= started_at,
 //     fuera de todo período de periodos_pausados (bordes inclusivos) y anteriores a
-//     pausado_at si el desafío está pausado. Cualquier deporte, challenge_id y modalidad.
+//     pausado_at si el desafío está pausado. Cualquier deporte (1:1), challenge_id y versión.
 //  3. km_progreso = km_base + Σ distance_km de las actividades que cuentan.
-//  4. Objetivo = modalidad elegida → primera modalidad → total_distance_km.
+//  4. Objetivo = versión elegida (estandar/extendida) → primera versión → total_distance_km.
+//     La versión sale de user_challenges.version; en filas/objetos viejos sin version, de
+//     modalidad (solo 'ride' = extendida). Ver lib/versionDesafio.js.
 //  5. Todos los instantes se interpretan como UTC aunque no traigan zona.
 
-const REGLA_VERSION = 'progreso_4a_v2_2026-10-02';
+const { objetivoDeInscripcion, versionDeInscripcion } = require('./versionDesafio');
+
+const REGLA_VERSION = 'progreso_4a_v3_version_2026-10-02';
 
 const ESTADOS_TERMINALES = ['completed', 'cargado', 'shipped'];
 
@@ -81,22 +85,10 @@ const numero = (valor) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-/** Distancia objetivo y cómo se obtuvo. */
+/** Distancia objetivo y cómo se obtuvo (por versión Estándar/Extendida). */
 const resolverObjetivo = (uc, challenge) => {
-  const modalidades = Array.isArray(challenge?.modalidades) ? challenge.modalidades : [];
-  const elegida = modalidades.find((m) => m && m.tipo === uc.modalidad);
-  const distanciaDe = (m) => numero(m?.distancia_km);
-
-  if (elegida && distanciaDe(elegida) > 0) {
-    return { objetivo_km: distanciaDe(elegida), origen: 'modalidad_elegida' };
-  }
-  if (modalidades.length > 0 && distanciaDe(modalidades[0]) > 0) {
-    return { objetivo_km: distanciaDe(modalidades[0]), origen: 'primera_modalidad' };
-  }
-  if (numero(challenge?.total_distance_km) > 0) {
-    return { objetivo_km: numero(challenge.total_distance_km), origen: 'total_distance_km' };
-  }
-  return { objetivo_km: null, origen: 'sin_objetivo' };
+  const { objetivo_km, origen } = objetivoDeInscripcion(uc, challenge);
+  return { objetivo_km, origen };
 };
 
 /** Normaliza los períodos de pausa a { desdeMs, hastaMs } (descarta los inválidos). */
@@ -208,7 +200,7 @@ const calcularProgresoChallenge = ({ uc, challenge, actividades, incluirDetalle 
   if (pausas.invalidos.length > 0) flags.push('pausas_con_formato_invalido');
   if (inicioMs === null) flags.push('started_at_invalido');
   if (objetivo_km === null) flags.push('sin_objetivo');
-  if (origen === 'primera_modalidad' || origen === 'total_distance_km') flags.push(`objetivo_por_${origen}`);
+  if (origen === 'primera_version' || origen === 'total_distance_km') flags.push(`objetivo_por_${origen}`);
   if (cantidadPorMotivo[MOTIVOS.FECHA_INVALIDA] > 0) flags.push('actividades_con_fecha_invalida');
   if (cantidadPorMotivo[MOTIVOS.CUENTA] === 0) flags.push('sin_actividades_que_cuenten');
   if (lista.length === 0) flags.push('usuario_sin_actividades');
@@ -239,7 +231,8 @@ const calcularProgresoChallenge = ({ uc, challenge, actividades, incluirDetalle 
     status,
     se_recalcularia: esActivo,
     started_at_utc: aISO(inicioMs),
-    modalidad: uc.modalidad ?? null,
+    version: versionDeInscripcion(uc),
+    modalidad: uc.modalidad ?? null, // legacy (espejo de version)
     objetivo_km: objetivo_km === null ? null : redondear(objetivo_km),
     objetivo_origen: origen,
     pausas: {
