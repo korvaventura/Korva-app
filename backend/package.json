@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon index.js",
-    "test": "node --test tests/residualMovimiento.test.js tests/progresoDesafio.test.js"
+    "test": "node --test tests/residualMovimiento.test.js tests/progresoDesafio.test.js tests/progresoServicio.test.js"
   },
   "keywords": [],
   "author": "",

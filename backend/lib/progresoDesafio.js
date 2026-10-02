@@ -271,6 +271,12 @@ const calcularProgresoChallenge = ({ uc, challenge, actividades, incluirDetalle 
     categoria_diferencia: categoria,
     flags,
   };
+  // Valores sin redondear para quien tenga que escribir (motor unificado).
+  // No forman parte del reporte visible; se exponen como propiedad no enumerable.
+  Object.defineProperty(resultado, 'exacto', {
+    enumerable: false,
+    value: Object.freeze({ kmBase, kmActividades, kmProgreso, kmGuardado, objetivoKm: objetivo_km }),
+  });
   if (incluirDetalle) {
     resultado.detalle_actividades = detalle.sort((x, y) => String(x.recorded_at_utc).localeCompare(String(y.recorded_at_utc)));
   }
