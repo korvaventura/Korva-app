@@ -1,9 +1,9 @@
-// Recuperación de recálculos pendientes (Etapa 4A-3c).
+// Recuperación de recálculos pendientes (Etapa 4A-3c, generalizada en 4A-3d).
 //
-// Cuando el motor cierra una pausa, en el MISMO update deja una marca persistente
-// user_challenges.recalculo_pendiente_desde. La marca se borra solo cuando el recálculo
-// del motor terminó bien. Si el recálculo falla (o el proceso muere), la marca queda en
-// la base y esta recuperación la resuelve:
+// Antes de cambiar datos que afectan el progreso, cada writer del motor deja una marca persistente
+// user_challenges.recalculo_pendiente_desde (protocolo en lib/marcaRecalculo.js). La marca se borra
+// solo cuando el recálculo del motor terminó bien (y solo la borra su dueño). Si el recálculo falla,
+// el proceso muere o dos pedidos se solapan, la marca queda en la base y esta recuperación la resuelve:
 //   - recalcularConReintentos: reintentos inmediatos y acotados dentro del mismo pedido.
 //   - recuperarRecalculosPendientes: busca marcas viejas y recalcula esos desafíos.
 //   - iniciarRecuperacionPeriodica: corre lo anterior al arrancar el backend y cada N minutos.
@@ -18,21 +18,36 @@ const LIMITE_POR_RONDA = 50;
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const logEstructurado = (datos) => {
+/**
+ * Log de una línea en JSON. Railway parsea las líneas JSON como logs estructurados y usa el campo
+ * `message` como texto del log: sin él, la búsqueda por texto no los encuentra. Los demás campos
+ * quedan como atributos (filtrables con @evento:motor_progreso, @writer:..., @resultado:...).
+ */
+const logMotor = (datos) => {
   try {
-    console.log(JSON.stringify({ evento: 'motor_progreso', ...datos }));
+    const { writer, resultado } = datos;
+    console.log(JSON.stringify({
+      message: ['motor_progreso', writer, resultado].filter(Boolean).join(' '),
+      evento: 'motor_progreso',
+      ...datos,
+    }));
   } catch {
     // no romper por un log
   }
 };
 
 /**
- * Recalcula un desafío con el motor y, si terminó bien, borra su marca.
- * Devuelve { ok, intentos, informe, error }. Nunca tira error.
+ * Recalcula con el motor (un desafío o todos los del usuario) y, si terminó bien, borra las marcas
+ * PROPIAS indicadas, cada una con compare-and-set sobre su valor (no borra una marca más nueva).
+ * Devuelve { ok, intentos, informe, error, marcasBorradas }. Nunca tira error.
+ *
+ * Compatibilidad: { ucId, marcaIso } equivale a marcasALimpiar: [{ id: ucId, marca: marcaIso }].
  */
 const recalcularConReintentos = async ({
-  repo, userId, challengeId, ucId, marcaIso, motivo, ahoraMs, esperasMs = ESPERAS_REINTENTO_MS, esperar = dormir,
+  repo, userId, challengeId = null, marcasALimpiar, ucId, marcaIso, motivo, ahoraMs,
+  esperasMs = ESPERAS_REINTENTO_MS, esperar = dormir,
 }) => {
+  const marcas = marcasALimpiar || (ucId ? [{ id: ucId, marca: marcaIso }] : []);
   let ultimoError = null;
   for (let i = 0; i < esperasMs.length; i++) {
     if (esperasMs[i] > 0) await esperar(esperasMs[i]);
@@ -44,14 +59,17 @@ const recalcularConReintentos = async ({
         ultimoError = new Error('conflictos_sin_resolver');
         continue;
       }
-      // Recién ahora, con el progreso ya escrito, se borra la marca (solo si es la misma).
-      await repo.limpiarRecalculoPendienteCAS({ id: ucId, marcaIso });
-      return { ok: true, intentos: i + 1, informe, error: null };
+      // Recién ahora, con el progreso ya escrito, se borran las marcas propias (solo si siguen iguales).
+      let marcasBorradas = 0;
+      for (const m of marcas) {
+        if (await repo.limpiarRecalculoPendienteCAS({ id: m.id, marcaIso: m.marca })) marcasBorradas += 1;
+      }
+      return { ok: true, intentos: i + 1, informe, error: null, marcasBorradas };
     } catch (e) {
       ultimoError = e;
     }
   }
-  return { ok: false, intentos: esperasMs.length, informe: null, error: ultimoError };
+  return { ok: false, intentos: esperasMs.length, informe: null, error: ultimoError, marcasBorradas: 0 };
 };
 
 /**
@@ -59,7 +77,7 @@ const recalcularConReintentos = async ({
  * Si uno falla, su marca queda y se reintenta en la próxima ronda.
  */
 const recuperarRecalculosPendientes = async ({
-  repo, ahoraMs = Date.now(), limite = LIMITE_POR_RONDA, antiguedadMinimaMs = ANTIGUEDAD_MINIMA_MS, log = logEstructurado, esperasMs, esperar,
+  repo, ahoraMs = Date.now(), limite = LIMITE_POR_RONDA, antiguedadMinimaMs = ANTIGUEDAD_MINIMA_MS, log = logMotor, esperasMs, esperar,
 }) => {
   const pendientes = await repo.listarRecalculosPendientes({
     limite,
@@ -68,8 +86,9 @@ const recuperarRecalculosPendientes = async ({
   const resultados = [];
   for (const p of pendientes) {
     const r = await recalcularConReintentos({
-      repo, userId: p.user_id, challengeId: p.challenge_id, ucId: p.id, marcaIso: p.recalculo_pendiente_desde,
-      motivo: 'recuperacion_reanudar', ahoraMs, esperasMs, esperar,
+      repo, userId: p.user_id, challengeId: p.challenge_id,
+      marcasALimpiar: [{ id: p.id, marca: p.recalculo_pendiente_desde }],
+      motivo: 'recuperacion', ahoraMs, esperasMs, esperar,
     });
     log({
       writer: 'recuperacion', resultado: r.ok ? 'recuperado' : 'sigue_pendiente', user_challenge_id: p.id,
@@ -93,7 +112,7 @@ const hayRecalculosPendientes = async (repo) =>
  * queda ninguna marca en la base.
  */
 const iniciarRecuperacionPeriodica = ({
-  crearRepo, intervaloMs = INTERVALO_MS, demoraInicialMs = DEMORA_INICIAL_MS, log = logEstructurado, alTerminarRonda,
+  crearRepo, intervaloMs = INTERVALO_MS, demoraInicialMs = DEMORA_INICIAL_MS, log = logMotor, alTerminarRonda,
   noRetenerProceso = true, detenerSiNoQuedanPendientes = false, alDetenerse,
   temporizadores = { setTimeout, clearTimeout },
 }) => {
@@ -141,19 +160,21 @@ const iniciarRecuperacionPeriodica = ({
 let recuperacionActual = null;
 
 /**
- * Arranque de la recuperación según la flag del writer "reanudar" (se evalúa al iniciar el
- * proceso; en Railway cambiar una variable reinicia el servicio):
- *  - reanudar ON  → modo 'activo': rondas al arrancar (+30 s) y cada 10 min.
- *  - reanudar OFF → una única consulta de lectura al arrancar:
+ * Arranque de la recuperación según las flags del motor (se evalúan al iniciar el proceso; en
+ * Railway cambiar una variable reinicia el servicio):
+ *  - algún writer del motor ON → modo 'activo': rondas al arrancar (+30 s) y cada 10 min.
+ *  - todos OFF → una única consulta de lectura al arrancar:
  *      · sin marcas pendientes → modo 'inactivo': ningún timer, ninguna consulta más.
  *      · con marcas (quedaron de cuando estuvo encendido) → modo 'drenaje': rondas hasta que no
- *        quede ninguna marca y después se detiene sola. Así apagar la flag nunca abandona marcas.
+ *        quede ninguna marca y después se detiene sola. Así apagar las flags nunca abandona marcas.
+ * `motorActivo` (o su nombre anterior `reanudarActivo`) indica si hay algún writer encendido.
  * Devuelve { modo, detener }. Nunca tira error.
  */
 const iniciarRecuperacion = async ({
-  crearRepo, reanudarActivo, log = logEstructurado, ...opciones
+  crearRepo, motorActivo, reanudarActivo, log = logMotor, ...opciones
 }) => {
   if (recuperacionActual) return recuperacionActual;
+  const activo = motorActivo !== undefined ? motorActivo : reanudarActivo;
   const registrar = (modo, h) => {
     recuperacionActual = {
       modo,
@@ -162,7 +183,7 @@ const iniciarRecuperacion = async ({
     return recuperacionActual;
   };
 
-  if (reanudarActivo) {
+  if (activo) {
     log({ writer: 'recuperacion', resultado: 'iniciada', modo: 'activo' });
     return registrar('activo', iniciarRecuperacionPeriodica({ crearRepo, log, ...opciones }));
   }
@@ -194,6 +215,6 @@ const iniciarRecuperacion = async ({
 
 module.exports = {
   ESPERAS_REINTENTO_MS, ANTIGUEDAD_MINIMA_MS, INTERVALO_MS, DEMORA_INICIAL_MS,
-  recalcularConReintentos, recuperarRecalculosPendientes, hayRecalculosPendientes,
+  logMotor, recalcularConReintentos, recuperarRecalculosPendientes, hayRecalculosPendientes,
   iniciarRecuperacionPeriodica, iniciarRecuperacion,
 };

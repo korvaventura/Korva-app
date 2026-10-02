@@ -4,11 +4,8 @@
 // y llaman a POST /challenges/reanudar con la flag apagada y encendida.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { spawn } = require('child_process');
 const { crearSupabaseMemoria } = require('./helpers/supabaseMemoria');
+const { levantarBackend: levantarBackendHijo } = require('./helpers/backendHijo');
 const { crearRepositorioSupabase } = require('../lib/progresoRepositorioSupabase');
 const { reanudarDesafioConMotor } = require('../lib/reanudarDesafio');
 const { recalcularProgresoUsuario, MODOS } = require('../lib/progresoServicio');
@@ -42,7 +39,7 @@ const montar = ({ ucs = [uc()], actividades = [ACT_ANTES, ACT_DURANTE], fallar }
   const repo = crearRepositorioSupabase(m.cliente);
   const esperas = [];
   const esperar = async (ms) => { esperas.push(ms); };
-  const reanudar = (extra = {}) => reanudarDesafioConMotor({ repo, userId: U, challengeId: 'c1', ahoraMs: AHORA, log: (l) => logs.push(l), esperar, ...extra });
+  const reanudar = (extra = {}) => reanudarDesafioConMotor({ repo, userId: U, challengeId: 'c1', ahoraMs: AHORA, log: (l) => logs.push(l), esperar, generarMarca: (ms) => new Date(ms).toISOString(), ...extra });
   const fila = (id = 'uc1') => m.db.user_challenges.find((x) => x.id === id);
   const recuperar = (extra = {}) => recuperarRecalculosPendientes({ repo, ahoraMs: AHORA + 10 * 60 * 1000, log: (l) => logs.push(l), esperar, ...extra });
   return { m, repo, reanudar, recuperar, fila, logs, esperas };
@@ -460,107 +457,15 @@ test('si reanudar completa el desafío: evento PENDIENTE, sin ejecutar efectos',
 // Integración: index.js real con la flag apagada y encendida
 // ---------------------------------------------------------------------------
 
-// Proceso hijo con index.js real. Portable (Windows / Linux / macOS):
-//  - se lanza process.execPath con argumentos en un array, sin shell y con rutas absolutas;
-//  - el volcado de la base se pide por IPC (hijo.send), NO con señales: en Windows
-//    hijo.kill('SIGTERM') termina el proceso de golpe sin correr ningún handler;
-//  - se espera 'close' (no 'exit') para tener stdout/stderr completos.
-// Si salida.json no aparece, el error muestra exit code, signal, stdout, stderr, el comando
-// y cualquier error previo (spawn, IPC, timeout).
-const RAIZ_BACKEND = path.resolve(__dirname, '..');
-const PRECARGA = path.join(__dirname, 'helpers', 'precargaIndex.js');
-const INDEX = path.join(RAIZ_BACKEND, 'index.js');
-const ESPERA_ARRANQUE_MS = 15000;
-const ESPERA_CIERRE_MS = 10000;
-
+// Proceso hijo con index.js real: helper compartido (tests/helpers/backendHijo.js), portable a
+// Windows, sin shell y con volcado por IPC.
 const levantarBackend = async (flag) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'korva-reanudar-'));
-  const dbJson = path.join(dir, 'db.json');
-  const salida = path.join(dir, 'salida.json');
-  fs.writeFileSync(dbJson, JSON.stringify({ user_challenges: [uc()], challenges: [CH], activities: [ACT_ANTES, ACT_DURANTE], progreso_eventos: [], users: [] }));
-  const puerto = 40000 + Math.floor(Math.random() * 20000);
-  const args = ['-r', PRECARGA, INDEX];
-
-  const estado = { stdout: '', stderr: '', errores: [], exitCode: undefined, signal: undefined, cerrado: false };
-  const hijo = spawn(process.execPath, args, {
-    cwd: RAIZ_BACKEND,
-    env: { ...process.env, PORT: String(puerto), TZ: 'UTC', MOTOR_PROGRESO_WRITERS: flag, PRUEBA_DB_JSON: dbJson, PRUEBA_SALIDA: salida, SUPABASE_URL: 'http://memoria', SUPABASE_SECRET: 'x' },
-    stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-    shell: false,
-    windowsHide: true,
+  const b = await levantarBackendHijo({
+    flag,
+    tablas: { user_challenges: [uc()], challenges: [CH], activities: [ACT_ANTES, ACT_DURANTE], progreso_eventos: [], users: [] },
   });
-  hijo.stdout.setEncoding('utf8');
-  hijo.stderr.setEncoding('utf8');
-  hijo.stdout.on('data', (d) => { estado.stdout += d; });
-  hijo.stderr.on('data', (d) => { estado.stderr += d; });
-  hijo.on('error', (e) => { estado.errores.push(`spawn/ipc: ${e && e.stack}`); });
-  const cerradoPromesa = new Promise((r) => hijo.on('close', (code, signal) => {
-    estado.exitCode = code; estado.signal = signal; estado.cerrado = true; r();
-  }));
-
-  const diagnostico = (titulo) => [
-    titulo,
-    `  comando:   ${JSON.stringify(process.execPath)} ${args.map((a) => JSON.stringify(a)).join(' ')}`,
-    `  cwd:       ${RAIZ_BACKEND}`,
-    `  salida:    ${salida} (existe: ${fs.existsSync(salida)})`,
-    `  exit code: ${estado.exitCode}`,
-    `  signal:    ${estado.signal}`,
-    `  errores previos: ${estado.errores.length ? estado.errores.join('\n    ') : '(ninguno)'}`,
-    '  ---- stdout completo ----',
-    estado.stdout || '(vacío)',
-    '  ---- stderr completo ----',
-    estado.stderr || '(vacío)',
-  ].join('\n');
-
-  const forzarCierre = async () => {
-    if (!estado.cerrado) { hijo.kill('SIGKILL'); await cerradoPromesa; }
-  };
-
-  const limite = Date.now() + ESPERA_ARRANQUE_MS;
-  while (!estado.stdout.includes('Servidor Korva corriendo') && !estado.cerrado && Date.now() < limite) {
-    await new Promise((r) => setTimeout(r, 50));
-  }
-  if (!estado.stdout.includes('Servidor Korva corriendo')) {
-    if (!estado.cerrado) estado.errores.push(`timeout de arranque (${ESPERA_ARRANQUE_MS} ms)`);
-    await forzarCierre();
-    throw new Error(diagnostico('El backend de prueba no arrancó'));
-  }
-
-  const reanudar = async () => {
-    const res = await fetch(`http://127.0.0.1:${puerto}/challenges/reanudar`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: U, challenge_id: 'c1' }),
-    });
-    return { status: res.status, body: await res.json() };
-  };
-
-  const cerrar = async () => {
-    if (!estado.cerrado) {
-      try {
-        hijo.send({ tipo: 'volcar' }, (e) => { if (e) estado.errores.push(`ipc send: ${e && e.stack}`); });
-      } catch (e) {
-        estado.errores.push(`ipc send: ${e && e.stack}`);
-      }
-      let temporizador;
-      const timeout = new Promise((r) => { temporizador = setTimeout(() => r('timeout'), ESPERA_CIERRE_MS); });
-      const r = await Promise.race([cerradoPromesa, timeout]);
-      clearTimeout(temporizador);
-      if (r === 'timeout') {
-        estado.errores.push(`el hijo no terminó ${ESPERA_CIERRE_MS} ms después de pedir el volcado`);
-        await forzarCierre();
-      }
-    }
-    if (!fs.existsSync(salida)) throw new Error(diagnostico('El proceso hijo terminó sin generar salida.json'));
-    let volcado;
-    try {
-      volcado = JSON.parse(fs.readFileSync(salida, 'utf8'));
-    } catch (e) {
-      estado.errores.push(`leer/parsear salida.json: ${e && e.stack}`);
-      throw new Error(diagnostico('salida.json existe pero no se pudo leer'));
-    }
-    fs.rmSync(dir, { recursive: true, force: true });
-    return { ...volcado, logs: estado.stdout + estado.stderr, exitCode: estado.exitCode, signal: estado.signal };
-  };
-  return { reanudar, cerrar, forzarCierre };
+  const reanudar = () => b.pedir({ metodo: 'POST', ruta: '/challenges/reanudar', body: { user_id: U, challenge_id: 'c1' } });
+  return { reanudar, cerrar: b.cerrar, forzarCierre: b.forzarCierre };
 };
 
 test('integración flag OFF: corre el código viejo (y muestra su bug: pierde la base)', async () => {
