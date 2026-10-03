@@ -1,9 +1,9 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import {
-  distanciaHaversineM, crearSesionGps, agregarPuntoGps,
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const {
+  distanciaHaversineM, normalizarPuntoGps, crearSesionGps, agregarPuntoGps,
   pausarSesionGps, reanudarSesionGps, finalizarSesionGps, resumenSesionGps,
-} from '../services/gps/gpsCore.js';
+} = require('../services/gps/gpsCore');
 
 const p = (latitude, longitude, timestamp, accuracy = 5) => ({ latitude, longitude, timestamp, accuracy });
 
@@ -78,4 +78,50 @@ test('finalizar conserva solo duracion activa y produce resumen estable', () => 
   assert.equal(r.sport_type, 'ride');
   assert.equal(r.puntos, 2);
   assert.ok(r.distancia_km > 0.011 && r.distancia_km < 0.012);
+});
+
+
+test('rechaza coordenadas invalidas', () => {
+  assert.equal(normalizarPuntoGps(p(91, 0, 1000)), null);
+  assert.equal(normalizarPuntoGps(p(0, 181, 1000)), null);
+  assert.equal(normalizarPuntoGps(p(0, 0, 0)), null);
+});
+
+test('timestamp fuera de orden reancla sin sumar un salto', () => {
+  let s = crearSesionGps({ ahoraMs: 1000 });
+  s = agregarPuntoGps(s, p(0, 0, 2000));
+  s = agregarPuntoGps(s, p(0, 0.001, 1500));
+  assert.equal(s.distanciaM, 0);
+  assert.equal(s.descartados.salto, 1);
+  assert.equal(s.puntos.length, 2);
+});
+
+test('gap largo reancla y no une dos tramos separados', () => {
+  let s = crearSesionGps({ ahoraMs: 1000 });
+  s = agregarPuntoGps(s, p(0, 0, 1000));
+  s = agregarPuntoGps(s, p(0, 0.001, 200000));
+  assert.equal(s.distanciaM, 0);
+  assert.equal(s.descartados.salto, 1);
+  s = agregarPuntoGps(s, p(0, 0.0011, 202000));
+  assert.ok(s.distanciaM > 11 && s.distanciaM < 12);
+});
+
+test('ignora puntos mientras esta pausada o finalizada', () => {
+  let s = crearSesionGps({ ahoraMs: 1000 });
+  s = agregarPuntoGps(s, p(0, 0, 1000));
+  s = pausarSesionGps(s, 2000);
+  const pausada = agregarPuntoGps(s, p(0, 0.001, 3000));
+  assert.equal(pausada.puntos.length, 1);
+  s = reanudarSesionGps(pausada, 4000);
+  s = finalizarSesionGps(s, 5000);
+  const finalizada = agregarPuntoGps(s, p(0, 0.002, 6000));
+  assert.equal(finalizada.puntos.length, 1);
+});
+
+test('micro movimientos terminan sumando al superar el umbral desde el ancla', () => {
+  let s = crearSesionGps({ ahoraMs: 1000 });
+  s = agregarPuntoGps(s, p(0, 0, 1000));
+  s = agregarPuntoGps(s, p(0, 0.000005, 2000));
+  s = agregarPuntoGps(s, p(0, 0.00003, 3000));
+  assert.ok(s.distanciaM > 3 && s.distanciaM < 4);
 });
