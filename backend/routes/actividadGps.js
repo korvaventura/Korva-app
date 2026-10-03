@@ -2,6 +2,7 @@ const express = require('express');
 const requireUser = require('../middleware/requireUser');
 const { registrarActividadGpsConMotor } = require('../lib/actividadGps');
 const { crearRepositorioSupabase } = require('../lib/progresoRepositorioSupabase');
+const { calcularDistanciaGpsServidor } = require('../lib/gpsValidacion');
 
 const DEPORTES = new Set(['run', 'walk', 'ride']);
 const SESSION_ID_RE = /^[A-Za-z0-9_-]{8,128}$/;
@@ -10,9 +11,9 @@ const crearActividadGpsRoutes = ({ supabase, procesadorEventos }) => {
   const router = express.Router();
 
   router.post('/', requireUser, async (req, res) => {
-    const { session_id, sport_type, distance_km, duration_seconds, recorded_at } = req.body || {};
-    const distancia = Number(distance_km);
+    const { session_id, sport_type, duration_seconds, recorded_at, puntos } = req.body || {};
     const duracion = Number(duration_seconds);
+    const recorrido = calcularDistanciaGpsServidor(puntos);
     const fecha = new Date(recorded_at);
 
     if (!SESSION_ID_RE.test(String(session_id || ''))) {
@@ -21,8 +22,8 @@ const crearActividadGpsRoutes = ({ supabase, procesadorEventos }) => {
     if (!DEPORTES.has(sport_type)) {
       return res.status(400).json({ error: 'Deporte inválido.' });
     }
-    if (!Number.isFinite(distancia) || distancia < 0.01 || distancia > 500) {
-      return res.status(400).json({ error: 'Distancia inválida.' });
+    if (!recorrido.ok || recorrido.distanciaKm > 500) {
+      return res.status(400).json({ error: 'Recorrido GPS inválido o insuficiente.' });
     }
     if (!Number.isFinite(duracion) || duracion < 1 || duracion > 7 * 24 * 3600) {
       return res.status(400).json({ error: 'Duración inválida.' });
@@ -41,7 +42,7 @@ const crearActividadGpsRoutes = ({ supabase, procesadorEventos }) => {
         userId: req.userId,
         sessionId: session_id,
         sportType: sport_type,
-        distanceKm: distancia,
+        distanceKm: recorrido.distanciaKm,
         durationSeconds: Math.round(duracion),
         recordedAt: fecha.toISOString(),
         dispararEfectos: (ids) => procesadorEventos.disparar(ids),
