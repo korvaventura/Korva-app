@@ -9,6 +9,7 @@ const invitacionesRoutes = require('./routes/invitaciones');
 const movimientoRoutes = require('./routes/movimiento');
 const residualAdminRoutes = require('./routes/residualAdmin');
 const progresoSombraAdminRoutes = require('./routes/progresoSombraAdmin');
+const progresoHealthSombraAdminRoutes = require('./routes/progresoHealthSombraAdmin');
 const { writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva, stravaWebhookMotorActiva } = require('./lib/flagsMotor');
 const { crearRepositorioSupabase } = require('./lib/progresoRepositorioSupabase');
 const { reanudarDesafioConMotor } = require('./lib/reanudarDesafio');
@@ -377,6 +378,7 @@ app.use('/invitaciones', invitacionesRoutes);
 app.use('/movimiento-diario', movimientoRoutes);
 app.use('/admin/residual', residualAdminRoutes); // Etapa 3: residual en modo sombra, solo admin, solo lectura
 app.use('/admin/progreso-sombra', progresoSombraAdminRoutes); // Etapa 4A: progreso unificado en modo sombra, solo admin, solo lectura
+app.use('/admin/progreso-health-sombra', progresoHealthSombraAdminRoutes); // Etapa 4B-1: Health + 4A en sombra, solo admin, solo lectura
 
 const enviarPushNotification = async (pushToken, title, body) => {
   try {
