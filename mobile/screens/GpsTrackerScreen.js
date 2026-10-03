@@ -46,10 +46,7 @@ export default function GpsTrackerScreen({ navigation }) {
   };
 
   const detenerWatcher = async () => {
-    if (watcherRef.current) {
-      watcherRef.current.remove();
-      watcherRef.current = null;
-    }
+    await detenerGpsBackground();
   };
 
   useEffect(() => {
@@ -79,27 +76,7 @@ export default function GpsTrackerScreen({ navigation }) {
 
   const escucharUbicacion = async () => {
     setEstadoGps('buscando');
-    const watcher = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.High,
-        distanceInterval: 3,
-        timeInterval: 1000,
-      },
-      (loc) => {
-        const coords = loc?.coords;
-        if (!coords || !sesionRef.current) return;
-        setPrecision(Number.isFinite(coords.accuracy) ? Math.round(coords.accuracy) : null);
-        setEstadoGps('senal');
-        const siguiente = agregarPuntoGps(sesionRef.current, {
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-          accuracy: coords.accuracy,
-          timestamp: loc.timestamp || Date.now(),
-        });
-        if (siguiente !== sesionRef.current) publicar(siguiente);
-      }
-    );
-    watcherRef.current = watcher;
+    await iniciarGpsBackground();
   };
 
   const iniciar = async () => {
