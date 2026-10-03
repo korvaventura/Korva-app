@@ -4,6 +4,7 @@ const { decidirAccion, ACCIONES } = require('../lib/progresoDecision');
 const { evaluarElegibilidadDia } = require('../lib/progresoHealthSombra');
 const { calcularProgresoChallengeHealth } = require('../lib/progresoHealth');
 const { recalcularProgresoUsuario, MODOS } = require('../lib/progresoServicio');
+const { recalcularConReintentos } = require('../lib/recuperacionRecalculo');
 
 const ucBase = (extra = {}) => ({
   id: 'uc1', user_id: 'u1', challenge_id: 'c1', status: 'active',
@@ -86,4 +87,29 @@ test('servicio con Health apagado conserva camino 4A y no necesita dailyMovement
   const informe = await recalcularProgresoUsuario({ repo, userId: 'u1', motivo: 'test', modo: MODOS.SIMULAR });
   assert.equal(opcionesLeidas.incluirHealth, false);
   assert.equal(informe.desafios[0].km_nuevo, 0);
+});
+
+
+test('4B-3: recalculo unificado propaga incluirHealth y evita divergencia con recuperación', async () => {
+  const uc = ucBase({ km_completed: 0 });
+  let opcionesLeidas;
+  const repo = {
+    leerEstadoUsuario: async (_userId, opciones) => {
+      opcionesLeidas = opciones;
+      return {
+        userChallenges: [uc], challenges: new Map([['c1', challenge]]), actividades: [],
+        dailyMovement: [{ fecha: '2026-09-20', timezone: 'UTC', distancia_caminando_km: 10, distancia_bici_km: 0, updated_at: '2026-09-21T01:00:00Z' }],
+      };
+    },
+    actualizarKmCAS: async () => true,
+    completarCAS: async () => { throw new Error('no debe completar'); },
+    registrarEvento: async () => ({ creado: false, id: null }),
+  };
+  const r = await recalcularConReintentos({
+    repo, userId: 'u1', motivo: 'test_4b3', incluirHealth: true,
+    ahoraMs: Date.parse('2026-09-21T12:00:00Z'), esperasMs: [0],
+  });
+  assert.equal(r.ok, true);
+  assert.equal(opcionesLeidas.incluirHealth, true);
+  assert.equal(r.informe.desafios[0].km_nuevo, 10);
 });
