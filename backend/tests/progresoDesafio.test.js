@@ -399,7 +399,9 @@ test('solo lectura: el cliente envuelto no expone escrituras ni otras tablas', (
   assert.equal(typeof q.select, 'function');
   for (const m of ['insert', 'update', 'upsert', 'delete']) assert.equal(q[m], undefined, m);
   assert.equal(db.rpc, undefined);
-  assert.throws(() => db.from('daily_movement'), /no permitida/);
+  const qHealth = db.from('daily_movement');
+  assert.equal(typeof qHealth.select, 'function');
+  for (const m of ['insert', 'update', 'upsert', 'delete']) assert.equal(qHealth[m], undefined, `daily_movement.${m}`);
   assert.throws(() => db.from('users'), /no permitida/);
   assert.ok(Object.isFrozen(db));
 });
