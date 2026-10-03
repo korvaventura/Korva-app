@@ -9,7 +9,7 @@ const { levantarBackend: levantarBackendHijo } = require('./helpers/backendHijo'
 const { crearRepositorioSupabase } = require('../lib/progresoRepositorioSupabase');
 const { reanudarDesafioConMotor } = require('../lib/reanudarDesafio');
 const { recalcularProgresoUsuario, MODOS } = require('../lib/progresoServicio');
-const { writerMotorActivo, writersActivos } = require('../lib/flagsMotor');
+const { writerMotorActivo, writersActivos, healthMotorActivo } = require('../lib/flagsMotor');
 const { recuperarRecalculosPendientes, iniciarRecuperacionPeriodica, iniciarRecuperacion } = require('../lib/recuperacionRecalculo');
 
 // ---------------------------------------------------------------------------
@@ -59,6 +59,14 @@ test('flag: apagada por defecto; se enciende solo con "reanudar" explícito', ()
   assert.equal(writerMotorActivo('reanudar', { MOTOR_PROGRESO_WRITERS: ' Reanudar , otro ' }), true);
   assert.equal(writerMotorActivo('reanudar', { MOTOR_PROGRESO_WRITERS: 'reanudarx,manual' }), false);
   assert.deepEqual(writersActivos({ MOTOR_PROGRESO_WRITERS: 'manual,strava,reanudar' }), ['reanudar']); // solo writers conocidos
+});
+
+test('flag Health: OFF por defecto y ON solo con MOTOR_PROGRESO_HEALTH=1', () => {
+  assert.equal(healthMotorActivo({}), false);
+  assert.equal(healthMotorActivo({ MOTOR_PROGRESO_HEALTH: '' }), false);
+  assert.equal(healthMotorActivo({ MOTOR_PROGRESO_HEALTH: '0' }), false);
+  assert.equal(healthMotorActivo({ MOTOR_PROGRESO_HEALTH: 'true' }), false);
+  assert.equal(healthMotorActivo({ MOTOR_PROGRESO_HEALTH: ' 1 ' }), true);
 });
 
 // ---------------------------------------------------------------------------
