@@ -5,11 +5,11 @@ const { agregarPuntoGps, tickSesionGps } = gpsCore;
 
 const GPS_SESSION_KEY = '@korva/gps_session_v1';
 
-const sesionRecuperable = (sesion) =>
-  sesion && (sesion.estado === 'grabando' || sesion.estado === 'pausada');
+const sesionPersistible = (sesion) =>
+  sesion && ['grabando', 'pausada', 'finalizada'].includes(sesion.estado);
 
 export const guardarSesionGpsLocal = async (sesion) => {
-  if (!sesionRecuperable(sesion)) {
+  if (!sesionPersistible(sesion)) {
     await AsyncStorage.removeItem(GPS_SESSION_KEY);
     return;
   }
@@ -21,7 +21,7 @@ export const recuperarSesionGpsLocal = async () => {
     const raw = await AsyncStorage.getItem(GPS_SESSION_KEY);
     if (!raw) return null;
     const sesion = JSON.parse(raw);
-    if (!sesionRecuperable(sesion) || !Array.isArray(sesion.puntos)) {
+    if (!sesionPersistible(sesion) || !Array.isArray(sesion.puntos)) {
       await AsyncStorage.removeItem(GPS_SESSION_KEY);
       return null;
     }
