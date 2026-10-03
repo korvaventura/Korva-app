@@ -16,8 +16,13 @@ export const confirmarActividadGps = async (sesion, resumen) => {
     body: JSON.stringify({
       session_id: sesion.sessionId,
       sport_type: resumen.sport_type,
-      distance_km: resumen.distancia_km,
       duration_seconds: resumen.duration_seconds,
+      puntos: (sesion.puntos || []).map((p) => ({
+        latitude: p.latitude,
+        longitude: p.longitude,
+        accuracy: p.accuracy,
+        timestamp: p.timestamp,
+      })),
       recorded_at: new Date(sesion.iniciadaAt).toISOString(),
     }),
   });
