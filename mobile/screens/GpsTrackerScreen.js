@@ -133,7 +133,10 @@ export default function GpsTrackerScreen({ navigation }) {
   };
 
   const reanudar = async () => {
-    publicar(reanudarSesionGps(sesionRef.current, Date.now()));
+    const ultima = (await leerSesionGpsLocal()) || sesionRef.current;
+    const reanudada = reanudarSesionGps(ultima, Date.now());
+    await guardarSesionGpsLocal(reanudada);
+    publicar(reanudada, { persistir: false });
     setAhoraMs(Date.now());
     try {
       await escucharUbicacion();
