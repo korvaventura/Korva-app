@@ -37,6 +37,7 @@ export default function GpsTrackerScreen({ navigation }) {
   const [estadoGps, setEstadoGps] = useState('listo');
   const [precision, setPrecision] = useState(null);
   const [ahoraMs, setAhoraMs] = useState(Date.now());
+  const [deporte, setDeporte] = useState('run');
 
   const publicar = (s, { persistir = true } = {}) => {
     sesionRef.current = s;
@@ -53,6 +54,7 @@ export default function GpsTrackerScreen({ navigation }) {
     recuperarSesionGpsLocal().then((recuperada) => {
       if (!activa || !recuperada) return;
       publicar(recuperada, { persistir: false });
+      setDeporte(recuperada.deporte || 'run');
       setEstadoGps(recuperada.estado === 'grabando' ? 'senal' : 'pausado');
       setPrecision(recuperada.ultimoPunto?.accuracy != null ? Math.round(recuperada.ultimoPunto.accuracy) : null);
       setAhoraMs(Date.now());
@@ -109,7 +111,7 @@ export default function GpsTrackerScreen({ navigation }) {
         Alert.alert('Ubicación en segundo plano', 'Korva necesita permiso de ubicación Siempre para medir mientras bloqueás la pantalla.');
         return;
       }
-      const nueva = crearSesionGps({ deporte: 'run', ahoraMs: Date.now() });
+      const nueva = crearSesionGps({ deporte, ahoraMs: Date.now() });
       await guardarSesionGpsLocal(nueva);
       publicar(nueva, { persistir: false });
       setAhoraMs(Date.now());
@@ -163,12 +165,23 @@ export default function GpsTrackerScreen({ navigation }) {
       ) / 1000)
     : resumenBase.duration_seconds;
 
-  const etiquetaGps = estadoGps === 'buscando' ? 'Buscando señal GPS…'
-    : estadoGps === 'senal' ? `GPS activo${precision != null ? ` · ±${precision} m` : ''}`
+  const etiquetaGps = estadoGps === 'buscando' ? 'Buscando GPS · puede tardar unos segundos'
+    : estadoGps === 'senal' ? `GPS listo ✓${precision != null ? ` · ±${precision} m` : ''}`
     : estadoGps === 'pausado' ? 'Actividad pausada'
     : estadoGps === 'finalizado' ? 'Actividad finalizada'
     : estadoGps === 'error' ? 'GPS no disponible'
     : 'Listo para salir';
+
+  const nombreDeporte = deporte === 'walk' ? 'Caminar' : deporte === 'ride' ? 'Bici' : 'Correr';
+  const velocidadKmh = resumenBase.duration_seconds > 0
+    ? resumenBase.distancia_km / (resumenBase.duration_seconds / 3600)
+    : 0;
+  const ritmoSegKm = resumenBase.distancia_km > 0
+    ? resumenBase.duration_seconds / resumenBase.distancia_km
+    : 0;
+  const ritmoTexto = ritmoSegKm > 0 && Number.isFinite(ritmoSegKm)
+    ? `${Math.floor(ritmoSegKm / 60)}:${String(Math.round(ritmoSegKm % 60)).padStart(2, '0')} /km`
+    : '--';
 
   return (
     <View style={styles.container}>
@@ -179,6 +192,25 @@ export default function GpsTrackerScreen({ navigation }) {
         <Text style={styles.headerTitle}>Actividad GPS</Text>
         <View style={styles.back} />
       </View>
+
+      {!sesion && (
+        <View style={styles.sportRow}>
+          {[
+            ['run', 'Correr', 'walk-outline'],
+            ['walk', 'Caminar', 'footsteps-outline'],
+            ['ride', 'Bici', 'bicycle-outline'],
+          ].map(([value, label, icon]) => (
+            <TouchableOpacity
+              key={value}
+              style={[styles.sportOption, deporte === value && styles.sportOptionActive]}
+              onPress={() => setDeporte(value)}
+            >
+              <Ionicons name={icon} size={18} color={deporte === value ? '#FFFFFF' : '#A8CFFF'} />
+              <Text style={[styles.sportText, deporte === value && styles.sportTextActive]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       <View style={styles.statusRow}>
         <View style={[styles.dot, estadoGps === 'senal' && styles.dotActivo]} />
@@ -206,7 +238,7 @@ export default function GpsTrackerScreen({ navigation }) {
       <View style={styles.note}>
         <Ionicons name="shield-checkmark-outline" size={20} color="#A8CFFF" />
         <Text style={styles.noteText}>
-          El GPS sigue registrando si bloqueás la pantalla o usás otra app. Finalizar todavía no modifica tus desafíos.
+          El GPS sigue registrando si bloqueás la pantalla o usás otra app. Al finalizar podrás revisar la actividad antes de confirmarla.
         </Text>
       </View>
 
@@ -245,9 +277,48 @@ export default function GpsTrackerScreen({ navigation }) {
         )}
 
         {sesion?.estado === 'finalizada' && (
-          <TouchableOpacity style={styles.primary} onPress={() => { publicar(null); borrarSesionGpsLocal().catch(() => {}); setEstadoGps('listo'); setPrecision(null); }}>
-            <Text style={styles.primaryText}>Nueva prueba</Text>
-          </TouchableOpacity>
+          <View>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryTitle}>Resumen de actividad</Text>
+              <Text style={styles.summarySport}>{nombreDeporte}</Text>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryValue}>{resumenBase.distancia_km.toFixed(2)} km</Text>
+                  <Text style={styles.summaryLabel}>DISTANCIA</Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryValue}>{formatearTiempo(resumenBase.duration_seconds)}</Text>
+                  <Text style={styles.summaryLabel}>TIEMPO ACTIVO</Text>
+                </View>
+              </View>
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryValue}>{deporte === 'ride' ? `${velocidadKmh.toFixed(1)} km/h` : ritmoTexto}</Text>
+                  <Text style={styles.summaryLabel}>{deporte === 'ride' ? 'VELOCIDAD MEDIA' : 'RITMO MEDIO'}</Text>
+                </View>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryValue}>{resumenBase.puntos}</Text>
+                  <Text style={styles.summaryLabel}>PUNTOS GPS</Text>
+                </View>
+              </View>
+            </View>
+            <View style={styles.controlRow}>
+              <TouchableOpacity style={styles.secondary} onPress={() => {
+                publicar(null);
+                borrarSesionGpsLocal().catch(() => {});
+                setEstadoGps('listo');
+                setPrecision(null);
+              }}>
+                <Text style={styles.secondaryText}>Descartar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.primarySmall} onPress={() => {
+                Alert.alert('Actividad lista', 'La confirmación con Korva se conectará al motor en el próximo paso. Todavía no se guardó ni sumó kilómetros.');
+              }}>
+                <Ionicons name="checkmark" size={22} color="#FFFFFF" />
+                <Text style={styles.secondaryText}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
       </View>
     </View>
@@ -259,6 +330,11 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
+  sportRow: { flexDirection: 'row', gap: 8, marginTop: 24 },
+  sportOption: { flex: 1, height: 46, borderRadius: 14, backgroundColor: '#0D1B2A', flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
+  sportOptionActive: { backgroundColor: '#1E6FD9' },
+  sportText: { color: '#A8CFFF', fontSize: 12, fontWeight: '700' },
+  sportTextActive: { color: '#FFFFFF' },
   statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 30 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#617184', marginRight: 8 },
   dotActivo: { backgroundColor: '#4CAF50' },
@@ -274,6 +350,13 @@ const styles = StyleSheet.create({
   divider: { width: 1, height: 38, backgroundColor: '#1E3A5F' },
   note: { flexDirection: 'row', gap: 10, backgroundColor: '#0D1B2A', borderRadius: 14, padding: 15, marginTop: 18, alignItems: 'center' },
   noteText: { color: '#A8CFFF', fontSize: 12, lineHeight: 17, flex: 1 },
+  summaryCard: { backgroundColor: '#0D1B2A', borderRadius: 18, padding: 18, marginBottom: 12 },
+  summaryTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
+  summarySport: { color: '#A8CFFF', fontSize: 13, marginTop: 3, marginBottom: 16 },
+  summaryRow: { flexDirection: 'row', marginTop: 10 },
+  summaryItem: { flex: 1 },
+  summaryValue: { color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
+  summaryLabel: { color: '#617184', fontSize: 9, fontWeight: '700', letterSpacing: 1, marginTop: 4 },
   controls: { marginTop: 'auto', paddingBottom: 38 },
   primary: { height: 58, borderRadius: 18, backgroundColor: '#1E6FD9', flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center' },
   primaryText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
