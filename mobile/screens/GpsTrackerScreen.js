@@ -32,7 +32,6 @@ const formatearTiempo = (segundos) => {
 
 export default function GpsTrackerScreen({ navigation }) {
   const sesionRef = useRef(null);
-  const watcherRef = useRef(null);
   const timerRef = useRef(null);
   const [sesion, setSesion] = useState(null);
   const [estadoGps, setEstadoGps] = useState('listo');
@@ -158,7 +157,10 @@ export default function GpsTrackerScreen({ navigation }) {
 
   const resumenBase = resumenSesionGps(sesion);
   const segundosVista = sesion?.estado === 'grabando'
-    ? Math.round((sesion.duracionActivaMs + Math.max(0, ahoraMs - sesion.ultimoTickMs)) / 1000)
+    ? Math.round((
+        sesion.duracionActivaMs +
+        Math.max(0, ahoraMs - (sesion.tramoActivoDesdeMs || sesion.ultimoTickMs || ahoraMs))
+      ) / 1000)
     : resumenBase.duration_seconds;
 
   const etiquetaGps = estadoGps === 'buscando' ? 'Buscando señal GPS…'
