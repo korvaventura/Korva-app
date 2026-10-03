@@ -125,3 +125,20 @@ test('micro movimientos terminan sumando al superar el umbral desde el ancla', (
   s = agregarPuntoGps(s, p(0, 0.00003, 3000));
   assert.ok(s.distanciaM > 3 && s.distanciaM < 4);
 });
+
+
+test('duracion activa larga no queda limitada por frecuencia GPS', () => {
+  const inicio = 1_700_000_000_000;
+  let sesion = crearSesionGps({ ahoraMs: inicio });
+  sesion = pausarSesionGps(sesion, inicio + 10 * 60 * 1000);
+  assert.equal(resumenSesionGps(sesion).duration_seconds, 600);
+});
+
+test('duracion excluye pausas largas entre dos tramos', () => {
+  const inicio = 1_700_000_000_000;
+  let sesion = crearSesionGps({ ahoraMs: inicio });
+  sesion = pausarSesionGps(sesion, inicio + 5 * 60 * 1000);
+  sesion = reanudarSesionGps(sesion, inicio + 35 * 60 * 1000);
+  sesion = finalizarSesionGps(sesion, inicio + 40 * 60 * 1000);
+  assert.equal(resumenSesionGps(sesion).duration_seconds, 600);
+});
