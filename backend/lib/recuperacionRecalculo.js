@@ -11,6 +11,7 @@
 // efectos de progreso_eventos: primero los que creó la misma ronda y después los pendientes, con
 // error ya vencido o con lease vencido. Así una caída después de completar converge sola.
 const { recalcularProgresoUsuario, MODOS } = require('./progresoServicio');
+const { healthMotorActivo } = require('./flagsMotor');
 
 const ESPERAS_REINTENTO_MS = [0, 250, 1000]; // 3 intentos dentro del mismo pedido
 const ANTIGUEDAD_MINIMA_MS = 2 * 60 * 1000;  // no tocar marcas de pedidos que pueden estar en curso
@@ -47,7 +48,7 @@ const logMotor = (datos) => {
  */
 const recalcularConReintentos = async ({
   repo, userId, challengeId = null, marcasALimpiar, ucId, marcaIso, motivo, ahoraMs,
-  esperasMs = ESPERAS_REINTENTO_MS, esperar = dormir,
+  incluirHealth = healthMotorActivo(), esperasMs = ESPERAS_REINTENTO_MS, esperar = dormir,
 }) => {
   const marcas = marcasALimpiar || (ucId ? [{ id: ucId, marca: marcaIso }] : []);
   let ultimoError = null;
@@ -55,7 +56,7 @@ const recalcularConReintentos = async ({
     if (esperasMs[i] > 0) await esperar(esperasMs[i]);
     try {
       const informe = await recalcularProgresoUsuario({
-        repo, userId, challengeId, motivo, modo: MODOS.ESCRIBIR, ahoraMs: ahoraMs ?? Date.now(),
+        repo, userId, challengeId, motivo, modo: MODOS.ESCRIBIR, incluirHealth, ahoraMs: ahoraMs ?? Date.now(),
       });
       if (informe.conflictos_sin_resolver.length > 0) {
         ultimoError = new Error('conflictos_sin_resolver');
