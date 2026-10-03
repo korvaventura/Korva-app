@@ -27,7 +27,12 @@
         "backgroundColor": "#0D1B2A"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.korva.mobile"
+      "package": "com.korva.mobile",
+      "permissions": [
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_DISTANCE",
+        "android.permission.health.READ_EXERCISE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

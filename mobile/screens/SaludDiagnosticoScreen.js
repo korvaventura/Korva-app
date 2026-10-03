@@ -1,8 +1,8 @@
-// Pantalla TEMPORAL de diagnóstico de Apple Health. Solo para admins.
+// Pantalla TEMPORAL de diagnóstico de Salud (Apple Health / Health Connect). Solo admins.
 // Muestra lo que Korva puede leer de Salud. No guarda ni envía nada:
 // solo comparte un texto si el admin toca "Compartir diagnóstico".
 import { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Share, Alert, Switch } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Share, Alert, Switch, Platform } from 'react-native';
 import { estadoSalud, conectar, leerDiagnostico, plataformaSoportada } from '../services/health/healthkitDiagnostico';
 import { construirPayload, enviarMovimiento } from '../services/health/movimientoSync';
 import { autoSyncActivado, setAutoSyncActivado, leerEstadoAutoSync } from '../services/health/syncAutomatico';
@@ -11,11 +11,12 @@ import { supabase } from '../supabase';
 const CLAVES = ['caminando', 'bici', 'pasos'];
 const ETIQUETAS = { caminando: 'Caminando/corriendo', bici: 'Bici', pasos: 'Pasos' };
 const UNIDADES = { caminando: 'km', bici: 'km', pasos: 'pasos' };
+const NOMBRE_SALUD = Platform.OS === 'android' ? 'Health Connect' : 'Apple Health';
 
 const TEXTO_PERMISO = {
   no_disponible: 'Salud no está disponible en este dispositivo',
   no_pedido: 'Todavía no se pidió permiso',
-  ya_pedido: 'El pedido de permiso ya se mostró (Apple no informa si se aceptó)',
+  ya_pedido: Platform.OS === 'android' ? 'Permisos de lectura concedidos' : 'El pedido de permiso ya se mostró (Apple no informa si se aceptó)',
   desconocido: 'Estado del permiso desconocido',
 };
 
@@ -53,7 +54,7 @@ const armarTextoCompartir = (diag, sync, estadoAuto) => {
     ...Object.fromEntries(CLAVES.map((clave) => [clave, comparar(dia, clave)])),
   }));
   return [
-    'Diagnóstico Apple Health — Korva (temporal, solo admin)',
+    `Diagnóstico ${NOMBRE_SALUD} — Korva (temporal, solo admin)`,
     `Generado: ${diag.generado}`,
     `Zona horaria: ${diag.zonaHoraria}`,
     `Período: ${diag.desde} a ${diag.hasta}`,
@@ -191,7 +192,7 @@ export default function SaludDiagnosticoScreen({ navigation }) {
         <Text style={styles.volverTexto}>← Volver</Text>
       </TouchableOpacity>
 
-      <Text style={styles.titulo}>❤️ Diagnóstico Apple Health</Text>
+      <Text style={styles.titulo}>❤️ Diagnóstico {NOMBRE_SALUD}</Text>
       <Text style={styles.aviso}>
         Pantalla temporal, solo para admins. La lectura de Salud es local. Solo se envían datos a Korva si tocás manualmente “Sincronizar con daily_movement”.
       </Text>
@@ -199,7 +200,7 @@ export default function SaludDiagnosticoScreen({ navigation }) {
       <View style={styles.card}>
         <Text style={styles.cardTitulo}>Estado</Text>
         {!plataformaSoportada ? (
-          <Text style={styles.texto}>Solo disponible en iPhone.</Text>
+          <Text style={styles.texto}>Salud no disponible en esta plataforma.</Text>
         ) : !estado ? (
           <ActivityIndicator color="#FC4C02" />
         ) : (
@@ -213,7 +214,7 @@ export default function SaludDiagnosticoScreen({ navigation }) {
       {plataformaSoportada && estado?.disponible && (
         <View style={styles.botones}>
           <TouchableOpacity style={styles.boton} onPress={onConectar}>
-            <Text style={styles.botonTexto}>Conectar Apple Health</Text>
+            <Text style={styles.botonTexto}>Conectar {NOMBRE_SALUD}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.boton} onPress={onLeer} disabled={cargando}>
             <Text style={styles.botonTexto}>{cargando ? 'Leyendo…' : 'Leer últimos 7 días'}</Text>
@@ -245,7 +246,7 @@ export default function SaludDiagnosticoScreen({ navigation }) {
             Envía los últimos 7 días al abrir la app o al volver a ella. No pide permisos: usa el permiso ya dado.
           </Text>
           {estado.estadoPermiso !== 'ya_pedido' && (
-            <Text style={styles.error}>Primero tocá "Conectar Apple Health"; sin eso el sync automático no corre.</Text>
+            <Text style={styles.error}>Primero conectá {NOMBRE_SALUD}; sin permiso el sync automático no corre.</Text>
           )}
           <Text style={styles.desgloseTitulo}>Último sync automático</Text>
           {!estadoAuto ? (

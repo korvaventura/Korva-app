@@ -8,6 +8,7 @@
 // Comportamiento del backend (verificado en backend/routes/movimiento.js):
 // upsert por (user_id, fecha) que REEMPLAZA los valores del día con los recibidos.
 // No aplica ningún máximo contra el valor anterior.
+import { Platform } from 'react-native';
 import { supabase } from '../../supabase';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
@@ -106,7 +107,7 @@ export function construirPayload(diag, { origen = 'diagnostico_manual_v1' } = {}
 
   if (dias.length > 0) {
     // Sin user_id (el backend lo toma del token) y sin distancia_km_total (lo calcula el backend).
-    resultado.payload = { plataforma: 'apple_health', timezone: diag.zonaHoraria, dias };
+    resultado.payload = { plataforma: Platform.OS === 'android' ? 'health_connect' : 'apple_health', timezone: diag.zonaHoraria, dias };
   }
   return resultado;
 }

@@ -63,7 +63,7 @@ async function guardarEstado(userId, previo, cambios) {
 }
 
 export async function ejecutarSyncAutomatico(userId) {
-  if (Platform.OS !== 'ios' || !plataformaSoportada || !userId) {
+  if (!['ios', 'android'].includes(Platform.OS) || !plataformaSoportada || !userId) {
     return { ejecutado: false, motivo: 'no_disponible' };
   }
   if (enCurso) return { ejecutado: false, motivo: 'en_curso' };

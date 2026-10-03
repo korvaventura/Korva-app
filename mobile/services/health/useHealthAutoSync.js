@@ -13,7 +13,7 @@ const DEMORA_INICIO_MS = 5000;
 
 export default function useHealthAutoSync(userId) {
   useEffect(() => {
-    if (Platform.OS !== 'ios' || !userId) return undefined;
+    if (!['ios', 'android'].includes(Platform.OS) || !userId) return undefined;
 
     let cancelado = false;
     const disparar = () => {
