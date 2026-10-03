@@ -9,7 +9,7 @@ const { levantarBackend: levantarBackendHijo } = require('./helpers/backendHijo'
 const { crearRepositorioSupabase } = require('../lib/progresoRepositorioSupabase');
 const { reanudarDesafioConMotor } = require('../lib/reanudarDesafio');
 const { recalcularProgresoUsuario, MODOS } = require('../lib/progresoServicio');
-const { writerMotorActivo, writersActivos, healthMotorActivo } = require('../lib/flagsMotor');
+const { writerMotorActivo, writersActivos, healthMotorActivo, gpsMotorActivo } = require('../lib/flagsMotor');
 const { recuperarRecalculosPendientes, iniciarRecuperacionPeriodica, iniciarRecuperacion } = require('../lib/recuperacionRecalculo');
 
 // ---------------------------------------------------------------------------
@@ -67,6 +67,14 @@ test('flag Health: OFF por defecto y ON solo con MOTOR_PROGRESO_HEALTH=1', () =>
   assert.equal(healthMotorActivo({ MOTOR_PROGRESO_HEALTH: '0' }), false);
   assert.equal(healthMotorActivo({ MOTOR_PROGRESO_HEALTH: 'true' }), false);
   assert.equal(healthMotorActivo({ MOTOR_PROGRESO_HEALTH: ' 1 ' }), true);
+});
+
+test('flag GPS: OFF por defecto, estricta y requiere efectos', () => {
+  assert.equal(gpsMotorActivo({}), false);
+  assert.equal(gpsMotorActivo({ MOTOR_PROGRESO_GPS: '1', MOTOR_PROGRESO_WRITERS: 'efectos' }), true);
+  assert.equal(gpsMotorActivo({ MOTOR_PROGRESO_GPS: '1', MOTOR_PROGRESO_WRITERS: '' }), false);
+  assert.equal(gpsMotorActivo({ MOTOR_PROGRESO_GPS: '0', MOTOR_PROGRESO_WRITERS: 'efectos' }), false);
+  assert.equal(gpsMotorActivo({ MOTOR_PROGRESO_GPS: 'true', MOTOR_PROGRESO_WRITERS: 'efectos' }), false);
 });
 
 // ---------------------------------------------------------------------------
