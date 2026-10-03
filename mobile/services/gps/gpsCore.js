@@ -2,7 +2,7 @@
 // No accede a ubicación, red ni Supabase: recibe puntos y decide qué distancia aceptar.
 // Esto permite probar la lógica antes de conectar expo-location.
 
-export const GPS_CONFIG = Object.freeze({
+const GPS_CONFIG = Object.freeze({
   maxAccuracyM: 35,
   minSegmentM: 3,
   maxSpeedMps: 15,
@@ -11,7 +11,7 @@ export const GPS_CONFIG = Object.freeze({
 
 const rad = (grados) => (grados * Math.PI) / 180;
 
-export const distanciaHaversineM = (a, b) => {
+const distanciaHaversineM = (a, b) => {
   if (!a || !b) return 0;
   const R = 6371000;
   const dLat = rad(b.latitude - a.latitude);
@@ -26,7 +26,7 @@ export const distanciaHaversineM = (a, b) => {
 
 const numeroFinito = (v) => typeof v === 'number' && Number.isFinite(v);
 
-export const normalizarPuntoGps = (punto) => {
+const normalizarPuntoGps = (punto) => {
   if (!punto) return null;
   const latitude = Number(punto.latitude);
   const longitude = Number(punto.longitude);
@@ -41,7 +41,7 @@ export const normalizarPuntoGps = (punto) => {
   return { latitude, longitude, accuracy, timestamp };
 };
 
-export const crearSesionGps = ({ deporte = 'run', ahoraMs = Date.now() } = {}) => ({
+const crearSesionGps = ({ deporte = 'run', ahoraMs = Date.now() } = {}) => ({
   estado: 'grabando',
   deporte,
   iniciadaAt: ahoraMs,
@@ -54,30 +54,30 @@ export const crearSesionGps = ({ deporte = 'run', ahoraMs = Date.now() } = {}) =
   descartados: { precision: 0, salto: 0, minimo: 0, invalido: 0 },
 });
 
-export const tickSesionGps = (sesion, ahoraMs = Date.now()) => {
+const tickSesionGps = (sesion, ahoraMs = Date.now()) => {
   if (!sesion || sesion.estado !== 'grabando') return sesion;
   const delta = Math.max(0, Math.min(ahoraMs - sesion.ultimoTickMs, GPS_CONFIG.maxGapMs));
   return { ...sesion, duracionActivaMs: sesion.duracionActivaMs + delta, ultimoTickMs: ahoraMs };
 };
 
-export const pausarSesionGps = (sesion, ahoraMs = Date.now()) => {
+const pausarSesionGps = (sesion, ahoraMs = Date.now()) => {
   if (!sesion || sesion.estado !== 'grabando') return sesion;
   const actualizada = tickSesionGps(sesion, ahoraMs);
   return { ...actualizada, estado: 'pausada', ultimoPunto: null };
 };
 
-export const reanudarSesionGps = (sesion, ahoraMs = Date.now()) => {
+const reanudarSesionGps = (sesion, ahoraMs = Date.now()) => {
   if (!sesion || sesion.estado !== 'pausada') return sesion;
   return { ...sesion, estado: 'grabando', ultimoTickMs: ahoraMs, ultimoPunto: null };
 };
 
-export const finalizarSesionGps = (sesion, ahoraMs = Date.now()) => {
+const finalizarSesionGps = (sesion, ahoraMs = Date.now()) => {
   if (!sesion || sesion.estado === 'finalizada') return sesion;
   const actualizada = sesion.estado === 'grabando' ? tickSesionGps(sesion, ahoraMs) : sesion;
   return { ...actualizada, estado: 'finalizada', finalizadaAt: ahoraMs, ultimoPunto: null };
 };
 
-export const agregarPuntoGps = (sesion, entrada, config = GPS_CONFIG) => {
+const agregarPuntoGps = (sesion, entrada, config = GPS_CONFIG) => {
   if (!sesion || sesion.estado !== 'grabando') return sesion;
   const punto = normalizarPuntoGps(entrada);
   if (!punto) {
@@ -119,9 +119,23 @@ export const agregarPuntoGps = (sesion, entrada, config = GPS_CONFIG) => {
   };
 };
 
-export const resumenSesionGps = (sesion) => ({
+const resumenSesionGps = (sesion) => ({
   distancia_km: Number(((sesion?.distanciaM || 0) / 1000).toFixed(4)),
   duration_seconds: Math.round((sesion?.duracionActivaMs || 0) / 1000),
   sport_type: sesion?.deporte || 'run',
   puntos: sesion?.puntos?.length || 0,
 });
+
+
+module.exports = {
+  GPS_CONFIG,
+  distanciaHaversineM,
+  normalizarPuntoGps,
+  crearSesionGps,
+  tickSesionGps,
+  pausarSesionGps,
+  reanudarSesionGps,
+  finalizarSesionGps,
+  agregarPuntoGps,
+  resumenSesionGps,
+};
