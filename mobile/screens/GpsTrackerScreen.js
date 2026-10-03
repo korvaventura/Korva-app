@@ -60,7 +60,6 @@ export default function GpsTrackerScreen({ navigation }) {
     });
     return () => {
       activa = false;
-      detenerWatcher();
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
@@ -126,7 +125,10 @@ export default function GpsTrackerScreen({ navigation }) {
 
   const pausar = async () => {
     await detenerWatcher();
-    publicar(pausarSesionGps(sesionRef.current, Date.now()));
+    const ultima = (await leerSesionGpsLocal()) || sesionRef.current;
+    const pausada = pausarSesionGps(ultima, Date.now());
+    await guardarSesionGpsLocal(pausada);
+    publicar(pausada, { persistir: false });
     setEstadoGps('pausado');
   };
 
@@ -144,7 +146,8 @@ export default function GpsTrackerScreen({ navigation }) {
 
   const finalizar = async () => {
     await detenerWatcher();
-    const fin = finalizarSesionGps(sesionRef.current, Date.now());
+    const ultima = (await leerSesionGpsLocal()) || sesionRef.current;
+    const fin = finalizarSesionGps(ultima, Date.now());
     publicar(fin, { persistir: false });
     await borrarSesionGpsLocal();
     setEstadoGps('finalizado');
@@ -198,7 +201,7 @@ export default function GpsTrackerScreen({ navigation }) {
       <View style={styles.note}>
         <Ionicons name="shield-checkmark-outline" size={20} color="#A8CFFF" />
         <Text style={styles.noteText}>
-          Tu sesión se conserva si salís de esta pantalla. Finalizar todavía no modifica tus desafíos.
+          El GPS sigue registrando si bloqueás la pantalla o usás otra app. Finalizar todavía no modifica tus desafíos.
         </Text>
       </View>
 
