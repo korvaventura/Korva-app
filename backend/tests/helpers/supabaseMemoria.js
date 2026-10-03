@@ -16,6 +16,8 @@
 // Migración "versión del desafío" (probada en Postgres real), imitada acá:
 //  - trg_sincronizar_version_modalidad: espejo modalidad ↔ version en INSERT y en UPDATE que nombre
 //    alguna de las dos (manda la que cambió; si cambian las dos deben coincidir → 23514).
+// Migración 4A-8: rpc('guardar_actividad_strava') y rpc('borrar_actividad_strava') con lápidas.
+// upsert(..., { ignoreDuplicates: true }) = ON CONFLICT DO NOTHING.
 //    Las filas iniciales se dejan como vienen: una fila SIN version imita un objeto/cliente viejo.
 const TERMINALES = ['completed', 'cargado', 'shipped'];
 const VERSIONES = ['estandar', 'extendida'];
@@ -92,6 +94,7 @@ const crearSupabaseMemoria = (tablas = {}, opciones = {}) => {
         // upsert(fila, { onConflict }): actualiza la fila con el mismo valor en esa columna o inserta.
         const col = (op.opciones && op.opciones.onConflict) || 'id';
         const existente = db[tabla].find((f) => f[col] !== undefined && f[col] === op.valores[col]);
+        if (existente && op.opciones.ignoreDuplicates) return { data: op.devolver ? [] : null, error: null }; // ON CONFLICT DO NOTHING
         if (existente) {
           Object.assign(existente, JSON.parse(JSON.stringify(op.valores)));
           return { data: op.devolver ? [proyectar(existente)] : null, error: null };
@@ -205,8 +208,53 @@ const crearSupabaseMemoria = (tablas = {}, opciones = {}) => {
     const r = insertarEvento({ user_challenge_id: fila.id, user_id: fila.user_id, tipo: 'completado', datos: { ...(args.p_datos || {}), origen: 'motor' } });
     return { data: [{ gano: true, evento_id: r.evento.id, evento_nuevo: r.creado }], error: null };
   };
+  // Migración 4A-8 (probada en Postgres real), imitada acá: las dos RPC toman el mismo
+  // pg_advisory_xact_lock por external_id, así que se serializan entre sí (síncrono = atómico acá).
+  const opRpc = (nombre, args) => {
+    const op = { tabla: 'rpc', tipo: 'rpc', nombre, args, valores: null, filtros: [] };
+    registro.push(op);
+    return opciones.fallar && opciones.fallar(op) ? { data: null, error: { message: 'falla simulada', code: 'XX000' } } : null;
+  };
+  const CAMPOS_STRAVA = ['user_id', 'source', 'external_id', 'sport_type', 'distance_km', 'duration_seconds', 'recorded_at', 'challenge_id'];
+  const guardarActividadStrava = ({ p_fila: f }) => {
+    const falla = opRpc('guardar_actividad_strava', { p_fila: f });
+    if (falla) return falla;
+    if (!db.activities) db.activities = [];
+    if (!db.strava_actividades_borradas) db.strava_actividades_borradas = [];
+    const ext = String(f.external_id);
+    const lapida = db.strava_actividades_borradas.some((l) => l.external_id === ext);
+    const valores = {};
+    CAMPOS_STRAVA.forEach((c) => { if (f[c] !== undefined) valores[c] = c === 'external_id' ? ext : f[c]; });
+    const existente = db.activities.find((a) => a.external_id === ext);
+    if (existente) {
+      Object.assign(existente, valores);
+      existente.excluida = existente.excluida === true || lapida;
+      return { data: { insertada: false, excluida: existente.excluida, lapida }, error: null };
+    }
+    const fila = { id: `id-${++secuencia}`, ...valores, excluida: lapida };
+    db.activities.push(fila);
+    return { data: { insertada: true, excluida: lapida, lapida }, error: null };
+  };
+  const borrarActividadStrava = (args) => {
+    const falla = opRpc('borrar_actividad_strava', args);
+    if (falla) return falla;
+    if (!db.strava_actividades_borradas) db.strava_actividades_borradas = [];
+    const ext = String(args.p_external_id);
+    let lapidaNueva = false;
+    if (!db.strava_actividades_borradas.some((l) => l.external_id === ext)) {
+      db.strava_actividades_borradas.push({ external_id: ext, owner_id: args.p_owner_id ?? null, user_id: args.p_user_id ?? null, evento_id: args.p_evento_id ?? null, borrado_at: ahoraIso() });
+      lapidaNueva = true;
+    }
+    let excluidas = 0;
+    (db.activities || []).forEach((a) => {
+      if (a.external_id === ext && a.source === 'strava' && a.user_id === args.p_user_id && a.excluida !== true) { a.excluida = true; excluidas += 1; }
+    });
+    return { data: { lapida_nueva: lapidaNueva, excluidas }, error: null };
+  };
   const rpc = async (nombre, args) => {
     if (nombre === 'completar_desafio_motor') return completarDesafioMotor(args);
+    if (nombre === 'guardar_actividad_strava') return guardarActividadStrava(args);
+    if (nombre === 'borrar_actividad_strava') return borrarActividadStrava(args);
     return opciones.rpc && opciones.rpc[nombre] ? opciones.rpc[nombre](args) : { data: null, error: null };
   };
   return { cliente: { from, rpc }, db, registro };

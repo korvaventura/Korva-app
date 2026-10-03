@@ -9,7 +9,7 @@ const invitacionesRoutes = require('./routes/invitaciones');
 const movimientoRoutes = require('./routes/movimiento');
 const residualAdminRoutes = require('./routes/residualAdmin');
 const progresoSombraAdminRoutes = require('./routes/progresoSombraAdmin');
-const { writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva } = require('./lib/flagsMotor');
+const { writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva, stravaWebhookMotorActiva } = require('./lib/flagsMotor');
 const { crearRepositorioSupabase } = require('./lib/progresoRepositorioSupabase');
 const { reanudarDesafioConMotor } = require('./lib/reanudarDesafio');
 const { eliminarActividadConMotor } = require('./lib/eliminarActividad');
@@ -2484,3 +2484,13 @@ iniciarRecuperacion({
   // 4A-3e: con "efectos" encendido, cada ronda también procesa los efectos de progreso_eventos.
   procesarEventos: efectosMotorActivos() ? ({ repo, ids }) => procesadorEventos.ronda({ repo, ids }) : undefined,
 }).catch((e) => console.error('Error iniciando recuperación de progreso:', e.message));
+
+// Etapa 4A-8: con "strava_webhook" + "efectos", los eventos del webhook de Strava quedan en una bandeja
+// persistente (strava_webhook_eventos). Esta recuperación (al arrancar +5 s y cada minuto) procesa los
+// que quedaron pendientes o cuyo proceso murió. Con la flag apagada no corre.
+if (stravaWebhookMotorActiva()) {
+  stravaRoutes.iniciarRecuperacionWebhook({
+    intervaloMs: Number(process.env.STRAVA_WEBHOOK_RECUPERACION_MS) || undefined,
+    demoraInicialMs: Number(process.env.STRAVA_WEBHOOK_RECUPERACION_INICIAL_MS) || undefined,
+  });
+}

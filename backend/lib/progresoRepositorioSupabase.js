@@ -35,7 +35,19 @@ const filtrarKmLeido = (consulta, kmLeido) =>
 const filtrarMarcaLeida = (consulta, marcaLeida) =>
   marcaLeida === null ? consulta.is('recalculo_pendiente_desde', null) : consulta.eq('recalculo_pendiente_desde', marcaLeida);
 
-const crearRepositorioSupabase = (supabase) => {
+/**
+ * @param {object} supabase
+ * @param {object} [opciones]
+ * @param {boolean} [opciones.lapidasStrava]  4A-8: upsertActividadStrava pasa por la RPC con lápidas
+ *   (se usa con la flag strava_webhook encendida, que requiere la migración 4A-8).
+ */
+const crearRepositorioSupabase = (supabase, opciones = {}) => {
+  const repo = crearRepositorioBase(supabase);
+  if (!opciones.lapidasStrava) return repo;
+  return Object.freeze({ ...repo, upsertActividadStrava: repo.guardarActividadStravaConLapida });
+};
+
+const crearRepositorioBase = (supabase) => {
   const lectura = clienteSoloLectura(supabase);
 
   return Object.freeze({
@@ -203,6 +215,31 @@ const crearRepositorioSupabase = (supabase) => {
       const { error } = await supabase.from('activities').upsert(fila, { onConflict: 'external_id' });
       if (error) throw error;
       return true;
+    },
+
+    /**
+     * Strava (4A-8): guarda la actividad por external_id con la RPC guardar_actividad_strava, que
+     * respeta las LÁPIDAS de borrado (strava_actividades_borradas) de forma atómica entre procesos:
+     * si Strava ya avisó que la actividad se borró, queda (o se inserta) excluida. Igual que el upsert
+     * viejo, nunca vuelve a contar una actividad excluida. Devuelve { insertada, excluida, lapida }.
+     */
+    guardarActividadStravaConLapida: async ({ fila }) => {
+      const { data, error } = await supabase.rpc('guardar_actividad_strava', { p_fila: fila });
+      if (error) throw error;
+      return data || {};
+    },
+
+    /**
+     * Strava (4A-8), evento 'delete': deja la lápida persistente del external_id y excluye la
+     * actividad de ESE usuario si ya existe (no borra la fila). Atómica e idempotente.
+     * Devuelve { lapida_nueva, excluidas }.
+     */
+    borrarActividadStrava: async ({ userId, externalId, ownerId = null, eventoId = null }) => {
+      const { data, error } = await supabase.rpc('borrar_actividad_strava', {
+        p_external_id: String(externalId), p_user_id: userId, p_owner_id: ownerId, p_evento_id: eventoId,
+      });
+      if (error) throw error;
+      return data || {};
     },
 
     /** Quita la marca de recálculo pendiente solo si sigue siendo la misma que se puso (no borra una más nueva). */

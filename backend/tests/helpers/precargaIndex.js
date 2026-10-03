@@ -22,7 +22,10 @@ const efectos = { emails: [], push: [], certificados: [] };
 const idCarrera = process.env.PRUEBA_MOTOR_GANA_ANTES_DE || null;
 let carreraHecha = false;
 let memoria;
+// PRUEBA_FALLAR_TABLA=<tabla>: toda escritura en esa tabla falla (p. ej. la bandeja del webhook).
+const tablaQueFalla = process.env.PRUEBA_FALLAR_TABLA || null;
 const interceptar = (op) => {
+  if (tablaQueFalla && op.tabla === tablaQueFalla && op.tipo !== 'select') return true;
   if (!idCarrera || carreraHecha || op.tabla !== 'user_challenges' || op.tipo !== 'update') return false;
   if (!op.valores || op.valores.status !== 'completed') return false;
   if (!op.filtros.some(([t, c, v]) => t === 'eq' && c === 'id' && v === idCarrera)) return false;
@@ -42,6 +45,16 @@ global.fetch = async (url, init) => {
   if (process.env.PRUEBA_STRAVA_JSON && String(url).startsWith('https://www.strava.com/api/v3/athlete/activities')) {
     const lista = JSON.parse(fs.readFileSync(process.env.PRUEBA_STRAVA_JSON, 'utf8'));
     return { ok: true, status: 200, json: async () => lista };
+  }
+  // Misma lista para GET /api/v3/activities/:id (webhook). Si no está: 404 como Strava.
+  const individual = String(url).match(/^https:\/\/www\.strava\.com\/api\/v3\/activities\/([^/?]+)$/);
+  // PRUEBA_STRAVA_COLGADO=1: Strava nunca responde la actividad (el proceso queda "a mitad de camino").
+  if (process.env.PRUEBA_STRAVA_COLGADO === '1' && individual) return new Promise(() => {});
+  if (process.env.PRUEBA_STRAVA_JSON && individual) {
+    const lista = JSON.parse(fs.readFileSync(process.env.PRUEBA_STRAVA_JSON, 'utf8'));
+    const a = lista.find((x) => String(x.id) === individual[1]);
+    if (a) return { ok: true, status: 200, json: async () => a };
+    return { ok: false, status: 404, json: async () => ({ message: 'Record Not Found', errors: [{ resource: 'Activity', field: 'id', code: 'invalid' }] }) };
   }
   if (String(url).startsWith('https://exp.host/')) {
     efectos.push.push(JSON.parse(init.body));
@@ -76,7 +89,9 @@ Module._load = function cargar(pedido, padre, esPrincipal) {
 
 // Escribe salida.json. Si algo falla, lo deja en stderr y sale con código 3 para que el test
 // pueda mostrar la causa exacta en vez de un ENOENT.
-const volcar = () => {
+// { caida: true }: vuelca YA lo que quedó en la base (como si el proceso muriera en este instante).
+const volcar = async ({ caida = false } = {}) => {
+  if (!caida) await esperarWebhooks();
   try {
     fs.writeFileSync(process.env.PRUEBA_SALIDA, JSON.stringify({ db: memoria.db, registro: memoria.registro, efectos }));
   } catch (e) {
@@ -86,8 +101,22 @@ const volcar = () => {
   process.exit(0);
 };
 
+const esperarWebhooks = async () => {
+  // Webhooks de Strava respondidos con 200 que todavía se están procesando: se esperan, y después
+  // un momento para los efectos que dispararon (sin esperar) antes de volcar.
+  try {
+    const strava = require(path.join(__dirname, '..', '..', 'routes', 'strava.js'));
+    if (typeof strava.esperarWebhooksEnCurso === 'function') {
+      const recibidos = await strava.esperarWebhooksEnCurso();
+      if (recibidos > 0) await new Promise((r) => setTimeout(r, 300));
+    }
+  } catch (e) {
+    process.stderr.write(`[precarga] no se pudo esperar los webhooks: ${e && e.stack}\n`);
+  }
+};
+
 if (typeof process.send === 'function') {
-  process.on('message', (m) => { if (m && m.tipo === 'volcar') volcar(); });
+  process.on('message', (m) => { if (m && m.tipo === 'volcar') volcar({ caida: m.caida === true }); });
   // Si el proceso del test muere, el canal se cierra: el hijo termina y no queda huérfano.
   process.on('disconnect', () => process.exit(4));
 } else {

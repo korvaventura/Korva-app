@@ -17,7 +17,11 @@ const camposVersion = (uc) => {
   };
 };
 const { actualizarConCompletitudCondicional } = require('../lib/completitudLegada');
-const { writerMotorActivo, efectosMotorActivos, stravaImportMotorActiva } = require('../lib/flagsMotor');
+const { writerMotorActivo, efectosMotorActivos, stravaImportMotorActiva, stravaWebhookMotorActiva } = require('../lib/flagsMotor');
+const { procesarWebhookStravaConMotor, operacionDeEvento, OPERACIONES: OPERACIONES_WEBHOOK } = require('../lib/webhookStrava');
+const {
+  ESTADOS: ESTADOS_BANDEJA, filaDeEvento, crearRepositorioBandeja, procesarEventoBandeja, iniciarRecuperacionBandeja,
+} = require('../lib/bandejaWebhookStrava');
 const { importarActividadesStravaConMotor, ERROR_VIEJO: ERROR_IMPORTACION } = require('../lib/importacionStrava');
 const { crearRepositorioSupabase } = require('../lib/progresoRepositorioSupabase');
 const { logMotor } = require('../lib/recuperacionRecalculo');
@@ -478,7 +482,8 @@ router.get('/actividades/:userId', async (req, res) => {
         });
       }
       const r = await importarActividadesStravaConMotor({
-        repo: crearRepositorioSupabase(supabase),
+        // 4A-8: con el webhook en el motor, el guardado respeta las lápidas de borrado (RPC atómica).
+        repo: crearRepositorioSupabase(supabase, { lapidasStrava: stravaWebhookMotorActiva() }),
         userId,
         filas,
         dispararEfectos: (ids) => dispararEfectosMotor(ids),
@@ -515,7 +520,7 @@ router.get('/actividades/:userId', async (req, res) => {
         continue;
       }
 
-      await supabase.from('activities').upsert({
+      const filaImportada = {
         user_id: userId,
         source: 'strava',
         external_id: String(actividad.id),
@@ -524,7 +529,14 @@ router.get('/actividades/:userId', async (req, res) => {
         duration_seconds: actividad.moving_time,
         recorded_at: actividad.start_date,
         challenge_id: challengeIdActual
-      }, { onConflict: 'external_id' });
+      };
+      if (stravaWebhookMotorActiva()) {
+        // 4A-8: con el webhook en el motor puede haber lápidas de borrado: el guardado las respeta
+        // (RPC atómica). Igual que el upsert de abajo, no se revisa el error.
+        await supabase.rpc('guardar_actividad_strava', { p_fila: filaImportada });
+      } else {
+        await supabase.from('activities').upsert(filaImportada, { onConflict: 'external_id' });
+      }
 
       importadas++;
     }
@@ -744,12 +756,149 @@ router.get('/webhook', (req, res) => {
   }
 });
 
-router.post('/webhook', async (req, res) => {
-  res.sendStatus(200);
+// ---------------------------------------------------------------------------------------------
+// Etapa 4A-8: webhook con el motor + bandeja persistente (flag "strava_webhook" + "efectos").
+// ---------------------------------------------------------------------------------------------
 
-  const event = req.body;
-  console.log('Webhook Strava recibido:', JSON.stringify(event));
+// Plazos de Strava en el camino nuevo. El token se obtiene/renueva con getValidStravaToken (sin
+// timeout propio: es el mismo código que usan los otros caminos); por eso TODA la preparación
+// (token + renovación + lectura de la actividad + anti-duplicados) tiene un plazo total. Si se vence,
+// el evento queda en la bandeja y se reintenta. Nada de esto ocurre dentro del candado del usuario.
+const ESPERA_STRAVA_WEBHOOK_MS = 20000;
+const PLAZO_PREPARACION_WEBHOOK_MS = 30000;
+const conPlazo = (promesa, ms, mensaje) => {
+  let t;
+  const vencido = new Promise((_, rechazar) => { t = setTimeout(() => rechazar(new Error(mensaje)), ms); });
+  return Promise.race([promesa, vencido]).finally(() => clearTimeout(t));
+};
 
+// Lee la actividad de Strava y arma la fila con las MISMAS reglas que procesarActividad (sin
+// distancia → se ignora; anti-duplicados del mismo día; challenge_id del primer activo no pausado).
+// No escribe nada en activities: la escritura la hace el motor, después de marcar.
+const prepararFilaWebhook = async (supabase, userId, stravaActivityId) => {
+  const accessToken = await getValidStravaToken(supabase, userId);
+  const res = await fetch(`https://www.strava.com/api/v3/activities/${stravaActivityId}`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(ESPERA_STRAVA_WEBHOOK_MS),
+  });
+  // 404: la actividad ya no existe en Strava (se borró; su 'delete' deja la lápida). No se reintenta.
+  if (res.status === 404) return { ignorar: 'no_encontrada_en_strava' };
+  if (res.ok === false) throw new Error(`Strava respondió ${res.status}`); // 401/429/5xx: se reintenta
+  const actividad = await res.json();
+  if (!actividad || !actividad.id) throw new Error('Actividad no encontrada en Strava');
+
+  const distanciaKm = (actividad.distance || 0) / 1000;
+  if (distanciaKm <= 0) {
+    console.log(`Actividad ${stravaActivityId} ignorada — sin distancia (tipo: ${actividad.type})`);
+    return { ignorar: 'sin_distancia' };
+  }
+  const duplicada = await yaExisteActividad(supabase, userId, actividad.start_date, distanciaKm, actividad.id);
+  if (duplicada) {
+    console.log(
+      `Actividad ${stravaActivityId} salteada — ya existe una de ${duplicada.distance_km} km ` +
+      `(origen: ${duplicada.source}) el ${String(actividad.start_date).split('T')[0]}`
+    );
+    return { ignorar: 'duplicada_mismo_dia' };
+  }
+  const { data: userChallenges } = await supabase
+    .from('user_challenges')
+    .select('challenge_id')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .eq('pausado', false);
+  const challengePrincipal = userChallenges?.[0] || null;
+  return {
+    fila: {
+      user_id: userId,
+      source: 'strava',
+      external_id: String(actividad.id),
+      sport_type: normalizarSportType(actividad.type),
+      distance_km: distanciaKm,
+      duration_seconds: actividad.moving_time,
+      recorded_at: actividad.start_date,
+      challenge_id: challengePrincipal?.challenge_id || null,
+    },
+  };
+};
+
+// Push de progreso (checkpoint, 50/75/90 %, "+X km") como el viejo, pero SOLO para los desafíos
+// activos y no pausados cuyo km subió sin completarse. La completitud NO pasa por acá: su
+// email/push/certificado salen una sola vez por el evento 'completado' (efectos del motor).
+const notificarProgresoMotor = async (supabase, userId, desafios) => {
+  const subieron = desafios.filter((d) =>
+    d.status_leido === 'active' && d.accion === 'actualizar_km' && d.escrito &&
+    Number(d.km_despues) > Number(d.km_antes || 0));
+  if (subieron.length === 0) return;
+  const { data: ucs } = await supabase
+    .from('user_challenges')
+    .select('*, challenges(*)')
+    .in('id', subieron.map((d) => d.user_challenge_id));
+  for (const d of subieron) {
+    const uc = (ucs || []).find((x) => x.id === d.user_challenge_id);
+    if (!uc || uc.pausado || uc.status !== 'active' || !uc.challenges) continue;
+    const objetivo = distanciaObjetivo(uc);
+    if (!(objetivo > 0) || Number(d.km_despues) >= objetivo) continue;
+    await enviarNotificacionProgreso(supabase, userId, uc.challenge_id, uc.challenges.title, Number(d.km_antes || 0), Number(d.km_despues), objetivo);
+  }
+};
+
+/**
+ * Aplica UN evento de la bandeja (lo llama la bandeja; puede repetirse: es idempotente).
+ * Devuelve { estado: 'hecho'|'ignorado', resultado } o { reintentar: true, error }.
+ */
+const manejarEventoBandeja = async (ev) => {
+  const operacion = operacionDeEvento(ev);
+  if (!operacion) return { estado: ESTADOS_BANDEJA.IGNORADO, resultado: 'evento_no_soportado' };
+  const supabase = getSupabase();
+  const { data: user, error } = await supabase
+    .from('users')
+    .select('id')
+    .eq('strava_athlete_id', ev.owner_id)
+    .maybeSingle();
+  if (error) return { reintentar: true, error: error.message };
+  if (!user) {
+    console.log(`Usuario no encontrado para atleta Strava ${ev.owner_id}`);
+    return { estado: ESTADOS_BANDEJA.IGNORADO, resultado: 'atleta_desconocido' };
+  }
+
+  const r = await procesarWebhookStravaConMotor({
+    repo: crearRepositorioSupabase(supabase),
+    userId: user.id,
+    operacion,
+    externalId: String(ev.object_id),
+    ownerId: ev.owner_id,
+    eventoId: ev.id,
+    prepararFila: () => conPlazo(
+      prepararFilaWebhook(supabase, user.id, ev.object_id),
+      PLAZO_PREPARACION_WEBHOOK_MS,
+      `Strava no respondió en ${PLAZO_PREPARACION_WEBHOOK_MS / 1000} s (token + actividad)`,
+    ),
+    dispararEfectos: (ids) => dispararEfectosMotor(ids),
+  });
+  console.log(`Webhook Strava ${ev.aspect_type} ${ev.object_id} (motor): ${r.resultado}${r.motivo ? ` (${r.motivo})` : ''}`);
+  if (!r.ok) return { reintentar: true, error: r.error || r.resultado };
+  if (r.resultado === 'ignorada') return { estado: ESTADOS_BANDEJA.IGNORADO, resultado: r.motivo || 'ignorada' };
+
+  // Pushes del camino viejo (a lo sumo una vez: si el evento se reprocesa, los km ya no suben y la
+  // actividad ya no es nueva).
+  if (operacion === OPERACIONES_WEBHOOK.UPSERT) {
+    try {
+      await notificarProgresoMotor(supabase, user.id, r.desafios);
+      if (r.insertada && !(r.detalle && r.detalle.excluida)) await verificarYEnviarNotificacionRacha(supabase, user.id);
+    } catch (e) {
+      console.error('Error enviando notificaciones del webhook:', e.message);
+    }
+  }
+  return { estado: ESTADOS_BANDEJA.HECHO, resultado: operacion === OPERACIONES_WEBHOOK.DELETE ? 'excluida' : (r.insertada ? 'insertada' : 'actualizada') };
+};
+
+/** Toma y aplica un evento de la bandeja ya registrado. */
+const procesarDeBandeja = (id) => procesarEventoBandeja({
+  repo: crearRepositorioBandeja(getSupabase()), id, manejar: manejarEventoBandeja,
+});
+
+// Camino VIEJO (flag apagada): sin cambios de comportamiento.
+const procesarWebhookLegado = async (event) => {
   if (event.object_type !== 'activity' || !['create', 'update'].includes(event.aspect_type)) return;
 
   const stravaAthleteId = event.owner_id;
@@ -773,6 +922,65 @@ router.post('/webhook', async (req, res) => {
   } catch (error) {
     console.error('Error procesando webhook de Strava:', error.message);
   }
+};
+
+// Trabajo que sigue después de responder (solo para esperar en tests y en un apagado ordenado).
+const webhooksEnCurso = new Set();
+let webhooksRecibidos = 0;
+const seguir = (promesa) => {
+  const tarea = promesa.catch((error) => console.error('Error procesando webhook de Strava:', error && error.message));
+  webhooksEnCurso.add(tarea);
+  tarea.finally(() => webhooksEnCurso.delete(tarea));
+};
+
+router.post('/webhook', async (req, res) => {
+  const event = req.body;
+  webhooksRecibidos += 1;
+
+  if (writerMotorActivo('strava_webhook') && !efectosMotorActivos()) {
+    logMotor({ writer: 'strava_webhook', resultado: 'ignorado_sin_efectos', aviso: 'strava_webhook requiere efectos: se usa el camino viejo' });
+  }
+
+  if (!stravaWebhookMotorActiva()) {
+    // Camino viejo: 200 inmediato y procesamiento después (como siempre).
+    res.sendStatus(200);
+    console.log('Webhook Strava recibido:', JSON.stringify(event));
+    seguir(procesarWebhookLegado(event));
+    return;
+  }
+
+  // Camino nuevo: el evento queda GUARDADO antes del 200.
+  console.log('Webhook Strava recibido:', JSON.stringify(event));
+  const fila = operacionDeEvento(event) ? filaDeEvento(event) : null;
+  if (!fila) {
+    // Eventos de atleta (p. ej. desautorización), aspectos desconocidos o cuerpo inválido: se
+    // ignoran como hoy. Se responde 200 para que Strava no reintente algo que nunca se procesará.
+    res.sendStatus(200);
+    return;
+  }
+  let registrado;
+  try {
+    registrado = await crearRepositorioBandeja(getSupabase()).registrar({ fila });
+  } catch (error) {
+    logMotor({ writer: 'strava_webhook', bandeja: true, resultado: 'no_se_pudo_registrar', aspect_type: fila.aspect_type, object_id: fila.object_id, error: error && error.message });
+    res.sendStatus(500); // Strava reintenta
+    return;
+  }
+  res.sendStatus(200);
+  if (registrado.estado === 'pendiente') seguir(procesarDeBandeja(registrado.id));
+});
+
+/** Espera a que terminen los webhooks que se están procesando (tests / apagado). */
+router.esperarWebhooksEnCurso = async () => {
+  while (webhooksEnCurso.size > 0) await Promise.allSettled([...webhooksEnCurso]);
+  return webhooksRecibidos;
+};
+
+/** index.js arranca la recuperación de la bandeja (solo con la flag encendida). */
+router.iniciarRecuperacionWebhook = (opciones = {}) => iniciarRecuperacionBandeja({
+  crearRepo: () => crearRepositorioBandeja(getSupabase()),
+  manejar: manejarEventoBandeja,
+  ...opciones,
 });
 
 /** index.js conecta el procesador de efectos del motor (4A-7). */

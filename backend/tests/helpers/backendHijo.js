@@ -99,10 +99,12 @@ const levantarBackend = async ({ flag, tablas, entorno = {} }) => {
     }
   };
 
-  const cerrar = async () => {
+  // { caida: true }: el hijo vuelca la base tal como está y termina, sin esperar trabajo en curso
+  // (simula que el proceso muere en ese instante).
+  const cerrar = async ({ caida = false } = {}) => {
     if (!estado.cerrado) {
       try {
-        hijo.send({ tipo: 'volcar' }, (e) => { if (e) estado.errores.push(`ipc send: ${e && e.stack}`); });
+        hijo.send({ tipo: 'volcar', caida }, (e) => { if (e) estado.errores.push(`ipc send: ${e && e.stack}`); });
       } catch (e) {
         estado.errores.push(`ipc send: ${e && e.stack}`);
       }

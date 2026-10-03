@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon index.js",
-    "test": "node --test tests/residualMovimiento.test.js tests/progresoDesafio.test.js tests/progresoServicio.test.js tests/reanudarDesafio.test.js tests/eliminarActividad.test.js tests/completionEventos.test.js tests/efectosCompletado.test.js tests/cambiarModalidad.test.js tests/convivencia.test.js tests/versionDesafio.test.js tests/actividadManual.test.js tests/importacionStrava.test.js"
+    "test": "node --test tests/residualMovimiento.test.js tests/progresoDesafio.test.js tests/progresoServicio.test.js tests/reanudarDesafio.test.js tests/eliminarActividad.test.js tests/completionEventos.test.js tests/efectosCompletado.test.js tests/cambiarModalidad.test.js tests/convivencia.test.js tests/versionDesafio.test.js tests/actividadManual.test.js tests/importacionStrava.test.js tests/webhookStrava.test.js"
   },
   "keywords": [],
   "author": "",

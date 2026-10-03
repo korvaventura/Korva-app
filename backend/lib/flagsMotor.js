@@ -3,14 +3,14 @@
 // Cada writer viejo pasa al motor solo si su nombre está en la variable de entorno
 //   MOTOR_PROGRESO_WRITERS   (lista separada por comas, ej.: "reanudar,eliminar_actividad,efectos,modalidad")
 // Writers conocidos: reanudar (4A-3c), eliminar_actividad (4A-3d), modalidad (4A-3e), actividad_manual (4A-6),
-// strava_import (4A-7).
+// strava_import (4A-7), strava_webhook (4A-8).
 // "efectos" (4A-3e) no es un writer: enciende el procesamiento de efectos de progreso_eventos
-// (certificado, emails, push). "modalidad", "actividad_manual" y "strava_import" solo entran al motor si "efectos" también
+// (certificado, emails, push). "modalidad", "actividad_manual", "strava_import" y "strava_webhook" solo entran al motor si "efectos" también
 // está encendido (completan desafíos: sin efectos quedarían sin certificado, emails ni push).
 // Si la variable no existe o está vacía, TODOS siguen con el código viejo (OFF por defecto).
 // Rollback de un writer: sacar su nombre de la variable en Railway.
 
-const WRITERS_CONOCIDOS = ['reanudar', 'eliminar_actividad', 'modalidad', 'efectos', 'actividad_manual', 'strava_import'];
+const WRITERS_CONOCIDOS = ['reanudar', 'eliminar_actividad', 'modalidad', 'efectos', 'actividad_manual', 'strava_import', 'strava_webhook'];
 
 const writersActivos = (env = process.env) =>
   String(env.MOTOR_PROGRESO_WRITERS || '')
@@ -36,4 +36,7 @@ const actividadManualMotorActiva = (env = process.env) => writerMotorActivo('act
 /** importación Strava usa el motor solo con "strava_import" Y "efectos" encendidos (completa desafíos). */
 const stravaImportMotorActiva = (env = process.env) => writerMotorActivo('strava_import', env) && efectosMotorActivos(env);
 
-module.exports = { WRITERS_CONOCIDOS, writersActivos, writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva, stravaImportMotorActiva };
+/** webhook de Strava usa el motor solo con "strava_webhook" Y "efectos" encendidos (completa desafíos). */
+const stravaWebhookMotorActiva = (env = process.env) => writerMotorActivo('strava_webhook', env) && efectosMotorActivos(env);
+
+module.exports = { WRITERS_CONOCIDOS, writersActivos, writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva, stravaImportMotorActiva, stravaWebhookMotorActiva };
