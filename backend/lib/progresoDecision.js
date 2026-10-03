@@ -39,16 +39,20 @@ const decidirAccion = (uc, resultado) => {
   }
 
   const kmNuevo = redondear6(exacto.kmProgreso);
+  // 4B: el progreso visible puede incluir Health provisional, pero completar solo
+  // usa el total estable. Sin kmAptoCompletar (4A puro), conserva la semántica anterior.
+  const kmAptoCompletar = redondear6(exacto.kmAptoCompletar ?? exacto.kmProgreso);
   const cambia = kmLeido === null || Math.abs(kmNuevo - kmLeido) > EPSILON_KM;
   const objetivo = exacto.objetivoKm;
-  const alcanza = objetivo !== null && objetivo > 0 && kmNuevo >= objetivo - EPSILON_KM;
+  const alcanza = objetivo !== null && objetivo > 0 && kmAptoCompletar >= objetivo - EPSILON_KM;
   const pausado = uc.pausado === true;
 
   const cruzaAviso75 = objetivo !== null && objetivo > 0 && !alcanza &&
     (kmLeido === null ? 0 : kmLeido) / objetivo < UMBRAL_AVISO && kmNuevo / objetivo >= UMBRAL_AVISO;
 
   if (alcanza && !pausado) {
-    return { kmLeido, kmNuevo, cruzaAviso75: false, accion: ACCIONES.COMPLETAR, motivo: 'alcanza_objetivo' };
+    // Al congelar un terminal persistimos el total estable, no Health provisional.
+    return { kmLeido, kmNuevo: kmAptoCompletar, kmVisible: kmNuevo, cruzaAviso75: false, accion: ACCIONES.COMPLETAR, motivo: 'alcanza_objetivo' };
   }
   if (!cambia) {
     return { ...base, accion: ACCIONES.NADA, motivo: alcanza ? 'alcanza_objetivo_pero_pausado' : 'sin_cambios' };

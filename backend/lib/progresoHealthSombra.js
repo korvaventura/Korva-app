@@ -33,7 +33,7 @@ const evaluarElegibilidadDia = (uc, residualDia) => {
   if (inicioDesafioMs > inicioDiaMs) return { elegible: false, motivo: 'dia_tocado_por_inicio' };
 
   const pausas = normalizarPausas(uc || {});
-  if (pausas.invalidos > 0) return { elegible: false, motivo: 'pausa_invalida' };
+  if (pausas.invalidos.length > 0) return { elegible: false, motivo: 'pausa_invalida' };
 
   const solapa = (desdeMs, hastaMs) => desdeMs < finDiaMs && hastaMs > inicioDiaMs;
   if (pausas.validos.some((p) => solapa(p.desdeMs, p.hastaMs))) {

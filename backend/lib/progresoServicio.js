@@ -24,6 +24,7 @@
 //    explícita y observable.
 //  - km_base nunca se escribe ni se recalcula.
 const { calcularProgresoChallenge } = require('./progresoDesafio');
+const { calcularResidualesHealth, calcularProgresoChallengeHealth } = require('./progresoHealth');
 const { decidirAccion, ACCIONES } = require('./progresoDecision');
 
 const MODOS = { ESCRIBIR: 'escribir', SIMULAR: 'simular' };
@@ -49,6 +50,7 @@ const recalcularProgresoUsuario = async ({
   modo = MODOS.SIMULAR,
   ahoraMs = Date.now(),
   maxIntentos = 3,
+  incluirHealth = false, // 4B-2: rollout explícito; false preserva 4A exactamente
 }) => {
   if (!repo) throw new Error('Falta repo');
   if (!userId) throw new Error('Falta userId');
@@ -72,8 +74,11 @@ const recalcularProgresoUsuario = async ({
 
   for (let intento = 1; intento <= maxIntentos; intento++) {
     informe.intentos = intento;
-    const estado = await repo.leerEstadoUsuario(userId);
+    const estado = await repo.leerEstadoUsuario(userId, { incluirHealth });
     const conflictos = [];
+    const residualesHealth = incluirHealth
+      ? calcularResidualesHealth({ dailyMovement: estado.dailyMovement || [], actividades: estado.actividades || [], ahoraMs })
+      : [];
 
     const objetivos = (estado.userChallenges || []).filter((uc) =>
       (challengeId === null || uc.challenge_id === challengeId) &&
@@ -81,11 +86,14 @@ const recalcularProgresoUsuario = async ({
     );
 
     for (const uc of objetivos) {
-      const resultado = calcularProgresoChallenge({
+      const argsCalculo = {
         uc,
         challenge: estado.challenges.get(uc.challenge_id) || null,
         actividades: estado.actividades,
-      });
+      };
+      const resultado = incluirHealth
+        ? calcularProgresoChallengeHealth({ ...argsCalculo, residuales: residualesHealth })
+        : calcularProgresoChallenge(argsCalculo);
       const decision = decidirAccion(uc, resultado);
       const registro = {
         user_challenge_id: uc.id,
@@ -96,6 +104,7 @@ const recalcularProgresoUsuario = async ({
         km_leido: decision.kmLeido,
         km_nuevo: decision.kmNuevo,
         km_base: resultado.km_base,
+        health: incluirHealth ? { elegible_km: resultado.km_health_elegible || 0, estable_km: resultado.km_health_estable || 0 } : undefined,
         escrito: false,
       };
 

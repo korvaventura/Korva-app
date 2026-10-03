@@ -25,7 +25,8 @@ const { clienteSoloLectura, traerTodo } = require('./progresoSombra');
 
 const CAMPOS_USER_CHALLENGE = 'id, user_id, challenge_id, status, started_at, pausado, pausado_at, periodos_pausados, version, modalidad, km_completed, km_base, km_base_motivo';
 const CAMPOS_CHALLENGE = 'id, title, modalidades, total_distance_km';
-const CAMPOS_ACTIVIDAD = 'id, user_id, distance_km, recorded_at, excluida';
+const CAMPOS_ACTIVIDAD = 'id, user_id, source, sport_type, distance_km, duration_seconds, recorded_at, excluida';
+const CAMPOS_DAILY_MOVEMENT = 'fecha, timezone, distancia_caminando_km, distancia_bici_km, pasos, tipo_medicion, plataforma, cerrado, raw_payload, updated_at';
 const TAMANO_LOTE_IDS = 100;
 const CAMPOS_EVENTO = 'id, user_challenge_id, user_id, tipo, estado, intentos, datos, resultado, ultimo_error, procesando_desde, creado_at, actualizado_at';
 
@@ -268,7 +269,7 @@ const crearRepositorioBase = (supabase) => {
     },
 
     /** Estado completo de un usuario: sus desafíos, los challenges y TODAS sus actividades. */
-    leerEstadoUsuario: async (userId) => {
+    leerEstadoUsuario: async (userId, opcionesLectura = {}) => {
       const userChallenges = await traerTodo(() => lectura.from('user_challenges').select(CAMPOS_USER_CHALLENGE).eq('user_id', userId));
       const ids = [...new Set(userChallenges.map((uc) => uc.challenge_id).filter(Boolean))];
       const challenges = new Map();
@@ -277,7 +278,10 @@ const crearRepositorioBase = (supabase) => {
         filas.forEach((c) => challenges.set(c.id, c));
       }
       const actividades = await traerTodo(() => lectura.from('activities').select(CAMPOS_ACTIVIDAD).eq('user_id', userId));
-      return { userChallenges, challenges, actividades };
+      const dailyMovement = opcionesLectura.incluirHealth
+        ? await traerTodo(() => lectura.from('daily_movement').select(CAMPOS_DAILY_MOVEMENT).eq('user_id', userId))
+        : [];
+      return { userChallenges, challenges, actividades, dailyMovement };
     },
 
     /** Escribe km_completed solo si el desafío sigue activo y nadie lo cambió desde la lectura. */
