@@ -61,8 +61,8 @@ const crearSesionGps = ({ deporte = 'run', ahoraMs = Date.now(), sessionId } = {
 
 const tickSesionGps = (sesion, ahoraMs = Date.now()) => {
   if (!sesion || sesion.estado !== 'grabando') return sesion;
-  const delta = Math.max(0, Math.min(ahoraMs - sesion.ultimoTickMs, GPS_CONFIG.maxGapMs));
-  return { ...sesion, duracionActivaMs: sesion.duracionActivaMs + delta, ultimoTickMs: ahoraMs };
+  if (!Number.isFinite(ahoraMs) || ahoraMs <= sesion.ultimoTickMs) return sesion;
+  return { ...sesion, ultimoTickMs: ahoraMs };
 };
 
 const pausarSesionGps = (sesion, ahoraMs = Date.now()) => {
