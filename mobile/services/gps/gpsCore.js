@@ -41,7 +41,11 @@ const normalizarPuntoGps = (punto) => {
   return { latitude, longitude, accuracy, timestamp };
 };
 
-const crearSesionGps = ({ deporte = 'run', ahoraMs = Date.now() } = {}) => ({
+const generarSessionId = (ahoraMs = Date.now()) =>
+  `${Math.trunc(ahoraMs).toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
+
+const crearSesionGps = ({ deporte = 'run', ahoraMs = Date.now(), sessionId } = {}) => ({
+  sessionId: sessionId || generarSessionId(ahoraMs),
   estado: 'grabando',
   deporte,
   iniciadaAt: ahoraMs,
@@ -152,6 +156,7 @@ const resumenSesionGps = (sesion) => ({
 
 module.exports = {
   GPS_CONFIG,
+  generarSessionId,
   distanciaHaversineM,
   normalizarPuntoGps,
   crearSesionGps,
