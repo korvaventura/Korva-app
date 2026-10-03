@@ -104,6 +104,7 @@ const recalcularProgresoUsuario = async ({
         km_leido: decision.kmLeido,
         km_nuevo: decision.kmNuevo,
         km_base: resultado.km_base,
+        km_actividades: resultado.exacto?.kmActividades ?? 0,
         health: incluirHealth ? { elegible_km: resultado.km_health_elegible || 0, estable_km: resultado.km_health_estable || 0 } : undefined,
         escrito: false,
       };
