@@ -49,6 +49,7 @@ const crearSesionGps = ({ deporte = 'run', ahoraMs = Date.now() } = {}) => ({
   distanciaM: 0,
   duracionActivaMs: 0,
   ultimoTickMs: ahoraMs,
+  tramoActivoDesdeMs: ahoraMs,
   ultimoPunto: null,
   puntos: [],
   descartados: { precision: 0, salto: 0, minimo: 0, invalido: 0 },
@@ -62,19 +63,41 @@ const tickSesionGps = (sesion, ahoraMs = Date.now()) => {
 
 const pausarSesionGps = (sesion, ahoraMs = Date.now()) => {
   if (!sesion || sesion.estado !== 'grabando') return sesion;
-  const actualizada = tickSesionGps(sesion, ahoraMs);
-  return { ...actualizada, estado: 'pausada', ultimoPunto: null };
+  const desde = Number(sesion.tramoActivoDesdeMs || sesion.ultimoTickMs || ahoraMs);
+  const delta = Math.max(0, ahoraMs - desde);
+  return {
+    ...sesion,
+    estado: 'pausada',
+    duracionActivaMs: sesion.duracionActivaMs + delta,
+    ultimoTickMs: ahoraMs,
+    tramoActivoDesdeMs: null,
+    ultimoPunto: null,
+  };
 };
 
 const reanudarSesionGps = (sesion, ahoraMs = Date.now()) => {
   if (!sesion || sesion.estado !== 'pausada') return sesion;
-  return { ...sesion, estado: 'grabando', ultimoTickMs: ahoraMs, ultimoPunto: null };
+  return {
+    ...sesion,
+    estado: 'grabando',
+    ultimoTickMs: ahoraMs,
+    tramoActivoDesdeMs: ahoraMs,
+    ultimoPunto: null,
+  };
 };
 
 const finalizarSesionGps = (sesion, ahoraMs = Date.now()) => {
   if (!sesion || sesion.estado === 'finalizada') return sesion;
-  const actualizada = sesion.estado === 'grabando' ? tickSesionGps(sesion, ahoraMs) : sesion;
-  return { ...actualizada, estado: 'finalizada', finalizadaAt: ahoraMs, ultimoPunto: null };
+  const actualizada = sesion.estado === 'grabando'
+    ? pausarSesionGps(sesion, ahoraMs)
+    : sesion;
+  return {
+    ...actualizada,
+    estado: 'finalizada',
+    finalizadaAt: ahoraMs,
+    tramoActivoDesdeMs: null,
+    ultimoPunto: null,
+  };
 };
 
 const agregarPuntoGps = (sesion, entrada, config = GPS_CONFIG) => {
