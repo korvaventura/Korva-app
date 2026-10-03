@@ -14,6 +14,11 @@
 // OFF por defecto y rollback independiente mediante MOTOR_PROGRESO_HEALTH.
 const healthMotorActivo = (env = process.env) => String(env.MOTOR_PROGRESO_HEALTH || '').trim() === '1';
 
+// GPS Korva escribe actividades reales y puede completar desafíos. OFF por defecto; se habilita
+// independientemente después de desplegar y verificar el backend.
+const gpsMotorActivo = (env = process.env) =>
+  String(env.MOTOR_PROGRESO_GPS || '').trim() === '1' && efectosMotorActivos(env);
+
 const WRITERS_CONOCIDOS = ['reanudar', 'eliminar_actividad', 'modalidad', 'efectos', 'actividad_manual', 'strava_import', 'strava_webhook', 'strava_progreso'];
 
 const writersActivos = (env = process.env) =>
@@ -49,4 +54,4 @@ const stravaWebhookMotorActiva = (env = process.env) => writerMotorActivo('strav
  */
 const stravaProgresoSoloLectura = (env = process.env) => writerMotorActivo('strava_progreso', env);
 
-module.exports = { healthMotorActivo, WRITERS_CONOCIDOS, writersActivos, writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva, stravaImportMotorActiva, stravaWebhookMotorActiva, stravaProgresoSoloLectura };
+module.exports = { healthMotorActivo, gpsMotorActivo, WRITERS_CONOCIDOS, writersActivos, writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva, stravaImportMotorActiva, stravaWebhookMotorActiva, stravaProgresoSoloLectura };
