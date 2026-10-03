@@ -3,6 +3,11 @@ import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import gpsCore from '../services/gps/gpsCore';
+import {
+  borrarSesionGpsLocal,
+  guardarSesionGpsLocal,
+  recuperarSesionGpsLocal,
+} from '../services/gps/gpsPersistence';
 
 const {
   crearSesionGps,
@@ -32,9 +37,10 @@ export default function GpsTrackerScreen({ navigation }) {
   const [precision, setPrecision] = useState(null);
   const [ahoraMs, setAhoraMs] = useState(Date.now());
 
-  const publicar = (s) => {
+  const publicar = (s, { persistir = true } = {}) => {
     sesionRef.current = s;
     setSesion(s);
+    if (persistir) guardarSesionGpsLocal(s).catch(() => {});
   };
 
   const detenerWatcher = async () => {
@@ -44,9 +50,19 @@ export default function GpsTrackerScreen({ navigation }) {
     }
   };
 
-  useEffect(() => () => {
-    detenerWatcher();
-    if (timerRef.current) clearInterval(timerRef.current);
+  useEffect(() => {
+    let activa = true;
+    recuperarSesionGpsLocal().then((recuperada) => {
+      if (!activa || !recuperada) return;
+      publicar(recuperada, { persistir: false });
+      setEstadoGps('pausado');
+      setAhoraMs(Date.now());
+    });
+    return () => {
+      activa = false;
+      detenerWatcher();
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -129,7 +145,8 @@ export default function GpsTrackerScreen({ navigation }) {
   const finalizar = async () => {
     await detenerWatcher();
     const fin = finalizarSesionGps(sesionRef.current, Date.now());
-    publicar(fin);
+    publicar(fin, { persistir: false });
+    await borrarSesionGpsLocal();
     setEstadoGps('finalizado');
   };
 
@@ -181,7 +198,7 @@ export default function GpsTrackerScreen({ navigation }) {
       <View style={styles.note}>
         <Ionicons name="shield-checkmark-outline" size={20} color="#A8CFFF" />
         <Text style={styles.noteText}>
-          Prueba de medición. Finalizar todavía no guarda la actividad ni modifica tus desafíos.
+          Tu sesión se conserva si salís de esta pantalla. Finalizar todavía no modifica tus desafíos.
         </Text>
       </View>
 
@@ -220,7 +237,7 @@ export default function GpsTrackerScreen({ navigation }) {
         )}
 
         {sesion?.estado === 'finalizada' && (
-          <TouchableOpacity style={styles.primary} onPress={() => { publicar(null); setEstadoGps('listo'); setPrecision(null); }}>
+          <TouchableOpacity style={styles.primary} onPress={() => { publicar(null); borrarSesionGpsLocal().catch(() => {}); setEstadoGps('listo'); setPrecision(null); }}>
             <Text style={styles.primaryText}>Nueva prueba</Text>
           </TouchableOpacity>
         )}
