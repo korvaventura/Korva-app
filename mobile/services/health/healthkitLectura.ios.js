@@ -3,14 +3,18 @@
 // Es la lectura mínima que necesita el sync de movimiento diario: totales
 // consolidados por día local y el desglose por fuente. No pide permisos, no
 // escribe en Salud y no consulta muestras individuales.
+// Excluye las muestras ingresadas a mano (HKWasUserEntered = true) en caminando,
+// bici y pasos, tanto en el total como en el desglose por fuente.
 // El diagnóstico (healthkitDiagnostico) reutiliza esta lectura y le suma extras.
 import {
   AuthorizationRequestStatus,
+  ComparisonPredicateOperator,
   getRequestStatusForAuthorization,
   isHealthDataAvailableAsync,
   queryStatisticsCollectionForQuantity,
   queryStatisticsCollectionForQuantitySeparateBySource,
 } from '@kingstinct/react-native-healthkit';
+import { conSinIngresoManual } from './filtroIngresoManual';
 
 export const plataformaSoportada = true;
 
@@ -73,7 +77,11 @@ export async function estadoSalud() {
 
 export async function leerMovimientoDiario(dias = 7) {
   const { inicio, fin } = rangoUltimosDias(dias);
-  const filtro = { date: { startDate: inicio, endDate: fin } };
+  // Fechas + sin muestras ingresadas a mano (HKWasUserEntered = true), para los tres tipos.
+  const filtro = conSinIngresoManual(
+    { date: { startDate: inicio, endDate: fin } },
+    ComparisonPredicateOperator.notEqualTo,
+  );
   const claves = Object.keys(TIPOS);
 
   // Un registro por día local, también para los días sin datos.
