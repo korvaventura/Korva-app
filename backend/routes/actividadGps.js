@@ -11,11 +11,14 @@ const SESSION_ID_RE = /^[A-Za-z0-9_-]{8,128}$/;
 const crearActividadGpsRoutes = ({ supabase, procesadorEventos }) => {
   const router = express.Router();
 
-  router.post('/', requireUser, async (req, res) => {
+  const requireGpsActivo = (req, res, next) => {
     if (!gpsMotorActivo()) {
       return res.status(503).json({ error: 'GPS Korva todavía no está habilitado.' });
     }
+    return next();
+  };
 
+  router.post('/', requireGpsActivo, requireUser, async (req, res) => {
     const { session_id, sport_type, duration_seconds, recorded_at, puntos } = req.body || {};
     const duracion = Number(duration_seconds);
     const recorrido = calcularDistanciaGpsServidor(puntos);
