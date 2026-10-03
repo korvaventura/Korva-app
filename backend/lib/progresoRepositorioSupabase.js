@@ -194,6 +194,35 @@ const crearRepositorioBase = (supabase) => {
       return data || null;
     },
 
+    /**
+     * Busca una actividad equivalente alrededor del inicio del GPS.
+     * Ventana estrecha (±45 min) + distancia (±0.3 km) + categoría compatible:
+     * evita duplicar una misma salida que ya llegó por Strava/manual sin bloquear
+     * dos entrenamientos distintos del mismo día.
+     */
+    buscarActividadEquivalenteGps: async ({ userId, sportType, distanceKm, recordedAt }) => {
+      const inicioMs = Date.parse(recordedAt);
+      if (!Number.isFinite(inicioMs)) return null;
+      const ventanaMs = 45 * 60 * 1000;
+      const tiposPie = ['run', 'walk', 'hike', 'trailrun', 'virtualrun', 'treadmill'];
+      const tipos = sportType === 'ride'
+        ? ['ride', 'virtualride', 'mountainbikeride', 'gravelride', 'ebikeride']
+        : tiposPie;
+      const { data, error } = await lectura
+        .from('activities')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('excluida', false)
+        .in('sport_type', tipos)
+        .gte('recorded_at', new Date(inicioMs - ventanaMs).toISOString())
+        .lte('recorded_at', new Date(inicioMs + ventanaMs).toISOString())
+        .gte('distance_km', Math.max(0, distanceKm - 0.3))
+        .lte('distance_km', distanceKm + 0.3)
+        .limit(1);
+      if (error) throw error;
+      return Array.isArray(data) && data.length ? data[0] : null;
+    },
+
     /** Inserta una actividad GPS Korva. */
     insertarActividadGps: async ({ actividad }) => {
       const { data, error } = await supabase.from('activities').insert(actividad).select().single();
