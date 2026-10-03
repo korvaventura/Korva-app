@@ -142,3 +142,13 @@ test('duracion excluye pausas largas entre dos tramos', () => {
   sesion = finalizarSesionGps(sesion, inicio + 40 * 60 * 1000);
   assert.equal(resumenSesionGps(sesion).duration_seconds, 600);
 });
+
+
+test('sessionId se conserva y puede fijarse para idempotencia', () => {
+  const sesion = crearSesionGps({ ahoraMs: 1_700_000_000_000, sessionId: 'sesion_test_123' });
+  assert.equal(sesion.sessionId, 'sesion_test_123');
+  const pausada = pausarSesionGps(sesion, 1_700_000_001_000);
+  const reanudada = reanudarSesionGps(pausada, 1_700_000_002_000);
+  const finalizada = finalizarSesionGps(reanudada, 1_700_000_003_000);
+  assert.equal(finalizada.sessionId, 'sesion_test_123');
+});
