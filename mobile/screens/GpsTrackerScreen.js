@@ -75,6 +75,24 @@ export default function GpsTrackerScreen({ navigation }) {
     }
   }, [sesion?.estado]);
 
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (event) => {
+      const actual = sesionRef.current;
+      if (!actual || actual.estado !== 'grabando') return;
+
+      event.preventDefault();
+      const pausada = pausarSesionGps(actual, Date.now());
+      sesionRef.current = pausada;
+      setSesion(pausada);
+      detenerWatcher();
+
+      guardarSesionGpsLocal(pausada)
+        .catch(() => {})
+        .finally(() => navigation.dispatch(event.data.action));
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   const escucharUbicacion = async () => {
     setEstadoGps('buscando');
     const watcher = await Location.watchPositionAsync(
