@@ -55,7 +55,11 @@ export default function GpsTrackerScreen({ navigation }) {
       if (!activa || !recuperada) return;
       publicar(recuperada, { persistir: false });
       setDeporte(recuperada.deporte || 'run');
-      setEstadoGps(recuperada.estado === 'grabando' ? 'senal' : 'pausado');
+      setEstadoGps(
+        recuperada.estado === 'grabando' ? 'senal'
+          : recuperada.estado === 'finalizada' ? 'finalizado'
+          : 'pausado'
+      );
       setPrecision(recuperada.ultimoPunto?.accuracy != null ? Math.round(recuperada.ultimoPunto.accuracy) : null);
       setAhoraMs(Date.now());
     });
@@ -152,8 +156,8 @@ export default function GpsTrackerScreen({ navigation }) {
     await detenerWatcher();
     const ultima = (await leerSesionGpsLocal()) || sesionRef.current;
     const fin = finalizarSesionGps(ultima, Date.now());
+    await guardarSesionGpsLocal(fin);
     publicar(fin, { persistir: false });
-    await borrarSesionGpsLocal();
     setEstadoGps('finalizado');
   };
 
