@@ -11,6 +11,7 @@ const residualAdminRoutes = require('./routes/residualAdmin');
 const progresoSombraAdminRoutes = require('./routes/progresoSombraAdmin');
 const progresoHealthSombraAdminRoutes = require('./routes/progresoHealthSombraAdmin');
 const progresoDesgloseRoutes = require('./routes/progresoDesglose');
+const { crearActividadGpsRoutes } = require('./routes/actividadGps');
 const { writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva, stravaWebhookMotorActiva } = require('./lib/flagsMotor');
 const { crearRepositorioSupabase } = require('./lib/progresoRepositorioSupabase');
 const { reanudarDesafioConMotor } = require('./lib/reanudarDesafio');
@@ -97,6 +98,8 @@ app.use('/shopify', shopifyRoutes);
 app.use('/progreso-desglose', progresoDesgloseRoutes);
 
 app.use(express.json({ limit: '10mb' }));
+
+app.use('/actividades/gps', crearActividadGpsRoutes({ supabase, procesadorEventos }));
 
 app.get('/test/bib/:userId', async (req, res) => {
   const { userId } = req.params;
