@@ -91,8 +91,14 @@ export default function GpsTrackerScreen({ navigation }) {
         Alert.alert('Permiso de ubicación', 'Korva necesita acceso a tu ubicación mientras registrás una actividad.');
         return;
       }
+      const permisoBackground = await Location.requestBackgroundPermissionsAsync();
+      if (permisoBackground.status !== 'granted') {
+        Alert.alert('Ubicación en segundo plano', 'Korva necesita permiso de ubicación Siempre para medir mientras bloqueás la pantalla.');
+        return;
+      }
       const nueva = crearSesionGps({ deporte: 'run', ahoraMs: Date.now() });
-      publicar(nueva);
+      await guardarSesionGpsLocal(nueva);
+      publicar(nueva, { persistir: false });
       setAhoraMs(Date.now());
       setPrecision(null);
       await escucharUbicacion();
