@@ -204,15 +204,15 @@ export default function GpsTrackerScreen({ navigation }) {
     }
   };
 
-  const nombreDeporte = deporte === 'walk' ? 'Caminar' : deporte === 'ride' ? 'Bici' : 'Correr';
-  const velocidadKmh = resumenBase.duration_seconds > 0
-    ? resumenBase.distancia_km / (resumenBase.duration_seconds / 3600)
+  const nombreDeporte = deporte === 'ride' ? 'Bici' : 'Correr / Caminar';
+  const velocidadKmh = segundosVista > 0
+    ? resumenBase.distancia_km / (segundosVista / 3600)
     : 0;
-  const ritmoSegKm = resumenBase.distancia_km > 0
-    ? resumenBase.duration_seconds / resumenBase.distancia_km
+  const ritmoTotalSeg = resumenBase.distancia_km > 0
+    ? Math.round(segundosVista / resumenBase.distancia_km)
     : 0;
-  const ritmoTexto = ritmoSegKm > 0 && Number.isFinite(ritmoSegKm)
-    ? `${Math.floor(ritmoSegKm / 60)}:${String(Math.round(ritmoSegKm % 60)).padStart(2, '0')} /km`
+  const ritmoTexto = ritmoTotalSeg > 0 && Number.isFinite(ritmoTotalSeg)
+    ? `${Math.floor(ritmoTotalSeg / 60)}:${String(ritmoTotalSeg % 60).padStart(2, '0')} /km`
     : '--';
 
   return (
@@ -228,8 +228,7 @@ export default function GpsTrackerScreen({ navigation }) {
       {!sesion && (
         <View style={styles.sportRow}>
           {[
-            ['run', 'Correr', 'walk-outline'],
-            ['walk', 'Caminar', 'footsteps-outline'],
+            ['run', 'Correr / Caminar', 'footsteps-outline'],
             ['ride', 'Bici', 'bicycle-outline'],
           ].map(([value, label, icon]) => (
             <TouchableOpacity
@@ -262,8 +261,10 @@ export default function GpsTrackerScreen({ navigation }) {
         </View>
         <View style={styles.divider} />
         <View style={styles.stat}>
-          <Text style={styles.statValue}>{sesion?.puntos?.length || 0}</Text>
-          <Text style={styles.statLabel}>PUNTOS GPS</Text>
+          <Text style={styles.statValue}>
+            {deporte === 'ride' ? (velocidadKmh > 0 ? `${velocidadKmh.toFixed(1)} km/h` : '--') : ritmoTexto}
+          </Text>
+          <Text style={styles.statLabel}>{deporte === 'ride' ? 'VELOCIDAD' : 'RITMO'}</Text>
         </View>
       </View>
 
