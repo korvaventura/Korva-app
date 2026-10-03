@@ -25,13 +25,7 @@ export const recuperarSesionGpsLocal = async () => {
       await AsyncStorage.removeItem(GPS_SESSION_KEY);
       return null;
     }
-    // Foreground todavía no puede afirmar que siguió grabando mientras la app
-    // estuvo cerrada. Se recupera pausada para no inventar tiempo ni distancia.
-    return {
-      ...sesion,
-      estado: 'pausada',
-      ultimoPunto: null,
-    };
+    return sesion;
   } catch {
     await AsyncStorage.removeItem(GPS_SESSION_KEY);
     return null;
