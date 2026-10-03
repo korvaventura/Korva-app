@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import gpsCore from './gpsCore';
 
-const { agregarPuntoGps, tickSesionGps } = gpsCore;
+const { agregarPuntoGps } = gpsCore;
 
 const GPS_SESSION_KEY = '@korva/gps_session_v1';
 
@@ -53,7 +53,6 @@ export const procesarUbicacionesGpsLocal = async (locations = []) => {
     const coords = loc?.coords;
     if (!coords) continue;
     const timestamp = loc.timestamp || Date.now();
-    siguiente = tickSesionGps(siguiente, timestamp);
     siguiente = agregarPuntoGps(siguiente, {
       latitude: coords.latitude,
       longitude: coords.longitude,
