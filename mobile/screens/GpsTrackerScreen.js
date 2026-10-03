@@ -10,6 +10,7 @@ import {
   recuperarSesionGpsLocal,
 } from '../services/gps/gpsPersistence';
 import { iniciarGpsBackground, detenerGpsBackground } from '../services/gps/gpsBackgroundTask';
+import { confirmarActividadGps } from '../services/gps/gpsApi';
 
 const {
   crearSesionGps,
@@ -38,6 +39,7 @@ export default function GpsTrackerScreen({ navigation }) {
   const [precision, setPrecision] = useState(null);
   const [ahoraMs, setAhoraMs] = useState(Date.now());
   const [deporte, setDeporte] = useState('run');
+  const [confirmando, setConfirmando] = useState(false);
 
   const publicar = (s, { persistir = true } = {}) => {
     sesionRef.current = s;
@@ -175,6 +177,32 @@ export default function GpsTrackerScreen({ navigation }) {
     : estadoGps === 'finalizado' ? 'Actividad finalizada'
     : estadoGps === 'error' ? 'GPS no disponible'
     : 'Listo para salir';
+
+  const confirmar = async () => {
+    if (!sesion || sesion.estado !== 'finalizada' || confirmando) return;
+    setConfirmando(true);
+    try {
+      const data = await confirmarActividadGps(sesion, resumenSesionGps(sesion));
+      await borrarSesionGpsLocal();
+      publicar(null, { persistir: false });
+      setEstadoGps('listo');
+      setPrecision(null);
+      Alert.alert(
+        data.idempotente ? 'Actividad ya guardada' : 'Actividad registrada',
+        data.idempotente
+          ? 'Korva ya tenía registrada esta actividad. No se duplicaron kilómetros.'
+          : 'Tu actividad se guardó correctamente y el progreso fue actualizado.'
+      );
+      navigation.goBack();
+    } catch (e) {
+      Alert.alert(
+        'Actividad pendiente',
+        'No pudimos confirmarla ahora. El recorrido quedó guardado en este teléfono para que puedas reintentar sin perderlo.'
+      );
+    } finally {
+      setConfirmando(false);
+    }
+  };
 
   const nombreDeporte = deporte === 'walk' ? 'Caminar' : deporte === 'ride' ? 'Bici' : 'Correr';
   const velocidadKmh = resumenBase.duration_seconds > 0
@@ -315,11 +343,13 @@ export default function GpsTrackerScreen({ navigation }) {
               }}>
                 <Text style={styles.secondaryText}>Descartar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.primarySmall} onPress={() => {
-                Alert.alert('Actividad lista', 'La confirmación con Korva se conectará al motor en el próximo paso. Todavía no se guardó ni sumó kilómetros.');
-              }}>
+              <TouchableOpacity
+                style={[styles.primarySmall, confirmando && styles.disabled]}
+                disabled={confirmando}
+                onPress={confirmar}
+              >
                 <Ionicons name="checkmark" size={22} color="#FFFFFF" />
-                <Text style={styles.secondaryText}>Confirmar</Text>
+                <Text style={styles.secondaryText}>{confirmando ? 'Guardando…' : 'Confirmar'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -369,4 +399,5 @@ const styles = StyleSheet.create({
   primarySmall: { flex: 1, height: 58, borderRadius: 18, backgroundColor: '#1E6FD9', flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
   finish: { flex: 1, height: 58, borderRadius: 18, backgroundColor: '#B23A3A', flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
   secondaryText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  disabled: { opacity: 0.55 },
 });
