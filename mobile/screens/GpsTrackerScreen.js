@@ -6,8 +6,10 @@ import gpsCore from '../services/gps/gpsCore';
 import {
   borrarSesionGpsLocal,
   guardarSesionGpsLocal,
+  leerSesionGpsLocal,
   recuperarSesionGpsLocal,
 } from '../services/gps/gpsPersistence';
+import { iniciarGpsBackground, detenerGpsBackground } from '../services/gps/gpsBackgroundTask';
 
 const {
   crearSesionGps,
