@@ -17,6 +17,14 @@ const camposVersion = (uc) => {
   };
 };
 const { actualizarConCompletitudCondicional } = require('../lib/completitudLegada');
+const { writerMotorActivo, efectosMotorActivos, stravaImportMotorActiva } = require('../lib/flagsMotor');
+const { importarActividadesStravaConMotor, ERROR_VIEJO: ERROR_IMPORTACION } = require('../lib/importacionStrava');
+const { crearRepositorioSupabase } = require('../lib/progresoRepositorioSupabase');
+const { logMotor } = require('../lib/recuperacionRecalculo');
+
+// Lo configura index.js con el procesador de efectos (progreso_eventos). Sin configurar, los eventos
+// quedan pendientes y los procesa la recuperación periódica.
+let dispararEfectosMotor = () => {};
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const { enviarNotificacionProgreso } = require('../routes/notificaciones');
@@ -439,6 +447,58 @@ router.get('/actividades/:userId', async (req, res) => {
     let importadas = 0;
     let salteadas = 0;
 
+    // Etapa 4A-7: motor unificado, solo si MOTOR_PROGRESO_WRITERS incluye "strava_import" Y "efectos".
+    // Con la flag apagada (o sin "efectos") se ejecuta el código viejo de abajo, sin cambios.
+    if (writerMotorActivo('strava_import') && !efectosMotorActivos()) {
+      logMotor({ writer: 'strava_import', resultado: 'ignorado_sin_efectos', aviso: 'strava_import requiere efectos: se usa el camino viejo' });
+    }
+    if (stravaImportMotorActiva()) {
+      // Mismas lecturas y mismo anti-duplicados que el viejo; recién después se escribe (con marcas).
+      const filas = [];
+      for (const actividad of actividadesFiltradas) {
+        const km = actividad.distance / 1000;
+        const duplicada = await yaExisteActividad(supabase, userId, actividad.start_date, km, actividad.id);
+        if (duplicada) {
+          console.log(
+            `Actividad ${actividad.id} salteada — ya existe una de ${duplicada.distance_km} km ` +
+            `(origen: ${duplicada.source}) el ${String(actividad.start_date).split('T')[0]}`
+          );
+          salteadas++;
+          continue;
+        }
+        filas.push({
+          user_id: userId,
+          source: 'strava',
+          external_id: String(actividad.id),
+          sport_type: normalizarSportType(actividad.type),
+          distance_km: km,
+          duration_seconds: actividad.moving_time,
+          recorded_at: actividad.start_date,
+          challenge_id: challengeIdActual
+        });
+      }
+      const r = await importarActividadesStravaConMotor({
+        repo: crearRepositorioSupabase(supabase),
+        userId,
+        filas,
+        dispararEfectos: (ids) => dispararEfectosMotor(ids),
+      });
+      if (!r.ok) return res.json({ error: ERROR_IMPORTACION, detalle: r.error });
+      const respuesta = {
+        mensaje: `${r.importadas} actividades importadas de Strava` +
+                 (salteadas > 0 ? ` (${salteadas} ya estaban cargadas)` : ''),
+        importadas: r.importadas,
+        salteadas,
+        actividades: actividadesFiltradas.map(a => ({
+          nombre: a.name,
+          tipo: a.type,
+          distancia_km: (a.distance / 1000).toFixed(2)
+        }))
+      };
+      if (r.progreso) respuesta.progreso = r.progreso;
+      return res.json(respuesta);
+    }
+
     for (const actividad of actividadesFiltradas) {
       const km = actividad.distance / 1000;
 
@@ -714,5 +774,10 @@ router.post('/webhook', async (req, res) => {
     console.error('Error procesando webhook de Strava:', error.message);
   }
 });
+
+/** index.js conecta el procesador de efectos del motor (4A-7). */
+router.configurarMotor = ({ dispararEfectos } = {}) => {
+  if (typeof dispararEfectos === 'function') dispararEfectosMotor = dispararEfectos;
+};
 
 module.exports = router;

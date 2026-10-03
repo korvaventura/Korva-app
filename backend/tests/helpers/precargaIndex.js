@@ -38,6 +38,11 @@ memoria = crearSupabaseMemoria(tablas, { fallar: interceptar });
 
 const fetchOriginal = global.fetch;
 global.fetch = async (url, init) => {
+  // PRUEBA_STRAVA_JSON=<ruta>: la API de Strava devuelve esa lista de actividades (sin red).
+  if (process.env.PRUEBA_STRAVA_JSON && String(url).startsWith('https://www.strava.com/api/v3/athlete/activities')) {
+    const lista = JSON.parse(fs.readFileSync(process.env.PRUEBA_STRAVA_JSON, 'utf8'));
+    return { ok: true, status: 200, json: async () => lista };
+  }
   if (String(url).startsWith('https://exp.host/')) {
     efectos.push.push(JSON.parse(init.body));
     return { ok: true, status: 200, json: async () => ({ data: { status: 'ok' } }) };

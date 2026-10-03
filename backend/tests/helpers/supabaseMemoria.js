@@ -1,6 +1,6 @@
 // Cliente Supabase EN MEMORIA para tests (no toca ninguna base real).
 // Soporta lo que usan el writer viejo de reanudar y el repositorio del motor:
-//   from(t).select(campos) / .update(valores) / .insert(fila)
+//   from(t).select(campos) / .update(valores) / .insert(fila) / .upsert(fila, { onConflict })
 //   filtros: eq, is, in, gte, lt, neq, not(is null) ; order, range, limit ; terminales: then, single, maybeSingle
 //   select('..., challenges(...)') adjunta el challenge (como el join de PostgREST).
 // Registra cada operación en `registro` para poder afirmar qué se leyó y qué se escribió.
@@ -72,6 +72,7 @@ const crearSupabaseMemoria = (tablas = {}, opciones = {}) => {
       if (t === 'is') return v === null ? x === null || x === undefined : x === v;
       if (t === 'in') return v.includes(x);
       if (t === 'gte') return x >= v;
+      if (t === 'lte') return x !== null && x !== undefined && x <= v;
       if (t === 'lt') return x !== null && x !== undefined && x < v;
       if (t === 'not_is_null') return x !== null && x !== undefined;
       return true;
@@ -87,6 +88,19 @@ const crearSupabaseMemoria = (tablas = {}, opciones = {}) => {
 
     const ejecutar = () => {
       if (opciones.fallar && opciones.fallar(op)) return { data: null, error: { message: 'falla simulada', code: 'XX000' } };
+      if (op.tipo === 'upsert') {
+        // upsert(fila, { onConflict }): actualiza la fila con el mismo valor en esa columna o inserta.
+        const col = (op.opciones && op.opciones.onConflict) || 'id';
+        const existente = db[tabla].find((f) => f[col] !== undefined && f[col] === op.valores[col]);
+        if (existente) {
+          Object.assign(existente, JSON.parse(JSON.stringify(op.valores)));
+          return { data: op.devolver ? [proyectar(existente)] : null, error: null };
+        }
+        const fila = { id: `id-${++secuencia}`, ...op.valores };
+        if (tabla === 'activities' && fila.excluida === undefined) fila.excluida = false;
+        db[tabla].push(fila);
+        return { data: op.devolver ? [proyectar(fila)] : null, error: null };
+      }
       if (op.tipo === 'insert') {
         const fila = { id: `id-${++secuencia}`, ...op.valores };
         if (tabla === 'progreso_eventos') delete fila.id; // id lo pone insertarEvento
@@ -145,12 +159,14 @@ const crearSupabaseMemoria = (tablas = {}, opciones = {}) => {
       select: (campos) => { if (op.tipo === 'select') op.campos = campos; else op.devolver = true; return q; },
       update: (v) => { op.tipo = 'update'; op.valores = v; return q; },
       insert: (v) => { op.tipo = 'insert'; op.valores = v; return q; },
+      upsert: (v, opciones) => { op.tipo = 'upsert'; op.valores = v; op.opciones = opciones || {}; return q; },
       eq: (c, v) => { op.filtros.push(['eq', c, v]); return q; },
       neq: (c, v) => { op.filtros.push(['neq', c, v]); return q; },
       is: (c, v) => { op.filtros.push(['is', c, v]); return q; },
       in: (c, v) => { op.filtros.push(['in', c, v]); return q; },
       gte: (c, v) => { op.filtros.push(['gte', c, v]); return q; },
       lt: (c, v) => { op.filtros.push(['lt', c, v]); return q; },
+      lte: (c, v) => { op.filtros.push(['lte', c, v]); return q; },
       not: (c, operador, v) => { if (operador === 'is' && v === null) op.filtros.push(['not_is_null', c, null]); return q; },
       order: () => q,
       range: (a, b) => { op.rango = [a, b]; return q; },

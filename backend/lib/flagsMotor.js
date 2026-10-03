@@ -2,14 +2,15 @@
 //
 // Cada writer viejo pasa al motor solo si su nombre está en la variable de entorno
 //   MOTOR_PROGRESO_WRITERS   (lista separada por comas, ej.: "reanudar,eliminar_actividad,efectos,modalidad")
-// Writers conocidos: reanudar (4A-3c), eliminar_actividad (4A-3d), modalidad (4A-3e), actividad_manual (4A-6).
+// Writers conocidos: reanudar (4A-3c), eliminar_actividad (4A-3d), modalidad (4A-3e), actividad_manual (4A-6),
+// strava_import (4A-7).
 // "efectos" (4A-3e) no es un writer: enciende el procesamiento de efectos de progreso_eventos
-// (certificado, emails, push). "modalidad" y "actividad_manual" solo entran al motor si "efectos" también
+// (certificado, emails, push). "modalidad", "actividad_manual" y "strava_import" solo entran al motor si "efectos" también
 // está encendido (completan desafíos: sin efectos quedarían sin certificado, emails ni push).
 // Si la variable no existe o está vacía, TODOS siguen con el código viejo (OFF por defecto).
 // Rollback de un writer: sacar su nombre de la variable en Railway.
 
-const WRITERS_CONOCIDOS = ['reanudar', 'eliminar_actividad', 'modalidad', 'efectos', 'actividad_manual'];
+const WRITERS_CONOCIDOS = ['reanudar', 'eliminar_actividad', 'modalidad', 'efectos', 'actividad_manual', 'strava_import'];
 
 const writersActivos = (env = process.env) =>
   String(env.MOTOR_PROGRESO_WRITERS || '')
@@ -32,4 +33,7 @@ const modalidadMotorActiva = (env = process.env) => writerMotorActivo('modalidad
 /** carga manual usa el motor solo con "actividad_manual" Y "efectos" encendidos (mismo motivo que modalidad). */
 const actividadManualMotorActiva = (env = process.env) => writerMotorActivo('actividad_manual', env) && efectosMotorActivos(env);
 
-module.exports = { WRITERS_CONOCIDOS, writersActivos, writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva };
+/** importación Strava usa el motor solo con "strava_import" Y "efectos" encendidos (completa desafíos). */
+const stravaImportMotorActiva = (env = process.env) => writerMotorActivo('strava_import', env) && efectosMotorActivos(env);
+
+module.exports = { WRITERS_CONOCIDOS, writersActivos, writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva, stravaImportMotorActiva };

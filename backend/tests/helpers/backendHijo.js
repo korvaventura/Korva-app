@@ -18,6 +18,7 @@ const PRECARGA = path.join(__dirname, 'precargaIndex.js');
 const INDEX = path.join(RAIZ_BACKEND, 'index.js');
 const ESPERA_ARRANQUE_MS = 15000;
 const ESPERA_CIERRE_MS = 10000;
+const ESPERA_PEDIDO_MS = 30000;
 
 /**
  * @param {object} opciones
@@ -85,6 +86,8 @@ const levantarBackend = async ({ flag, tablas, entorno = {} }) => {
     try {
       const res = await fetch(`http://127.0.0.1:${puerto}${ruta}`, {
         method: metodo, headers: { 'Content-Type': 'application/json', ...headers }, body: crudo !== undefined ? crudo : JSON.stringify(body),
+        // Un pedido que no responde termina en error con el diagnóstico del hijo, no en un cuelgue mudo.
+        signal: AbortSignal.timeout(ESPERA_PEDIDO_MS),
       });
       const texto = await res.text();
       let cuerpo;

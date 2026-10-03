@@ -15,6 +15,7 @@
 //  - activities.excluida = true de UNA actividad del usuario (eliminar actividad, igual que hoy).
 //  - activities: alta de una actividad manual y user_challenges.started_at (corrimiento por una
 //    actividad anterior al inicio), igual que el camino viejo (carga manual, 4A-6).
+//  - activities: upsert por external_id de actividades importadas de Strava (4A-7), igual que hoy.
 //  - user_challenges.version (4A-3e; modalidad la sincroniza el trigger de la base), condicionada al
 //    status leído y, si está activo, junto con la marca de recálculo en el MISMO update.
 //  - progreso_eventos: reclamo, avance y resultado de los efectos, siempre con fencing por token.
@@ -191,6 +192,16 @@ const crearRepositorioSupabase = (supabase) => {
       const nuevoCorte = new Date(recordedAt) < limiteMinimo ? limiteMinimo.toISOString() : recordedAt;
       const { error: e2 } = await supabase.from('user_challenges').update({ started_at: nuevoCorte }).eq('id', ucCorte.id);
       if (e2) throw e2;
+      return true;
+    },
+
+    /**
+     * Importación Strava (4A-7): el mismo upsert por external_id que hace el camino viejo. No manda
+     * `excluida`, así que una actividad que el usuario eliminó sigue excluida aunque se reimporte.
+     */
+    upsertActividadStrava: async ({ fila }) => {
+      const { error } = await supabase.from('activities').upsert(fila, { onConflict: 'external_id' });
+      if (error) throw error;
       return true;
     },
 

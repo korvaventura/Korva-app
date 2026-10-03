@@ -370,6 +370,8 @@ app.post('/upload', async (req, res) => {
 });
 
 app.use('/strava', stravaRoutes);
+// 4A-7: la importación Strava con el motor dispara el mismo procesador de efectos.
+stravaRoutes.configurarMotor({ dispararEfectos: (ids) => procesadorEventos.disparar(ids) });
 app.use('/mercadopago', mercadopagoRoutes);
 app.use('/invitaciones', invitacionesRoutes);
 app.use('/movimiento-diario', movimientoRoutes);
