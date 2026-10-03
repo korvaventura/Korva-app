@@ -10,6 +10,10 @@
 // Si la variable no existe o está vacía, TODOS siguen con el código viejo (OFF por defecto).
 // Rollback de un writer: sacar su nombre de la variable en Railway.
 
+// Health es una capacidad del motor, no un writer: decide qué datos entran al cálculo.
+// OFF por defecto y rollback independiente mediante MOTOR_PROGRESO_HEALTH.
+const healthMotorActivo = (env = process.env) => String(env.MOTOR_PROGRESO_HEALTH || '').trim() === '1';
+
 const WRITERS_CONOCIDOS = ['reanudar', 'eliminar_actividad', 'modalidad', 'efectos', 'actividad_manual', 'strava_import', 'strava_webhook', 'strava_progreso'];
 
 const writersActivos = (env = process.env) =>
@@ -45,4 +49,4 @@ const stravaWebhookMotorActiva = (env = process.env) => writerMotorActivo('strav
  */
 const stravaProgresoSoloLectura = (env = process.env) => writerMotorActivo('strava_progreso', env);
 
-module.exports = { WRITERS_CONOCIDOS, writersActivos, writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva, stravaImportMotorActiva, stravaWebhookMotorActiva, stravaProgresoSoloLectura };
+module.exports = { healthMotorActivo, WRITERS_CONOCIDOS, writersActivos, writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva, stravaImportMotorActiva, stravaWebhookMotorActiva, stravaProgresoSoloLectura };
