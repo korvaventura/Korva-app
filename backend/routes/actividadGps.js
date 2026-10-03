@@ -3,6 +3,7 @@ const requireUser = require('../middleware/requireUser');
 const { registrarActividadGpsConMotor } = require('../lib/actividadGps');
 const { crearRepositorioSupabase } = require('../lib/progresoRepositorioSupabase');
 const { calcularDistanciaGpsServidor } = require('../lib/gpsValidacion');
+const { gpsMotorActivo } = require('../lib/flagsMotor');
 
 const DEPORTES = new Set(['run', 'walk', 'ride']);
 const SESSION_ID_RE = /^[A-Za-z0-9_-]{8,128}$/;
@@ -11,6 +12,10 @@ const crearActividadGpsRoutes = ({ supabase, procesadorEventos }) => {
   const router = express.Router();
 
   router.post('/', requireUser, async (req, res) => {
+    if (!gpsMotorActivo()) {
+      return res.status(503).json({ error: 'GPS Korva todavía no está habilitado.' });
+    }
+
     const { session_id, sport_type, duration_seconds, recorded_at, puntos } = req.body || {};
     const duracion = Number(duration_seconds);
     const recorrido = calcularDistanciaGpsServidor(puntos);
