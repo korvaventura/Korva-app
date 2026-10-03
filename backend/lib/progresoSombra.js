@@ -1,15 +1,15 @@
-// Progreso unificado — Etapa 4A, CAPA DE DATOS EN MODO SOMBRA (solo lectura).
+﻿// Progreso unificado â€” Etapa 4A, CAPA DE DATOS EN MODO SOMBRA (solo lectura).
 //
 // Lee user_challenges, challenges y activities y calcula el progreso con el
-// núcleo puro (progresoDesafio.js). NO escribe nada.
+// nÃºcleo puro (progresoDesafio.js). NO escribe nada.
 //
-// Garantía de solo lectura: todas las consultas pasan por clienteSoloLectura(),
+// GarantÃ­a de solo lectura: todas las consultas pasan por clienteSoloLectura(),
 // que solo expone .from(tabla).select(...) sobre las tres tablas permitidas.
-// No hay forma de llamar insert/update/upsert/delete/rpc desde este módulo:
-// esos métodos no existen en el objeto que recibe el resto del código.
+// No hay forma de llamar insert/update/upsert/delete/rpc desde este mÃ³dulo:
+// esos mÃ©todos no existen en el objeto que recibe el resto del cÃ³digo.
 const { calcularProgresoChallenge, resumirResultados } = require('./progresoDesafio');
 
-const TABLAS_PERMITIDAS = ['user_challenges', 'challenges', 'activities'];
+const TABLAS_PERMITIDAS = ['user_challenges', 'challenges', 'activities', 'daily_movement'];
 const TAMANO_PAGINA = 1000;
 const TAMANO_LOTE_IDS = 100;
 
@@ -18,7 +18,7 @@ const CAMPOS_CHALLENGE = 'id, title, modalidades, total_distance_km';
 const CAMPOS_ACTIVIDAD = 'id, user_id, distance_km, recorded_at, excluida';
 
 /**
- * Envuelve un cliente de Supabase y deja disponible únicamente
+ * Envuelve un cliente de Supabase y deja disponible Ãºnicamente
  * from(<tabla permitida>).select(...). Cualquier otra cosa no existe o tira error.
  */
 const clienteSoloLectura = (supabase) =>
@@ -81,7 +81,7 @@ const calcularDesafios = (userChallenges, challenges, actividadesPorUsuario, inc
     })
   );
 
-/** Progreso en sombra de todos los desafíos de un usuario (con detalle de actividades). */
+/** Progreso en sombra de todos los desafÃ­os de un usuario (con detalle de actividades). */
 const progresoSombraUsuario = async (supabase, userId) => {
   const db = clienteSoloLectura(supabase);
   const userChallenges = await traerTodo(() => db.from('user_challenges').select(CAMPOS_USER_CHALLENGE).eq('user_id', userId));
@@ -91,7 +91,7 @@ const progresoSombraUsuario = async (supabase, userId) => {
   return { desafios: resultados, resumen: resumirResultados(resultados) };
 };
 
-/** Reporte en sombra de TODOS los desafíos 'active' (sin detalle de actividades). */
+/** Reporte en sombra de TODOS los desafÃ­os 'active' (sin detalle de actividades). */
 const reporteSombraActivos = async (supabase, { soloDiferencias = false } = {}) => {
   const db = clienteSoloLectura(supabase);
   const userChallenges = await traerTodo(() => db.from('user_challenges').select(CAMPOS_USER_CHALLENGE).eq('status', 'active'));
