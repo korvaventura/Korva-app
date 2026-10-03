@@ -104,13 +104,6 @@ export default function HomeScreen({ navigation }) {
     });
   }, []);
 
-  useEffect(() => {
-    if (userId) {
-      cargarProgreso();
-      verificarStrava();
-    }
-  }, [userId]);
-
   useFocusEffect(
     useCallback(() => {
       if (userId) {
@@ -173,14 +166,29 @@ export default function HomeScreen({ navigation }) {
     try {
       setCargando(true);
       setError(false);
-      // Solo sincronizar Strava si está conectado
-      if (stravaConectado) {
-        await fetch(`${BACKEND_URL}/strava/actividades/${userId}`);
-      }
+      // La Home nunca espera a Strava para mostrar las cards.
+      // Primero lee el progreso ya materializado por el motor; si Strava está conectado,
+      // sincroniza después y refresca silenciosamente solo si llegaron datos nuevos.
       const res = await fetch(`${BACKEND_URL}/strava/progreso/${userId}`);
       const data = await res.json();
       const lista = Array.isArray(data) ? data : [];
       setChallenges(lista);
+
+      if (stravaConectado) {
+        fetch(`${BACKEND_URL}/strava/actividades/${userId}`)
+          .then(r => r.json())
+          .then(sync => {
+            if (Number(sync?.importadas || 0) > 0) {
+              return fetch(`${BACKEND_URL}/strava/progreso/${userId}`)
+                .then(r => r.json())
+                .then(actualizado => {
+                  if (Array.isArray(actualizado)) setChallenges(actualizado);
+                });
+            }
+          })
+          .catch(() => {});
+      }
+
       const activos = lista.filter(c => !c.pending);
       const sinKm = activos.some(c => parseFloat(c.km_completados || 0) === 0);
       // FIX: solo mostrar si no fue cerrado manualmente
