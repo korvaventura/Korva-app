@@ -17,7 +17,7 @@ const camposVersion = (uc) => {
   };
 };
 const { actualizarConCompletitudCondicional } = require('../lib/completitudLegada');
-const { writerMotorActivo, efectosMotorActivos, stravaImportMotorActiva, stravaWebhookMotorActiva } = require('../lib/flagsMotor');
+const { writerMotorActivo, efectosMotorActivos, stravaImportMotorActiva, stravaWebhookMotorActiva, stravaProgresoSoloLectura } = require('../lib/flagsMotor');
 const { procesarWebhookStravaConMotor, operacionDeEvento, OPERACIONES: OPERACIONES_WEBHOOK } = require('../lib/webhookStrava');
 const {
   ESTADOS: ESTADOS_BANDEJA, filaDeEvento, crearRepositorioBandeja, procesarEventoBandeja, iniciarRecuperacionBandeja,
@@ -614,6 +614,11 @@ router.get('/progreso/:userId', async (req, res) => {
 
     if (challengeError) throw challengeError;
 
+    // Etapa 4A-9: con "strava_progreso" el endpoint es SOLO LECTURA. Los activos se devuelven igual que
+    // hoy los pausados/terminales: desde lo guardado (km_completed/status que escribe el motor), sin
+    // recalcular (calcularKmDeChallenge), sin UPDATE, sin completar y sin email/push. Mismo formato.
+    const soloLectura = stravaProgresoSoloLectura();
+
     const resultados = await Promise.all(userChallenges.map(async (uc) => {
 
       if (uc.status === 'pending') {
@@ -639,7 +644,8 @@ router.get('/progreso/:userId', async (req, res) => {
 
       // Si el reto ya está completado/enviado — no recalcular km, usar los que tiene
       // Los km se congelan en el momento de completar
-      if (yaCompletado || uc.pausado) {
+      // 4A-9: con "strava_progreso" también los activos (solo lectura; ver soloLectura arriba).
+      if (yaCompletado || uc.pausado || soloLectura) {
         const kmFinal = uc.km_completed || 0;
         const porcentaje = Math.min((kmFinal / modalidadElegida.distancia_km) * 100, 100).toFixed(1);
         return {
