@@ -54,7 +54,8 @@ export default function GpsTrackerScreen({ navigation }) {
     recuperarSesionGpsLocal().then((recuperada) => {
       if (!activa || !recuperada) return;
       publicar(recuperada, { persistir: false });
-      setEstadoGps('pausado');
+      setEstadoGps(recuperada.estado === 'grabando' ? 'senal' : 'pausado');
+      setPrecision(recuperada.ultimoPunto?.accuracy != null ? Math.round(recuperada.ultimoPunto.accuracy) : null);
       setAhoraMs(Date.now());
     });
     return () => {
@@ -62,6 +63,20 @@ export default function GpsTrackerScreen({ navigation }) {
       detenerWatcher();
       if (timerRef.current) clearInterval(timerRef.current);
     };
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(async () => {
+      const actual = await leerSesionGpsLocal();
+      if (!actual) return;
+      sesionRef.current = actual;
+      setSesion(actual);
+      if (actual.estado === 'grabando' && actual.ultimoPunto) {
+        setEstadoGps('senal');
+        setPrecision(actual.ultimoPunto.accuracy != null ? Math.round(actual.ultimoPunto.accuracy) : null);
+      }
+    }, 1000);
+    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
