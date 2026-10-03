@@ -182,6 +182,25 @@ const crearRepositorioBase = (supabase) => {
       return data;
     },
 
+    /** Busca una actividad propia por external_id. Se usa para idempotencia del GPS Korva. */
+    buscarActividadPorExternalId: async ({ userId, externalId }) => {
+      const { data, error } = await lectura
+        .from('activities')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('external_id', externalId)
+        .maybeSingle();
+      if (error) throw error;
+      return data || null;
+    },
+
+    /** Inserta una actividad GPS Korva. */
+    insertarActividadGps: async ({ actividad }) => {
+      const { data, error } = await supabase.from('activities').insert(actividad).select().single();
+      if (error) throw error;
+      return data;
+    },
+
     /**
      * Carga manual (4A-6): misma regla que el camino viejo para una actividad anterior al inicio del
      * desafío elegido: corre started_at hacia atrás hasta la fecha de la actividad, como máximo 30
