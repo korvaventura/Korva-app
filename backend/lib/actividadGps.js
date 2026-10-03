@@ -31,6 +31,22 @@ const registrarActividadGpsConMotor = async ({
     };
   }
 
+  const equivalente = await repo.buscarActividadEquivalenteGps({
+    userId, sportType, distanceKm, recordedAt,
+  });
+  if (equivalente) {
+    return {
+      status: 200,
+      body: {
+        mensaje: 'Actividad equivalente ya registrada',
+        actividad: equivalente,
+        idempotente: true,
+        duplicado_equivalente: true,
+      },
+      eventos: [],
+    };
+  }
+
   const activos = await repo.leerMarcasDesafiosActivos({ userId });
   const marcas = [];
   for (const uc of activos) {
