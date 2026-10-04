@@ -10,11 +10,12 @@ const sesion = (sessionId, puntos = [{ latitude: 1, longitude: 2 }]) => ({
 });
 
 test('archivo GPS conserva puntos y datos de confirmacion', () => {
-  const archivo = construirArchivoGps([], sesion('s1'), { id: 'a1', idempotente: false }, '2026-10-04T08:00:00.000Z');
+  const archivo = construirArchivoGps([], sesion('s1'), { id: 'a1', idempotente: false, ruta_guardada: true }, '2026-10-04T08:00:00.000Z');
   assert.equal(archivo.length, 1);
   assert.equal(archivo[0].sessionId, 's1');
   assert.equal(archivo[0].actividadId, 'a1');
   assert.equal(archivo[0].puntos.length, 1);
+  assert.equal(archivo[0].rutaGuardadaServidor, true);
 });
 
 test('archivo GPS reemplaza el mismo sessionId en vez de duplicarlo', () => {
@@ -35,4 +36,11 @@ test('archivo GPS conserva solo las ultimas 100 actividades', () => {
 
 test('archivo GPS rechaza sesiones no finalizadas', () => {
   assert.throws(() => construirArchivoGps([], { ...sesion('s1'), estado: 'grabando' }), /sesion_gps_no_archivable/);
+});
+
+
+test('archivo GPS marca respaldo pendiente si servidor no confirmo la ruta', () => {
+  const archivo = construirArchivoGps([], sesion('s2'), { id: 'a2', ruta_guardada: false }, '2026-10-04T08:03:00.000Z');
+  assert.equal(archivo[0].rutaGuardadaServidor, false);
+  assert.equal(archivo[0].puntos.length, 1);
 });
