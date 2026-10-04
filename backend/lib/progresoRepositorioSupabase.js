@@ -23,7 +23,7 @@
 //  - progreso_eventos (4A-3a): alta de eventos y su estado. actualizado_at lo pone la base (trigger).
 const { clienteSoloLectura, traerTodo } = require('./progresoSombra');
 
-const CAMPOS_USER_CHALLENGE = 'id, user_id, challenge_id, status, started_at, pausado, pausado_at, periodos_pausados, version, modalidad, km_completed, km_base, km_base_motivo';
+const CAMPOS_USER_CHALLENGE = 'id, user_id, challenge_id, status, started_at, completed_at, pausado, pausado_at, periodos_pausados, version, modalidad, km_completed, km_base, km_base_motivo';
 const CAMPOS_CHALLENGE = 'id, title, modalidades, total_distance_km';
 const CAMPOS_ACTIVIDAD = 'id, user_id, source, sport_type, distance_km, duration_seconds, recorded_at, excluida';
 const CAMPOS_DAILY_MOVEMENT = 'fecha, timezone, distancia_caminando_km, distancia_bici_km, pasos, tipo_medicion, plataforma, cerrado, raw_payload, updated_at';
