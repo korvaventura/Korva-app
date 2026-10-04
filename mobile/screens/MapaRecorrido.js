@@ -776,7 +776,7 @@ const styles = StyleSheet.create({
   previewNavDestinoTexto: { flexShrink: 1 },
   previewNavRumbo: { color: '#587796', fontSize: 7, fontWeight: '900', letterSpacing: 1.2, marginBottom: 1 },
   previewNavNombre: { color: '#F8FAFC', fontSize: 12, fontWeight: '900', flexShrink: 1 },
-  previewNavFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#213C58', marginTop: 5, paddingTop: 9 },
+  previewNavFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 3, paddingTop: 3 },
   previewNavFalta: { color: '#94A3B8', fontSize: 11 },
   previewNavExplorar: { color: '#67A9FF', fontSize: 12, fontWeight: '900' },
     previewContinuacionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
