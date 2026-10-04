@@ -1058,7 +1058,12 @@ export default function PerfilScreen() {
         ) : (
           <>
             {actividadesVisibles.map((act, i) => (
-              <View key={i} style={styles.actividadRow}>
+              <TouchableOpacity
+                key={i}
+                style={styles.actividadRow}
+                activeOpacity={0.82}
+                onPress={() => navigation.navigate('DetalleActividad', { actividad: act, userId })}
+              >
                 <Text style={styles.actividadEmoji}>{deporteEmoji(act.sport_type)}</Text>
                 <View style={styles.actividadInfo}>
                   <Text style={styles.actividadFecha}>{formatearFechaCorta(act.recorded_at)}</Text>
@@ -1071,7 +1076,7 @@ export default function PerfilScreen() {
                 <TouchableOpacity onPress={() => eliminarActividad(act.id)} style={styles.eliminarBtn}>
                   <Text style={styles.eliminarBtnText}>✕</Text>
                 </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             ))}
             {actividades.length > 1 && (
               <TouchableOpacity style={styles.verTodasBtn} onPress={() => setMostrarTodasActividades(!mostrarTodasActividades)}>
