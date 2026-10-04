@@ -166,7 +166,6 @@ const CONFIGS = {
         <Rect x="46" y="155" width="20" height="3" fill="#DC2626" opacity="0.7" rx="1" />
         {/* Texto de ubicación */}
         <SvgText x="400" y="252" fill="#94a3b8" fontSize="12" textAnchor="middle">Yamanashi · Japón 🇯🇵</SvgText>
-        <SvgText x="615" y="10" fill="#FFFFFF" fontSize="10" textAnchor="middle" fontWeight="bold">3.776m ⛰️</SvgText>
       </G>
     ),
     checkpoints: [
@@ -190,15 +189,15 @@ const CONFIGS = {
         pista: 'En este bosque las brújulas mienten. ¿Qué hay bajo la tierra que las confunde?',
         desc: '35 km² de bosque crecido sobre la lava de la erupción del año 864. Jukai significa Mar de Árboles en japonés. El suelo es roca volcánica pura con cuevas y cavidades.',
         datoRaro: '🧭 La roca volcánica tiene alto contenido de magnetita. Las brújulas comerciales se desorientan dentro del bosque. El ejército japonés entrena navegación aquí desde 1956.' },
-      { id: 'quinta_estacion', nombre: '5ª Estación', kmFisico: 54, emoji: '🚡', x: 595, y: 90, labelY: 75, labelAnchor: 'middle',
+      { id: 'quinta_estacion', nombre: '5ª Estación', kmFisico: 54, emoji: '🚡', x: 595, y: 90, labelX: 570, labelY: 72, labelAnchor: 'end',
         pista: 'La puerta de la montaña. Desde aquí empieza el ascenso real al punto más alto de Japón.',
         desc: 'A 2.305 metros de altura, es la puerta de entrada oficial al ascenso. El Yoshida Trail parte desde aquí — la ruta más antigua y popular al Fuji.',
         datoRaro: '⛩️ Desde 2024 el Yoshida Trail cobra 2.000 yenes y limita el acceso a 4.000 personas por día. La montaña entera es propiedad privada del santuario Fujisan Hongu Sengen Taisha.' },
-      { id: 'cumbre', nombre: 'Cima 3.776m', kmFisico: 61, emoji: '🗻', x: 640, y: 20, labelY: 8, labelAnchor: 'middle',
+      { id: 'cumbre', nombre: 'Cima 3.776m', kmFisico: 61, emoji: '🗻', x: 640, y: 20, labelX: 640, labelY: 44, labelAnchor: 'middle',
         pista: 'El punto más alto de Japón. ¿Cuánto mide el cráter que hay debajo?',
         desc: 'El punto más alto de Japón a 3.776 metros. Desde aquí se ven los Alpes del Norte en días despejados. La caminata por el borde del cráter lleva 90 minutos.',
         datoRaro: '🌋 El cráter tiene 780 metros de diámetro y 250 metros de profundidad — tan grande que el Tokyo Skytree caería tumbado dentro. La última erupción en 1707 cubrió de ceniza a Tokio.' },
-      { id: 'llegada', nombre: 'Meta Final 🏁', kmFisico: 68, emoji: '🏁', x: 690, y: 90, labelY: 108, labelAnchor: 'middle',
+      { id: 'llegada', nombre: 'Meta Final 🏁', kmFisico: 68, emoji: '🏁', x: 690, y: 90, labelX: 716, labelY: 112, labelAnchor: 'start',
         pista: 'El final de la expedición. Cultura, lagos, bosque y cumbre en 68 kilómetros.',
         desc: '¡Lo lograste! Completaste una expedición completa alrededor y hasta la cima del Monte Fuji. Templos, lagos, el bosque de Aokigahara y el punto más alto de Japón.',
         datoRaro: '🎌 Hay un dicho japonés: El sabio sube el Fuji una vez. Solo el tonto lo sube dos. Vos lo hiciste a tu manera — 68 kilómetros a puro esfuerzo.' },
