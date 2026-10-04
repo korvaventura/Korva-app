@@ -36,3 +36,17 @@ export const confirmarActividadGps = async (sesion, resumen) => {
   }
   return data;
 };
+
+
+export const obtenerRutaGps = async (activityId) => {
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) throw new Error('sesion_no_disponible');
+  const res = await fetch(`${BACKEND_URL}/actividades/gps/${encodeURIComponent(activityId)}/ruta`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  if (res.status === 404) return null;
+  let data = {};
+  try { data = await res.json(); } catch {}
+  if (!res.ok) throw new Error(data.error || 'No se pudo cargar el recorrido.');
+  return data;
+};

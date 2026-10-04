@@ -4,7 +4,7 @@ const { registrarActividadGpsConMotor } = require('../lib/actividadGps');
 const { crearRepositorioSupabase } = require('../lib/progresoRepositorioSupabase');
 const { calcularDistanciaGpsServidor } = require('../lib/gpsValidacion');
 const { gpsMotorActivo } = require('../lib/flagsMotor');
-const { guardarRutaGps } = require('../lib/gpsRuta');
+const { guardarRutaGps, leerRutaGps } = require('../lib/gpsRuta');
 
 const DEPORTES = new Set(['run', 'walk', 'ride']);
 const SESSION_ID_RE = /^[A-Za-z0-9_-]{8,128}$/;
@@ -18,6 +18,21 @@ const crearActividadGpsRoutes = ({ supabase, procesadorEventos }) => {
     }
     return next();
   };
+
+  router.get('/:activityId/ruta', requireGpsActivo, requireUser, async (req, res) => {
+    try {
+      const ruta = await leerRutaGps({
+        supabase,
+        userId: req.userId,
+        activityId: req.params.activityId,
+      });
+      if (!ruta) return res.status(404).json({ error: 'Recorrido no encontrado.' });
+      return res.json(ruta);
+    } catch (error) {
+      console.error('[korva_gps] leer ruta:', error.message);
+      return res.status(500).json({ error: 'No se pudo cargar el recorrido.' });
+    }
+  });
 
   router.post('/', requireGpsActivo, requireUser, async (req, res) => {
     const { session_id, sport_type, duration_seconds, recorded_at, puntos } = req.body || {};
