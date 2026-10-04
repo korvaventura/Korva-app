@@ -71,7 +71,7 @@ export default function DetalleActividadScreen({ route, navigation }) {
         const validos = chequeados.filter(Boolean);
         if (vivo) {
           setRetosElegibles(validos);
-          setRetoShare(validos[0] || null);
+          setRetoShare(validos.length === 1 ? validos[0] : null);
         }
       } catch {
         // Compartir sigue disponible como "Solo actividad" aunque falle el contexto del reto.
