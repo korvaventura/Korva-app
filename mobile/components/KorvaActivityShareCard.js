@@ -37,10 +37,10 @@ export default function KorvaActivityShareCard({
   const totalKm = Number(challenge?.distancia_total || 0);
   const pct = totalKm > 0 ? Math.min(100, Math.max(0, challengeKm / totalKm * 100)) : null;
   const challengeName = challenge?.challenge || challenge?.challenge_title;
-  const oscuro = variante === 'dark';
+  const story = variante === 'story';
 
   return (
-    <View collapsable={false} style={[styles.card, oscuro ? styles.dark : styles.overlay]}>
+    <View collapsable={false} style={[styles.card, story ? styles.story : styles.overlay]}>
       <View style={styles.brandRow}>
         <Text style={styles.korva}>KORVA</Text>
         <View style={styles.brandLine} />
@@ -102,7 +102,7 @@ const shadow = {
 const styles = StyleSheet.create({
   card: { width: 340, minHeight: 470, paddingHorizontal: 22, paddingVertical: 24, justifyContent: 'flex-start' },
   overlay: { backgroundColor: 'transparent' },
-  dark: { backgroundColor: colors.backgroundDeep, borderRadius: 26, borderWidth: 1, borderColor: colors.border },
+  story: { width: 360, height: 640, backgroundColor: colors.backgroundDeep, paddingHorizontal: 28, paddingVertical: 34 },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   korva: { color: colors.text, fontSize: 11, fontWeight: '900', letterSpacing: 3, ...shadow },
   brandLine: { width: 22, height: 2, backgroundColor: colors.brandOrange },
