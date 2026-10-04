@@ -64,7 +64,6 @@ export default function HomeScreen({ navigation }) {
   const [nombre, setNombre] = useState('');
   const [bannerVisible, setBannerVisible] = useState(false);
   const [bannerCerrado, setBannerCerrado] = useState(false); // FIX: estado separado para cerrar manualmente
-  const [stravaBannerCerrado, setStravaBannerCerrado] = useState(false); // FIX: cerrar banner Strava
   const [metaInputs, setMetaInputs] = useState({});
   const [metaVisibles, setMetaVisibles] = useState({});
   const [guardandoMeta, setGuardandoMeta] = useState({});
@@ -73,7 +72,6 @@ export default function HomeScreen({ navigation }) {
   const [modalStravaVisible, setModalStravaVisible] = useState(false);
   const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
   const [modalStravaInfoVisible, setModalStravaInfoVisible] = useState(false);
-  const [bannerStravaVisible, setBannerStravaVisible] = useState(false);
   const [bannerDireccionVisible, setBannerDireccionVisible] = useState(false);
   const [actividadesLibres, setActividadesLibres] = useState([]);
   const [modoLibre, setModoLibre] = useState(false);
@@ -127,30 +125,6 @@ export default function HomeScreen({ navigation }) {
     });
     return () => subscription.remove();
   }, []);
-
-  useEffect(() => {
-    const checkBannerStrava = async () => {
-      try {
-        const visto = await AsyncStorage.getItem('banner_strava_visto');
-        if (visto) return;
-        const res = await fetch(`${BACKEND_URL}/strava-cupo?userId=${userId}`);
-        const data = await res.json();
-        if (data.disponible) setBannerStravaVisible(true);
-      } catch (e) {}
-    };
-    if (userId) checkBannerStrava();
-  }, [userId]);
-
-  const cerrarBannerStrava = async () => {
-    setBannerStravaVisible(false);
-    await AsyncStorage.setItem('banner_strava_visto', 'true');
-  };
-
-  const abrirTutorialStrava = async () => {
-    setBannerStravaVisible(false);
-    await AsyncStorage.setItem('banner_strava_visto', 'true');
-    setModalStravaInfoVisible(true);
-  };
 
   const verificarStrava = async () => {
     if (!userId) return;
@@ -1220,15 +1194,7 @@ const styles = StyleSheet.create({
   stravaBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
   stravaConectadoBadge: { backgroundColor: '#1a3a1a', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2a6a2a' },
   stravaConectadoBadgeText: { color: '#4CAF50', fontWeight: 'bold', fontSize: 13 },
-  // FIX: stravaActivoCard con posición relativa para el botón X
-  stravaActivoCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#4CAF50', position: 'relative' },
-  stravaActivoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingRight: 24 },
-  stravaActivoEmoji: { fontSize: 20 },
-  stravaActivoInfo: { flex: 1 },
-  stravaActivoTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
-  stravaActivoDesc: { fontSize: 11, color: '#A8CFFF' },
-  stravaActivoCerrar: { position: 'absolute', top: 10, right: 12 },
-  stravaActivoCerrarText: { color: '#4a6a8a', fontSize: 16, fontWeight: 'bold' },
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalCard: { backgroundColor: '#1E3A5F', borderRadius: 24, padding: 28, width: '100%', borderWidth: 1, borderColor: '#FC4C02' },
   modalEmoji: { fontSize: 48, textAlign: 'center', marginBottom: 12 },
