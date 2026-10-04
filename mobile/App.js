@@ -24,6 +24,7 @@ import GpsTrackerScreen from './screens/GpsTrackerScreen';
 import MisActividadesScreen from './screens/MisActividadesScreen';
 import DetalleActividadScreen from './screens/DetalleActividadScreen';
 import useHealthAutoSync from './services/health/useHealthAutoSync';
+import { colors } from './theme/korvaTheme';
 
 // ACÁ AGRUPAMOS TODO LO DE REACT NATIVE EN UNA SOLA LÍNEA Y AGREGAMOS 'View':
 import { View, Text, TextInput, Platform, ActivityIndicator } from 'react-native';
@@ -89,11 +90,11 @@ function HomeTabs({ esAdmin }) {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#0D1B2A',
-          borderTopColor: '#1E3A5F',
+          backgroundColor: colors.background,
+          borderTopColor: colors.surfaceStrong,
         },
-        tabBarActiveTintColor: '#1E6FD9',
-        tabBarInactiveTintColor: '#A8CFFF',
+        tabBarActiveTintColor: colors.actionBlueStrong,
+        tabBarInactiveTintColor: colors.textSoft,
       }}
     >
       <Tab.Screen name="Mis Retos" component={HomeScreen} options={{ tabBarIcon: () => <Text>🏃</Text> }} />
@@ -179,10 +180,10 @@ export default function App() {
 
   if (cargando) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#0D1B2A', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ fontSize: 64, marginBottom: 16 }}>🏅</Text>
-        <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#FFFFFF', letterSpacing: 6, marginBottom: 8 }}>KORVA</Text>
-        <Text style={{ fontSize: 14, color: '#A8CFFF', marginBottom: 32 }}>Desafíos virtuales. Medallas reales.</Text>
+        <Text style={{ fontSize: 36, fontWeight: 'bold', color: colors.text, letterSpacing: 6, marginBottom: 8 }}>KORVA</Text>
+        <Text style={{ fontSize: 14, color: colors.textSoft, marginBottom: 32 }}>Desafíos virtuales. Medallas reales.</Text>
         <ActivityIndicator color="#FC4C02" size="large" />
       </View>
     );
