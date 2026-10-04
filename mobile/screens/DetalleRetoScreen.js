@@ -86,11 +86,21 @@ export default function DetalleRetoScreen({ route, navigation }) {
 
   const cargarActividades = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/actividades/${userId}`);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        setActividades([]);
+        return;
+      }
+      const res = await fetch(`${BACKEND_URL}/progreso-desglose/${item.challenge_id}/actividades`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('No se pudo cargar la historia del desafío');
       const data = await res.json();
-      setActividades(Array.isArray(data) ? data : []);
+      setActividades(Array.isArray(data?.actividades) ? data.actividades : []);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error cargando historia del desafío:', error);
+      setActividades([]);
     } finally {
       setCargando(false);
     }
@@ -264,7 +274,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
       {!estaCompletado && (
         <View style={styles.ritmoCard}>
           <Text style={styles.ritmoTitulo}>📈 Tu ritmo actual</Text>
-         <Text style={styles.ritmoKm}>{ritmoDiario.toFixed(1)} km/sesión promedio</Text>
+         <Text style={styles.ritmoKm}>{ritmoDiario.toFixed(1)} km/día promedio</Text>
           <Text style={styles.ritmoSesiones}>{sesionesporSemana} sesiones por semana recomendadas</Text>
           {fechaEstimada && (
             <Text style={styles.ritmoPrediccion}>
@@ -333,7 +343,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
                     <Text style={styles.timelineKm}>{parseFloat(act.distance_km).toFixed(1)} km</Text>
                     <Text style={styles.timelineTipo}>{act.sport_type || 'Actividad'} · {act.source === 'manual' ? 'manual' : act.source === 'korva_gps' ? 'Korva GPS' : act.source === 'strava' ? 'Strava' : (act.source || 'Actividad')}</Text>
                   </View>
-                  <Text style={styles.timelineAcumulado}>Total acumulado: {act.acumulado.toFixed(1)}km</Text>
+                  <Text style={styles.timelineAcumulado}>Acumulado en actividades: {act.acumulado.toFixed(1)}km</Text>
                   {act.source === 'korva_gps' && act.id && <RutaGpsActividad activityId={act.id} />}
                 </View>
               </View>
@@ -369,10 +379,10 @@ const styles = StyleSheet.create({
     borderTopColor: '#D7DCE2',
     gap: 6,
   },
-  desgloseTitulo: { fontSize: 12, fontWeight: '600', color: '#5B6573', marginBottom: 2 },
+  desgloseTitulo: { fontSize: 12, fontWeight: '600', color: '#D6E7FA', marginBottom: 2 },
   desgloseFila: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  desgloseLabel: { fontSize: 12, color: '#6B7280' },
-  desgloseValor: { fontSize: 12, fontWeight: '600', color: '#303844' },
+  desgloseLabel: { fontSize: 12, color: '#B8CDE5' },
+  desgloseValor: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
   progresoFecha: { fontSize: 12, color: '#4a6a8a', marginTop: 6 },
   statsCompletadoCard: { backgroundColor: '#1a2a1a', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#FC4C02' },
   statsCompletadoTitulo: { fontSize: 18, fontWeight: 'bold', color: '#FC4C02', marginBottom: 8 },
@@ -387,7 +397,7 @@ const styles = StyleSheet.create({
   ritmoTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   ritmoKm: { fontSize: 22, fontWeight: 'bold', color: '#1E6FD9', marginBottom: 4 },
   ritmoPrediccion: { fontSize: 13, color: '#A8CFFF', marginBottom: 4 },
-  ritmoRestante: { fontSize: 12, color: '#4a6a8a' },
+  ritmoRestante: { fontSize: 12, color: '#A8CFFF' },
   metaCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 18, marginBottom: 16 },
   metaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   metaTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF' },
@@ -415,12 +425,12 @@ const styles = StyleSheet.create({
   timelineLine: { width: 2, flex: 1, backgroundColor: '#2a4a6a', marginVertical: 4 },
   timelineContent: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, marginBottom: 12 },
   timelineHito: { fontSize: 13, fontWeight: 'bold', color: '#FC4C02', marginBottom: 2 },
-  timelineFecha: { fontSize: 11, color: '#4a6a8a', marginBottom: 8 },
+  timelineFecha: { fontSize: 11, color: '#A8CFFF', marginBottom: 8 },
   timelineActRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   timelineEmoji: { fontSize: 16 },
   timelineKm: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
   timelineTipo: { fontSize: 11, color: '#A8CFFF' },
-  timelineAcumulado: { fontSize: 11, color: '#4a6a8a', marginTop: 4 },
+  timelineAcumulado: { fontSize: 11, color: '#A8CFFF', marginTop: 4 },
   backBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  ritmoSesiones: { fontSize: 12, color: '#4a6a8a', marginBottom: 4 },
+  ritmoSesiones: { fontSize: 12, color: '#A8CFFF', marginBottom: 4 },
 });
