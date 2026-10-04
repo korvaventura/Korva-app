@@ -178,11 +178,24 @@ export default function PerfilScreen() {
     try {
       const { data, error } = await supabase
         .from('user_challenges')
-        .select('id, version, modalidad, challenge_id, meta_fecha, km_completed, status, pausado, challenges(title, modalidades, total_distance_km)')
+        .select('id, version, modalidad, challenge_id, meta_fecha, km_completed, status, pausado, completed_at, challenges(title, modalidades, total_distance_km)')
         .eq('user_id', userId)
         .in('status', ['active', 'completed', 'shipped', 'cargado']);
       if (!error && data) {
-        setInscripcionesActivas(data);
+        const terminales = new Set(['completed', 'shipped', 'cargado']);
+        const fechaMs = (v) => {
+          const ms = v ? new Date(v).getTime() : 0;
+          return Number.isFinite(ms) ? ms : 0;
+        };
+        const ordenadas = [...data].sort((a, b) => {
+          const aTerminal = terminales.has(a.status);
+          const bTerminal = terminales.has(b.status);
+          if (aTerminal !== bTerminal) return aTerminal ? 1 : -1;
+          if (!aTerminal && !!a.pausado !== !!b.pausado) return a.pausado ? 1 : -1;
+          if (aTerminal && bTerminal) return fechaMs(b.completed_at) - fechaMs(a.completed_at);
+          return 0;
+        });
+        setInscripcionesActivas(ordenadas);
         const metas = {};
         data.forEach(d => { if (d.meta_fecha) metas[d.challenge_id] = d.meta_fecha; });
         setMetaFecha(metas);
@@ -992,7 +1005,7 @@ export default function PerfilScreen() {
                   <Text style={styles.actividadFecha}>{formatearFechaCorta(act.recorded_at)}</Text>
                   <Text style={styles.actividadTipo}>
                     {act.sport_type || 'Actividad'}
-                    {act.source === 'manual' ? ' · manual' : ' · Strava'}
+                    {act.source === 'manual' ? ' · manual' : act.source === 'korva_gps' ? ' · Korva GPS' : act.source === 'strava' ? ' · Strava' : ` · ${act.source || 'Actividad'}`}
                   </Text>
                 </View>
                 <Text style={styles.actividadKm}>{parseFloat(act.distance_km).toFixed(1)} km</Text>
