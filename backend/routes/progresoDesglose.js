@@ -7,14 +7,14 @@ const { createClient } = require('@supabase/supabase-js');
 const requireUser = require('../middleware/requireUser');
 const { crearRepositorioSupabase } = require('../lib/progresoRepositorioSupabase');
 const { recalcularProgresoUsuario, MODOS } = require('../lib/progresoServicio');
-const { healthMotorActivo } = require('../lib/flagsMotor');
 const { calcularProgresoChallenge, MOTIVOS } = require('../lib/progresoDesafio');
 
 const getSupabase = () => createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET);
 
 router.get('/', requireUser, async (req, res) => {
   try {
-    const incluirHealth = healthMotorActivo();
+    // Health pasivo se muestra en Tu movimiento, no como progreso del reto sin opt-in.
+    const incluirHealth = false;
     const informe = await recalcularProgresoUsuario({
       repo: crearRepositorioSupabase(getSupabase()),
       userId: req.userId,
