@@ -233,7 +233,7 @@ export default function GpsTrackerScreen({ navigation }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
-          <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Korva GPS</Text>
         <View style={styles.back} />
@@ -283,7 +283,7 @@ export default function GpsTrackerScreen({ navigation }) {
       </View>
 
       <View style={styles.note}>
-        <Ionicons name="shield-checkmark-outline" size={20} color="#A8CFFF" />
+        <Ionicons name="shield-checkmark-outline" size={20} color={colors.textSoft} />
         <Text style={styles.noteText}>
           {sesion
             ? 'El GPS sigue registrando si bloqueás la pantalla o usás otra app.'
@@ -294,7 +294,7 @@ export default function GpsTrackerScreen({ navigation }) {
       <View style={styles.controls}>
         {!sesion && (
           <TouchableOpacity style={styles.primary} onPress={iniciar}>
-            <Ionicons name="play" size={22} color="#FFFFFF" />
+            <Ionicons name="play" size={22} color={colors.text} />
             <Text style={styles.primaryText}>Iniciar actividad</Text>
           </TouchableOpacity>
         )}
@@ -302,11 +302,11 @@ export default function GpsTrackerScreen({ navigation }) {
         {sesion?.estado === 'grabando' && (
           <View style={styles.controlRow}>
             <TouchableOpacity style={styles.secondary} onPress={pausar}>
-              <Ionicons name="pause" size={24} color="#FFFFFF" />
+              <Ionicons name="pause" size={24} color={colors.text} />
               <Text style={styles.secondaryText}>Pausar</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.finish} onPress={finalizar}>
-              <Ionicons name="stop" size={24} color="#FFFFFF" />
+              <Ionicons name="stop" size={24} color={colors.text} />
               <Text style={styles.secondaryText}>Finalizar</Text>
             </TouchableOpacity>
           </View>
@@ -315,11 +315,11 @@ export default function GpsTrackerScreen({ navigation }) {
         {sesion?.estado === 'pausada' && (
           <View style={styles.controlRow}>
             <TouchableOpacity style={styles.primarySmall} onPress={reanudar}>
-              <Ionicons name="play" size={24} color="#FFFFFF" />
+              <Ionicons name="play" size={24} color={colors.text} />
               <Text style={styles.secondaryText}>Reanudar</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.finish} onPress={finalizar}>
-              <Ionicons name="stop" size={24} color="#FFFFFF" />
+              <Ionicons name="stop" size={24} color={colors.text} />
               <Text style={styles.secondaryText}>Finalizar</Text>
             </TouchableOpacity>
           </View>
@@ -365,7 +365,7 @@ export default function GpsTrackerScreen({ navigation }) {
                 disabled={confirmando}
                 onPress={confirmar}
               >
-                <Ionicons name="checkmark" size={22} color="#FFFFFF" />
+                <Ionicons name="checkmark" size={22} color={colors.text} />
                 <Text style={styles.secondaryText}>{confirmando ? 'Guardando…' : 'Confirmar'}</Text>
               </TouchableOpacity>
             </View>
