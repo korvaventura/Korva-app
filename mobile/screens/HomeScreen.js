@@ -766,20 +766,22 @@ export default function HomeScreen({ navigation }) {
           ) : (
             // FIX: selector siempre visible, aunque sea un solo reto
             <>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.retoTabsScroll}>
-                {challengesActivos.map((item, i) => (
-                  <TouchableOpacity
-                    key={i}
-                    style={[styles.retoTab, i === retoVisibleIndex && styles.retoTabActivo]}
-                    onPress={() => setRetoActivoIndex(i)}
-                  >
-                    <Text style={[styles.retoTabText, i === retoVisibleIndex && styles.retoTabTextActivo]}>
-                      {item.challenge}
-                    </Text>
-                    {parseFloat(item.porcentaje || 0) >= 100 && <Text style={styles.retoTabBadge}>🏅</Text>}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              {challengesActivos.length > 1 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.retoTabsScroll}>
+                  {challengesActivos.map((item, i) => (
+                    <TouchableOpacity
+                      key={item.id || item.challenge_id || i}
+                      style={[styles.retoTab, i === retoVisibleIndex && styles.retoTabActivo]}
+                      onPress={() => setRetoActivoIndex(i)}
+                    >
+                      <Text style={[styles.retoTabText, i === retoVisibleIndex && styles.retoTabTextActivo]}>
+                        {item.challenge}
+                      </Text>
+                      {parseFloat(item.porcentaje || 0) >= 100 && <Text style={styles.retoTabBadge}>🏅</Text>}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
 
               <RetoCard
                 item={challengesActivos[retoVisibleIndex]}
