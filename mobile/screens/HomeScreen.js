@@ -64,7 +64,6 @@ export default function HomeScreen({ navigation }) {
   const [nombre, setNombre] = useState('');
   const [bannerVisible, setBannerVisible] = useState(false);
   const [bannerCerrado, setBannerCerrado] = useState(false); // FIX: estado separado para cerrar manualmente
-  const [stravaBannerCerrado, setStravaBannerCerrado] = useState(false); // FIX: cerrar banner Strava
   const [metaInputs, setMetaInputs] = useState({});
   const [metaVisibles, setMetaVisibles] = useState({});
   const [guardandoMeta, setGuardandoMeta] = useState({});
@@ -73,7 +72,6 @@ export default function HomeScreen({ navigation }) {
   const [modalStravaVisible, setModalStravaVisible] = useState(false);
   const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
   const [modalStravaInfoVisible, setModalStravaInfoVisible] = useState(false);
-  const [bannerStravaVisible, setBannerStravaVisible] = useState(false);
   const [bannerDireccionVisible, setBannerDireccionVisible] = useState(false);
   const [actividadesLibres, setActividadesLibres] = useState([]);
   const [modoLibre, setModoLibre] = useState(false);
@@ -127,30 +125,6 @@ export default function HomeScreen({ navigation }) {
     });
     return () => subscription.remove();
   }, []);
-
-  useEffect(() => {
-    const checkBannerStrava = async () => {
-      try {
-        const visto = await AsyncStorage.getItem('banner_strava_visto');
-        if (visto) return;
-        const res = await fetch(`${BACKEND_URL}/strava-cupo?userId=${userId}`);
-        const data = await res.json();
-        if (data.disponible) setBannerStravaVisible(true);
-      } catch (e) {}
-    };
-    if (userId) checkBannerStrava();
-  }, [userId]);
-
-  const cerrarBannerStrava = async () => {
-    setBannerStravaVisible(false);
-    await AsyncStorage.setItem('banner_strava_visto', 'true');
-  };
-
-  const abrirTutorialStrava = async () => {
-    setBannerStravaVisible(false);
-    await AsyncStorage.setItem('banner_strava_visto', 'true');
-    setModalStravaInfoVisible(true);
-  };
 
   const verificarStrava = async () => {
     if (!userId) return;
@@ -480,22 +454,6 @@ export default function HomeScreen({ navigation }) {
         </View>
       )}
 
-      {/* Banner Strava — aparece una sola vez para activos sin Strava */}
-      {bannerStravaVisible && !stravaConectado && (
-        <View style={styles.bannerStrava}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.bannerStravaTitulo}>🔗 ¡Strava ya está disponible!</Text>
-            <Text style={styles.bannerStravaDesc}>Conectá tu cuenta y cada actividad se carga automáticamente. Si ya cargaste km manualmente, revisá tu historial en el Perfil para evitar duplicados — podés borrar actividades deslizando sobre ellas.</Text>
-            <TouchableOpacity onPress={abrirTutorialStrava}>
-              <Text style={styles.bannerStravaBtn}>Ver cómo conectarla →</Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity onPress={cerrarBannerStrava} style={{ padding: 4 }}>
-            <Text style={{ color: '#4a6a8a', fontSize: 18 }}>✕</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       {/* Modal FAQ / Ayuda */}
       <Modal visible={modalAyudaVisible} transparent animationType="slide" onRequestClose={() => setModalAyudaVisible(false)}>
         <View style={styles.modalOverlay}>
@@ -732,40 +690,6 @@ export default function HomeScreen({ navigation }) {
         <Ionicons name="chevron-forward" size={22} color="#A8CFFF" />
       </TouchableOpacity>
 
-      {actividadReciente && (
-        <TouchableOpacity
-          style={styles.actividadRecienteCard}
-          onPress={() => navigation.navigate('DetalleActividad', { actividad: actividadReciente })}
-        >
-          <View style={styles.actividadRecienteHeader}>
-            <Text style={styles.actividadRecienteEyebrow}>ACTIVIDAD RECIENTE</Text>
-            <Text style={styles.actividadRecienteFecha}>
-              {actividadReciente.recorded_at ? new Date(actividadReciente.recorded_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : ''}
-            </Text>
-          </View>
-          <View style={styles.actividadRecienteFila}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.actividadRecienteDeporte}>
-                {nombreDeporteActividad(actividadReciente.sport_type)}
-              </Text>
-              <Text style={styles.actividadRecienteFuente}>
-                {nombreFuenteActividad(actividadReciente.source)}
-              </Text>
-            </View>
-            <Text style={styles.actividadRecienteKm}>{Number(actividadReciente.distance_km || 0).toFixed(2)} km</Text>
-            <Ionicons name="chevron-forward" size={20} color="#67A9FF" />
-          </View>
-        </TouchableOpacity>
-      )}
-
-      <TouchableOpacity style={styles.actividadesInicioCard} onPress={() => navigation.navigate('MisActividades')}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.actividadesInicioTitulo}>Mis actividades</Text>
-          <Text style={styles.actividadesInicioDesc}>Ver historial completo, estadísticas y recorridos GPS</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color="#67A9FF" />
-      </TouchableOpacity>
-
       {/* Banner pago — FIX: usa cerrarBanner() */}
       {bannerVisible && !cargando && (
         <View style={styles.bannerCard}>
@@ -785,27 +709,6 @@ export default function HomeScreen({ navigation }) {
               </View>
             </View>
           ))}
-        </View>
-      )}
-
-      {/* Strava activo — FIX: con botón X para cerrar */}
-      {stravaConectado && !cargando && !stravaBannerCerrado && (
-        <View style={styles.stravaActivoCard}>
-          <TouchableOpacity style={styles.stravaActivoRow} onPress={() => setModalStravaVisible(true)}>
-            <Text style={styles.stravaActivoEmoji}>🟢</Text>
-            <View style={styles.stravaActivoInfo}>
-              <Text style={styles.stravaActivoTitulo}>Strava activo</Text>
-              <Text style={styles.stravaActivoDesc}>Tus actividades se sincronizan automáticamente · Tocá para ver cómo</Text>
-            </View>
-            <Ionicons name="information-circle-outline" size={20} color="#A8CFFF" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.stravaActivoCerrar}
-            onPress={() => setStravaBannerCerrado(true)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.stravaActivoCerrarText}>✕</Text>
-          </TouchableOpacity>
         </View>
       )}
 
@@ -912,6 +815,45 @@ export default function HomeScreen({ navigation }) {
             </>
           )}
         </>
+      )}
+
+      {!cargando && !error && (
+        <View style={styles.movimientoSection}>
+          <Text style={styles.movimientoTitulo}>Tu movimiento</Text>
+      {actividadReciente && (
+        <TouchableOpacity
+          style={styles.actividadRecienteCard}
+          onPress={() => navigation.navigate('DetalleActividad', { actividad: actividadReciente })}
+        >
+          <View style={styles.actividadRecienteHeader}>
+            <Text style={styles.actividadRecienteEyebrow}>ACTIVIDAD RECIENTE</Text>
+            <Text style={styles.actividadRecienteFecha}>
+              {actividadReciente.recorded_at ? new Date(actividadReciente.recorded_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : ''}
+            </Text>
+          </View>
+          <View style={styles.actividadRecienteFila}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.actividadRecienteDeporte}>
+                {nombreDeporteActividad(actividadReciente.sport_type)}
+              </Text>
+              <Text style={styles.actividadRecienteFuente}>
+                {nombreFuenteActividad(actividadReciente.source)}
+              </Text>
+            </View>
+            <Text style={styles.actividadRecienteKm}>{Number(actividadReciente.distance_km || 0).toFixed(2)} km</Text>
+            <Ionicons name="chevron-forward" size={20} color="#67A9FF" />
+          </View>
+        </TouchableOpacity>
+      )}
+
+      <TouchableOpacity style={styles.actividadesInicioCard} onPress={() => navigation.navigate('MisActividades')}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.actividadesInicioTitulo}>Mis actividades</Text>
+          <Text style={styles.actividadesInicioDesc}>Ver historial completo, estadísticas y recorridos GPS</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color="#67A9FF" />
+      </TouchableOpacity>
+        </View>
       )}
 
       {/* Modo libre — sin reto activo */}
@@ -1252,15 +1194,7 @@ const styles = StyleSheet.create({
   stravaBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
   stravaConectadoBadge: { backgroundColor: '#1a3a1a', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2a6a2a' },
   stravaConectadoBadgeText: { color: '#4CAF50', fontWeight: 'bold', fontSize: 13 },
-  // FIX: stravaActivoCard con posición relativa para el botón X
-  stravaActivoCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#4CAF50', position: 'relative' },
-  stravaActivoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingRight: 24 },
-  stravaActivoEmoji: { fontSize: 20 },
-  stravaActivoInfo: { flex: 1 },
-  stravaActivoTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
-  stravaActivoDesc: { fontSize: 11, color: '#A8CFFF' },
-  stravaActivoCerrar: { position: 'absolute', top: 10, right: 12 },
-  stravaActivoCerrarText: { color: '#4a6a8a', fontSize: 16, fontWeight: 'bold' },
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalCard: { backgroundColor: '#1E3A5F', borderRadius: 24, padding: 28, width: '100%', borderWidth: 1, borderColor: '#FC4C02' },
   modalEmoji: { fontSize: 48, textAlign: 'center', marginBottom: 12 },
@@ -1375,6 +1309,8 @@ const styles = StyleSheet.create({
   storyFooter: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', borderTopWidth: 1, borderTopColor: '#1E3A5F', paddingTop: 12 },
   storyNombre: { fontSize: 13, color: '#FFFFFF', fontWeight: 'bold' },
   storyUrl: { fontSize: 13, color: '#FC4C02' },
+  movimientoSection: { marginHorizontal: 20, marginTop: 18, marginBottom: 6 },
+  movimientoTitulo: { color: '#A8CFFF', fontSize: 11, fontWeight: '800', letterSpacing: 1.4, marginBottom: 10 },
   actividadRecienteCard: { backgroundColor: '#13283D', borderRadius: 16, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#1E3A5F' },
   actividadRecienteHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 },
   actividadRecienteEyebrow: { color: '#617184', fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
@@ -1383,10 +1319,10 @@ const styles = StyleSheet.create({
   actividadRecienteDeporte: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
   actividadRecienteFuente: { color: '#A8CFFF', fontSize: 11, marginTop: 3 },
   actividadRecienteKm: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
-  actividadesInicioCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#13283D', borderRadius: 14, padding: 14, marginBottom: 14 },
-  actividadesInicioTitulo: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  actividadesInicioCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 4, marginBottom: 10, borderTopWidth: 1, borderTopColor: '#1E3A5F' },
+  actividadesInicioTitulo: { color: '#A8CFFF', fontSize: 13, fontWeight: '800' },
   actividadesInicioDesc: { color: '#A8CFFF', fontSize: 11, marginTop: 3 },
-  gpsInicioCard: { marginHorizontal: 20, marginTop: 8, marginBottom: 14, padding: 16, borderRadius: 18, backgroundColor: '#10253A', borderWidth: 1, borderColor: '#1E3A5F', flexDirection: 'row', alignItems: 'center', gap: 13 },
+  gpsInicioCard: { marginHorizontal: 20, marginTop: 4, marginBottom: 14, padding: 14, borderRadius: 18, backgroundColor: '#10253A', borderWidth: 1, borderColor: '#1E3A5F', flexDirection: 'row', alignItems: 'center', gap: 13 },
   gpsInicioIcono: { width: 46, height: 46, borderRadius: 15, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center' },
   gpsInicioEyebrow: { color: '#617184', fontSize: 9, fontWeight: '700', letterSpacing: 1.4, marginBottom: 3 },
   gpsInicioTitulo: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', marginBottom: 2 },
