@@ -1,0 +1,127 @@
+import { StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Polyline } from 'react-native-svg';
+import { colors } from '../theme/korvaTheme';
+
+const { proyectarRuta } = require('../services/gps/rutaVisualCore');
+
+const W = 300;
+const H = 150;
+
+const duracion = (segundos) => {
+  const s = Math.max(0, Number(segundos) || 0);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`;
+};
+
+const ritmo = (km, segundos, sportType) => {
+  if (!(km > 0) || !(segundos > 0)) return '—';
+  if (sportType === 'ride') return `${(km / (segundos / 3600)).toFixed(1)} KM/H`;
+  const total = Math.round(segundos / km);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')} /KM`;
+};
+
+export default function KorvaActivityShareCard({
+  actividad = {},
+  puntos = [],
+  challenge = null,
+  variante = 'overlay',
+}) {
+  const km = Number(actividad.distance_km || 0);
+  const segundos = Number(actividad.duration_seconds || 0);
+  const escalaRuta = km > 0 && km < 0.5 ? 0.62 : 0.9;
+  const trazado = proyectarRuta(puntos, W, H, { visualScale: escalaRuta, padding: 18 });
+  const points = trazado.map((p) => `${p.x},${p.y}`).join(' ');
+  const challengeKm = Number(challenge?.km_completados || 0);
+  const totalKm = Number(challenge?.distancia_total || 0);
+  const pct = totalKm > 0 ? Math.min(100, Math.max(0, challengeKm / totalKm * 100)) : null;
+  const challengeName = challenge?.challenge || challenge?.challenge_title;
+  const oscuro = variante === 'dark';
+
+  return (
+    <View collapsable={false} style={[styles.card, oscuro ? styles.dark : styles.overlay]}>
+      <View style={styles.brandRow}>
+        <Text style={styles.korva}>KORVA</Text>
+        <View style={styles.brandLine} />
+        <Text style={styles.activityType}>{actividad.sport_type === 'ride' ? 'RIDE' : actividad.sport_type === 'walk' ? 'WALK' : 'RUN'}</Text>
+      </View>
+
+      {challengeName ? (
+        <Text style={styles.roadTo}>ROAD TO {String(challengeName).toUpperCase()}</Text>
+      ) : (
+        <Text style={styles.roadTo}>KORVA ACTIVITY</Text>
+      )}
+
+      <View style={styles.metricRow}>
+        <Text style={styles.distance}>{km.toFixed(2)}</Text>
+        <Text style={styles.unit}>KM</Text>
+      </View>
+
+      <View style={styles.sessionRow}>
+        <Text style={styles.session}>{duracion(segundos)}</Text>
+        <Text style={styles.dot}>·</Text>
+        <Text style={styles.session}>{ritmo(km, segundos, actividad.sport_type)}</Text>
+      </View>
+
+      <View style={styles.route}>
+        {trazado.length >= 2 ? (
+          <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
+            <Polyline points={points} fill="none" stroke={colors.text} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+            <Circle cx={trazado[0].x} cy={trazado[0].y} r="4" fill={colors.text} />
+            <Circle cx={trazado[trazado.length - 1].x} cy={trazado[trazado.length - 1].y} r="5" fill={colors.brandOrange} />
+          </Svg>
+        ) : (
+          <View style={styles.routeFallback}><Text style={styles.routeFallbackText}>RECORRIDO GPS</Text></View>
+        )}
+      </View>
+
+      {challengeName && totalKm > 0 && (
+        <View style={styles.challengeBlock}>
+          <View style={styles.challengeNumbers}>
+            <Text style={styles.challengeProgress}>{challengeKm.toFixed(1)} / {totalKm.toFixed(0)} KM</Text>
+            <Text style={styles.challengePct}>{pct.toFixed(0)}%</Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${pct}%` }]} />
+          </View>
+        </View>
+      )}
+
+      <Text style={styles.signature}>CADA PASO CUENTA · KORVA</Text>
+    </View>
+  );
+}
+
+const shadow = {
+  textShadowColor: 'rgba(0,0,0,0.72)',
+  textShadowOffset: { width: 0, height: 1 },
+  textShadowRadius: 5,
+};
+
+const styles = StyleSheet.create({
+  card: { width: 340, minHeight: 470, paddingHorizontal: 22, paddingVertical: 24, justifyContent: 'flex-start' },
+  overlay: { backgroundColor: 'transparent' },
+  dark: { backgroundColor: colors.backgroundDeep, borderRadius: 26, borderWidth: 1, borderColor: colors.border },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  korva: { color: colors.text, fontSize: 11, fontWeight: '900', letterSpacing: 3, ...shadow },
+  brandLine: { width: 22, height: 2, backgroundColor: colors.brandOrange },
+  activityType: { color: colors.textSoft, fontSize: 8, fontWeight: '900', letterSpacing: 2, ...shadow },
+  roadTo: { color: colors.brandOrangeSoft, fontSize: 10, fontWeight: '900', letterSpacing: 1.8, marginTop: 26, ...shadow },
+  metricRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 4 },
+  distance: { color: colors.text, fontSize: 64, lineHeight: 70, fontWeight: '900', letterSpacing: -3, ...shadow },
+  unit: { color: colors.text, fontSize: 18, fontWeight: '900', marginLeft: 6, marginBottom: 10, ...shadow },
+  sessionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
+  session: { color: colors.text, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, ...shadow },
+  dot: { color: colors.brandOrange, fontSize: 15, fontWeight: '900', ...shadow },
+  route: { height: H, marginTop: 18, justifyContent: 'center' },
+  routeFallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  routeFallbackText: { color: colors.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 2 },
+  challengeBlock: { marginTop: 12 },
+  challengeNumbers: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  challengeProgress: { color: colors.text, fontSize: 12, fontWeight: '900', letterSpacing: 0.8, ...shadow },
+  challengePct: { color: colors.brandOrange, fontSize: 12, fontWeight: '900', ...shadow },
+  progressTrack: { height: 3, backgroundColor: 'rgba(255,255,255,0.28)', borderRadius: 3, marginTop: 9, overflow: 'hidden' },
+  progressFill: { height: 3, backgroundColor: colors.brandOrange, borderRadius: 3 },
+  signature: { color: colors.textSoft, fontSize: 8, fontWeight: '800', letterSpacing: 1.5, marginTop: 24, ...shadow },
+});
