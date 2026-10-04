@@ -405,12 +405,27 @@ export default function HomeScreen({ navigation }) {
     );
   }
 
+  const estadosTerminales = ['completed', 'shipped', 'cargado'];
+  const esTerminado = (c) =>
+    !c.pending && (parseFloat(c.porcentaje || 0) >= 100 || estadosTerminales.includes(c.status));
+  const fechaOrden = (valor) => {
+    const ms = valor ? new Date(valor).getTime() : 0;
+    return Number.isFinite(ms) ? ms : 0;
+  };
+
   const challengesPending = challenges.filter(c => c.pending);
   const challengesEnCurso = challenges
-    .filter(c => !c.pending && parseFloat(c.porcentaje || 0) < 100 && !['completed','shipped','cargado'].includes(c.status))
-    .sort((a, b) => parseFloat(b.porcentaje || 0) - parseFloat(a.porcentaje || 0)); // Más cerca de completar primero
-  const challengesCompletados = challenges.filter(c => !c.pending && (parseFloat(c.porcentaje || 0) >= 100 || ['completed','shipped','cargado'].includes(c.status)));
-  const challengesActivos = challenges.filter(c => !c.pending && !['completed','shipped','cargado'].includes(c.status));
+    .filter(c => !c.pending && !esTerminado(c))
+    .sort((a, b) => {
+      // Home: activos primero, luego pausados. Dentro de cada grupo, el más avanzado primero.
+      if (!!a.pausado !== !!b.pausado) return a.pausado ? 1 : -1;
+      return parseFloat(b.porcentaje || 0) - parseFloat(a.porcentaje || 0);
+    });
+  const challengesCompletados = challenges
+    .filter(esTerminado)
+    // Último completado arriba; el primero que terminó va quedando al fondo.
+    .sort((a, b) => fechaOrden(b.completed_at) - fechaOrden(a.completed_at));
+  const challengesActivos = challengesEnCurso;
   const esModoLibre = challengesActivos.length === 0 && challengesPending.length === 0;
   if (esModoLibre !== modoLibre) {
     setModoLibre(esModoLibre);
