@@ -36,18 +36,21 @@ const calcularDistanciaGpsServidor = (puntos) => {
   let ultimo = null;
   let distanciaM = 0;
   let aceptados = 0;
+  const puntosValidos = [];
   for (const entrada of puntos) {
     const p = normalizar(entrada);
     if (!p || (p.accuracy != null && p.accuracy > CONFIG.maxAccuracyM)) continue;
     if (!ultimo) {
       ultimo = p;
       aceptados++;
+      puntosValidos.push(p);
       continue;
     }
     const dt = p.timestamp - ultimo.timestamp;
     if (dt <= 0 || dt > CONFIG.maxGapMs) {
       ultimo = p;
       aceptados++;
+      puntosValidos.push(p);
       continue;
     }
     const d = haversineM(ultimo, p);
@@ -56,6 +59,7 @@ const calcularDistanciaGpsServidor = (puntos) => {
     distanciaM += d;
     ultimo = p;
     aceptados++;
+    puntosValidos.push(p);
   }
 
   return {
@@ -63,6 +67,7 @@ const calcularDistanciaGpsServidor = (puntos) => {
     error: aceptados >= 2 && distanciaM >= 10 ? null : 'recorrido_insuficiente',
     distanciaKm: Number((distanciaM / 1000).toFixed(4)),
     aceptados,
+    puntosValidos,
   };
 };
 
