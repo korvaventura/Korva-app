@@ -838,15 +838,20 @@ export default function PerfilScreen() {
               return (
                 <View key={cId} style={{ width: SCREEN_WIDTH, paddingHorizontal: 24 }}>
                   <View style={styles.retoCard}>
-                    <Text style={styles.retoCardTitulo}>{inscripcion.challenges?.title}</Text>
-                    <View style={styles.retoProgressWrapper}>
-                      <View style={styles.retoProgressBar}>
-                        <View style={[styles.retoProgressFill, { width: `${pct}%` }]} />
-                      </View>
-                      <Text style={styles.retoProgressPct}>{pct.toFixed(0)}%</Text>
+                    <Text style={styles.retoEyebrow}>{inscripcion.status === 'active' ? (inscripcion.pausado ? 'DESAFÍO PAUSADO' : 'TU AVENTURA') : 'DESAFÍO COMPLETADO'}</Text>
+                    <View style={styles.retoTitleRow}>
+                      <Text style={styles.retoCardTitulo}>{inscripcion.challenges?.title}</Text>
+                      <View style={styles.retoPctPill}><Text style={styles.retoProgressPct}>{pct.toFixed(0)}%</Text></View>
                     </View>
-                    <Text style={styles.retoKm}>{kmCompletados.toFixed(1)} km de {distanciaTotal} km</Text>
-                    <Text style={styles.modalidadLabel}>Versión · caminando, corriendo o en bici, todo suma</Text>
+                    <View style={styles.retoMetricRow}>
+                      <Text style={styles.retoMetric}>{kmCompletados.toFixed(1)}</Text>
+                      <Text style={styles.retoMetricUnit}>km</Text>
+                    </View>
+                    <Text style={styles.retoKm}>de {distanciaTotal} km</Text>
+                    <View style={styles.retoProgressBar}>
+                      <View style={[styles.retoProgressFill, { width: `${pct}%` }]} />
+                    </View>
+                    <Text style={styles.modalidadLabel}>VERSIÓN {etiquetaVersion(versionActual).toUpperCase()}</Text>
                     <View style={styles.modalidadBtns}>
                       {versiones.map((v) => (
                         <TouchableOpacity
@@ -904,7 +909,7 @@ export default function PerfilScreen() {
                     <View style={styles.metaSeparador} />
                     <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
                       <TouchableOpacity
-                        style={{ flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: '#2A5A8A', alignItems: 'center', justifyContent: 'center' }}
+                        style={styles.challengeAction}
                         onPress={() => navigation.navigate('DetalleReto', {
                           item: {
                             ...inscripcion,
@@ -921,7 +926,7 @@ export default function PerfilScreen() {
                       </TouchableOpacity>
                       {['completed', 'cargado', 'shipped'].includes(inscripcion.status) && (
                         <TouchableOpacity
-                          style={{ flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: '#2A5A8A', alignItems: 'center', justifyContent: 'center' }}
+                          style={styles.challengeAction}
                           onPress={() => setModalEnvioReto(inscripcion)}
                         >
                           <Text style={{ color: colors.textSoft, fontWeight: 'bold', fontSize: 12 }}>🎁 Medalla y envío</Text>
