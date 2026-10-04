@@ -824,8 +824,7 @@ export default function HomeScreen({ navigation }) {
                 onPress={() => movimientoY != null && scrollRef.current?.scrollTo({ y: Math.max(0, movimientoY - 24), animated: true })}
                 activeOpacity={0.7}
               >
-                <Text style={styles.scrollCueText}>Tu movimiento</Text>
-                <Ionicons name="chevron-down" size={18} color="#547493" />
+                <Ionicons name="chevron-down" size={20} color="#547493" />
               </TouchableOpacity>
             </>
           )}
@@ -1290,7 +1289,7 @@ const styles = StyleSheet.create({
   heroTotal: { color: '#7897B7', fontSize: 12, fontWeight: '700', marginTop: 1 },
   heroFooter: { minHeight: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   heroFooterMuted: { color: '#6888A7', fontSize: 11 },
-  gpsHeroAction: { marginTop: 8, minHeight: 142, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 18, backgroundColor: '#14283B', borderWidth: 1, borderColor: '#31506B' },
+  gpsHeroAction: { marginTop: 20, minHeight: 142, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 18, backgroundColor: '#14283B', borderWidth: 1, borderColor: '#31506B' },
   gpsHeroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
   gpsHeroStart: { height: 42, borderRadius: 21, backgroundColor: '#FC4C02', paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   gpsHeroStartText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
@@ -1298,11 +1297,10 @@ const styles = StyleSheet.create({
   gpsHeroTitulo: { color: '#FFFFFF', fontSize: 21, fontWeight: '900', lineHeight: 25 },
   gpsHeroDesc: { color: '#A8CFFF', fontSize: 11, marginTop: 10 },
   gpsHeroDivider: { height: 1, backgroundColor: '#203D57', marginVertical: 12 },
-  gpsHeroHint: { color: '#6888A7', fontSize: 10, lineHeight: 14 },
+  gpsHeroHint: { color: '#58748F', fontSize: 9, lineHeight: 13 },
   heroHistoria: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#244766', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   heroHistoriaText: { color: '#67A9FF', fontSize: 11, fontWeight: '800' },
-  scrollCue: { alignSelf: 'center', alignItems: 'center', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 2 },
-  scrollCueText: { color: '#547493', fontSize: 9, fontWeight: '800', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 1 },
+  scrollCue: { alignSelf: 'center', alignItems: 'center', paddingHorizontal: 28, paddingTop: 14, paddingBottom: 4 },
   shareFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#0D1B2A', paddingTop: 12 },
   shareNombre: { fontSize: 12, color: '#4a6a8a', fontWeight: 'bold' },
   shareUrl: { fontSize: 12, color: '#4a6a8a' },
