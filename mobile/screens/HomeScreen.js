@@ -1084,6 +1084,7 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
           porcentaje={pct}
           challengeId={item.challenge_id}
           challengeTitle={item.challenge}
+          integrado
         />
       )}
 
