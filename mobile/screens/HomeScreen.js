@@ -426,6 +426,7 @@ export default function HomeScreen({ navigation }) {
     // Último completado arriba; el primero que terminó va quedando al fondo.
     .sort((a, b) => fechaOrden(b.completed_at) - fechaOrden(a.completed_at));
   const challengesActivos = challengesEnCurso;
+  const retoVisibleIndex = Math.min(retoActivoIndex, Math.max(0, challengesActivos.length - 1));
   const esModoLibre = challengesActivos.length === 0 && challengesPending.length === 0;
   if (esModoLibre !== modoLibre) {
     setModoLibre(esModoLibre);
@@ -825,10 +826,10 @@ export default function HomeScreen({ navigation }) {
                 {challengesActivos.map((item, i) => (
                   <TouchableOpacity
                     key={i}
-                    style={[styles.retoTab, i === retoActivoIndex && styles.retoTabActivo]}
+                    style={[styles.retoTab, i === retoVisibleIndex && styles.retoTabActivo]}
                     onPress={() => setRetoActivoIndex(i)}
                   >
-                    <Text style={[styles.retoTabText, i === retoActivoIndex && styles.retoTabTextActivo]}>
+                    <Text style={[styles.retoTabText, i === retoVisibleIndex && styles.retoTabTextActivo]}>
                       {item.challenge}
                     </Text>
                     {parseFloat(item.porcentaje || 0) >= 100 && <Text style={styles.retoTabBadge}>🏅</Text>}
@@ -837,8 +838,8 @@ export default function HomeScreen({ navigation }) {
               </ScrollView>
 
               <RetoCard
-                item={challengesActivos[retoActivoIndex]}
-                index={retoActivoIndex}
+                item={challengesActivos[retoVisibleIndex]}
+                index={retoVisibleIndex}
                 nombre={nombre}
                 userId={userId}
                 navigation={navigation}
