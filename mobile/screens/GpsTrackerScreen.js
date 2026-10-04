@@ -191,13 +191,22 @@ export default function GpsTrackerScreen({ navigation }) {
       publicar(null, { persistir: false });
       setEstadoGps('listo');
       setPrecision(null);
-      Alert.alert(
-        data.idempotente ? 'Actividad ya guardada' : 'Actividad registrada',
-        data.idempotente
-          ? 'Korva ya tenía registrada esta actividad. No se duplicaron kilómetros.'
-          : 'Tu actividad se guardó correctamente y el progreso fue actualizado.'
-      );
-      navigation.goBack();
+      const actividadGuardada = data.actividad || null;
+      if (actividadGuardada?.id) {
+        navigation.replace('DetalleActividad', {
+          actividad: actividadGuardada,
+          recienGuardada: true,
+          rutaGpsDisponible: data.ruta_guardada === true,
+        });
+      } else {
+        Alert.alert(
+          data.idempotente ? 'Actividad ya guardada' : 'Actividad registrada',
+          data.idempotente
+            ? 'Korva ya tenía registrada esta actividad. No se duplicaron kilómetros.'
+            : 'Tu actividad se guardó correctamente y el progreso fue actualizado.'
+        );
+        navigation.goBack();
+      }
     } catch (e) {
       Alert.alert(
         'Actividad pendiente',
