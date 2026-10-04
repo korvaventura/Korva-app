@@ -617,22 +617,40 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
 
     return (
       <View style={styles.container}>
-        <TouchableOpacity style={styles.previewCompacta} onPress={() => setModalMapaVisible(true)} activeOpacity={0.85}>
-          <View style={styles.previewCompactaHeader}>
+        <TouchableOpacity style={styles.previewAventura} onPress={() => setModalMapaVisible(true)} activeOpacity={0.88}>
+          <View style={styles.previewAventuraTop}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.previewEyebrow}>EXPEDICIÓN</Text>
-              <Text style={styles.previewTitulo} numberOfLines={1}>{titulo.replace(/^🗺️\s*/, '')}</Text>
+              <Text style={styles.previewEyebrow}>TU EXPEDICIÓN</Text>
+              <Text style={styles.previewTituloGrande} numberOfLines={1}>{titulo.replace(/^🗺️\s*/, '')}</Text>
             </View>
-            <Text style={styles.previewKm}>{kmActual.toFixed(1)} km</Text>
+            <View style={styles.previewPctPill}>
+              <Text style={styles.previewPctText}>{Math.round(pct)}%</Text>
+            </View>
           </View>
-          <View style={styles.previewBarra}>
-            <View style={[styles.previewBarraFill, { width: `${pct}%` }]} />
+
+          <View style={styles.previewEscena}>
+            <View style={styles.previewRutaBase} />
+            <View style={[styles.previewRutaHecha, { width: `${Math.max(6, pct)}%` }]} />
+            <View style={[styles.previewPin, { left: `${Math.max(4, Math.min(92, pct))}%` }]}>
+              <View style={styles.previewPinHalo} />
+              <View style={styles.previewPinCentro} />
+            </View>
+            <View style={styles.previewDestino}>
+              <Text style={styles.previewDestinoEmoji}>{proximo ? proximo.emoji : '🏁'}</Text>
+            </View>
           </View>
-          <View style={styles.previewCompactaFooter}>
-            <Text style={styles.previewSiguiente} numberOfLines={1}>
-              {proximo ? `Próximo: ${proximo.emoji} ${proximo.nombre} · ${faltan.toFixed(1)} km` : '🏁 Ruta completada'}
-            </Text>
-            <Text style={styles.previewExplorar}>Explorar ruta →</Text>
+
+          <View style={styles.previewNarrativa}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.previewAhora}>ESTÁS EN EL KM {kmActual.toFixed(1)}</Text>
+              <Text style={styles.previewHacia} numberOfLines={1}>
+                {proximo ? `Rumbo a ${proximo.nombre}` : 'Llegaste a la meta'}
+              </Text>
+              <Text style={styles.previewFalta}>
+                {proximo ? `Te separan ${faltan.toFixed(1)} km del próximo punto` : `${total.toFixed(0)} km completados`}
+              </Text>
+            </View>
+            <Text style={styles.previewExplorarGrande}>Explorar{String.fromCharCode(10)}ruta →</Text>
           </View>
         </TouchableOpacity>
 
@@ -724,7 +742,25 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
 const styles = StyleSheet.create({
   container: { marginBottom: 16 },
   titulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 12 },
-  previewCompacta: { borderRadius: 16, borderWidth: 1, borderColor: '#334155', backgroundColor: '#13283D', padding: 15, marginBottom: 4 },
+  previewAventura: { borderRadius: 18, borderWidth: 1, borderColor: '#29496B', backgroundColor: '#10243A', padding: 16, marginBottom: 4, overflow: 'hidden' },
+  previewAventuraTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  previewTituloGrande: { color: '#F8FAFC', fontSize: 19, fontWeight: '900' },
+  previewPctPill: { backgroundColor: '#173A5E', borderRadius: 14, paddingHorizontal: 11, paddingVertical: 6 },
+  previewPctText: { color: '#F97316', fontSize: 15, fontWeight: '900' },
+  previewEscena: { height: 76, justifyContent: 'center', marginHorizontal: 2, position: 'relative' },
+  previewRutaBase: { position: 'absolute', left: 8, right: 8, top: 36, height: 7, borderRadius: 4, backgroundColor: '#2C4259', transform: [{ rotate: '-3deg' }] },
+  previewRutaHecha: { position: 'absolute', left: 8, top: 36, height: 7, borderRadius: 4, backgroundColor: '#F97316', transform: [{ rotate: '-3deg' }] },
+  previewPin: { position: 'absolute', top: 24, width: 28, height: 28, marginLeft: -14, alignItems: 'center', justifyContent: 'center' },
+  previewPinHalo: { position: 'absolute', width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(249,115,22,0.22)' },
+  previewPinCentro: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#F97316', borderWidth: 3, borderColor: '#FFFFFF' },
+  previewDestino: { position: 'absolute', right: 2, top: 16, width: 42, height: 42, borderRadius: 21, backgroundColor: '#173A5E', borderWidth: 1, borderColor: '#3B5F82', alignItems: 'center', justifyContent: 'center' },
+  previewDestinoEmoji: { fontSize: 21 },
+  previewNarrativa: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#213C58', paddingTop: 12, gap: 12 },
+  previewAhora: { color: '#6F91B5', fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginBottom: 3 },
+  previewHacia: { color: '#F8FAFC', fontSize: 15, fontWeight: '900', marginBottom: 2 },
+  previewFalta: { color: '#94A3B8', fontSize: 11 },
+  previewExplorarGrande: { color: '#67A9FF', fontSize: 12, lineHeight: 16, fontWeight: '900', textAlign: 'right' },
+    previewCompacta: { borderRadius: 16, borderWidth: 1, borderColor: '#334155', backgroundColor: '#13283D', padding: 15, marginBottom: 4 },
   previewCompactaHeader: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginBottom: 12 },
   previewEyebrow: { color: '#64748B', fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginBottom: 3 },
   previewTitulo: { color: '#F8FAFC', fontSize: 16, fontWeight: '800' },
