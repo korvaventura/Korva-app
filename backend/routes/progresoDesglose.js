@@ -8,6 +8,7 @@ const requireUser = require('../middleware/requireUser');
 const { crearRepositorioSupabase } = require('../lib/progresoRepositorioSupabase');
 const { recalcularProgresoUsuario, MODOS } = require('../lib/progresoServicio');
 const { healthMotorActivo } = require('../lib/flagsMotor');
+const { calcularProgresoChallenge, MOTIVOS } = require('../lib/progresoDesafio');
 
 const getSupabase = () => createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET);
 
@@ -38,6 +39,46 @@ router.get('/', requireUser, async (req, res) => {
   } catch (e) {
     console.error('[progreso-desglose]', e.message);
     return res.status(500).json({ error: 'No se pudo cargar el desglose del progreso.' });
+  }
+});
+
+
+// Historia de un desafío: devuelve solo actividades que el mismo núcleo 4A considera
+// contribuciones válidas (inicio, pausas y exclusiones). Read-only y autenticado.
+router.get('/:challengeId/actividades', requireUser, async (req, res) => {
+  try {
+    const repo = crearRepositorioSupabase(getSupabase());
+    const estado = await repo.leerEstadoUsuario(req.userId);
+    const uc = estado.userChallenges.find((x) => x.challenge_id === req.params.challengeId);
+    if (!uc) return res.status(404).json({ error: 'Desafío no encontrado.' });
+
+    const challenge = estado.challenges.get(uc.challenge_id) || null;
+    const calculado = calcularProgresoChallenge({
+      uc,
+      challenge,
+      actividades: estado.actividades,
+      incluirDetalle: true,
+    });
+    const idsQueCuentan = new Set(
+      (calculado.detalle_actividades || [])
+        .filter((a) => a.motivo === MOTIVOS.CUENTA)
+        .map((a) => a.id)
+    );
+    const completadoMs = uc.completed_at ? Date.parse(uc.completed_at) : null;
+    const actividades = estado.actividades
+      .filter((a) => idsQueCuentan.has(a.id))
+      .filter((a) => !Number.isFinite(completadoMs) || Date.parse(a.recorded_at) <= completadoMs)
+      .sort((a, b) => String(b.recorded_at).localeCompare(String(a.recorded_at)));
+
+    return res.json({
+      user_challenge_id: uc.id,
+      challenge_id: uc.challenge_id,
+      started_at: calculado.started_at_utc,
+      actividades,
+    });
+  } catch (e) {
+    console.error('[progreso-desglose/actividades]', e.message);
+    return res.status(500).json({ error: 'No se pudo cargar la historia del desafío.' });
   }
 });
 
