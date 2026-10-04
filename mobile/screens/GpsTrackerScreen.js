@@ -225,7 +225,7 @@ export default function GpsTrackerScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
           <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Actividad GPS</Text>
+        <Text style={styles.headerTitle}>Korva GPS</Text>
         <View style={styles.back} />
       </View>
 
@@ -275,7 +275,9 @@ export default function GpsTrackerScreen({ navigation }) {
       <View style={styles.note}>
         <Ionicons name="shield-checkmark-outline" size={20} color="#A8CFFF" />
         <Text style={styles.noteText}>
-          El GPS sigue registrando si bloqueás la pantalla o usás otra app. Al finalizar podrás revisar la actividad antes de confirmarla.
+          {sesion
+            ? 'El GPS sigue registrando si bloqueás la pantalla o usás otra app.'
+            : 'Al finalizar vas a revisar y confirmar la actividad. Recién al confirmarla suma a tus desafíos activos.'}
         </Text>
       </View>
 
