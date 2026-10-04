@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Modal, Dimensions } from 'react-native';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -24,7 +24,9 @@ const diasEntre = (fecha1, fecha2) => {
 };
 
 export default function PerfilScreen() {
+  const navigation = useNavigation();
   const [usuario, setUsuario] = useState(null);
+  const [modalEnvioReto, setModalEnvioReto] = useState(null);
   const [stats, setStats] = useState(null);
   const [userId, setUserId] = useState(null);
   const scrollRef = useRef(null);
@@ -902,6 +904,20 @@ export default function PerfilScreen() {
                       <Text style={styles.metaVacio}>Sin meta definida. Opcional.</Text>
                     )}
                     <View style={styles.metaSeparador} />
+                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                      <TouchableOpacity
+                        style={{ flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: '#2A5A8A', alignItems: 'center', justifyContent: 'center' }}
+                        onPress={() => navigation.navigate('DetalleReto', { item: inscripcion, userId })}
+                      >
+                        <Text style={{ color: '#A8CFFF', fontWeight: 'bold', fontSize: 12 }}>📖 Historia</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={{ flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: '#2A5A8A', alignItems: 'center', justifyContent: 'center' }}
+                        onPress={() => setModalEnvioReto(inscripcion)}
+                      >
+                        <Text style={{ color: '#A8CFFF', fontWeight: 'bold', fontSize: 12 }}>🎁 Medalla y envío</Text>
+                      </TouchableOpacity>
+                    </View>
                     <View style={styles.bibRow}>
                       {inscripcion.status === 'active' && (
                         <TouchableOpacity
@@ -932,6 +948,34 @@ export default function PerfilScreen() {
           )}
         </View>
       )}
+
+      <Modal visible={!!modalEnvioReto} transparent animationType="fade" onRequestClose={() => setModalEnvioReto(null)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalEnvioReto(null)}>
+          <View style={[styles.modalCard, { padding: 24 }]}>
+            <Text style={{ fontSize: 30, marginBottom: 10, textAlign: 'center' }}>🎁</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 }}>Sobre tu medalla</Text>
+            <Text style={{ color: '#6F91B5', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>{modalEnvioReto?.challenge || modalEnvioReto?.challenge_title || ''}</Text>
+            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+              Nuestro equipo está preparando y gestionando tu pedido. Cuando el envío tenga información de seguimiento disponible, la recibirás por correo electrónico.
+            </Text>
+            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+              Si compraste varias medallas en una misma compra, pueden prepararse y enviarse juntas. En ese caso recibirás un único enlace de seguimiento para el pedido, no un correo por cada medalla.
+            </Text>
+            <Text style={{ color: '#7F96AD', fontSize: 12, lineHeight: 18, marginBottom: 18 }}>
+              El estado del desafío dentro de la app no confirma por sí solo que una medalla haya sido despachada individualmente. No necesitás realizar ninguna acción por el momento.
+            </Text>
+            <TouchableOpacity
+              style={{ borderWidth: 1, borderColor: '#2A5A8A', borderRadius: 12, padding: 12, alignItems: 'center', marginBottom: 12 }}
+              onPress={() => Linking.openURL('https://korva.run/pages/envios')}
+            >
+              <Text style={{ color: '#67A9FF', fontWeight: 'bold', fontSize: 13 }}>Ver información completa sobre envíos →</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setModalEnvioReto(null)}>
+              <Text style={{ color: '#6F8298', textAlign: 'center', fontSize: 13 }}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Nivel */}
       {nivel && (
