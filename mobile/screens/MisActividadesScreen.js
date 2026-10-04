@@ -2,9 +2,8 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { listarMisActividades } from '../services/actividadesApi';
+import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
 
-const deporte = (tipo) => ({ run: 'Running', walk: 'Caminata', ride: 'Ciclismo', swim: 'Natación' }[tipo] || tipo || 'Actividad');
-const fuente = (source) => source === 'korva_gps' ? 'Korva GPS' : source === 'strava' ? 'Strava' : source === 'manual' ? 'Manual' : (source || 'Korva');
 const fecha = (valor) => valor ? new Date(valor).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
 
 export default function MisActividadesScreen({ navigation }) {
@@ -31,8 +30,8 @@ export default function MisActividadesScreen({ navigation }) {
         <TouchableOpacity key={a.id} style={styles.card} onPress={() => navigation.navigate('DetalleActividad', { actividad: a })}>
           <View style={styles.fila}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.deporte}>{deporte(a.sport_type)}</Text>
-              <Text style={styles.meta}>{fecha(a.recorded_at)} · {fuente(a.source)}</Text>
+              <Text style={styles.deporte}>{nombreDeporteActividad(a.sport_type)}</Text>
+              <Text style={styles.meta}>{fecha(a.recorded_at)} · {nombreFuenteActividad(a.source)}</Text>
             </View>
             <Text style={styles.km}>{Number(a.distance_km || 0).toFixed(2)} km</Text>
           </View>
