@@ -1062,11 +1062,13 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
             <Text style={styles.sharePctSymbol}>%</Text>
           </View>
           <Text style={styles.shareChallengeName}>{item.challenge || '—'}</Text>
-          <Text style={styles.shareFrase}>{frase}</Text>
-          <View style={styles.shareProgressBar}>
-            <View style={[styles.shareProgressFill, { width: `${pct}%` }, estaCompletado && styles.shareProgressFillCompletado]} />
-          </View>
-          <View style={styles.shareKmRow}>
+          {!tieneExpedicion && <Text style={styles.shareFrase}>{frase}</Text>}
+          {!tieneExpedicion && (
+            <View style={styles.shareProgressBar}>
+              <View style={[styles.shareProgressFill, { width: `${pct}%` }, estaCompletado && styles.shareProgressFillCompletado]} />
+            </View>
+          )}
+          <View style={[styles.shareKmRow, tieneExpedicion && { marginTop: 6 }]}>
             <Text style={styles.shareKmText}>{item.km_completados} km</Text>
             <Text style={styles.shareKmTotal}>· {getSubtitulo(item.challenge || '')}</Text>
             {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅</Text>}
