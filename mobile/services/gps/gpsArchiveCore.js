@@ -10,6 +10,7 @@ const construirArchivoGps = (archivoActual, sesion, confirmacion = {}, confirmad
     confirmadaAt,
     actividadId: confirmacion.actividadId || confirmacion.id || null,
     idempotente: !!confirmacion.idempotente,
+    rutaGuardadaServidor: confirmacion.ruta_guardada === true,
   };
   return [registro, ...archivo.filter((item) => item?.sessionId !== sesion.sessionId)].slice(0, GPS_ARCHIVE_MAX);
 };
