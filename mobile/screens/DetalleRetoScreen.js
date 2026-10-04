@@ -2,7 +2,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Alert,
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { Ionicons } from '@expo/vector-icons';
-import { versionDeInscripcion, etiquetaDeInscripcion, planDeVersion } from '../utils/versionDesafio';
+import { versionDeInscripcion, etiquetaDeInscripcion } from '../utils/versionDesafio';
 import RutaGpsActividad from '../components/RutaGpsActividad';
 
 const aplicarMascaraFecha = (texto) => {
@@ -45,6 +45,9 @@ export default function DetalleRetoScreen({ route, navigation }) {
   const [actividades, setActividades] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [metaFecha, setMetaFecha] = useState(item?.meta_fecha || '');
+  const [editandoFecha, setEditandoFecha] = useState(false);
+  const [inputFecha, setInputFecha] = useState('');
+  const [guardandoMeta, setGuardandoMeta] = useState(false);
   const [desgloseProgreso, setDesgloseProgreso] = useState(null);
 
 
@@ -138,10 +141,18 @@ export default function DetalleRetoScreen({ route, navigation }) {
   };
 
   const saveFecha = async (fechaISO) => {
-    await supabase.from('user_challenges').update({ meta_fecha: fechaISO })
-      .eq('user_id', userId).eq('challenge_id', item.challenge_id);
-    setMetaFecha(fechaISO);
-    setEditandoFecha(false);
+    setGuardandoMeta(true);
+    try {
+      const { error } = await supabase.from('user_challenges').update({ meta_fecha: fechaISO })
+        .eq('user_id', userId).eq('challenge_id', item.challenge_id);
+      if (error) throw error;
+      setMetaFecha(fechaISO);
+      setEditandoFecha(false);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo guardar tu fecha objetivo.');
+    } finally {
+      setGuardandoMeta(false);
+    }
   };
 
   const calcularStats = () => {
@@ -175,8 +186,6 @@ export default function DetalleRetoScreen({ route, navigation }) {
   const stats = calcularStats();
 
   const kmRestantes = parseFloat(distanciaTotal) - parseFloat(kmCompletados);
-  // El plan escala solo por la distancia de la versión.
-  const { factorDescanso, sesionesPorSemana: sesionesporSemana } = planDeVersion(version);
   let acumulado = 0;
   const actividadesConHito = [...actividades].reverse().map((act, i) => {
     acumulado += act.distance_km;
@@ -271,28 +280,45 @@ export default function DetalleRetoScreen({ route, navigation }) {
         <View style={styles.metaCard}>
           <View style={styles.metaHeader}>
             <Text style={styles.metaTitulo}>🎯 Tu meta personal</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('HomeTabs', { screen: 'Perfil' })}>
-              <Text style={styles.metaEditarBtn}>{metaFecha ? 'Editar ✏️' : '+ Agregar'}</Text>
+            <TouchableOpacity onPress={() => {
+              setInputFecha(metaFecha ? new Date(metaFecha).toLocaleDateString('es-AR') : '');
+              setEditandoFecha(v => !v);
+            }}>
+              <Text style={styles.metaEditarBtn}>{editandoFecha ? 'Cancelar' : metaFecha ? 'Editar' : '+ Elegir fecha'}</Text>
             </TouchableOpacity>
           </View>
 
-          {metaFecha ? (
+          {editandoFecha ? (
             <>
-              <Text style={styles.metaFecha}>📅 {formatearFecha(metaFecha)}</Text>
+              <View style={styles.metaInputRow}>
+                <TextInput
+                  style={styles.metaInput}
+                  value={inputFecha}
+                  onChangeText={v => setInputFecha(aplicarMascaraFecha(v))}
+                  placeholder="DD/MM/AAAA"
+                  placeholderTextColor="#6F8EAD"
+                  keyboardType="numeric"
+                  maxLength={10}
+                />
+                <TouchableOpacity style={styles.metaGuardarBtn} onPress={guardarMeta} disabled={guardandoMeta}>
+                  <Text style={styles.metaGuardarBtnText}>{guardandoMeta ? '...' : 'Guardar'}</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.metaAclaracion}>Es una referencia personal. No modifica el desafío ni determina el envío de tu medalla.</Text>
+            </>
+          ) : metaFecha ? (
+            <>
+              <Text style={styles.metaFecha}>📅 Objetivo: {formatearFecha(metaFecha)}</Text>
               <Text style={styles.metaDias}>
-                {diasEntre(new Date(), new Date(metaFecha))} días restantes
+                {diasEntre(new Date(), new Date(metaFecha))} días · {Math.max(0, kmRestantes).toFixed(1)} km por recorrer
               </Text>
               <Text style={styles.metaRitmo}>
-                {(() => {
-                  const diasRestantes = diasEntre(new Date(), new Date(metaFecha));
-                  const sesionesRestantes = Math.floor(diasRestantes * factorDescanso);
-                  const kmPorSesion = sesionesRestantes > 0 ? (kmRestantes / sesionesRestantes).toFixed(1) : '—';
-                  return `${kmPorSesion}km por sesión · ${sesionesporSemana} veces/semana`;
-                })()}
+                Referencia matemática: ~{(Math.max(0, kmRestantes) / diasEntre(new Date(), new Date(metaFecha))).toFixed(1)} km/día
               </Text>
+              <Text style={styles.metaAclaracion}>No es un plan de entrenamiento ni determina el envío de tu medalla.</Text>
             </>
           ) : (
-            <Text style={styles.metaVacio}>Sin meta definida. Podés agregar una fecha límite opcional.</Text>
+            <Text style={styles.metaVacio}>Marcá una fecha objetivo para seguir tu progreso a tu ritmo. Es opcional y no afecta el envío de tu medalla.</Text>
           )}
         </View>
       )}
@@ -390,7 +416,8 @@ const styles = StyleSheet.create({
   metaGuardarBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
   metaFecha: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   metaDias: { fontSize: 13, color: '#FC4C02', fontWeight: 'bold', marginBottom: 4 },
-  metaRitmo: { fontSize: 12, color: '#A8CFFF' },
+  metaRitmo: { fontSize: 12, color: '#A8CFFF', marginBottom: 6 },
+  metaAclaracion: { fontSize: 11, lineHeight: 16, color: '#8EABC8' },
   metaVacio: { fontSize: 13, color: '#A8CFFF', fontStyle: 'italic' },
   historialSection: { marginTop: 8 },
   historialTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 16 },
