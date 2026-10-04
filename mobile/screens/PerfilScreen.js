@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
 import { versionDeInscripcion, versionesDelDesafio, distanciaDeVersion, distanciaDeInscripcion, etiquetaVersion, modalidadLegacy } from '../utils/versionDesafio';
+import { colors, radius, spacing } from '../theme/korvaTheme';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -613,18 +614,18 @@ export default function PerfilScreen() {
                 </View>
               </View>
               {/* Aviso importante antes de conectar */}
-              <View style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: '#FC4C02' }}>
-                <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 12, marginBottom: 8 }}>⚠️ ANTES DE CONECTAR, LEÉ ESTO:</Text>
-                <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 6 }}>• Si ya cargaste actividades manualmente, Strava puede volver a sumarlas si también las tenés ahí. Revisá tu historial y borrá las duplicadas desde la app.</Text>
-                <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 6 }}>• Todas tus actividades de Strava se importan automáticamente — incluyendo las de ciclismo, natación y caminata. Todo suma.</Text>
-                <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20 }}>• Para borrar una actividad, andá al Perfil y deslizá sobre ella en el historial.</Text>
+              <View style={{ backgroundColor: colors.background, borderRadius: 12, padding: 14, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: colors.brandOrange }}>
+                <Text style={{ color: colors.brandOrange, fontWeight: 'bold', fontSize: 12, marginBottom: 8 }}>⚠️ ANTES DE CONECTAR, LEÉ ESTO:</Text>
+                <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20, marginBottom: 6 }}>• Si ya cargaste actividades manualmente, Strava puede volver a sumarlas si también las tenés ahí. Revisá tu historial y borrá las duplicadas desde la app.</Text>
+                <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20, marginBottom: 6 }}>• Todas tus actividades de Strava se importan automáticamente — incluyendo las de ciclismo, natación y caminata. Todo suma.</Text>
+                <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20 }}>• Para borrar una actividad, andá al Perfil y deslizá sobre ella en el historial.</Text>
               </View>
 
               <TouchableOpacity style={styles.modalBtn} onPress={conectarStravaConfirmado}>
                 <Text style={styles.modalBtnText}>Conectar Strava 🔗</Text>
               </TouchableOpacity>
               <TouchableOpacity style={{ alignItems: 'center', paddingVertical: 12 }} onPress={() => setModalStravaInfoVisible(false)}>
-                <Text style={{ color: '#4a6a8a', fontSize: 14 }}>Cerrar</Text>
+                <Text style={{ color: colors.textDim, fontSize: 14 }}>Cerrar</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -707,7 +708,7 @@ export default function PerfilScreen() {
                 if (modalCambioModalidad?.nuevaVersion !== 'estandar' && estandarKm && estandarKm !== modalCambioModalidad?.nuevaData?.distancia_km) {
                   return (
                     <Text style={styles.confirmInfoTexto}>
-                      🏅 Tu medalla física dirá <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>{estandarKm}K</Text> — el diseño es el mismo para las dos versiones del desafío.
+                      🏅 Tu medalla física dirá <Text style={{ fontWeight: 'bold', color: colors.text }}>{estandarKm}K</Text> — el diseño es el mismo para las dos versiones del desafío.
                     </Text>
                   );
                 }
@@ -718,7 +719,7 @@ export default function PerfilScreen() {
               <Text style={styles.modalBtnText}>Confirmar cambio</Text>
             </TouchableOpacity>
             <TouchableOpacity style={{ alignItems: 'center', paddingVertical: 12 }} onPress={() => setModalCambioModalidad(null)}>
-              <Text style={{ color: '#4a6a8a', fontSize: 14 }}>Cancelar</Text>
+              <Text style={{ color: colors.textDim, fontSize: 14 }}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -741,7 +742,7 @@ export default function PerfilScreen() {
         {editandoNombre ? (
           <View style={{ marginTop: 4, alignItems: 'center' }}>
             <TextInput
-              style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 'bold', borderBottomWidth: 1, borderColor: '#FC4C02', minWidth: 200, textAlign: 'center', paddingVertical: 4 }}
+              style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', borderBottomWidth: 1, borderColor: colors.brandOrange, minWidth: 200, textAlign: 'center', paddingVertical: 4 }}
               value={nombreEditado}
               onChangeText={setNombreEditado}
               autoFocus
@@ -750,7 +751,7 @@ export default function PerfilScreen() {
             />
             <View style={{ flexDirection: 'row', marginTop: 10 }}>
               <TouchableOpacity
-                style={{ backgroundColor: '#FC4C02', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8, marginRight: 8 }}
+                style={{ backgroundColor: colors.brandOrange, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8, marginRight: 8 }}
                 onPress={async () => {
                   const nombre = nombreEditado.trim();
                   if (!nombre || nombre.length < 2) {
@@ -766,24 +767,24 @@ export default function PerfilScreen() {
                   setEditandoNombre(false);
                 }}
               >
-                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>Guardar</Text>
+                <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 13 }}>Guardar</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={{ borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: '#2a3a4a' }}
                 onPress={() => setEditandoNombre(false)}
               >
-                <Text style={{ color: '#4a6a8a', fontSize: 13 }}>Cancelar</Text>
+                <Text style={{ color: colors.textDim, fontSize: 13 }}>Cancelar</Text>
               </TouchableOpacity>
             </View>
           </View>
         ) : (
           <TouchableOpacity onPress={() => { setNombreEditado(usuario?.name || ''); setEditandoNombre(true); }}>
-            <Text style={styles.nombre}>{usuario?.name || 'Cargando...'} <Text style={{ color: '#4a6a8a', fontSize: 13 }}>✏️</Text></Text>
+            <Text style={styles.nombre}>{usuario?.name || 'Cargando...'} <Text style={{ color: colors.textDim, fontSize: 13 }}>✏️</Text></Text>
           </TouchableOpacity>
         )}
         <Text style={styles.email}>{usuario?.email}</Text>
         {stats?.total_km > 0 && (
-          <Text style={{ color: '#4a6a8a', fontSize: 12, marginTop: 6 }}>
+          <Text style={{ color: colors.textDim, fontSize: 12, marginTop: 6 }}>
             🌍 {stats.total_km} km recorridos con Korva
           </Text>
         )}
@@ -797,8 +798,8 @@ export default function PerfilScreen() {
         >
           <Text style={{ fontSize: 20, marginRight: 10 }}>📦</Text>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>Cargá tu dirección de envío</Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 12 }}>Necesaria para enviarte tu medalla cuando termines</Text>
+            <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 14 }}>Cargá tu dirección de envío</Text>
+            <Text style={{ color: colors.textSoft, fontSize: 12 }}>Necesaria para gestionar tus envíos de medallas</Text>
           </View>
           <Text style={{ color: '#7C3AED', fontSize: 16 }}>→</Text>
         </TouchableOpacity>
@@ -816,7 +817,7 @@ export default function PerfilScreen() {
       {/* Retos activos */}
       {inscripcionesActivas.length > 0 && (
         <View style={{ width: '100%', marginBottom: 20 }}>
-          <Text style={[styles.seccionTitulo, { paddingHorizontal: 24 }]}>🏅 Mis retos activos</Text>
+          <Text style={[styles.seccionTitulo, { paddingHorizontal: 24 }]}>Mis desafíos</Text>
           <ScrollView
             horizontal
             pagingEnabled
@@ -916,21 +917,21 @@ export default function PerfilScreen() {
                           userId,
                         })}
                       >
-                        <Text style={{ color: '#A8CFFF', fontWeight: 'bold', fontSize: 12 }}>📖 Historia</Text>
+                        <Text style={{ color: colors.textSoft, fontWeight: 'bold', fontSize: 12 }}>📖 Historia</Text>
                       </TouchableOpacity>
                       {['completed', 'cargado', 'shipped'].includes(inscripcion.status) && (
                         <TouchableOpacity
                           style={{ flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: '#2A5A8A', alignItems: 'center', justifyContent: 'center' }}
                           onPress={() => setModalEnvioReto(inscripcion)}
                         >
-                          <Text style={{ color: '#A8CFFF', fontWeight: 'bold', fontSize: 12 }}>🎁 Medalla y envío</Text>
+                          <Text style={{ color: colors.textSoft, fontWeight: 'bold', fontSize: 12 }}>🎁 Medalla y envío</Text>
                         </TouchableOpacity>
                       )}
                     </View>
                     <View style={styles.bibRow}>
                       {inscripcion.status === 'active' && (
                         <TouchableOpacity
-                          style={[styles.bibBtn, { backgroundColor: inscripcion.pausado ? '#1a4a1a' : '#0D1B2A', borderColor: inscripcion.pausado ? '#22C55E' : '#FC4C02' }]}
+                          style={[styles.bibBtn, { backgroundColor: inscripcion.pausado ? '#1a4a1a' : colors.background, borderColor: inscripcion.pausado ? '#22C55E' : colors.brandOrange }]}
                           onPress={() => togglePausar(inscripcion.challenge_id, inscripcion.pausado)}
                         >
                           <Text style={styles.bibBtnText}>{inscripcion.pausado ? '▶️ Reanudar' : '⏸ Pausar'}</Text>
@@ -940,7 +941,7 @@ export default function PerfilScreen() {
                         {cargandoBib === 'dorsal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.bibBtnText}>📄 Mi dorsal</Text>}
                       </TouchableOpacity>
                       <TouchableOpacity style={[styles.bibBtn, styles.bibBtnSecundario]} onPress={() => descargarBib('postal', inscripcion.challenge_id)} disabled={!!cargandoBib}>
-                        {cargandoBib === 'postal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={[styles.bibBtnText, { color: '#A8CFFF' }]}>🖼️ Mi postal</Text>}
+                        {cargandoBib === 'postal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={[styles.bibBtnText, { color: colors.textSoft }]}>🖼️ Mi postal</Text>}
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -962,12 +963,12 @@ export default function PerfilScreen() {
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalEnvioReto(null)}>
           <View style={[styles.modalCard, { padding: 24 }]}>
             <Text style={{ fontSize: 30, marginBottom: 10, textAlign: 'center' }}>🎁</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 }}>Sobre tu medalla</Text>
+            <Text style={{ color: colors.text, fontSize: 17, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 }}>Sobre tu medalla</Text>
             <Text style={{ color: '#6F91B5', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>{modalEnvioReto?.challenge || modalEnvioReto?.challenge_title || ''}</Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+            <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
               Nuestro equipo está preparando y gestionando tu pedido. Cuando el envío tenga información de seguimiento disponible, la recibirás por correo electrónico.
             </Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+            <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
               Si compraste varias medallas en una misma compra, pueden prepararse y enviarse juntas. En ese caso recibirás un único enlace de seguimiento para el pedido, no un correo por cada medalla.
             </Text>
             <Text style={{ color: '#7F96AD', fontSize: 12, lineHeight: 18, marginBottom: 18 }}>
@@ -977,7 +978,7 @@ export default function PerfilScreen() {
               style={{ borderWidth: 1, borderColor: '#2A5A8A', borderRadius: 12, padding: 12, alignItems: 'center', marginBottom: 12 }}
               onPress={() => Linking.openURL('https://korva.run/pages/envios')}
             >
-              <Text style={{ color: '#67A9FF', fontWeight: 'bold', fontSize: 13 }}>Ver información completa sobre envíos →</Text>
+              <Text style={{ color: colors.actionBlue, fontWeight: 'bold', fontSize: 13 }}>Ver información completa sobre envíos →</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setModalEnvioReto(null)}>
               <Text style={{ color: '#6F8298', textAlign: 'center', fontSize: 13 }}>Cerrar</Text>
@@ -1027,13 +1028,13 @@ export default function PerfilScreen() {
             if (proximos.length === 0) return null;
             const proximo = proximos[0];
             return (
-              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: 10, padding: 10 }}>
                 <Text style={{ fontSize: 18, marginRight: 8 }}>🎯</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#A8CFFF', fontSize: 12, fontWeight: 'bold' }}>{proximo.nombre}</Text>
-                  <Text style={{ color: '#4a6a8a', fontSize: 11 }}>Faltan {proximo.falta} {proximo.unidad}</Text>
+                  <Text style={{ color: colors.textSoft, fontSize: 12, fontWeight: 'bold' }}>{proximo.nombre}</Text>
+                  <Text style={{ color: colors.textDim, fontSize: 11 }}>Faltan {proximo.falta} {proximo.unidad}</Text>
                 </View>
-                <Text style={{ color: '#FC4C02' }}>🔒</Text>
+                <Text style={{ color: colors.brandOrange }}>🔒</Text>
               </View>
             );
           })()}
@@ -1083,29 +1084,29 @@ export default function PerfilScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
           <Text style={[styles.seccionTitulo, { flex: 1 }]}>👥 Mis grupos</Text>
           <TouchableOpacity onPress={() => setModalGruposVisible(true)}>
-            <Text style={{ color: '#FC4C02', fontSize: 13, fontWeight: 'bold' }}>+ Gestionar</Text>
+            <Text style={{ color: colors.brandOrange, fontSize: 13, fontWeight: 'bold' }}>+ Gestionar</Text>
           </TouchableOpacity>
         </View>
         {misGrupos.length === 0 ? (
           <TouchableOpacity
-            style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#1E3A5F', borderStyle: 'dashed' }}
+            style={{ backgroundColor: colors.background, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: colors.surfaceStrong, borderStyle: 'dashed' }}
             onPress={() => setModalGruposVisible(true)}
           >
-            <Text style={{ color: '#4a6a8a', fontSize: 13 }}>Creá o unite a un grupo de running 🏃</Text>
+            <Text style={{ color: colors.textDim, fontSize: 13 }}>Creá o unite a un grupo de running 🏃</Text>
           </TouchableOpacity>
         ) : (
           misGrupos.map((g, i) => (
-            <View key={i} style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#1E3A5F' }}>
+            <View key={i} style={{ backgroundColor: colors.background, borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: colors.surfaceStrong }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>{g.nombre}</Text>
-                  <Text style={{ color: '#4a6a8a', fontSize: 12, marginTop: 2 }}>Código: <Text style={{ color: '#FC4C02', fontWeight: 'bold', letterSpacing: 2 }}>{g.codigo}</Text></Text>
+                  <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 14 }}>{g.nombre}</Text>
+                  <Text style={{ color: colors.textDim, fontSize: 12, marginTop: 2 }}>Código: <Text style={{ color: colors.brandOrange, fontWeight: 'bold', letterSpacing: 2 }}>{g.codigo}</Text></Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => Linking.openURL(`https://wa.me/?text=Unite a mi grupo en Korva Aventuras con el código: *${g.codigo}* 🏅 Descargá la app en korva.run`)}
                   style={{ backgroundColor: '#25D366', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginLeft: 8 }}
                 >
-                  <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' }}>💬 Compartir</Text>
+                  <Text style={{ color: colors.text, fontSize: 12, fontWeight: 'bold' }}>💬 Compartir</Text>
                 </TouchableOpacity>
               </View>
               <TouchableOpacity
@@ -1130,7 +1131,7 @@ export default function PerfilScreen() {
                   ]
                 )}
               >
-                <Text style={{ color: '#4a6a8a', fontSize: 11 }}>Salir del grupo</Text>
+                <Text style={{ color: colors.textDim, fontSize: 11 }}>Salir del grupo</Text>
               </TouchableOpacity>
             </View>
           ))
@@ -1142,16 +1143,16 @@ export default function PerfilScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitulo}>👥 Grupos</Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, textAlign: 'center', marginBottom: 16, lineHeight: 20 }}>
+            <Text style={{ color: colors.textSoft, fontSize: 13, textAlign: 'center', marginBottom: 16, lineHeight: 20 }}>
               Creá un grupo con amigos o compañeros y vean su progreso juntos en el Ranking 🏆
             </Text>
-            <View style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 20 }}>
-              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>1️⃣ Creás el grupo y le ponés un nombre</Text>
-              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>2️⃣ Te genera un código único de 6 letras</Text>
-              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>3️⃣ Lo compartís con tus amigos por WhatsApp</Text>
-              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>4️⃣ Ellos ingresan el código en su Perfil</Text>
-              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>5️⃣ Se ven entre todos en el Ranking - Mi grupo</Text>
-              <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 10 }}>Podés estar en hasta 3 grupos · Máximo 50 miembros por grupo</Text>
+            <View style={{ backgroundColor: colors.background, borderRadius: 12, padding: 14, marginBottom: 20 }}>
+              <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 22 }}>1️⃣ Creás el grupo y le ponés un nombre</Text>
+              <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 22 }}>2️⃣ Te genera un código único de 6 letras</Text>
+              <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 22 }}>3️⃣ Lo compartís con tus amigos por WhatsApp</Text>
+              <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 22 }}>4️⃣ Ellos ingresan el código en su Perfil</Text>
+              <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 22 }}>5️⃣ Se ven entre todos en el Ranking - Mi grupo</Text>
+              <Text style={{ color: colors.textDim, fontSize: 11, marginTop: 10 }}>Podés estar en hasta 3 grupos · Máximo 50 miembros por grupo</Text>
             </View>
             <TouchableOpacity
               style={[styles.modalBtn, { marginBottom: 12 }]}
@@ -1160,13 +1161,13 @@ export default function PerfilScreen() {
               <Text style={styles.modalBtnText}>➕ Crear nuevo grupo</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.modalBtn, { backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#1E6FD9', marginBottom: 16 }]}
+              style={[styles.modalBtn, { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.actionBlueStrong, marginBottom: 16 }]}
               onPress={() => { setModalGruposVisible(false); setModalUnirseGrupo(true); }}
             >
-              <Text style={[styles.modalBtnText, { color: '#1E6FD9' }]}>🔗 Unirme con código</Text>
+              <Text style={[styles.modalBtnText, { color: colors.actionBlueStrong }]}>🔗 Unirme con código</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setModalGruposVisible(false)}>
-              <Text style={{ color: '#4a6a8a', textAlign: 'center', fontSize: 13 }}>Cerrar</Text>
+              <Text style={{ color: colors.textDim, textAlign: 'center', fontSize: 13 }}>Cerrar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1177,7 +1178,7 @@ export default function PerfilScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitulo}>➕ Crear grupo</Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, marginBottom: 12 }}>¿Cómo se llama tu grupo?</Text>
+            <Text style={{ color: colors.textSoft, fontSize: 13, marginBottom: 12 }}>¿Cómo se llama tu grupo?</Text>
             <TextInput
               style={[styles.input, { marginBottom: 16 }]}
               value={nombreGrupo}
@@ -1216,7 +1217,7 @@ Compartilo con tu grupo para que se unan.`);
               <Text style={styles.modalBtnText}>{cargandoGrupo ? 'Creando...' : 'Crear grupo'}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={{ marginTop: 12 }} onPress={() => setModalCrearGrupo(false)}>
-              <Text style={{ color: '#4a6a8a', textAlign: 'center', fontSize: 13 }}>Cancelar</Text>
+              <Text style={{ color: colors.textDim, textAlign: 'center', fontSize: 13 }}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1227,7 +1228,7 @@ Compartilo con tu grupo para que se unan.`);
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitulo}>🔗 Unirme a un grupo</Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, marginBottom: 12 }}>Ingresá el código que te compartieron:</Text>
+            <Text style={{ color: colors.textSoft, fontSize: 13, marginBottom: 12 }}>Ingresá el código que te compartieron:</Text>
             <TextInput
               style={[styles.input, { marginBottom: 16, letterSpacing: 4, textAlign: 'center', fontSize: 18, fontWeight: 'bold' }]}
               value={codigoGrupo}
@@ -1270,7 +1271,7 @@ Compartilo con tu grupo para que se unan.`);
               <Text style={styles.modalBtnText}>{cargandoGrupo ? 'Buscando...' : 'Unirme'}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={{ marginTop: 12 }} onPress={() => setModalUnirseGrupo(false)}>
-              <Text style={{ color: '#4a6a8a', textAlign: 'center', fontSize: 13 }}>Cancelar</Text>
+              <Text style={{ color: colors.textDim, textAlign: 'center', fontSize: 13 }}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1278,7 +1279,7 @@ Compartilo con tu grupo para que se unan.`);
 
       {/* Dirección */}
       <View style={styles.seccion} onLayout={e => { direccionY.current = e.nativeEvent.layout.y; }}>
-        <Text style={{ color: '#4a6a8a', fontSize: 11, textAlign: 'center', marginBottom: 12 }}>
+        <Text style={{ color: colors.textDim, fontSize: 11, textAlign: 'center', marginBottom: 12 }}>
           🔒 Tu información es privada y solo se usa para procesar el envío de tu medalla. No se comparte con terceros.
         </Text>
         <Text style={styles.seccionTitulo}>📦 Direccion de envio</Text>
@@ -1331,11 +1332,11 @@ Compartilo con tu grupo para que se unan.`);
             <TextInput style={styles.input} value={formDireccion.pais} onChangeText={v => setFormDireccion(p => ({ ...p, pais: v }))} placeholder="Argentina" placeholderTextColor="#4a6a8a" />
             <Text style={styles.formLabel}>Teléfono * (con código de país)</Text>
             <TextInput style={styles.input} value={formDireccion.telefono} onChangeText={v => setFormDireccion(p => ({ ...p, telefono: v }))} placeholder="+54 11 1234 5678" placeholderTextColor="#4a6a8a" keyboardType="phone-pad" />
-            <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: -8, marginBottom: 8 }}>Lo necesitamos para coordinar el envío con el correo</Text>
+            <Text style={{ color: colors.textDim, fontSize: 11, marginTop: -8, marginBottom: 8 }}>Lo necesitamos para coordinar el envío con el correo</Text>
 
             {(formDireccion.pais?.toLowerCase().includes('argentina') || formDireccion.pais?.toLowerCase().includes('arg')) && (
               <>
-                <Text style={styles.formLabel}>CUIL * <Text style={{ color: '#4a6a8a', fontWeight: 'normal' }}>(requerido para Argentina)</Text></Text>
+                <Text style={styles.formLabel}>CUIL * <Text style={{ color: colors.textDim, fontWeight: 'normal' }}>(requerido para Argentina)</Text></Text>
                 <TextInput
                   style={styles.input}
                   value={formDireccion.documento}
@@ -1348,7 +1349,7 @@ Compartilo con tu grupo para que se unan.`);
               </>
             )}
 
-            <Text style={styles.formLabel}>Indicaciones adicionales <Text style={{ color: '#4a6a8a', fontWeight: 'normal' }}>(opcional)</Text></Text>
+            <Text style={styles.formLabel}>Indicaciones adicionales <Text style={{ color: colors.textDim, fontWeight: 'normal' }}>(opcional)</Text></Text>
             <TextInput
               style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
               value={formDireccion.indicaciones}
@@ -1407,7 +1408,7 @@ Compartilo con tu grupo para que se unan.`);
                   <Text style={styles.stravaReconectarText}>Reconectar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={desconectarStrava}>
-                  <Text style={{ color: '#FF5555', fontSize: 12 }}>Desconectar</Text>
+                  <Text style={{ color: colors.danger, fontSize: 12 }}>Desconectar</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1435,141 +1436,141 @@ Compartilo con tu grupo para que se unan.`);
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#0D1B2A' },
+  scroll: { flex: 1, backgroundColor: colors.background },
   container: { paddingBottom: 40, alignItems: 'center' },
-  heroBg: { width: '100%', backgroundColor: '#1E3A5F', alignItems: 'center', paddingTop: 60, paddingBottom: 28, marginBottom: 24 },
+  heroBg: { width: '100%', backgroundColor: colors.surfaceStrong, alignItems: 'center', paddingTop: 60, paddingBottom: 28, marginBottom: 24 },
   avatarWrapper: { marginBottom: 12, position: 'relative' },
-  avatar: { width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: '#1E6FD9' },
-  avatarPlaceholder: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FC4C02' },
-  avatarLetra: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF' },
-  avatarCamara: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#FC4C02', borderRadius: 12, padding: 4, borderWidth: 2, borderColor: '#0D1B2A' },
+  avatar: { width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: colors.actionBlueStrong },
+  avatarPlaceholder: { width: 70, height: 70, borderRadius: 35, backgroundColor: colors.actionBlueStrong, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.brandOrange },
+  avatarLetra: { fontSize: 28, fontWeight: 'bold', color: colors.text },
+  avatarCamara: { position: 'absolute', bottom: 0, right: 0, backgroundColor: colors.brandOrange, borderRadius: 12, padding: 4, borderWidth: 2, borderColor: colors.background },
   bibRow: { flexDirection: 'row', gap: 8 },
-  bibBtn: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: '#FC4C02' },
-  bibBtnSecundario: { borderColor: '#1E6FD9' },
-  bibBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 },
+  bibBtn: { flex: 1, backgroundColor: colors.background, borderRadius: 10, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.brandOrange },
+  bibBtnSecundario: { borderColor: colors.actionBlueStrong },
+  bibBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 12 },
 
-  nombre: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  email: { fontSize: 13, color: '#A8CFFF' },
+  nombre: { fontSize: 22, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  email: { fontSize: 13, color: colors.textSoft },
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 24, width: '100%', paddingHorizontal: 24 },
-  statCard: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, alignItems: 'center' },
-  statNumero: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  statLabel: { fontSize: 10, color: '#A8CFFF', textAlign: 'center', letterSpacing: 0.5 },
+  statCard: { flex: 1, backgroundColor: colors.surfaceStrong, borderRadius: 14, padding: 14, alignItems: 'center' },
+  statNumero: { fontSize: 22, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  statLabel: { fontSize: 10, color: colors.textSoft, textAlign: 'center', letterSpacing: 0.5 },
   seccion: { width: '100%', paddingHorizontal: 24, marginBottom: 20 },
-  seccionTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 12 },
-  retoCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20 },
-  retoCardTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 14 },
+  seccionTitulo: { fontSize: 15, fontWeight: 'bold', color: colors.text, marginBottom: 12 },
+  retoCard: { backgroundColor: colors.surfaceStrong, borderRadius: 16, padding: 20 },
+  retoCardTitulo: { fontSize: 16, fontWeight: 'bold', color: colors.text, marginBottom: 14 },
   retoProgressWrapper: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
-  retoProgressBar: { flex: 1, height: 8, backgroundColor: '#0D1B2A', borderRadius: 4 },
-  retoProgressFill: { height: 8, backgroundColor: '#FC4C02', borderRadius: 4 },
-  retoProgressPct: { fontSize: 14, fontWeight: 'bold', color: '#FC4C02', minWidth: 36 },
-  retoKm: { fontSize: 12, color: '#A8CFFF', marginBottom: 16 },
+  retoProgressBar: { flex: 1, height: 8, backgroundColor: colors.background, borderRadius: 4 },
+  retoProgressFill: { height: 8, backgroundColor: colors.brandOrange, borderRadius: 4 },
+  retoProgressPct: { fontSize: 14, fontWeight: 'bold', color: colors.brandOrange, minWidth: 36 },
+  retoKm: { fontSize: 12, color: colors.textSoft, marginBottom: 16 },
   dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2a4a6a' },
-  dotActivo: { width: 18, backgroundColor: '#FC4C02' },
-  modalidadLabel: { fontSize: 12, color: '#A8CFFF', marginBottom: 10 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.border },
+  dotActivo: { width: 18, backgroundColor: colors.brandOrange },
+  modalidadLabel: { fontSize: 12, color: colors.textSoft, marginBottom: 10 },
   modalidadBtns: { flexDirection: 'row', gap: 10 },
-  modalidadBtn: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
-  modalidadBtnActivo: { borderColor: '#FC4C02' },
-  modalidadBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
-  modalidadBtnTextActivo: { color: '#FFFFFF' },
-  metaSeparador: { height: 1, backgroundColor: '#2a4a6a', marginVertical: 16 },
+  modalidadBtn: { flex: 1, backgroundColor: colors.background, borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  modalidadBtnActivo: { borderColor: colors.brandOrange },
+  modalidadBtnText: { color: colors.textDim, fontWeight: 'bold', fontSize: 13 },
+  modalidadBtnTextActivo: { color: colors.text },
+  metaSeparador: { height: 1, backgroundColor: colors.border, marginVertical: 16 },
   metaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  metaTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' },
-  metaEditarBtn: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 13 },
+  metaTitulo: { fontSize: 13, fontWeight: 'bold', color: colors.text },
+  metaEditarBtn: { color: colors.actionBlueStrong, fontWeight: 'bold', fontSize: 13 },
   metaInputRow: { flexDirection: 'row', gap: 10 },
-  metaInput: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, color: '#FFFFFF', fontSize: 14, borderWidth: 1, borderColor: '#2a4a6a' },
-  metaGuardarBtn: { backgroundColor: '#FC4C02', borderRadius: 10, padding: 12, alignItems: 'center', justifyContent: 'center' },
-  metaGuardarBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
-  metaInfo: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12 },
-  metaFechaText: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  metaDias: { fontSize: 13, color: '#FC4C02', fontWeight: 'bold', marginBottom: 4 },
-  metaRitmo: { fontSize: 12, color: '#A8CFFF' },
-  metaVacio: { fontSize: 13, color: '#4a6a8a', fontStyle: 'italic' },
-  nivelCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 16 },
+  metaInput: { flex: 1, backgroundColor: colors.background, borderRadius: 10, padding: 12, color: colors.text, fontSize: 14, borderWidth: 1, borderColor: colors.border },
+  metaGuardarBtn: { backgroundColor: colors.brandOrange, borderRadius: 10, padding: 12, alignItems: 'center', justifyContent: 'center' },
+  metaGuardarBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 14 },
+  metaInfo: { backgroundColor: colors.background, borderRadius: 10, padding: 12 },
+  metaFechaText: { fontSize: 14, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  metaDias: { fontSize: 13, color: colors.brandOrange, fontWeight: 'bold', marginBottom: 4 },
+  metaRitmo: { fontSize: 12, color: colors.textSoft },
+  metaVacio: { fontSize: 13, color: colors.textDim, fontStyle: 'italic' },
+  nivelCard: { backgroundColor: colors.surfaceStrong, borderRadius: 14, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 16 },
   nivelEmoji: { fontSize: 36 },
   nivelInfo: { flex: 1 },
-  nivelNombre: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  nivelSiguiente: { fontSize: 12, color: '#A8CFFF' },
+  nivelNombre: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  nivelSiguiente: { fontSize: 12, color: colors.textSoft },
   logroCategoria: { marginBottom: 18 },
-  logroCatTitulo: { fontSize: 10, fontWeight: 'bold', color: '#4a6a8a', letterSpacing: 1.5, marginBottom: 10 },
-  logroCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 12, alignItems: 'center', minWidth: 72, marginRight: 8 },
+  logroCatTitulo: { fontSize: 10, fontWeight: 'bold', color: colors.textDim, letterSpacing: 1.5, marginBottom: 10 },
+  logroCard: { backgroundColor: colors.surfaceStrong, borderRadius: 12, padding: 12, alignItems: 'center', minWidth: 72, marginRight: 8 },
   logroEmoji: { fontSize: 22, marginBottom: 4 },
-  logroNombre: { fontSize: 9, color: '#A8CFFF', textAlign: 'center' },
-  logroBloqueado: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 12, alignItems: 'center', minWidth: 72, marginRight: 8, borderWidth: 1, borderColor: '#2a4a6a', borderStyle: 'dashed' },
+  logroNombre: { fontSize: 9, color: colors.textSoft, textAlign: 'center' },
+  logroBloqueado: { backgroundColor: colors.background, borderRadius: 12, padding: 12, alignItems: 'center', minWidth: 72, marginRight: 8, borderWidth: 1, borderColor: colors.border, borderStyle: 'dashed' },
   logroBloqueadoEmoji: { fontSize: 22, marginBottom: 4, opacity: 0.4 },
-  logroBloqueadoNombre: { fontSize: 9, color: '#2a4a6a', textAlign: 'center' },
-  logroProximo: { fontSize: 10, color: '#4a6a8a', marginTop: 8, fontStyle: 'italic' },
-  actividadRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, marginBottom: 8, gap: 12 },
+  logroBloqueadoNombre: { fontSize: 9, color: colors.border, textAlign: 'center' },
+  logroProximo: { fontSize: 10, color: colors.textDim, marginTop: 8, fontStyle: 'italic' },
+  actividadRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceStrong, borderRadius: 12, padding: 14, marginBottom: 8, gap: 12 },
   actividadEmoji: { fontSize: 22 },
   actividadInfo: { flex: 1 },
-  actividadFecha: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
-  actividadTipo: { fontSize: 11, color: '#A8CFFF' },
-  actividadKm: { fontSize: 16, fontWeight: 'bold', color: '#1E6FD9' },
+  actividadFecha: { fontSize: 13, fontWeight: 'bold', color: colors.text, marginBottom: 2 },
+  actividadTipo: { fontSize: 11, color: colors.textSoft },
+  actividadKm: { fontSize: 16, fontWeight: 'bold', color: colors.actionBlueStrong },
   eliminarBtn: { padding: 6, backgroundColor: '#2a1a1a', borderRadius: 8 },
-  eliminarBtnText: { color: '#FC4C02', fontWeight: 'bold', fontSize: 12 },
-  verTodasBtn: { paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: '#2a4a6a', borderRadius: 12 },
-  verTodasText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
-  emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 24, alignItems: 'center' },
+  eliminarBtnText: { color: colors.brandOrange, fontWeight: 'bold', fontSize: 12 },
+  verTodasBtn: { paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 12 },
+  verTodasText: { color: colors.textSoft, fontSize: 13, fontWeight: 'bold' },
+  emptyCard: { backgroundColor: colors.surfaceStrong, borderRadius: 16, padding: 24, alignItems: 'center' },
   emptyEmoji: { fontSize: 32, marginBottom: 8 },
-  emptyText: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  emptySubtext: { fontSize: 12, color: '#A8CFFF', textAlign: 'center' },
-  direccionCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20 },
-  direccionNombre: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 10 },
-  direccionLinea: { fontSize: 13, color: '#A8CFFF', marginBottom: 5 },
-  direccionTel: { fontSize: 13, color: '#1E6FD9', marginTop: 4, marginBottom: 4 },
-  editarBtn: { marginTop: 14, borderWidth: 1, borderColor: '#1E6FD9', borderRadius: 10, padding: 10, alignItems: 'center' },
-  editarBtnText: { color: '#1E6FD9', fontSize: 13, fontWeight: 'bold' },
-  formCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20 },
-  formLabel: { fontSize: 12, color: '#A8CFFF', marginBottom: 6, marginTop: 12 },
-  opcionalTexto: { fontSize: 11, color: '#4a6a8a', fontWeight: 'normal' },
-  sugerenciasBox: { backgroundColor: '#0D1B2A', borderRadius: 10, borderWidth: 1, borderColor: '#2a4a6a', marginBottom: 12, overflow: 'hidden' },
-  sugerenciaItem: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1E3A5F' },
-  sugerenciaTexto: { color: '#FFFFFF', fontSize: 13 },
+  emptyText: { fontSize: 15, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  emptySubtext: { fontSize: 12, color: colors.textSoft, textAlign: 'center' },
+  direccionCard: { backgroundColor: colors.surfaceStrong, borderRadius: 16, padding: 20 },
+  direccionNombre: { fontSize: 16, fontWeight: 'bold', color: colors.text, marginBottom: 10 },
+  direccionLinea: { fontSize: 13, color: colors.textSoft, marginBottom: 5 },
+  direccionTel: { fontSize: 13, color: colors.actionBlueStrong, marginTop: 4, marginBottom: 4 },
+  editarBtn: { marginTop: 14, borderWidth: 1, borderColor: colors.actionBlueStrong, borderRadius: 10, padding: 10, alignItems: 'center' },
+  editarBtnText: { color: colors.actionBlueStrong, fontSize: 13, fontWeight: 'bold' },
+  formCard: { backgroundColor: colors.surfaceStrong, borderRadius: 16, padding: 20 },
+  formLabel: { fontSize: 12, color: colors.textSoft, marginBottom: 6, marginTop: 12 },
+  opcionalTexto: { fontSize: 11, color: colors.textDim, fontWeight: 'normal' },
+  sugerenciasBox: { backgroundColor: colors.background, borderRadius: 10, borderWidth: 1, borderColor: colors.border, marginBottom: 12, overflow: 'hidden' },
+  sugerenciaItem: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.surfaceStrong },
+  sugerenciaTexto: { color: colors.text, fontSize: 13 },
   direccionConfirmadaBox: { backgroundColor: '#0a2a1a', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 12 },
-  direccionConfirmadaTexto: { color: '#4CAF50', fontSize: 12, fontWeight: 'bold' },
-  input: { backgroundColor: '#0D1B2A', borderRadius: 10, borderWidth: 1, borderColor: '#2a3a4a', color: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 12, fontSize: 14 },
+  direccionConfirmadaTexto: { color: colors.success, fontSize: 12, fontWeight: 'bold' },
+  input: { backgroundColor: colors.background, borderRadius: 10, borderWidth: 1, borderColor: '#2a3a4a', color: colors.text, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14 },
   formBotones: { flexDirection: 'row', gap: 10, marginTop: 20 },
   cancelarBtn: { flex: 1, borderWidth: 1, borderColor: '#2a3a4a', borderRadius: 10, padding: 12, alignItems: 'center' },
-  cancelarBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 14 },
-  guardarBtn: { flex: 1, backgroundColor: '#1E6FD9', borderRadius: 10, padding: 12, alignItems: 'center' },
-  guardarBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
-  stravaProximoCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#2a4a6a' },
-  stravaProximoTitulo: { fontSize: 14, fontWeight: 'bold', color: '#4a6a8a', marginBottom: 6 },
-  stravaProximoDesc: { fontSize: 12, color: '#4a6a8a', lineHeight: 18 },
+  cancelarBtnText: { color: colors.textDim, fontWeight: 'bold', fontSize: 14 },
+  guardarBtn: { flex: 1, backgroundColor: colors.actionBlueStrong, borderRadius: 10, padding: 12, alignItems: 'center' },
+  guardarBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 14 },
+  stravaProximoCard: { backgroundColor: colors.surfaceStrong, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border },
+  stravaProximoTitulo: { fontSize: 14, fontWeight: 'bold', color: colors.textDim, marginBottom: 6 },
+  stravaProximoDesc: { fontSize: 12, color: colors.textDim, lineHeight: 18 },
   stravaButton: { backgroundColor: '#FC4C02', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center', marginBottom: 12 },
-  stravaButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
-  stravaConectadoCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1E3A5F', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 8, borderWidth: 1, borderColor: '#2a6a2a' },
+  stravaButtonText: { color: colors.text, fontWeight: 'bold', fontSize: 15 },
+  stravaConectadoCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.surfaceStrong, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 8, borderWidth: 1, borderColor: '#2a6a2a' },
   stravaConectadoInfo: { flex: 1 },
-  stravaConectadoText: { color: '#4CAF50', fontWeight: 'bold', fontSize: 14, marginBottom: 2 },
-  stravaConectadoDesc: { fontSize: 11, color: '#A8CFFF' },
-  stravaReconectarText: { color: '#4a6a8a', fontSize: 13 },
-  stravaInstructivoBtn: { borderWidth: 1, borderColor: '#2a4a6a', borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
-  stravaInstructivoBtnText: { color: '#A8CFFF', fontSize: 13 },
+  stravaConectadoText: { color: colors.success, fontWeight: 'bold', fontSize: 14, marginBottom: 2 },
+  stravaConectadoDesc: { fontSize: 11, color: colors.textSoft },
+  stravaReconectarText: { color: colors.textDim, fontSize: 13 },
+  stravaInstructivoBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
+  stravaInstructivoBtnText: { color: colors.textSoft, fontSize: 13 },
   eliminarCuentaBtn: { marginTop: 8, marginHorizontal: 24, paddingVertical: 14, alignItems: 'center', borderRadius: 14, borderWidth: 1, borderColor: '#FF3B30', marginBottom: 8 },
   eliminarCuentaBtnText: { color: '#FF3B30', fontSize: 14, fontWeight: '600' },
   cerrarButton: { borderWidth: 1, borderColor: '#2a3a4a', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center', paddingHorizontal: 24, marginHorizontal: 24 },
-  cerrarButtonText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 15 },
-  perfilDeporteCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#1E6FD9' },
-  perfilDeporteTexto: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF' },
+  cerrarButtonText: { color: colors.textDim, fontWeight: 'bold', fontSize: 15 },
+  perfilDeporteCard: { backgroundColor: colors.surfaceStrong, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: colors.actionBlueStrong },
+  perfilDeporteTexto: { fontSize: 15, fontWeight: 'bold', color: colors.text },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  modalCard: { backgroundColor: '#1E3A5F', borderRadius: 24, padding: 28, width: '100%', borderWidth: 1, borderColor: '#FC4C02' },
+  modalCard: { backgroundColor: colors.surfaceStrong, borderRadius: 24, padding: 28, width: '100%', borderWidth: 1, borderColor: colors.brandOrange },
   modalEmoji: { fontSize: 48, textAlign: 'center', marginBottom: 12 },
-  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', marginBottom: 6 },
-  modalSubtitulo: { fontSize: 13, color: '#A8CFFF', textAlign: 'center', marginBottom: 24 },
+  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: 6 },
+  modalSubtitulo: { fontSize: 13, color: colors.textSoft, textAlign: 'center', marginBottom: 24 },
   modalPaso: { flexDirection: 'row', gap: 14, marginBottom: 18, alignItems: 'flex-start' },
   modalPasoEmoji: { fontSize: 24, width: 32 },
   modalPasoInfo: { flex: 1 },
-  modalPasoTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 3 },
-  modalPasoDesc: { fontSize: 12, color: '#A8CFFF', lineHeight: 18 },
-  modalBtn: { backgroundColor: '#FC4C02', paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginTop: 8 },
-  modalBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
-  confirmInfoBox: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, marginBottom: 16, gap: 12 },
-  confirmInfoTexto: { fontSize: 13, color: '#A8CFFF', lineHeight: 20 },
+  modalPasoTitulo: { fontSize: 14, fontWeight: 'bold', color: colors.text, marginBottom: 3 },
+  modalPasoDesc: { fontSize: 12, color: colors.textSoft, lineHeight: 18 },
+  modalBtn: { backgroundColor: colors.brandOrange, paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginTop: 8 },
+  modalBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 15 },
+  confirmInfoBox: { backgroundColor: colors.background, borderRadius: 14, padding: 16, marginBottom: 16, gap: 12 },
+  confirmInfoTexto: { fontSize: 13, color: colors.textSoft, lineHeight: 20 },
   insigniaCategoria: { marginBottom: 16 },
-  insigniaCatTitulo: { fontSize: 12, fontWeight: 'bold', color: '#A8CFFF', letterSpacing: 1, marginBottom: 10 },
-  insigniaProximo: { fontSize: 11, color: '#4a6a8a', marginTop: 8, fontStyle: 'italic' },
+  insigniaCatTitulo: { fontSize: 12, fontWeight: 'bold', color: colors.textSoft, letterSpacing: 1, marginBottom: 10 },
+  insigniaProximo: { fontSize: 11, color: colors.textDim, marginTop: 8, fontStyle: 'italic' },
   insigniasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  insigniaCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', minWidth: 80, marginRight: 8 },
+  insigniaCard: { backgroundColor: colors.surfaceStrong, borderRadius: 12, padding: 14, alignItems: 'center', minWidth: 80, marginRight: 8 },
   insigniaEmoji: { fontSize: 28, marginBottom: 6 },
-  insigniaNombre: { fontSize: 11, color: '#A8CFFF', textAlign: 'center' },
+  insigniaNombre: { fontSize: 11, color: colors.textSoft, textAlign: 'center' },
 });
