@@ -282,7 +282,6 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
       id: uc.id,
       valores: {
         km_completed: kmFinal,
-        status: nuevoStatus,
         completed_at: porcentaje >= 100 ? new Date().toISOString() : uc.completed_at
       },
       completa: porcentaje >= 100 && !yaCompletado,
@@ -564,8 +563,7 @@ router.get('/actividades/:userId', async (req, res) => {
           id: uc.id,
           valores: {
             km_completed: kmFinal,
-            status: nuevoStatus,
-            completed_at: nuevoStatus === 'completed' ? new Date().toISOString() : uc.completed_at
+                completed_at: nuevoStatus === 'completed' ? new Date().toISOString() : uc.completed_at
           },
           completa: nuevoStatus === 'completed',
           origen: 'strava_importacion',
@@ -633,8 +631,6 @@ router.get('/progreso/:userId', async (req, res) => {
           estado: 'PENDIENTE',
           started_at: uc.started_at,
           meta_fecha: uc.meta_fecha,
-          status: uc.status,
-          completed_at: uc.completed_at || null,
           link_shopify: uc.challenges.link_shopify || null,
           pending: true
         };
@@ -661,8 +657,6 @@ router.get('/progreso/:userId', async (req, res) => {
           estado: yaCompletado ? 'COMPLETADO' : 'En progreso',
           started_at: uc.started_at,
           meta_fecha: uc.meta_fecha,
-          status: uc.status,
-          completed_at: uc.completed_at || null,
           pausado: uc.pausado || false,
           pending: false
         };
@@ -682,8 +676,7 @@ router.get('/progreso/:userId', async (req, res) => {
           id: uc.id,
           valores: {
             km_completed: kmFinal,
-            status: nuevoStatus,
-            completed_at: parseFloat(porcentaje) >= 100 ? new Date().toISOString() : uc.completed_at
+                completed_at: parseFloat(porcentaje) >= 100 ? new Date().toISOString() : uc.completed_at
           },
           completa: parseFloat(porcentaje) >= 100 && !yaCompletado,
           origen: 'strava_progreso',
@@ -722,8 +715,6 @@ router.get('/progreso/:userId', async (req, res) => {
         estado: parseFloat(porcentaje) >= 100 ? 'COMPLETADO' : 'En progreso',
         started_at: uc.started_at,
         meta_fecha: uc.meta_fecha,
-        status: nuevoStatus,
-        completed_at: parseFloat(porcentaje) >= 100 ? (uc.completed_at || new Date().toISOString()) : (uc.completed_at || null),
         pausado: uc.pausado || false,
         pending: false
       };
