@@ -802,27 +802,20 @@ export default function HomeScreen({ navigation }) {
                 cargandoBib={cargandoBib}
               />
 
-              <TouchableOpacity
-                style={styles.historiaHomeLink}
-                onPress={() => navigation.navigate('DetalleReto', { item: challengesActivos[retoVisibleIndex], userId })}
-              >
-                <Text style={styles.historiaHomeText}>Historia del desafío</Text>
-                <Ionicons name="arrow-forward" size={13} color="#67A9FF" />
-              </TouchableOpacity>
-
               <TouchableOpacity style={styles.gpsHeroAction} onPress={() => navigation.navigate('GpsTracker')} activeOpacity={0.88}>
                 <View style={styles.gpsHeroTop}>
                   <View>
                     <Text style={styles.gpsHeroEyebrow}>KORVA GPS</Text>
-                    <Text style={styles.gpsHeroTitulo}>Tu próxima actividad empieza acá</Text>
+                    <Text style={styles.gpsHeroTitulo}>Registrar actividad</Text>
                   </View>
-                  <View style={styles.gpsHeroPlay}>
-                    <Ionicons name="play" size={20} color="#FFFFFF" />
+                  <View style={styles.gpsHeroStart}>
+                    <Ionicons name="play" size={14} color="#FFFFFF" />
+                    <Text style={styles.gpsHeroStartText}>INICIAR</Text>
                   </View>
                 </View>
                 <Text style={styles.gpsHeroDesc}>Correr · caminar · bici</Text>
                 <View style={styles.gpsHeroDivider} />
-                <Text style={styles.gpsHeroHint}>Registrá con el GPS del teléfono y confirmá al finalizar.</Text>
+                <Text style={styles.gpsHeroHint}>Distancia y tiempo con el GPS del teléfono · confirmás al finalizar</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1108,6 +1101,14 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
               : <Text style={styles.heroFooterMuted}>Completalo a tu ritmo</Text>}
             {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅 Completado</Text>}
           </View>
+          <TouchableOpacity
+            style={styles.heroHistoria}
+            onPress={() => navigation.navigate('DetalleReto', { item, userId })}
+            activeOpacity={0.72}
+          >
+            <Text style={styles.heroHistoriaText}>Historia del desafío</Text>
+            <Ionicons name="arrow-forward" size={13} color="#67A9FF" />
+          </TouchableOpacity>
         </View>
       </ViewShot>
 
@@ -1291,14 +1292,15 @@ const styles = StyleSheet.create({
   heroFooterMuted: { color: '#6888A7', fontSize: 11 },
   gpsHeroAction: { marginTop: 8, minHeight: 142, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 18, backgroundColor: '#14283B', borderWidth: 1, borderColor: '#31506B' },
   gpsHeroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
-  gpsHeroPlay: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#FC4C02', alignItems: 'center', justifyContent: 'center', paddingLeft: 3 },
+  gpsHeroStart: { height: 42, borderRadius: 21, backgroundColor: '#FC4C02', paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  gpsHeroStartText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   gpsHeroEyebrow: { color: '#6E8BA7', fontSize: 9, fontWeight: '900', letterSpacing: 2.2, marginBottom: 5 },
-  gpsHeroTitulo: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', maxWidth: 230, lineHeight: 22 },
+  gpsHeroTitulo: { color: '#FFFFFF', fontSize: 21, fontWeight: '900', lineHeight: 25 },
   gpsHeroDesc: { color: '#A8CFFF', fontSize: 11, marginTop: 10 },
   gpsHeroDivider: { height: 1, backgroundColor: '#203D57', marginVertical: 12 },
   gpsHeroHint: { color: '#6888A7', fontSize: 10, lineHeight: 14 },
-  historiaHomeLink: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 2 },
-  historiaHomeText: { color: '#67A9FF', fontSize: 11, fontWeight: '800' },
+  heroHistoria: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#244766', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroHistoriaText: { color: '#67A9FF', fontSize: 11, fontWeight: '800' },
   scrollCue: { alignSelf: 'center', alignItems: 'center', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 2 },
   scrollCueText: { color: '#547493', fontSize: 9, fontWeight: '800', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 1 },
   shareFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#0D1B2A', paddingTop: 12 },
