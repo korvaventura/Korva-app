@@ -282,6 +282,7 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
       id: uc.id,
       valores: {
         km_completed: kmFinal,
+        status: nuevoStatus,
         completed_at: porcentaje >= 100 ? new Date().toISOString() : uc.completed_at
       },
       completa: porcentaje >= 100 && !yaCompletado,
@@ -563,7 +564,8 @@ router.get('/actividades/:userId', async (req, res) => {
           id: uc.id,
           valores: {
             km_completed: kmFinal,
-                completed_at: nuevoStatus === 'completed' ? new Date().toISOString() : uc.completed_at
+            status: nuevoStatus,
+            completed_at: nuevoStatus === 'completed' ? new Date().toISOString() : uc.completed_at
           },
           completa: nuevoStatus === 'completed',
           origen: 'strava_importacion',
@@ -676,7 +678,8 @@ router.get('/progreso/:userId', async (req, res) => {
           id: uc.id,
           valores: {
             km_completed: kmFinal,
-                completed_at: parseFloat(porcentaje) >= 100 ? new Date().toISOString() : uc.completed_at
+            status: nuevoStatus,
+            completed_at: parseFloat(porcentaje) >= 100 ? new Date().toISOString() : uc.completed_at
           },
           completa: parseFloat(porcentaje) >= 100 && !yaCompletado,
           origen: 'strava_progreso',
