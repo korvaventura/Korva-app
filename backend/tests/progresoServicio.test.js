@@ -306,6 +306,8 @@ const clienteSupabaseSimulado = (respuestas = {}) => {
       update: (p) => { op.metodo = 'update'; op.payload = p; return q; },
       insert: (p) => { op.metodo = 'insert'; op.payload = p; return q; },
       eq: (c, v) => { op.filtros.push(`eq:${c}=${v}`); return q; },
+      gte: (c, v) => { op.filtros.push(`gte:${c}=${v}`); return q; },
+      lte: (c, v) => { op.filtros.push(`lte:${c}=${v}`); return q; },
       is: (c, v) => { op.filtros.push(`is:${c}=${v}`); return q; },
       in: (c, v) => { op.filtros.push(`in:${c}`); return q; },
       or: (f) => { op.filtros.push(`or:${f}`); return q; },
@@ -326,7 +328,12 @@ test('repo Supabase: actualizar km es condicional y nunca incluye km_base', asyn
   assert.equal(await repo.actualizarKmCAS({ id: 'uc1', kmLeido: 10, kmNuevo: 15 }), true);
   const op = registro.find((r) => r.metodo === 'update');
   assert.deepEqual(op.payload, { km_completed: 15 });
-  assert.deepEqual(op.filtros, ['eq:id=uc1', 'eq:status=active', 'eq:km_completed=10']);
+  assert.equal(op.filtros[0], 'eq:id=uc1');
+  assert.equal(op.filtros[1], 'eq:status=active');
+  const inferior = Number(op.filtros.find((x) => x.startsWith('gte:km_completed=')).split('=')[1]);
+  const superior = Number(op.filtros.find((x) => x.startsWith('lte:km_completed=')).split('=')[1]);
+  assert.ok(Math.abs(inferior - (10 - 1e-7)) < 1e-12);
+  assert.ok(Math.abs(superior - (10 + 1e-7)) < 1e-12);
 });
 
 test('repo Supabase: completar usa la RPC atómica (CAS + evento) con los parámetros exactos y sin km_base', async () => {
