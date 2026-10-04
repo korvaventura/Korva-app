@@ -22,19 +22,22 @@ const db=createClient(url,key);
   const resultado=[];
   for(const c of CASOS){
     const {data:actual,error:e1}=await db.from('user_challenges')
-      .select('id,status,km_completed').eq('id',c.id).maybeSingle();
+      .select('id,status,km_completed,version').eq('id',c.id).maybeSingle();
     if(e1) throw e1;
-    if(!actual || actual.status!=='active' || Math.abs(Number(actual.km_completed)-c.antes)>1e-6){
+    if(!actual || actual.status!=='active' || Math.abs(Number(actual.km_completed)-c.antes)>0.001){
       resultado.push({id:c.id,resultado:'NO TOCADO',actual:actual?.km_completed,status:actual?.status});
       continue;
     }
-    const {data,error}=await db.from('user_challenges')
+    let q=db.from('user_challenges')
       .update({km_completed:c.despues})
-      .eq('id',c.id).eq('status','active').eq('km_completed',c.antes)
-      .select('id,km_completed');
+      .eq('id',c.id).eq('status','active');
+    q = actual.version === null || actual.version === undefined
+      ? q.is('version', null)
+      : q.eq('version', actual.version);
+    const {data,error}=await q.select('id,km_completed,version');
     if(error) throw error;
     if(data?.length===1) resultado.push({id:c.id,resultado:'REPARADO',antes:c.antes,despues:data[0].km_completed});
-    else resultado.push({id:c.id,resultado:'NO TOCADO - CAS',actual:c.antes});
+    else resultado.push({id:c.id,resultado:'NO TOCADO - CAS',actual:actual.km_completed});
   }
   console.table(resultado);
   console.log('Reparados:',resultado.filter(x=>x.resultado==='REPARADO').length,'/',CASOS.length);
