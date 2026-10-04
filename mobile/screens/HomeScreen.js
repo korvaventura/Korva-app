@@ -161,6 +161,19 @@ export default function HomeScreen({ navigation }) {
     } catch (e) {}
   };
 
+  const enriquecerEstados = async (lista) => {
+    try {
+      const { data } = await supabase
+        .from('user_challenges')
+        .select('challenge_id,status,completed_at,pausado')
+        .eq('user_id', userId);
+      const porChallenge = new Map((data || []).map((x) => [x.challenge_id, x]));
+      return lista.map((item) => ({ ...item, ...(porChallenge.get(item.challenge_id) || {}) }));
+    } catch {
+      return lista;
+    }
+  };
+
   const cargarProgreso = async () => {
     if (!userId) return;
     try {
@@ -171,7 +184,8 @@ export default function HomeScreen({ navigation }) {
       // sincroniza después y refresca silenciosamente solo si llegaron datos nuevos.
       const res = await fetch(`${BACKEND_URL}/strava/progreso/${userId}`);
       const data = await res.json();
-      const lista = Array.isArray(data) ? data : [];
+      const listaBase = Array.isArray(data) ? data : [];
+      const lista = await enriquecerEstados(listaBase);
       setChallenges(lista);
 
       if (stravaConectado) {
@@ -182,7 +196,7 @@ export default function HomeScreen({ navigation }) {
               return fetch(`${BACKEND_URL}/strava/progreso/${userId}`)
                 .then(r => r.json())
                 .then(actualizado => {
-                  if (Array.isArray(actualizado)) setChallenges(actualizado);
+                  if (Array.isArray(actualizado)) return enriquecerEstados(actualizado).then(setChallenges);
                 });
             }
           })
