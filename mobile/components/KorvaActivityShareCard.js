@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   overlay: { backgroundColor: 'transparent' },
   story: { width: 360, height: 640, backgroundColor: colors.backgroundDeep, paddingHorizontal: 28, paddingVertical: 34, overflow: 'hidden' },
   topography: { ...StyleSheet.absoluteFillObject },
-  storyBackground: { ...StyleSheet.absoluteFillObject, width: 'auto', height: 'auto', opacity: 0.42 },
+  storyBackground: { ...StyleSheet.absoluteFillObject, opacity: 0.42 },
   storyShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(9,23,37,0.56)' },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   korva: { color: colors.text, fontSize: 11, fontWeight: '900', letterSpacing: 3, ...shadow },
