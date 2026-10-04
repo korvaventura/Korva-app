@@ -30,8 +30,18 @@ const CAMPOS_DAILY_MOVEMENT = 'fecha, timezone, distancia_caminando_km, distanci
 const TAMANO_LOTE_IDS = 100;
 const CAMPOS_EVENTO = 'id, user_challenge_id, user_id, tipo, estado, intentos, datos, resultado, ultimo_error, procesando_desde, creado_at, actualizado_at';
 
-const filtrarKmLeido = (consulta, kmLeido) =>
-  kmLeido === null || kmLeido === undefined ? consulta.is('km_completed', null) : consulta.eq('km_completed', kmLeido);
+// PostgREST compara floats por igualdad exacta. km_completed es float y un valor que volvió por JSON
+// puede diferir unas ulps al volver a serializarse (ej. 83.169999999...). Para el CAS de progreso
+// usamos una ventana muchísimo menor que la precisión funcional del motor (1e-6), conservando la
+// detección de escrituras concurrentes reales.
+const EPSILON_CAS_KM = 1e-7;
+
+const filtrarKmLeido = (consulta, kmLeido) => {
+  if (kmLeido === null || kmLeido === undefined) return consulta.is('km_completed', null);
+  const km = Number(kmLeido);
+  if (!Number.isFinite(km)) throw new Error('kmLeido inválido');
+  return consulta.gte('km_completed', km - EPSILON_CAS_KM).lte('km_completed', km + EPSILON_CAS_KM);
+};
 
 const filtrarMarcaLeida = (consulta, marcaLeida) =>
   marcaLeida === null ? consulta.is('recalculo_pendiente_desde', null) : consulta.eq('recalculo_pendiente_desde', marcaLeida);
@@ -346,6 +356,25 @@ const crearRepositorioBase = (supabase) => {
      * La RPC nunca toca km_base.
      */
     completarCAS: async ({ id, kmLeido, kmNuevo, completedAtIso, datos }) => {
+      // La RPC histórica hace igualdad exacta sobre km_completed. Antes de llamarla normalizamos el
+      // float SOLO si sigue dentro de la misma ventana CAS. Una escritura concurrente real queda
+      // fuera de la ventana; si ocurre después, la propia RPC exacta pierde y el servicio relee.
+      if (kmLeido !== null && kmLeido !== undefined) {
+        const km = Number(kmLeido);
+        if (!Number.isFinite(km)) throw new Error('kmLeido inválido');
+        const { data: normalizado, error: errorNormalizar } = await supabase
+          .from('user_challenges')
+          .update({ km_completed: km })
+          .eq('id', id)
+          .eq('status', 'active')
+          .gte('km_completed', km - EPSILON_CAS_KM)
+          .lte('km_completed', km + EPSILON_CAS_KM)
+          .select('id');
+        if (errorNormalizar) throw errorNormalizar;
+        if (!Array.isArray(normalizado) || normalizado.length !== 1) {
+          return { gano: false, eventoId: null, eventoNuevo: false };
+        }
+      }
       const { data, error } = await supabase.rpc('completar_desafio_motor', {
         p_id: id,
         p_km_leido: kmLeido === undefined ? null : kmLeido,
