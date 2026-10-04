@@ -678,21 +678,6 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.gpsInicioCard} onPress={() => navigation.navigate('GpsTracker')} activeOpacity={0.86}>
-        <View style={styles.gpsInicioIcono}>
-          <Ionicons name="navigate" size={20} color="#7FB7F3" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.gpsInicioEyebrow}>KORVA GPS</Text>
-          <Text style={styles.gpsInicioTitulo}>Registrar con GPS</Text>
-          <Text style={styles.gpsInicioDesc}>Correr · caminar · bici</Text>
-        </View>
-        <View style={styles.gpsInicioAccion}>
-          <Ionicons name="play" size={12} color="#FFFFFF" />
-          <Text style={styles.gpsInicioAccionText}>INICIAR</Text>
-        </View>
-      </TouchableOpacity>
-
       {/* Banner pago — FIX: usa cerrarBanner() */}
       {bannerVisible && !cargando && (
         <View style={styles.bannerCard}>
@@ -815,6 +800,26 @@ export default function HomeScreen({ navigation }) {
                 togglePausar={togglePausar}
                 cargandoBib={cargandoBib}
               />
+
+              <TouchableOpacity style={styles.gpsHeroAction} onPress={() => navigation.navigate('GpsTracker')} activeOpacity={0.88}>
+                <View style={styles.gpsHeroPlay}>
+                  <Ionicons name="play" size={16} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.gpsHeroEyebrow}>KORVA GPS</Text>
+                  <Text style={styles.gpsHeroTitulo}>Iniciar actividad</Text>
+                  <Text style={styles.gpsHeroDesc}>Correr · caminar · bici</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={19} color="#FFB08B" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.historiaHomeLink}
+                onPress={() => navigation.navigate('DetalleReto', { item: challengesActivos[retoVisibleIndex], userId })}
+              >
+                <Text style={styles.historiaHomeText}>Ver historia del desafío</Text>
+                <Ionicons name="arrow-forward" size={14} color="#67A9FF" />
+              </TouchableOpacity>
             </>
           )}
         </>
@@ -1046,7 +1051,7 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
   const frase = getFrase(pct);
   const mostrarCardMeta = metaVisibles[item.challenge_id];
   const metaFormateada = formatearFechaMeta(item.meta_fecha);
-  const bordeCard = estaCompletado ? '#FC4C02' : pct >= 75 ? '#FC4C02' : '#1E3A5F';
+  const bordeCard = estaCompletado ? '#FC4C02' : '#244766';
   // Versión del desafío (Estándar/Extendida), no deporte. Fallback a `modalidad` de respuestas viejas.
   const modalidadLabel = `VERSIÓN ${etiquetaDeInscripcion(item).toUpperCase()}`;
   const tituloNormalizado = (item.challenge || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -1061,28 +1066,30 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
         <View style={[styles.shareCard, { borderColor: bordeCard }]}>
           {/* FIX: header rediseñado — sin colores que parezcan botones */}
           <View style={styles.shareHeader}>
-            <Text style={styles.shareKorvaLogo}>KORVA · DESAFÍO</Text>
+            <Text style={styles.shareKorvaLogo}>TU AVENTURA</Text>
             <TouchableOpacity onPress={onModalidadPress}>
-              <Text style={[styles.shareDeporte, { opacity: 1, color: '#1E6FD9' }]}>{modalidadLabel}</Text>
+              <Text style={styles.shareDeporte}>{modalidadLabel}</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.sharePctWrapper}>
-            <Text style={styles.sharePctNumero}>{pct.toFixed(0)}</Text>
-            <Text style={styles.sharePctSymbol}>%</Text>
-          </View>
           <Text style={styles.shareChallengeName}>{item.challenge || '—'}</Text>
-          {!tieneExpedicion && <Text style={styles.shareFrase}>{frase}</Text>}
-          {!tieneExpedicion && (
-            <View style={styles.shareProgressBar}>
-              <View style={[styles.shareProgressFill, { width: `${pct}%` }, estaCompletado && styles.shareProgressFillCompletado]} />
+          <View style={styles.heroMetricRow}>
+            <Text style={styles.heroKmNumero}>{Number(item.km_completados || 0).toFixed(1)}</Text>
+            <Text style={styles.heroKmUnidad}>km</Text>
+            <View style={styles.heroPctPill}>
+              <Text style={styles.heroPctText}>{pct.toFixed(0)}%</Text>
             </View>
-          )}
-          <View style={[styles.shareKmRow, tieneExpedicion && { marginTop: 6 }]}>
-            <Text style={styles.shareKmText}>{item.km_completados} km</Text>
-            <Text style={styles.shareKmTotal}>· {getSubtitulo(item.challenge || '')}</Text>
-            {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅</Text>}
           </View>
-          {metaFormateada && <Text style={styles.shareMetaText}>🎯 Meta: {metaFormateada}</Text>}
+          <Text style={styles.heroTotal}>de {Number(item.distancia_total || 0).toFixed(0)} km</Text>
+          <View style={styles.shareProgressBar}>
+            <View style={[styles.shareProgressFill, { width: `${pct}%` }, estaCompletado && styles.shareProgressFillCompletado]} />
+          </View>
+          {!tieneExpedicion && <Text style={styles.shareFrase}>{frase}</Text>}
+          <View style={styles.heroFooter}>
+            {metaFormateada
+              ? <Text style={styles.shareMetaText}>🎯 Objetivo · {metaFormateada}</Text>
+              : <Text style={styles.heroFooterMuted}>Completalo a tu ritmo</Text>}
+            {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅 Completado</Text>}
+          </View>
         </View>
       </ViewShot>
 
@@ -1133,16 +1140,6 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
         </View>
       )}
 
-      <View style={styles.retoAcciones}>
-        <TouchableOpacity
-          style={styles.historiaLink}
-          hitSlop={{ top: 10, bottom: 10, left: 16, right: 16 }}
-          onPress={() => navigation.navigate('DetalleReto', { item, userId })}
-        >
-          <Text style={styles.historiaLinkText}>📖 Ver mi historia</Text>
-          <Ionicons name="arrow-forward" size={14} color="#67A9FF" />
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
