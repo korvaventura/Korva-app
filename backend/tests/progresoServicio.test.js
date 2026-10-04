@@ -328,12 +328,18 @@ test('repo Supabase: actualizar km es condicional y nunca incluye km_base', asyn
   assert.equal(await repo.actualizarKmCAS({ id: 'uc1', kmLeido: 10, kmNuevo: 15 }), true);
   const op = registro.find((r) => r.metodo === 'update');
   assert.deepEqual(op.payload, { km_completed: 15 });
-  assert.equal(op.filtros[0], 'eq:id=uc1');
-  assert.equal(op.filtros[1], 'eq:status=active');
+  assert.deepEqual(op.filtros, ['eq:id=uc1', 'eq:status=active', 'gte:km_completed=9.9999999', 'lte:km_completed=10.0000001']);
+});
+
+test('repo Supabase: CAS tolera ruido sub-micrométrico de float sin abrir la puerta a cambios reales', async () => {
+  const { cliente, registro } = clienteSupabaseSimulado({ update: { data: [{ id: 'uc1' }], error: null } });
+  const repo = crearRepositorioSupabase(cliente);
+  assert.equal(await repo.actualizarKmCAS({ id: 'uc1', kmLeido: 83.17, kmNuevo: 88.27 }), true);
+  const op = registro.find((r) => r.metodo === 'update');
   const inferior = Number(op.filtros.find((x) => x.startsWith('gte:km_completed=')).split('=')[1]);
   const superior = Number(op.filtros.find((x) => x.startsWith('lte:km_completed=')).split('=')[1]);
-  assert.ok(Math.abs(inferior - (10 - 1e-7)) < 1e-12);
-  assert.ok(Math.abs(superior - (10 + 1e-7)) < 1e-12);
+  assert.ok(Math.abs(inferior - (83.17 - 1e-7)) < 1e-12);
+  assert.ok(Math.abs(superior - (83.17 + 1e-7)) < 1e-12);
 });
 
 test('repo Supabase: completar usa la RPC atómica (CAS + evento) con los parámetros exactos y sin km_base', async () => {
@@ -344,9 +350,27 @@ test('repo Supabase: completar usa la RPC atómica (CAS + evento) con los parám
   const op = registro.find((x) => x.metodo === 'rpc');
   assert.equal(op.tabla, 'rpc:completar_desafio_motor');
   assert.deepEqual(op.payload, { p_id: 'uc1', p_km_leido: null, p_km_nuevo: 103, p_completed_at: '2026-10-02T10:00:00.000Z', p_datos: { motivo: 'x' } });
-  assert.ok(!registro.some((x) => x.metodo === 'update' && x.tabla === 'user_challenges'), 'la completitud no usa un UPDATE directo');
+  // Con kmLeido=null no hace falta normalizar; la RPC conserva la transición atómica.
+  assert.ok(!registro.some((x) => x.metodo === 'update' && x.tabla === 'user_challenges'));
   const perdio = crearRepositorioSupabase(clienteSupabaseSimulado().cliente);
   assert.deepEqual(await perdio.completarCAS({ id: 'uc1', kmLeido: 1, kmNuevo: 2, completedAtIso: 'x' }), { gano: false, eventoId: null, eventoNuevo: false });
+});
+
+test('repo Supabase: completar con km float normaliza por ventana antes de la RPC exacta', async () => {
+  const { cliente, registro } = clienteSupabaseSimulado({
+    update: { data: [{ id: 'uc1' }], error: null },
+    rpc: { data: [{ gano: true, evento_id: 'ev10', evento_nuevo: true }], error: null },
+  });
+  const repo = crearRepositorioSupabase(cliente);
+  const r = await repo.completarCAS({ id: 'uc1', kmLeido: 83.17, kmNuevo: 103.17, completedAtIso: '2026-10-04T08:00:00.000Z', datos: {} });
+  assert.equal(r.gano, true);
+  const normaliza = registro.find((x) => x.metodo === 'update' && x.tabla === 'user_challenges');
+  assert.deepEqual(normaliza.payload, { km_completed: 83.17 });
+  const inferior = Number(normaliza.filtros.find((x) => x.startsWith('gte:km_completed=')).split('=')[1]);
+  const superior = Number(normaliza.filtros.find((x) => x.startsWith('lte:km_completed=')).split('=')[1]);
+  assert.ok(Math.abs(inferior - (83.17 - 1e-7)) < 1e-12);
+  assert.ok(Math.abs(superior - (83.17 + 1e-7)) < 1e-12);
+  assert.ok(registro.some((x) => x.tabla === 'rpc:completar_desafio_motor'));
 });
 
 test('repo Supabase: evento duplicado (23505) devuelve creado=false sin error', async () => {

@@ -113,3 +113,25 @@ test('4B-3: recalculo unificado propaga incluirHealth y evita divergencia con re
   assert.equal(opcionesLeidas.incluirHealth, true);
   assert.equal(r.informe.desafios[0].km_nuevo, 10);
 });
+
+
+test('Etapa 5: informe expone actividades y Health por separado sin cambiar el total', async () => {
+  const uc = ucBase({ km_completed: 0 });
+  const repo = {
+    leerEstadoUsuario: async () => ({
+      userChallenges: [uc],
+      challenges: new Map([['c1', challenge]]),
+      actividades: [{ id: 'a1', distance_km: 12, recorded_at: '2026-09-10T12:00:00Z', excluida: false }],
+      dailyMovement: [{ fecha: '2026-09-20', timezone: 'UTC', distancia_caminando_km: 10, distancia_bici_km: 0, updated_at: '2026-09-21T01:00:00Z' }],
+    }),
+  };
+  const informe = await recalcularProgresoUsuario({
+    repo, userId: 'u1', motivo: 'transparencia_test', modo: MODOS.SIMULAR,
+    incluirHealth: true, ahoraMs: Date.parse('2026-09-21T12:00:00Z'),
+  });
+  const d = informe.desafios[0];
+  assert.equal(d.km_base, 0);
+  assert.equal(d.km_actividades, 12);
+  assert.equal(d.health.elegible_km, 10);
+  assert.equal(d.km_nuevo, 22);
+});

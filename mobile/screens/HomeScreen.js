@@ -104,13 +104,6 @@ export default function HomeScreen({ navigation }) {
     });
   }, []);
 
-  useEffect(() => {
-    if (userId) {
-      cargarProgreso();
-      verificarStrava();
-    }
-  }, [userId]);
-
   useFocusEffect(
     useCallback(() => {
       if (userId) {
@@ -173,14 +166,29 @@ export default function HomeScreen({ navigation }) {
     try {
       setCargando(true);
       setError(false);
-      // Solo sincronizar Strava si está conectado
-      if (stravaConectado) {
-        await fetch(`${BACKEND_URL}/strava/actividades/${userId}`);
-      }
+      // La Home nunca espera a Strava para mostrar las cards.
+      // Primero lee el progreso ya materializado por el motor; si Strava está conectado,
+      // sincroniza después y refresca silenciosamente solo si llegaron datos nuevos.
       const res = await fetch(`${BACKEND_URL}/strava/progreso/${userId}`);
       const data = await res.json();
       const lista = Array.isArray(data) ? data : [];
       setChallenges(lista);
+
+      if (stravaConectado) {
+        fetch(`${BACKEND_URL}/strava/actividades/${userId}`)
+          .then(r => r.json())
+          .then(sync => {
+            if (Number(sync?.importadas || 0) > 0) {
+              return fetch(`${BACKEND_URL}/strava/progreso/${userId}`)
+                .then(r => r.json())
+                .then(actualizado => {
+                  if (Array.isArray(actualizado)) setChallenges(actualizado);
+                });
+            }
+          })
+          .catch(() => {});
+      }
+
       const activos = lista.filter(c => !c.pending);
       const sinKm = activos.some(c => parseFloat(c.km_completados || 0) === 0);
       // FIX: solo mostrar si no fue cerrado manualmente
@@ -677,6 +685,18 @@ export default function HomeScreen({ navigation }) {
           )}
         </View>
       </View>
+
+      <TouchableOpacity style={styles.gpsInicioCard} onPress={() => navigation.navigate('GpsTracker')}>
+        <View style={styles.gpsInicioIcono}>
+          <Ionicons name="navigate" size={22} color="#FFFFFF" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.gpsInicioEyebrow}>KORVA GPS · PRUEBA</Text>
+          <Text style={styles.gpsInicioTitulo}>Iniciar actividad</Text>
+          <Text style={styles.gpsInicioDesc}>Medí distancia y tiempo con el GPS del teléfono.</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={22} color="#A8CFFF" />
+      </TouchableOpacity>
 
       {/* Banner pago — FIX: usa cerrarBanner() */}
       {bannerVisible && !cargando && (
@@ -1287,6 +1307,11 @@ const styles = StyleSheet.create({
   storyFooter: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', borderTopWidth: 1, borderTopColor: '#1E3A5F', paddingTop: 12 },
   storyNombre: { fontSize: 13, color: '#FFFFFF', fontWeight: 'bold' },
   storyUrl: { fontSize: 13, color: '#FC4C02' },
+  gpsInicioCard: { marginHorizontal: 20, marginTop: 8, marginBottom: 14, padding: 16, borderRadius: 18, backgroundColor: '#10253A', borderWidth: 1, borderColor: '#1E3A5F', flexDirection: 'row', alignItems: 'center', gap: 13 },
+  gpsInicioIcono: { width: 46, height: 46, borderRadius: 15, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center' },
+  gpsInicioEyebrow: { color: '#617184', fontSize: 9, fontWeight: '700', letterSpacing: 1.4, marginBottom: 3 },
+  gpsInicioTitulo: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', marginBottom: 2 },
+  gpsInicioDesc: { color: '#A8CFFF', fontSize: 11, lineHeight: 16 },
   actualizarBtn: { marginTop: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center' },
   actualizarBtnText: { color: '#A8CFFF', fontSize: 14 },
   metaCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 18, marginBottom: 8, borderWidth: 1, borderColor: '#FC4C02' },

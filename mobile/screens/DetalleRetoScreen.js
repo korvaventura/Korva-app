@@ -40,6 +40,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
   const [actividades, setActividades] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [metaFecha, setMetaFecha] = useState(item?.meta_fecha || '');
+  const [desgloseProgreso, setDesgloseProgreso] = useState(null);
 
 
 
@@ -52,7 +53,25 @@ export default function DetalleRetoScreen({ route, navigation }) {
   useEffect(() => {
     cargarActividades();
     cargarMeta();
+    cargarDesgloseProgreso();
   }, []);
+
+  const cargarDesgloseProgreso = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
+      const res = await fetch(`${BACKEND_URL}/progreso-desglose`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const d = (data?.desafios || []).find(x => x.challenge_id === item.challenge_id);
+      if (d) setDesgloseProgreso(d);
+    } catch (error) {
+      // El desglose es informativo: si falla, el progreso principal sigue funcionando.
+    }
+  };
 
   const cargarActividades = async () => {
     try {
@@ -110,7 +129,8 @@ export default function DetalleRetoScreen({ route, navigation }) {
     const fechaFin = estaCompletado ? new Date(item.completed_at || new Date()) : new Date();
     const diasTotales = diasEntre(fechaInicio, fechaFin);
     const sesiones = actividades.length;
-    const kmPromedio = (parseFloat(item.km_completados) / sesiones).toFixed(1);
+    const kmActividades = desgloseProgreso?.km_actividades ?? actividades.reduce((sum, a) => sum + (Number(a.distance_km) || 0), 0);
+    const kmPromedio = sesiones > 0 ? (kmActividades / sesiones).toFixed(1) : '0.0';
     const tiempoTotal = actividades.reduce((sum, a) => sum + (a.duration_seconds || 0), 0);
     const horas = Math.floor(tiempoTotal / 3600);
     const minutos = Math.floor((tiempoTotal % 3600) / 60);
@@ -170,6 +190,27 @@ export default function DetalleRetoScreen({ route, navigation }) {
           <View style={[styles.progressFill, { width: `${pct}%` }, estaCompletado && styles.progressFillCompletado]} />
         </View>
         <Text style={styles.progresoSub}>de {item.distancia_total} km totales</Text>
+        {desgloseProgreso && (
+          <View style={styles.desgloseProgreso}>
+            <Text style={styles.desgloseTitulo}>Cómo se forma tu progreso</Text>
+            <View style={styles.desgloseFila}>
+              <Text style={styles.desgloseLabel}>Actividades registradas</Text>
+              <Text style={styles.desgloseValor}>{Number(desgloseProgreso.km_actividades || 0).toFixed(2)} km</Text>
+            </View>
+            {Number(desgloseProgreso.km_base || 0) > 0 && (
+              <View style={styles.desgloseFila}>
+                <Text style={styles.desgloseLabel}>Progreso anterior</Text>
+                <Text style={styles.desgloseValor}>{Number(desgloseProgreso.km_base).toFixed(2)} km</Text>
+              </View>
+            )}
+            {Number(desgloseProgreso.km_movimiento_diario || 0) > 0 && (
+              <View style={styles.desgloseFila}>
+                <Text style={styles.desgloseLabel}>Movimiento diario</Text>
+                <Text style={styles.desgloseValor}>{Number(desgloseProgreso.km_movimiento_diario).toFixed(2)} km</Text>
+              </View>
+            )}
+          </View>
+        )}
         {item.started_at && (
           <Text style={styles.progresoFecha}>Comenzaste el {formatearFecha(item.started_at)}</Text>
         )}
@@ -309,6 +350,17 @@ const styles = StyleSheet.create({
   progressFill: { height: 8, backgroundColor: '#1E6FD9', borderRadius: 4 },
   progressFillCompletado: { backgroundColor: '#FC4C02' },
   progresoSub: { fontSize: 13, color: '#A8CFFF' },
+  desgloseProgreso: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#D7DCE2',
+    gap: 6,
+  },
+  desgloseTitulo: { fontSize: 12, fontWeight: '600', color: '#5B6573', marginBottom: 2 },
+  desgloseFila: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  desgloseLabel: { fontSize: 12, color: '#6B7280' },
+  desgloseValor: { fontSize: 12, fontWeight: '600', color: '#303844' },
   progresoFecha: { fontSize: 12, color: '#4a6a8a', marginTop: 6 },
   statsCompletadoCard: { backgroundColor: '#1a2a1a', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#FC4C02' },
   statsCompletadoTitulo: { fontSize: 18, fontWeight: 'bold', color: '#FC4C02', marginBottom: 8 },

@@ -4,6 +4,7 @@ const { registrarActividadGpsConMotor } = require('../lib/actividadGps');
 const { crearRepositorioSupabase } = require('../lib/progresoRepositorioSupabase');
 const { calcularDistanciaGpsServidor } = require('../lib/gpsValidacion');
 const { gpsMotorActivo } = require('../lib/flagsMotor');
+const { guardarRutaGps } = require('../lib/gpsRuta');
 
 const DEPORTES = new Set(['run', 'walk', 'ride']);
 const SESSION_ID_RE = /^[A-Za-z0-9_-]{8,128}$/;
@@ -55,6 +56,25 @@ const crearActividadGpsRoutes = ({ supabase, procesadorEventos }) => {
         recordedAt: fecha.toISOString(),
         dispararEfectos: (ids) => procesadorEventos.disparar(ids),
       });
+
+      // La actividad/progreso es la operación principal. La ruta se persiste después y es
+      // idempotente por (user_id, session_id); si falla, no se duplica ni revierte progreso.
+      const activityId = resultado.body?.actividad?.id;
+      if (activityId) {
+        try {
+          await guardarRutaGps({
+            supabase,
+            userId: req.userId,
+            activityId,
+            sessionId: session_id,
+            puntos: recorrido.puntosValidos,
+          });
+          resultado.body.ruta_guardada = true;
+        } catch (e) {
+          console.error('[korva_gps] ruta pendiente:', e.message);
+          resultado.body.ruta_guardada = false;
+        }
+      }
       return res.status(resultado.status).json(resultado.body);
     } catch (error) {
       console.error('[korva_gps] error:', error.message);
