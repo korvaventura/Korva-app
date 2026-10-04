@@ -6,6 +6,7 @@ import RutaGpsActividad from '../components/RutaGpsActividad';
 import KorvaActivityShareCard from '../components/KorvaActivityShareCard';
 import { obtenerRutaGps } from '../services/gps/gpsApi';
 import { supabase } from '../supabase';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../theme/korvaTheme';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
@@ -131,25 +132,29 @@ export default function DetalleActividadScreen({ route, navigation }) {
         )}
 
         <TouchableOpacity style={styles.shareButton} onPress={() => setShareVisible(true)} activeOpacity={0.86}>
-          <Text style={styles.shareButtonEyebrow}>{recienGuardada ? 'LISTA PARA COMPARTIR' : 'KORVA ACTIVITY'}</Text>
+          <Text style={styles.shareButtonEyebrow}>{recienGuardada ? 'LISTA PARA COMPARTIR' : 'TU ACTIVIDAD'}</Text>
           <Text style={styles.shareButtonText}>Compartir actividad</Text>
           <Text style={styles.shareButtonSub}>Creá una placa para tu foto o historia</Text>
         </TouchableOpacity>
       </ScrollView>
 
-      <Modal visible={shareVisible} transparent animationType="fade" onRequestClose={() => setShareVisible(false)}>
-        <View style={styles.modalBackdrop}>
-          <ScrollView contentContainerStyle={styles.modalContent}>
+      <Modal visible={shareVisible} animationType="slide" presentationStyle="pageSheet" allowSwipeDismissal
+        onRequestClose={() => setShareVisible(false)} onDismiss={() => setShareVisible(false)}>
+        <SafeAreaProvider>
+        <SafeAreaView style={styles.modalBackdrop} edges={['top', 'bottom']}>
+          <View style={styles.sheetHandle} />
             <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalEyebrow}>KORVA ACTIVITY SHARE</Text>
-                <Text style={styles.modalTitle}>Tu actividad, lista para compartir</Text>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={styles.modalEyebrow}>COMPARTÍ TU ACTIVIDAD</Text>
+                <Text style={styles.modalTitle}>Compartir actividad</Text>
               </View>
-              <TouchableOpacity onPress={() => setShareVisible(false)} hitSlop={12}>
+              <TouchableOpacity style={styles.closeButton} onPress={() => setShareVisible(false)}
+                accessibilityRole="button" accessibilityLabel="Cerrar compartir actividad">
                 <Text style={styles.close}>×</Text>
               </TouchableOpacity>
             </View>
 
+          <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalContent}>
             {retosElegibles.length > 1 && (
               <Text style={styles.challengePrompt}>¿Qué aventura querés compartir?</Text>
             )}
@@ -172,10 +177,10 @@ export default function DetalleActividadScreen({ route, navigation }) {
 
             <View style={styles.variantRow}>
               <TouchableOpacity style={[styles.variant, shareVariant === 'overlay' && styles.variantActive]} onPress={() => setShareVariant('overlay')}>
-                <Text style={styles.variantText}>Overlay</Text>
+                <Text style={styles.variantText}>Transparente</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.variant, shareVariant === 'story' && styles.variantActive]} onPress={() => setShareVariant('story')}>
-                <Text style={styles.variantText}>Story</Text>
+                <Text style={styles.variantText}>Historia</Text>
               </TouchableOpacity>
             </View>
 
@@ -191,15 +196,18 @@ export default function DetalleActividadScreen({ route, navigation }) {
 
             <Text style={styles.overlayHint}>
               {shareVariant === 'overlay'
-                ? 'Fondo transparente · ideal para superponer sobre una foto.'
+                ? 'PNG transparente · para poner sobre tu foto.'
                 : 'Historia 9:16 · lista para publicar directamente.'}
             </Text>
 
+          </ScrollView>
+          <View style={styles.shareFooter}>
             <TouchableOpacity style={styles.sharePrimary} onPress={compartir} disabled={cargandoShare}>
               <Text style={styles.sharePrimaryText}>{cargandoShare ? 'PREPARANDO…' : 'COMPARTIR'}</Text>
             </TouchableOpacity>
-          </ScrollView>
-        </View>
+          </View>
+        </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
     </>
   );
@@ -227,9 +235,13 @@ const styles = StyleSheet.create({
   shareButtonEyebrow: { color: colors.brandOrange, fontSize: 8, fontWeight: '900', letterSpacing: 2, marginBottom: 5 },
   shareButtonText: { color: colors.text, fontSize: 18, fontWeight: '900' },
   shareButtonSub: { color: colors.textMuted, fontSize: 10, marginTop: 3 },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.88)' },
-  modalContent: { minHeight: '100%', paddingHorizontal: 18, paddingTop: 58, paddingBottom: 36, alignItems: 'center' },
-  modalHeader: { width: '100%', maxWidth: 390, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
+  modalBackdrop: { flex: 1, backgroundColor: colors.backgroundDeep },
+  modalScroll: { flex: 1 },
+  modalContent: { paddingHorizontal: 18, paddingBottom: 16, alignItems: 'center' },
+  sheetHandle: { width: 34, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong, alignSelf: 'center', marginTop: 10, marginBottom: 14 },
+  closeButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceSoft, alignItems: 'center', justifyContent: 'center' },
+  shareFooter: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 12, borderTopWidth: 1, borderColor: colors.borderSoft, alignItems: 'center' },
+  modalHeader: { width: '100%', alignSelf: 'center', paddingHorizontal: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   modalEyebrow: { color: colors.brandOrange, fontSize: 8, fontWeight: '900', letterSpacing: 2 },
   modalTitle: { color: colors.text, fontSize: 18, fontWeight: '900', marginTop: 4 },
   close: { color: colors.textMuted, fontSize: 30, lineHeight: 30 },
@@ -246,6 +258,6 @@ const styles = StyleSheet.create({
   previewArea: { width: '100%', alignItems: 'center', justifyContent: 'center', borderRadius: 24, overflow: 'hidden', backgroundColor: '#26384A', paddingVertical: 8 },
   transparentShot: { backgroundColor: 'transparent' },
   overlayHint: { color: colors.textMuted, fontSize: 10, marginTop: 10, textAlign: 'center' },
-  sharePrimary: { marginTop: 16, minWidth: 220, backgroundColor: colors.brandOrange, borderRadius: 22, paddingHorizontal: 28, paddingVertical: 13, alignItems: 'center' },
+  sharePrimary: { width: '100%', maxWidth: 390, minHeight: 48, backgroundColor: colors.brandOrange, borderRadius: 22, paddingHorizontal: 28, paddingVertical: 13, alignItems: 'center' },
   sharePrimaryText: { color: colors.text, fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
 });

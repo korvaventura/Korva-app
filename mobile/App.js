@@ -24,6 +24,7 @@ import GpsTrackerScreen from './screens/GpsTrackerScreen';
 import MisActividadesScreen from './screens/MisActividadesScreen';
 import DetalleActividadScreen from './screens/DetalleActividadScreen';
 import useHealthAutoSync from './services/health/useHealthAutoSync';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from './theme/korvaTheme';
 
 // ACÁ AGRUPAMOS TODO LO DE REACT NATIVE EN UNA SOLA LÍNEA Y AGREGAMOS 'View':
@@ -93,17 +94,18 @@ function HomeTabs({ esAdmin }) {
           backgroundColor: colors.background,
           borderTopColor: colors.surfaceStrong,
         },
-        tabBarActiveTintColor: colors.actionBlueStrong,
-        tabBarInactiveTintColor: colors.textSoft,
+        tabBarActiveTintColor: colors.brandOrange,
+        tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
       }}
     >
-      <Tab.Screen name="Mis Retos" component={HomeScreen} options={{ tabBarIcon: () => <Text>🏃</Text> }} />
-      <Tab.Screen name="Catalogo" component={CatalogoScreen} options={{ tabBarIcon: () => <Text>🏅</Text> }} />
-      <Tab.Screen name="Ranking" component={RankingScreen} options={{ tabBarIcon: () => <Text>🏆</Text> }} />
-      <Tab.Screen name="Registrar" component={RegistroManualScreen} options={{ tabBarLabel: 'Registrar km', tabBarIcon: () => <Text>➕</Text> }} />
-      <Tab.Screen name="Perfil" component={PerfilScreen} options={{ tabBarIcon: () => <Text>👤</Text> }} />
+      <Tab.Screen name="Mis Retos" component={HomeScreen} options={{ tabBarLabel: 'Inicio', tabBarIcon: ({ color, size }) => <Ionicons name="compass-outline" color={color} size={size} /> }} />
+      <Tab.Screen name="Catalogo" component={CatalogoScreen} options={{ tabBarLabel: 'Catálogo', tabBarIcon: ({ color, size }) => <Ionicons name="medal-outline" color={color} size={size} /> }} />
+      <Tab.Screen name="Ranking" component={RankingScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="trophy-outline" color={color} size={size} /> }} />
+      <Tab.Screen name="Registrar" component={RegistroManualScreen} options={{ tabBarLabel: 'Registrar', tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" color={color} size={size} /> }} />
+      <Tab.Screen name="Perfil" component={PerfilScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" color={color} size={size} /> }} />
       {esAdmin && (
-        <Tab.Screen name="Admin" component={AdminScreen} options={{ tabBarIcon: () => <Text>⚙️</Text> }} />
+        <Tab.Screen name="Admin" component={AdminScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" color={color} size={size} /> }} />
       )}
     </Tab.Navigator>
   );

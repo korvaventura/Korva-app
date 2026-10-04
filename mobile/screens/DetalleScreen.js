@@ -1,3 +1,4 @@
+import { PREGUNTAS_KORVA } from '../utils/ayudaKorva';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Modal } from 'react-native';
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,9 +7,9 @@ import { versionesDelDesafio, distanciaDeVersion } from '../utils/versionDesafio
 
 const COMO_FUNCIONA = [
   { emoji: '1️⃣', titulo: 'Comprá en la tienda', desc: 'Una vez confirmado el pago, el desafío se activa automáticamente en la app.' },
-  { emoji: '2️⃣', titulo: 'Registrá tus km', desc: 'Cargá tus actividades manualmente desde la app. Strava estará disponible próximamente.' },
+  { emoji: '2️⃣', titulo: 'Registrá tus km', desc: 'Abrí Registrar y elegí GPS o Manual. También podés sincronizar Strava si está habilitado y conectado en tu cuenta.' },
   { emoji: '3️⃣', titulo: 'Movete a tu ritmo', desc: 'Caminá, corré o pedaleá: todos los km cuentan igual. No hay límite de tiempo para completar la distancia.' },
-  { emoji: '4️⃣', titulo: 'Recibí tu medalla', desc: 'Al completar el reto, iniciamos el envío de tu medalla física.' },
+  { emoji: '4️⃣', titulo: 'Recibí tu medalla', desc: 'El progreso en la app y el envío de tu pedido se gestionan por separado. Consultá el seguimiento y las condiciones de envío.' },
 ];
 
 
@@ -140,60 +141,7 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
-              {[
-                {
-                  q: '¿Cómo funciona Korva?',
-                  a: 'Elegís un desafío en el Catálogo y lo comprás. Una vez confirmado el pago, el desafío se activa en la app. Registrás tus km corriendo o pedaleando en el mundo real, y cuando completás la distancia total se inicia automáticamente la orden de envío de tu medalla.'
-                },
-                {
-                  q: '¿Necesito completar el desafío de una sola vez?',
-                  a: 'No. Podés salir a correr o pedalear cuando quieras — salidas cortas, largas, a tu ritmo. Los km se van acumulando hasta completar la distancia total del desafío.'
-                },
-                {
-                  q: '¿Puedo mezclar actividades?',
-                  a: 'Sí. Podés sumar km corriendo, caminando, en bici, nadando o como quieras — todo cuenta. La distancia que elegís es tu meta personal, no define el tipo de actividad.'
-                },
-                {
-                  q: '¿Cómo registro mis kilómetros?',
-                  a: 'Desde la pestaña "Registrar" cargás tus km manualmente en segundos. La integración con Strava para sincronización automática estará disponible próximamente.'
-                },
-                {
-                  q: '¿Cómo cargo mi dirección de envío?',
-                  a: 'Desde la pestaña "Perfil", sección "Dirección de envío". Asegurate de tenerla cargada antes de completar el desafío para que el envío salga sin demoras.'
-                },
-                {
-                  q: '¿Cuándo llega mi medalla?',
-                  a: 'Cuando completás el 100% del desafío se inicia la orden de envío automáticamente. Los tiempos varían según tu país — podés consultar los tiempos estimados en korva.run.'
-                },
-                {
-                  q: '¿Qué son los logros?',
-                  a: 'Los logros son badges gratuitos que ganás por tu actividad — km recorridos, rachas de días activos, cantidad de salidas y más. Se acumulan siempre, tengas o no un desafío activo.'
-                },
-                {
-                  q: '¿Puedo usar la app sin comprar un desafío?',
-                  a: 'Sí. Podés registrar actividades y acumular logros sin costo. Los desafíos son para quienes quieren una meta con medalla física incluida.'
-                },
-                {
-                  q: '¿Puedo cambiar la versión elegida?',
-                  a: 'Sí, desde el Perfil podés cambiar entre la versión Estándar y la Extendida. Tus km no cambian: solo cambia la distancia a completar.'
-                },
-                {
-                  q: '¿Puedo tener varios desafíos a la vez?',
-                  a: 'Sí. Podés inscribirte en más de un desafío al mismo tiempo — cada uno tiene su propio progreso y se completan de forma independiente. En la app vas a ver una pestaña para cada desafío activo.'
-                },
-                {
-                  q: '¿Mis datos están seguros?',
-                  a: 'Sí. Solo vos podés ver tu perfil, dirección y actividades. No compartimos tu información con terceros.'
-                },
-                {
-                  q: '¿Necesito Strava?',
-                  a: 'No. El registro manual es suficiente para sumar tus km. También podés conectar Strava desde el Perfil para sincronización automática.'
-                },
-                {
-                  q: '¿Tengo un problema o consulta?',
-                  a: 'Escribinos a korvaventura@gmail.com o por Instagram @korva.aventuras. Te respondemos a la brevedad.'
-                },
-              ].map((item, i) => (
+              {PREGUNTAS_KORVA.map((item, i) => (
                 <TouchableOpacity
                   key={i}
                   style={styles.faqItem}

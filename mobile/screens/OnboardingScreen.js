@@ -18,14 +18,14 @@ const SLIDES = [
   },
   {
     emoji: '📱',
-    titulo: 'Korva no es una app de tracking',
-    descripcion: 'Salí a correr con la app que uses — Garmin, Nike Run, Strava, la que quieras. Después volvé acá y cargá tus km en segundos.\n\n🟢 Ya podés sincronizar automáticamente con Strava desde el Perfil.',
+    titulo: 'Registrá con GPS o Manual',
+    descripcion: 'En Registrar elegí GPS para medir tu salida o Manual para cargar una actividad ya hecha. También podés sincronizar Strava si está habilitado y conectado en tu cuenta.',
     color: '#1E6FD9',
   },
   {
     emoji: '📦',
     titulo: 'Tu medalla te espera',
-    descripcion: 'Al completar el reto te avisamos y enviamos tu medalla a cualquier parte del mundo.',
+    descripcion: 'Tu progreso y el envío del pedido se gestionan por separado. Revisá tu dirección en Perfil y consultá las condiciones de envío para tu país en korva.run.',
     color: '#FC4C02',
   },
 ];
