@@ -24,4 +24,16 @@ const guardarRutaGps = async ({ supabase, userId, activityId, sessionId, puntos 
   return data || null;
 };
 
-module.exports = { normalizarPuntosRuta, guardarRutaGps };
+const leerRutaGps = async ({ supabase, userId, activityId }) => {
+  if (!userId || !activityId) throw new Error('ruta_gps_invalida');
+  const { data, error } = await supabase
+    .from('gps_routes')
+    .select('activity_id,session_id,points,point_count,created_at')
+    .eq('user_id', userId)
+    .eq('activity_id', activityId)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+};
+
+module.exports = { normalizarPuntosRuta, guardarRutaGps, leerRutaGps };
