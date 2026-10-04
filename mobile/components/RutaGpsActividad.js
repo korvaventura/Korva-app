@@ -33,22 +33,12 @@ const proyectar = (puntos = []) => {
 
 export default function RutaGpsActividad({ activityId, modoDetalle = false }) {
   const [abierta, setAbierta] = useState(modoDetalle);
-  const [cargando, setCargando] = useState(modoDetalle);
+  const [cargando, setCargando] = useState(false);
   const [ruta, setRuta] = useState(null);
   const [error, setError] = useState('');
 
   const cargarRuta = async () => {
-    await cargarRuta();
-  };
-
-  useEffect(() => {
-    if (modoDetalle && activityId) cargarRuta();
-  }, [activityId, modoDetalle]);
-
-  const alternar = async () => {
-    if (abierta) { setAbierta(false); return; }
-    setAbierta(true);
-    if (ruta || cargando) return;
+    if (!activityId || ruta || cargando) return;
     setCargando(true);
     setError('');
     try {
@@ -60,6 +50,16 @@ export default function RutaGpsActividad({ activityId, modoDetalle = false }) {
     } finally {
       setCargando(false);
     }
+  };
+
+  useEffect(() => {
+    if (modoDetalle && activityId) cargarRuta();
+  }, [activityId, modoDetalle]);
+
+  const alternar = async () => {
+    if (abierta) { setAbierta(false); return; }
+    setAbierta(true);
+    await cargarRuta();
   };
 
   const trazado = proyectar(ruta?.points || []);
