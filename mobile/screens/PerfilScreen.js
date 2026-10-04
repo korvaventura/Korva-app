@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
-import { versionDeInscripcion, versionesDelDesafio, distanciaDeVersion, distanciaDeInscripcion, etiquetaVersion, modalidadLegacy, planDeVersion } from '../utils/versionDesafio';
+import { versionDeInscripcion, versionesDelDesafio, distanciaDeVersion, distanciaDeInscripcion, etiquetaVersion, modalidadLegacy } from '../utils/versionDesafio';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -833,7 +833,6 @@ export default function PerfilScreen() {
               const pct = distanciaTotal > 0 ? Math.min((kmCompletados / distanciaTotal) * 100, 100) : 0;
               const mFecha = metaFecha[cId];
               // El plan escala solo por la distancia de la versión (no asume deporte).
-              const { factorDescanso, sesionesPorSemana: sesionesporSemana } = planDeVersion(versionActual);
 
               return (
                 <View key={cId} style={{ width: SCREEN_WIDTH, paddingHorizontal: 24 }}>
@@ -868,40 +867,38 @@ export default function PerfilScreen() {
                         setInputMeta(prev => ({ ...prev, [cId]: mFecha ? new Date(mFecha).toLocaleDateString('es-AR') : '' }));
                         setEditandoMeta(prev => ({ ...prev, [cId]: !prev[cId] }));
                       }}>
-                        <Text style={styles.metaEditarBtn}>{editandoMeta[cId] ? 'Cancelar' : mFecha ? 'Editar' : '+ Agregar'}</Text>
+                        <Text style={styles.metaEditarBtn}>{editandoMeta[cId] ? 'Cancelar' : mFecha ? 'Editar' : '+ Elegir fecha'}</Text>
                       </TouchableOpacity>
                     </View>
                     {editandoMeta[cId] ? (
-                      <View style={styles.metaInputRow}>
-                        <TextInput
-                          style={styles.metaInput}
-                          value={inputMeta[cId] || ''}
-                          onChangeText={v => setInputMeta(prev => ({ ...prev, [cId]: aplicarMascaraFecha(v) }))}
-                          placeholder="DD/MM/AAAA"
-                          placeholderTextColor="#4a6a8a"
-                          keyboardType="numeric"
-                          maxLength={10}
-                        />
-                        <TouchableOpacity style={styles.metaGuardarBtn} onPress={() => guardarMeta(inscripcion)} disabled={guardandoMeta[cId]}>
-                          {guardandoMeta[cId] ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.metaGuardarBtnText}>Guardar</Text>}
-                        </TouchableOpacity>
-                      </View>
+                      <>
+                        <View style={styles.metaInputRow}>
+                          <TextInput
+                            style={styles.metaInput}
+                            value={inputMeta[cId] || ''}
+                            onChangeText={v => setInputMeta(prev => ({ ...prev, [cId]: aplicarMascaraFecha(v) }))}
+                            placeholder="DD/MM/AAAA"
+                            placeholderTextColor="#4a6a8a"
+                            keyboardType="numeric"
+                            maxLength={10}
+                          />
+                          <TouchableOpacity style={styles.metaGuardarBtn} onPress={() => guardarMeta(inscripcion)} disabled={guardandoMeta[cId]}>
+                            {guardandoMeta[cId] ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.metaGuardarBtnText}>Guardar</Text>}
+                          </TouchableOpacity>
+                        </View>
+                        <Text style={styles.metaVacio}>Referencia personal: no modifica el desafío ni determina el envío de tu medalla.</Text>
+                      </>
                     ) : mFecha ? (
                       <View style={styles.metaInfo}>
-                        <Text style={styles.metaFechaText}>📅 {formatearFecha(mFecha)}</Text>
+                        <Text style={styles.metaFechaText}>📅 Objetivo: {formatearFecha(mFecha)}</Text>
                         <Text style={styles.metaDias}>{diasEntre(new Date(), new Date(mFecha))} días restantes</Text>
                         <Text style={styles.metaRitmo}>
-                          {(() => {
-                            const diasRestantes = diasEntre(new Date(), new Date(mFecha));
-                            const sesionesRestantes = Math.floor(diasRestantes * factorDescanso);
-                            const kmRestantes = Math.max(0, distanciaTotal - kmCompletados);
-                            const kmPorSesion = sesionesRestantes > 0 ? (kmRestantes / sesionesRestantes).toFixed(1) : '—';
-                            return `${kmPorSesion}km por sesión · ${sesionesporSemana} veces/semana`;
-                          })()}
+                          Referencia matemática: ~{(Math.max(0, distanciaTotal - kmCompletados) / diasEntre(new Date(), new Date(mFecha))).toFixed(1)} km/día
                         </Text>
+                        <Text style={styles.metaVacio}>No es un plan de entrenamiento ni determina el envío de tu medalla.</Text>
                       </View>
                     ) : (
-                      <Text style={styles.metaVacio}>Sin meta definida. Opcional.</Text>
+                      <Text style={styles.metaVacio}>Fecha objetivo opcional para organizar tu progreso. No afecta el envío de tu medalla.</Text>
                     )}
                     <View style={styles.metaSeparador} />
                     <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
