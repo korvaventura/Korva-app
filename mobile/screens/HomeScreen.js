@@ -480,22 +480,6 @@ export default function HomeScreen({ navigation }) {
         </View>
       )}
 
-      {/* Banner Strava — aparece una sola vez para activos sin Strava */}
-      {bannerStravaVisible && !stravaConectado && (
-        <View style={styles.bannerStrava}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.bannerStravaTitulo}>🔗 ¡Strava ya está disponible!</Text>
-            <Text style={styles.bannerStravaDesc}>Conectá tu cuenta y cada actividad se carga automáticamente. Si ya cargaste km manualmente, revisá tu historial en el Perfil para evitar duplicados — podés borrar actividades deslizando sobre ellas.</Text>
-            <TouchableOpacity onPress={abrirTutorialStrava}>
-              <Text style={styles.bannerStravaBtn}>Ver cómo conectarla →</Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity onPress={cerrarBannerStrava} style={{ padding: 4 }}>
-            <Text style={{ color: '#4a6a8a', fontSize: 18 }}>✕</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       {/* Modal FAQ / Ayuda */}
       <Modal visible={modalAyudaVisible} transparent animationType="slide" onRequestClose={() => setModalAyudaVisible(false)}>
         <View style={styles.modalOverlay}>
@@ -720,52 +704,6 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.gpsInicioCard} onPress={() => navigation.navigate('GpsTracker')}>
-        <View style={styles.gpsInicioIcono}>
-          <Ionicons name="navigate" size={22} color="#FFFFFF" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.gpsInicioEyebrow}>KORVA GPS · PRUEBA</Text>
-          <Text style={styles.gpsInicioTitulo}>Iniciar actividad</Text>
-          <Text style={styles.gpsInicioDesc}>Medí distancia y tiempo con el GPS del teléfono.</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={22} color="#A8CFFF" />
-      </TouchableOpacity>
-
-      {actividadReciente && (
-        <TouchableOpacity
-          style={styles.actividadRecienteCard}
-          onPress={() => navigation.navigate('DetalleActividad', { actividad: actividadReciente })}
-        >
-          <View style={styles.actividadRecienteHeader}>
-            <Text style={styles.actividadRecienteEyebrow}>ACTIVIDAD RECIENTE</Text>
-            <Text style={styles.actividadRecienteFecha}>
-              {actividadReciente.recorded_at ? new Date(actividadReciente.recorded_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : ''}
-            </Text>
-          </View>
-          <View style={styles.actividadRecienteFila}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.actividadRecienteDeporte}>
-                {nombreDeporteActividad(actividadReciente.sport_type)}
-              </Text>
-              <Text style={styles.actividadRecienteFuente}>
-                {nombreFuenteActividad(actividadReciente.source)}
-              </Text>
-            </View>
-            <Text style={styles.actividadRecienteKm}>{Number(actividadReciente.distance_km || 0).toFixed(2)} km</Text>
-            <Ionicons name="chevron-forward" size={20} color="#67A9FF" />
-          </View>
-        </TouchableOpacity>
-      )}
-
-      <TouchableOpacity style={styles.actividadesInicioCard} onPress={() => navigation.navigate('MisActividades')}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.actividadesInicioTitulo}>Mis actividades</Text>
-          <Text style={styles.actividadesInicioDesc}>Ver historial completo, estadísticas y recorridos GPS</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color="#67A9FF" />
-      </TouchableOpacity>
-
       {/* Banner pago — FIX: usa cerrarBanner() */}
       {bannerVisible && !cargando && (
         <View style={styles.bannerCard}>
@@ -785,27 +723,6 @@ export default function HomeScreen({ navigation }) {
               </View>
             </View>
           ))}
-        </View>
-      )}
-
-      {/* Strava activo — FIX: con botón X para cerrar */}
-      {stravaConectado && !cargando && !stravaBannerCerrado && (
-        <View style={styles.stravaActivoCard}>
-          <TouchableOpacity style={styles.stravaActivoRow} onPress={() => setModalStravaVisible(true)}>
-            <Text style={styles.stravaActivoEmoji}>🟢</Text>
-            <View style={styles.stravaActivoInfo}>
-              <Text style={styles.stravaActivoTitulo}>Strava activo</Text>
-              <Text style={styles.stravaActivoDesc}>Tus actividades se sincronizan automáticamente · Tocá para ver cómo</Text>
-            </View>
-            <Ionicons name="information-circle-outline" size={20} color="#A8CFFF" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.stravaActivoCerrar}
-            onPress={() => setStravaBannerCerrado(true)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.stravaActivoCerrarText}>✕</Text>
-          </TouchableOpacity>
         </View>
       )}
 
@@ -912,6 +829,57 @@ export default function HomeScreen({ navigation }) {
             </>
           )}
         </>
+      )}
+
+      {!cargando && !error && (
+        <View style={styles.movimientoSection}>
+          <Text style={styles.movimientoTitulo}>Tu movimiento</Text>
+      <TouchableOpacity style={styles.gpsInicioCard} onPress={() => navigation.navigate('GpsTracker')}>
+        <View style={styles.gpsInicioIcono}>
+          <Ionicons name="navigate" size={22} color="#FFFFFF" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.gpsInicioEyebrow}>KORVA GPS · PRUEBA</Text>
+          <Text style={styles.gpsInicioTitulo}>Iniciar actividad</Text>
+          <Text style={styles.gpsInicioDesc}>Medí distancia y tiempo con el GPS del teléfono.</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={22} color="#A8CFFF" />
+      </TouchableOpacity>
+
+      {actividadReciente && (
+        <TouchableOpacity
+          style={styles.actividadRecienteCard}
+          onPress={() => navigation.navigate('DetalleActividad', { actividad: actividadReciente })}
+        >
+          <View style={styles.actividadRecienteHeader}>
+            <Text style={styles.actividadRecienteEyebrow}>ACTIVIDAD RECIENTE</Text>
+            <Text style={styles.actividadRecienteFecha}>
+              {actividadReciente.recorded_at ? new Date(actividadReciente.recorded_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : ''}
+            </Text>
+          </View>
+          <View style={styles.actividadRecienteFila}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.actividadRecienteDeporte}>
+                {nombreDeporteActividad(actividadReciente.sport_type)}
+              </Text>
+              <Text style={styles.actividadRecienteFuente}>
+                {nombreFuenteActividad(actividadReciente.source)}
+              </Text>
+            </View>
+            <Text style={styles.actividadRecienteKm}>{Number(actividadReciente.distance_km || 0).toFixed(2)} km</Text>
+            <Ionicons name="chevron-forward" size={20} color="#67A9FF" />
+          </View>
+        </TouchableOpacity>
+      )}
+
+      <TouchableOpacity style={styles.actividadesInicioCard} onPress={() => navigation.navigate('MisActividades')}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.actividadesInicioTitulo}>Mis actividades</Text>
+          <Text style={styles.actividadesInicioDesc}>Ver historial completo, estadísticas y recorridos GPS</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color="#67A9FF" />
+      </TouchableOpacity>
+        </View>
       )}
 
       {/* Modo libre — sin reto activo */}
@@ -1375,6 +1343,8 @@ const styles = StyleSheet.create({
   storyFooter: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', borderTopWidth: 1, borderTopColor: '#1E3A5F', paddingTop: 12 },
   storyNombre: { fontSize: 13, color: '#FFFFFF', fontWeight: 'bold' },
   storyUrl: { fontSize: 13, color: '#FC4C02' },
+  movimientoSection: { marginTop: 18 },
+  movimientoTitulo: { color: '#A8CFFF', fontSize: 11, fontWeight: '800', letterSpacing: 1.4, marginBottom: 10 },
   actividadRecienteCard: { backgroundColor: '#13283D', borderRadius: 16, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#1E3A5F' },
   actividadRecienteHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 },
   actividadRecienteEyebrow: { color: '#617184', fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
