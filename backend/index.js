@@ -2147,7 +2147,7 @@ app.post('/admin/challenges', async (req, res) => {
   }
 });
 
-app.get('/actividades', require('../middleware/requireUser'), async (req, res) => {
+app.get('/actividades', require('./middleware/requireUser'), async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('activities')
