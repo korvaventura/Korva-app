@@ -49,7 +49,7 @@ test('el cambio de versión manda `version` (y modalidad legacy) al backend', ()
 });
 
 test('los deportes de ACTIVIDADES siguen igual (sport_type, Registro manual)', () => {
-  assert.match(leer('HomeScreen.js'), /a\.sport_type === 'run' \? '🏃' : a\.sport_type === 'ride' \? '🚴'/);
+  assert.match(leer('HomeScreen.js'), /nombreDeporteActividad\(actividadReciente\.sport_type\)/);
   assert.match(leer('PerfilScreen.js'), /deporteEmoji\(act\.sport_type\)/);
   assert.match(leer('DetalleRetoScreen.js'), /act\.sport_type === 'ride' \? '🚴' : '🏃'/);
 });

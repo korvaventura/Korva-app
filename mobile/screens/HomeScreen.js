@@ -15,6 +15,8 @@ import { etiquetaDeInscripcion } from '../utils/versionDesafio';
 import { listarMisActividades } from '../services/actividadesApi';
 import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
 import { colors } from '../theme/korvaTheme';
+import MovimientoPersonalCard from '../components/MovimientoPersonalCard';
+import useMovimientoPersonal from '../services/useMovimientoPersonal';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -74,9 +76,6 @@ export default function HomeScreen({ navigation }) {
   const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
   const [modalStravaInfoVisible, setModalStravaInfoVisible] = useState(false);
   const [bannerDireccionVisible, setBannerDireccionVisible] = useState(false);
-  const [actividadesLibres, setActividadesLibres] = useState([]);
-  const [modoLibre, setModoLibre] = useState(false);
-  const [statsLibre, setStatsLibre] = useState(null);
   const [cargandoBib, setCargandoBib] = useState(false);
   const [modalAyudaVisible, setModalAyudaVisible] = useState(false);
   const [faqAbierta, setFaqAbierta] = useState(null);
@@ -85,6 +84,7 @@ export default function HomeScreen({ navigation }) {
   const [actividadReciente, setActividadReciente] = useState(null);
   const [movimientoY, setMovimientoY] = useState(null);
   const viewShotRefs = useRef([]);
+  const { estado: movimientoPersonal, actualizar: actualizarMovimiento } = useMovimientoPersonal(userId);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -173,6 +173,7 @@ export default function HomeScreen({ navigation }) {
           .then(r => r.json())
           .then(sync => {
             if (Number(sync?.importadas || 0) > 0) {
+              actualizarMovimiento();
               return fetch(`${BACKEND_URL}/strava/progreso/${userId}`)
                 .then(r => r.json())
                 .then(actualizado => {
@@ -421,16 +422,7 @@ export default function HomeScreen({ navigation }) {
     .sort((a, b) => fechaOrden(b.completed_at) - fechaOrden(a.completed_at));
   const challengesActivos = challengesEnCurso;
   const retoVisibleIndex = Math.min(retoActivoIndex, Math.max(0, challengesActivos.length - 1));
-  const esModoLibre = challengesActivos.length === 0 && challengesPending.length === 0;
-  if (esModoLibre !== modoLibre) {
-    setModoLibre(esModoLibre);
-    if (esModoLibre && userId && !statsLibre) {
-      fetch(`${BACKEND_URL}/perfil/${userId}`)
-        .then(r => r.json())
-        .then(d => setStatsLibre(d?.stats || null))
-        .catch(() => {});
-    }
-  }
+  const movimientoPrimero = !challengesEnCurso.some(c => !c.pausado);
 
 
   return (
@@ -662,7 +654,7 @@ export default function HomeScreen({ navigation }) {
       <View style={styles.header}>
         <View>
           <Text style={styles.saludo}>Hola{nombre ? `, ${nombre}` : ''}! 👋</Text>
-          <Text style={styles.subtitulo}>Tus retos activos</Text>
+          <Text style={styles.subtitulo}>{movimientoPrimero ? 'Tu movimiento' : 'Tus aventuras'}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <TouchableOpacity style={styles.ayudaBtn} onPress={() => setModalAyudaVisible(true)}>
@@ -679,6 +671,13 @@ export default function HomeScreen({ navigation }) {
           )}
         </View>
       </View>
+
+      {userId && movimientoPrimero && (
+        <View onLayout={(e) => setMovimientoY(e.nativeEvent.layout.y)}>
+          <MovimientoPersonalCard estado={movimientoPersonal} onActualizar={actualizarMovimiento} />
+          <GpsHomeAction navigation={navigation} />
+        </View>
+      )}
 
       {/* Banner pago — FIX: usa cerrarBanner() */}
       {bannerVisible && !cargando && (
@@ -744,25 +743,17 @@ export default function HomeScreen({ navigation }) {
           {challengesActivos.length === 0 ? (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyEmoji}>🏅</Text>
-              <Text style={styles.emptyText}>No tenés desafíos activos</Text>
-
-              {/* Si compraron pero no ven el desafío */}
-              <View style={{ backgroundColor: colors.surfaceStrong, borderRadius: 12, padding: 14, marginBottom: 16, width: '100%' }}>
-                <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 13, marginBottom: 6 }}>¿Ya compraste un desafío?</Text>
-                <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20 }}>Asegurate de estar registrado con el mismo email con el que compraste en korva.run. Una vez que iniciés sesión con ese email, el desafío aparece automáticamente.</Text>
-              </View>
-
-              {/* Si no compraron todavía */}
+              <Text style={styles.emptyText}>Tu próxima aventura</Text>
+              <Text style={styles.emptySubtext}>Podés seguir registrando actividades y elegir un desafío cuando quieras.</Text>
               {challengesPending.length === 0 && (
-                <>
-                  <Text style={styles.emptySubtext}>¿Todavía no tenés un desafío? Explorá nuestro catálogo:</Text>
-                  <TouchableOpacity style={styles.irCatalogoBtn} onPress={() => navigation.navigate('Catalogo')}>
-                    <View style={styles.btnRow}>
-                      <Text style={styles.irCatalogoBtnText}>Ver desafíos →</Text>
-                    </View>
-                  </TouchableOpacity>
-                </>
+                <TouchableOpacity style={styles.irCatalogoBtn} onPress={() => navigation.navigate('Catalogo')}>
+                  <Text style={styles.irCatalogoBtnText}>Explorar desafíos →</Text>
+                </TouchableOpacity>
               )}
+              <TouchableOpacity style={{ marginTop: 16 }}
+                onPress={() => Alert.alert('¿Ya compraste un desafío?', 'Usá el mismo email con el que compraste en korva.run. Si el pago está confirmado, tu desafío debería aparecer en esta cuenta.')}>
+                <Text style={{ color: colors.actionBlue, fontSize: 12 }}>¿Ya compraste un desafío?</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             // FIX: selector siempre visible, aunque sea un solo reto
@@ -805,21 +796,7 @@ export default function HomeScreen({ navigation }) {
                 cargandoBib={cargandoBib}
               />
 
-              <TouchableOpacity style={styles.gpsHeroAction} onPress={() => navigation.navigate('GpsTracker')} activeOpacity={0.88}>
-                <View style={styles.gpsHeroTop}>
-                  <View>
-                    <Text style={styles.gpsHeroEyebrow}>KORVA GPS</Text>
-                    <Text style={styles.gpsHeroTitulo}>Registrar actividad</Text>
-                  </View>
-                  <View style={styles.gpsHeroStart}>
-                    <Ionicons name="play" size={14} color={colors.text} />
-                    <Text style={styles.gpsHeroStartText}>INICIAR</Text>
-                  </View>
-                </View>
-                <Text style={styles.gpsHeroDesc}>Correr · caminar · bici</Text>
-                <View style={styles.gpsHeroDivider} />
-                <Text style={styles.gpsHeroHint}>Distancia y tiempo con el GPS del teléfono · confirmás al finalizar</Text>
-              </TouchableOpacity>
+              {!movimientoPrimero && <GpsHomeAction navigation={navigation} />}
 
               <TouchableOpacity
                 style={styles.scrollCue}
@@ -834,9 +811,10 @@ export default function HomeScreen({ navigation }) {
         </>
       )}
 
-      {!cargando && !error && (
-        <View style={styles.movimientoSection} onLayout={(e) => setMovimientoY(e.nativeEvent.layout.y)}>
-          <Text style={styles.movimientoTitulo}>Tu movimiento</Text>
+      {userId && (
+        <View style={styles.movimientoSection} onLayout={(e) => { if (!movimientoPrimero) setMovimientoY(e.nativeEvent.layout.y); }}>
+          {!movimientoPrimero && <MovimientoPersonalCard estado={movimientoPersonal} onActualizar={actualizarMovimiento} />}
+          <Text style={styles.movimientoTitulo}>Tus actividades</Text>
       {actividadReciente && (
         <TouchableOpacity
           style={styles.actividadRecienteCard}
@@ -870,80 +848,6 @@ export default function HomeScreen({ navigation }) {
         </View>
         <Ionicons name="chevron-forward" size={20} color={colors.actionBlue} />
       </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Modo libre — sin reto activo */}
-      {modoLibre && (
-        <View style={{ margin: 20 }}>
-
-          {/* Header modo libre */}
-          <View style={{ backgroundColor: colors.surfaceStrong, borderRadius: 16, padding: 20, marginBottom: 16 }}>
-            <Text style={{ color: colors.textSoft, fontSize: 11, letterSpacing: 2, fontWeight: 'bold', marginBottom: 8 }}>MODO LIBRE</Text>
-            <Text style={{ color: colors.text, fontSize: 22, fontWeight: 'bold', marginBottom: 4 }}>
-              {nombre ? `¡Seguís en movimiento, ${nombre}!` : '¡Seguís en movimiento!'}
-            </Text>
-            <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20 }}>
-              Tus km se acumulan en tu historial y siguen sumando hacia logros — aunque no tengas un desafío activo.
-            </Text>
-          </View>
-
-          {/* Stats globales */}
-          {statsLibre && (
-            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-              <View style={{ flex: 1, backgroundColor: colors.background, borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: colors.surfaceStrong }}>
-                <Text style={{ color: colors.brandOrange, fontSize: 26, fontWeight: 'bold' }}>{statsLibre.total_km || 0}</Text>
-                <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 4 }}>km totales</Text>
-              </View>
-              <View style={{ flex: 1, backgroundColor: colors.background, borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: colors.surfaceStrong }}>
-                <Text style={{ color: colors.brandOrange, fontSize: 26, fontWeight: 'bold' }}>🔥 {statsLibre.racha_actual || 0}</Text>
-                <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 4 }}>racha semanal</Text>
-              </View>
-              <View style={{ flex: 1, backgroundColor: colors.background, borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: colors.surfaceStrong }}>
-                <Text style={{ color: colors.brandOrange, fontSize: 26, fontWeight: 'bold' }}>{statsLibre.medallas || 0}</Text>
-                <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 4 }}>🏅 medallas</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Próximo logro */}
-          {statsLibre?.proximo_logro && (
-            <View style={{ backgroundColor: colors.background, borderRadius: 12, padding: 14, marginBottom: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.surfaceStrong }}>
-              <Text style={{ fontSize: 24, marginRight: 12 }}>🎯</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.text, fontSize: 13, fontWeight: 'bold' }}>{statsLibre.proximo_logro.nombre}</Text>
-                <Text style={{ color: '#4a6a8a', fontSize: 12 }}>Faltan {statsLibre.proximo_logro.falta} {statsLibre.proximo_logro.unidad}</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Actividades recientes */}
-          {actividadesLibres.length > 0 && (
-            <View style={{ marginBottom: 16 }}>
-              <Text style={[styles.seccionTitulo, { marginBottom: 12 }]}>Actividades recientes</Text>
-              {actividadesLibres.slice(0, 5).map((a, i) => (
-                <View key={i} style={styles.actividadLibreCard}>
-                  <Text style={{ color: colors.textSoft, fontSize: 13 }}>
-                    {a.sport_type === 'run' ? '🏃' : a.sport_type === 'ride' ? '🚴' : a.sport_type === 'swim' ? '🏊' : a.sport_type === 'walk' ? '🚶' : '⚡'} {parseFloat(a.distance_km).toFixed(1)} km
-                  </Text>
-                  <Text style={{ color: '#4a6a8a', fontSize: 12 }}>{new Date(a.recorded_at).toLocaleDateString('es-AR')}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* CTA suave hacia el catálogo */}
-          <TouchableOpacity
-            style={{ backgroundColor: colors.background, borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.brandOrange }}
-            onPress={() => navigation.navigate('Catalogo')}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 14 }}>¿Listo para tu próxima aventura?</Text>
-              <Text style={{ color: '#4a6a8a', fontSize: 12, marginTop: 4 }}>Explorá los desafíos disponibles</Text>
-            </View>
-            <Text style={{ color: colors.brandOrange, fontSize: 20 }}>→</Text>
-          </TouchableOpacity>
-
         </View>
       )}
 
@@ -1050,6 +954,26 @@ export default function HomeScreen({ navigation }) {
 }
 
 // ─── Componente reto individual ──────────────────────────────────
+function GpsHomeAction({ navigation }) {
+  return (
+    <TouchableOpacity style={styles.gpsHeroAction} onPress={() => navigation.navigate('GpsTracker')} activeOpacity={0.88}>
+      <View style={styles.gpsHeroTop}>
+        <View>
+          <Text style={styles.gpsHeroEyebrow}>KORVA GPS</Text>
+          <Text style={styles.gpsHeroTitulo}>Registrar actividad</Text>
+        </View>
+        <View style={styles.gpsHeroStart}>
+          <Ionicons name="play" size={14} color={colors.text} />
+          <Text style={styles.gpsHeroStartText}>INICIAR</Text>
+        </View>
+      </View>
+      <Text style={styles.gpsHeroDesc}>Correr · caminar · bici</Text>
+      <View style={styles.gpsHeroDivider} />
+      <Text style={styles.gpsHeroHint}>Distancia y tiempo con el GPS del teléfono · confirmás al finalizar</Text>
+    </TouchableOpacity>
+  );
+}
+
 function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress, scrollRef, descargarBib, cargandoBib, togglePausar }) {
   const challengeId = item.challenge_id;
   const estaPausado = item.pausado || false;
