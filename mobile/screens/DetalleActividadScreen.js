@@ -22,13 +22,15 @@ const duracion = (segundos) => {
 export default function DetalleActividadScreen({ route, navigation }) {
   const a = route.params?.actividad || {};
   const userIdParam = route.params?.userId || null;
+  const recienGuardada = route.params?.recienGuardada === true;
+  const rutaGpsDisponible = route.params?.rutaGpsDisponible === true;
   const km = Number(a.distance_km || 0);
   const segundos = Number(a.duration_seconds || 0);
   const pace = km > 0 && segundos > 0 ? segundos / 60 / km : null;
   const paceTxt = pace ? `${Math.floor(pace)}:${String(Math.round((pace % 1) * 60)).padStart(2, '0')} /km` : '—';
 
   const [shareVisible, setShareVisible] = useState(false);
-  const [shareVariant, setShareVariant] = useState('overlay');
+  const [shareVariant, setShareVariant] = useState('story');
   const [puntos, setPuntos] = useState([]);
   const [retosElegibles, setRetosElegibles] = useState([]);
   const [retoShare, setRetoShare] = useState(null);
@@ -44,7 +46,7 @@ export default function DetalleActividadScreen({ route, navigation }) {
         const uid = userIdParam || session?.user?.id;
         const token = session?.access_token;
 
-        if (a.source === 'korva_gps') {
+        if (a.source === 'korva_gps' || rutaGpsDisponible) {
           const ruta = await obtenerRutaGps(a.id);
           if (vivo) setPuntos(Array.isArray(ruta?.points) ? ruta.points : []);
         }
@@ -77,7 +79,7 @@ export default function DetalleActividadScreen({ route, navigation }) {
     };
     preparar();
     return () => { vivo = false; };
-  }, [a.id, a.source, userIdParam]);
+  }, [a.id, a.source, userIdParam, rutaGpsDisponible]);
 
   const compartir = async () => {
     if (!shareRef.current || cargandoShare) return;
@@ -101,6 +103,15 @@ export default function DetalleActividadScreen({ route, navigation }) {
     <>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
         <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.volver}>← Volver</Text></TouchableOpacity>
+        {recienGuardada && (
+          <View style={styles.savedBanner}>
+            <Text style={styles.savedCheck}>✓</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.savedTitle}>Actividad guardada</Text>
+              <Text style={styles.savedSub}>Ya sumó a los desafíos donde corresponde.</Text>
+            </View>
+          </View>
+        )}
         <Text style={styles.titulo}>{deporte(a.sport_type)}</Text>
         <Text style={styles.fecha}>{a.recorded_at ? new Date(a.recorded_at).toLocaleString('es-AR') : ''} · {fuente(a.source)}</Text>
 
@@ -110,7 +121,7 @@ export default function DetalleActividadScreen({ route, navigation }) {
           <View style={styles.stat}><Text style={styles.valor}>{a.sport_type === 'ride' && segundos > 0 ? `${(km / (segundos / 3600)).toFixed(1)} km/h` : paceTxt}</Text><Text style={styles.label}>{a.sport_type === 'ride' ? 'velocidad' : 'ritmo'}</Text></View>
         </View>
 
-        {a.source === 'korva_gps' && a.id ? (
+        {(a.source === 'korva_gps' || rutaGpsDisponible) && a.id ? (
           <View style={styles.rutaCard}>
             <Text style={styles.rutaTitulo}>Tu recorrido</Text>
             <RutaGpsActividad activityId={a.id} modoDetalle />
@@ -120,7 +131,7 @@ export default function DetalleActividadScreen({ route, navigation }) {
         )}
 
         <TouchableOpacity style={styles.shareButton} onPress={() => setShareVisible(true)} activeOpacity={0.86}>
-          <Text style={styles.shareButtonEyebrow}>KORVA ACTIVITY</Text>
+          <Text style={styles.shareButtonEyebrow}>{recienGuardada ? 'LISTA PARA COMPARTIR' : 'KORVA ACTIVITY'}</Text>
           <Text style={styles.shareButtonText}>Compartir actividad</Text>
           <Text style={styles.shareButtonSub}>Creá una placa para tu foto o historia</Text>
         </TouchableOpacity>
@@ -139,6 +150,9 @@ export default function DetalleActividadScreen({ route, navigation }) {
               </TouchableOpacity>
             </View>
 
+            {retosElegibles.length > 1 && (
+              <Text style={styles.challengePrompt}>¿Qué aventura querés compartir?</Text>
+            )}
             {retosElegibles.length > 0 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.choices}>
                 <TouchableOpacity style={[styles.choice, !retoShare && styles.choiceActive]} onPress={() => setRetoShare(null)}>
@@ -160,8 +174,8 @@ export default function DetalleActividadScreen({ route, navigation }) {
               <TouchableOpacity style={[styles.variant, shareVariant === 'overlay' && styles.variantActive]} onPress={() => setShareVariant('overlay')}>
                 <Text style={styles.variantText}>Overlay</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.variant, shareVariant === 'dark' && styles.variantActive]} onPress={() => setShareVariant('dark')}>
-                <Text style={styles.variantText}>Dark</Text>
+              <TouchableOpacity style={[styles.variant, shareVariant === 'story' && styles.variantActive]} onPress={() => setShareVariant('story')}>
+                <Text style={styles.variantText}>Story</Text>
               </TouchableOpacity>
             </View>
 
@@ -178,7 +192,7 @@ export default function DetalleActividadScreen({ route, navigation }) {
             <Text style={styles.overlayHint}>
               {shareVariant === 'overlay'
                 ? 'Fondo transparente · ideal para superponer sobre una foto.'
-                : 'Fondo Korva · lista para publicar directamente.'}
+                : 'Historia 9:16 · lista para publicar directamente.'}
             </Text>
 
             <TouchableOpacity style={styles.sharePrimary} onPress={compartir} disabled={cargandoShare}>
@@ -195,6 +209,10 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: colors.background },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
   volver: { color: colors.actionBlue, fontWeight: '700', marginBottom: 24 },
+  savedBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: 18, padding: 14, marginBottom: 18 },
+  savedCheck: { width: 30, height: 30, borderRadius: 15, textAlign: 'center', lineHeight: 30, backgroundColor: colors.brandOrange, color: colors.text, fontWeight: '900' },
+  savedTitle: { color: colors.text, fontSize: 14, fontWeight: '900' },
+  savedSub: { color: colors.textMuted, fontSize: 9, marginTop: 2 },
   titulo: { color: colors.text, fontSize: 30, fontWeight: '800' },
   fecha: { color: colors.textSoft, fontSize: 12, marginTop: 6, marginBottom: 22 },
   stats: { flexDirection: 'row', gap: 8, marginBottom: 18 },
@@ -215,6 +233,7 @@ const styles = StyleSheet.create({
   modalEyebrow: { color: colors.brandOrange, fontSize: 8, fontWeight: '900', letterSpacing: 2 },
   modalTitle: { color: colors.text, fontSize: 18, fontWeight: '900', marginTop: 4 },
   close: { color: colors.textMuted, fontSize: 30, lineHeight: 30 },
+  challengePrompt: { width: '100%', maxWidth: 390, color: colors.textSoft, fontSize: 11, fontWeight: '800', marginBottom: 8 },
   choices: { width: '100%', maxWidth: 390, marginBottom: 12, flexGrow: 0 },
   choice: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderSoft, marginRight: 8 },
   choiceActive: { borderColor: colors.brandOrange, backgroundColor: colors.surfaceRaised },
