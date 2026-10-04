@@ -49,11 +49,17 @@ export default function DetalleRetoScreen({ route, navigation }) {
 
 
 
-  const pct = Math.min(parseFloat(item.porcentaje || 0), 100);
+  const nombreReto = item?.challenge || item?.challenge_title || item?.challenges?.title || item?.challenges?.name || 'Desafío';
+  const kmCompletados = Number(item?.km_completados ?? item?.km_completed ?? 0) || 0;
+  const distanciaTotal = Number(item?.distancia_total ?? item?.distance_km ?? item?.challenges?.distance_km ?? item?.challenges?.distance ?? 0) || 0;
+  const porcentajeCalculado = distanciaTotal > 0 ? (kmCompletados / distanciaTotal) * 100 : 0;
+  const porcentajeRecibido = Number(item?.porcentaje);
+  const pct = Math.min(Number.isFinite(porcentajeRecibido) ? porcentajeRecibido : porcentajeCalculado, 100);
   const estaCompletado = pct >= 100;
   // Versión Estándar/Extendida (solo distancia; cualquier deporte suma 1:1).
-  const version = versionDeInscripcion(item);
-  const versionLabel = etiquetaDeInscripcion(item);
+  const itemNormalizado = { ...item, challenge: nombreReto, km_completados: kmCompletados, distancia_total: distanciaTotal, porcentaje: pct };
+  const version = versionDeInscripcion(itemNormalizado);
+  const versionLabel = etiquetaDeInscripcion(itemNormalizado);
 
   useEffect(() => {
     cargarActividades();
@@ -158,9 +164,9 @@ export default function DetalleRetoScreen({ route, navigation }) {
 
   const stats = calcularStats();
 
-  const kmRestantes = parseFloat(item.distancia_total) - parseFloat(item.km_completados);
+  const kmRestantes = parseFloat(distanciaTotal) - parseFloat(kmCompletados);
   const diasDesdeInicio = item.started_at ? diasEntre(new Date(item.started_at), new Date()) : 1;
-  const ritmoDiario = parseFloat(item.km_completados) / diasDesdeInicio;
+  const ritmoDiario = parseFloat(kmCompletados) / diasDesdeInicio;
   const diasParaTerminar = ritmoDiario > 0 ? Math.ceil(kmRestantes / ritmoDiario) : null;
   const fechaEstimada = diasParaTerminar ? new Date(Date.now() + diasParaTerminar * 86400000) : null;
 
@@ -169,7 +175,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
   let acumulado = 0;
   const actividadesConHito = [...actividades].reverse().map((act, i) => {
     acumulado += act.distance_km;
-    const hito = getHitoActividad(act, i, acumulado, parseFloat(item.distancia_total));
+    const hito = getHitoActividad(act, i, acumulado, parseFloat(distanciaTotal));
     return { ...act, hito, acumulado };
   });
   return (
@@ -182,19 +188,19 @@ export default function DetalleRetoScreen({ route, navigation }) {
         </View>
       </TouchableOpacity>
 
-      <Text style={styles.titulo}>{item.challenge || '—'}</Text>
-      <Text style={styles.subtitulo}>Desafío virtual · Versión {versionLabel} · {item.distancia_total}km</Text>
+      <Text style={styles.titulo}>{nombreReto}</Text>
+      <Text style={styles.subtitulo}>Desafío virtual · Versión {versionLabel} · {distanciaTotal}km</Text>
       <Text style={styles.subtituloVersion}>Caminando, corriendo o en bici: todos los km suman igual.</Text>
 
       <View style={styles.progresoCard}>
         <View style={styles.progresoHeader}>
-          <Text style={styles.progresoKm}>{item.km_completados} km</Text>
+          <Text style={styles.progresoKm}>{kmCompletados} km</Text>
           <Text style={styles.progresoPct}>{pct.toFixed(0)}%</Text>
         </View>
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: `${pct}%` }, estaCompletado && styles.progressFillCompletado]} />
         </View>
-        <Text style={styles.progresoSub}>de {item.distancia_total} km totales</Text>
+        <Text style={styles.progresoSub}>de {distanciaTotal} km totales</Text>
         {desgloseProgreso && (
           <View style={styles.desgloseProgreso}>
             <Text style={styles.desgloseTitulo}>Cómo se forma tu progreso</Text>
@@ -225,7 +231,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
         <View style={styles.statsCompletadoCard}>
           <Text style={styles.statsCompletadoTitulo}>🏅 Reto completado</Text>
           <Text style={styles.statsCompletadoFrase}>
-            Completaste {item.challenge || 'tu desafío'} en {stats.diasTotales} días
+            Completaste {nombreReto} en {stats.diasTotales} días
           </Text>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
