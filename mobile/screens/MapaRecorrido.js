@@ -629,37 +629,47 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
               </View>
             </View>
           )}
-          {integrado && (
-            <View style={styles.previewContinuacionHeader}>
-              <Text style={styles.previewEyebrow}>TU RECORRIDO</Text>
-              <Text style={styles.previewKmCompacto}>{kmActual.toFixed(1)} / {total.toFixed(0)} km</Text>
+          {integrado ? (
+            <View style={styles.previewNavCompacta}>
+              <View style={styles.previewNavFila}>
+                <Text style={styles.previewNavKm}>{kmActual.toFixed(1)} km</Text>
+                <View style={styles.previewNavLinea}>
+                  <View style={styles.previewNavLineaBase} />
+                  <View style={styles.previewNavPin} />
+                </View>
+                <View style={styles.previewNavDestino}>
+                  <Text style={styles.previewNavEmoji}>{proximo ? proximo.emoji : '🏁'}</Text>
+                  <Text style={styles.previewNavNombre} numberOfLines={1}>{proximo ? proximo.nombre : 'Meta'}</Text>
+                </View>
+              </View>
+              <View style={styles.previewNavFooter}>
+                <Text style={styles.previewNavFalta}>{proximo ? `${faltan.toFixed(1)} km para llegar` : 'Ruta completada'}</Text>
+                <Text style={styles.previewNavExplorar}>Explorar ruta →</Text>
+              </View>
             </View>
-          )}
-
-          <View style={styles.previewEscena}>
-            <View style={styles.previewRutaBase} />
-            <View style={[styles.previewRutaHecha, { width: `${Math.max(6, pct)}%` }]} />
-            <View style={[styles.previewPin, { left: `${Math.max(4, Math.min(92, pct))}%` }]}>
-              <View style={styles.previewPinHalo} />
-              <View style={styles.previewPinCentro} />
-            </View>
-            <View style={styles.previewDestino}>
-              <Text style={styles.previewDestinoEmoji}>{proximo ? proximo.emoji : '🏁'}</Text>
-            </View>
-          </View>
-
-          <View style={styles.previewNarrativa}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.previewAhora}>{integrado ? 'PRÓXIMO OBJETIVO' : `ESTÁS EN EL KM ${kmActual.toFixed(1)}`}</Text>
-              <Text style={styles.previewHacia} numberOfLines={1}>
-                {proximo ? (integrado ? `${proximo.emoji} ${proximo.nombre}` : `Rumbo a ${proximo.nombre}`) : '🏁 Meta alcanzada'}
-              </Text>
-              <Text style={styles.previewFalta}>
-                {proximo ? `Te separan ${faltan.toFixed(1)} km del próximo punto` : `${total.toFixed(0)} km completados`}
-              </Text>
-            </View>
-            <Text style={styles.previewExplorarGrande}>Explorar{String.fromCharCode(10)}ruta →</Text>
-          </View>
+          ) : (
+            <>
+              <View style={styles.previewEscena}>
+                <View style={styles.previewRutaBase} />
+                <View style={[styles.previewRutaHecha, { width: `${Math.max(6, pct)}%` }]} />
+                <View style={[styles.previewPin, { left: `${Math.max(4, Math.min(92, pct))}%` }]}>
+                  <View style={styles.previewPinHalo} />
+                  <View style={styles.previewPinCentro} />
+                </View>
+                <View style={styles.previewDestino}>
+                  <Text style={styles.previewDestinoEmoji}>{proximo ? proximo.emoji : '🏁'}</Text>
+                </View>
+              </View>
+              <View style={styles.previewNarrativa}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.previewAhora}>{`ESTÁS EN EL KM ${kmActual.toFixed(1)}`}</Text>
+                  <Text style={styles.previewHacia} numberOfLines={1}>{proximo ? `Rumbo a ${proximo.nombre}` : '🏁 Meta alcanzada'}</Text>
+                  <Text style={styles.previewFalta}>{proximo ? `Te separan ${faltan.toFixed(1)} km del próximo punto` : `${total.toFixed(0)} km completados`}</Text>
+                </View>
+                <Text style={styles.previewExplorarGrande}>Explorar{String.fromCharCode(10)}ruta →</Text>
+              </View>
+            </>
+          ))}
         </TouchableOpacity>
 
         {modalMapaVisible && (
@@ -752,6 +762,18 @@ const styles = StyleSheet.create({
   titulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 12 },
   containerIntegrado: { marginTop: 14 },
   previewIntegrada: { borderTopWidth: 1, borderTopColor: '#35577A', paddingTop: 13 },
+    previewNavCompacta: { paddingTop: 4 },
+  previewNavFila: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46 },
+  previewNavKm: { color: '#F8FAFC', fontSize: 14, fontWeight: '900' },
+  previewNavLinea: { flex: 1, height: 22, justifyContent: 'center', position: 'relative' },
+  previewNavLineaBase: { height: 6, borderRadius: 3, backgroundColor: '#F97316' },
+  previewNavPin: { position: 'absolute', right: -2, width: 14, height: 14, borderRadius: 7, backgroundColor: '#F97316', borderWidth: 3, borderColor: '#FFFFFF' },
+  previewNavDestino: { maxWidth: 118, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  previewNavEmoji: { fontSize: 20 },
+  previewNavNombre: { color: '#F8FAFC', fontSize: 13, fontWeight: '900', flexShrink: 1 },
+  previewNavFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#213C58', marginTop: 5, paddingTop: 9 },
+  previewNavFalta: { color: '#94A3B8', fontSize: 11 },
+  previewNavExplorar: { color: '#67A9FF', fontSize: 12, fontWeight: '900' },
     previewContinuacionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
   previewKmCompacto: { color: '#6F91B5', fontSize: 11, fontWeight: '800' },
     previewAventura: { borderRadius: 18, borderWidth: 1, borderColor: '#29496B', backgroundColor: '#10243A', padding: 16, marginBottom: 4, overflow: 'hidden' },
