@@ -911,12 +911,14 @@ export default function PerfilScreen() {
                       >
                         <Text style={{ color: '#A8CFFF', fontWeight: 'bold', fontSize: 12 }}>📖 Historia</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity
-                        style={{ flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: '#2A5A8A', alignItems: 'center', justifyContent: 'center' }}
-                        onPress={() => setModalEnvioReto(inscripcion)}
-                      >
-                        <Text style={{ color: '#A8CFFF', fontWeight: 'bold', fontSize: 12 }}>🎁 Medalla y envío</Text>
-                      </TouchableOpacity>
+                      {['completed', 'cargado', 'shipped'].includes(inscripcion.status) && (
+                        <TouchableOpacity
+                          style={{ flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: '#2A5A8A', alignItems: 'center', justifyContent: 'center' }}
+                          onPress={() => setModalEnvioReto(inscripcion)}
+                        >
+                          <Text style={{ color: '#A8CFFF', fontWeight: 'bold', fontSize: 12 }}>🎁 Medalla y envío</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                     <View style={styles.bibRow}>
                       {inscripcion.status === 'active' && (
