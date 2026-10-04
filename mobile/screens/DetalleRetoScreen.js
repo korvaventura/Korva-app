@@ -2,7 +2,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Alert,
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { Ionicons } from '@expo/vector-icons';
-import { versionDeInscripcion, etiquetaDeInscripcion, planDeVersion } from '../utils/versionDesafio';
+import { versionDeInscripcion, etiquetaDeInscripcion } from '../utils/versionDesafio';
 import RutaGpsActividad from '../components/RutaGpsActividad';
 
 const aplicarMascaraFecha = (texto) => {
@@ -45,15 +45,24 @@ export default function DetalleRetoScreen({ route, navigation }) {
   const [actividades, setActividades] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [metaFecha, setMetaFecha] = useState(item?.meta_fecha || '');
+  const [editandoFecha, setEditandoFecha] = useState(false);
+  const [inputFecha, setInputFecha] = useState('');
+  const [guardandoMeta, setGuardandoMeta] = useState(false);
   const [desgloseProgreso, setDesgloseProgreso] = useState(null);
 
 
 
-  const pct = Math.min(parseFloat(item.porcentaje || 0), 100);
+  const nombreReto = item?.challenge || item?.challenge_title || item?.challenges?.title || item?.challenges?.name || 'Desafío';
+  const kmCompletados = Number(item?.km_completados ?? item?.km_completed ?? 0) || 0;
+  const distanciaTotal = Number(item?.distancia_total ?? item?.distance_km ?? item?.challenges?.distance_km ?? item?.challenges?.distance ?? 0) || 0;
+  const porcentajeCalculado = distanciaTotal > 0 ? (kmCompletados / distanciaTotal) * 100 : 0;
+  const porcentajeRecibido = Number(item?.porcentaje);
+  const pct = Math.min(Number.isFinite(porcentajeRecibido) ? porcentajeRecibido : porcentajeCalculado, 100);
   const estaCompletado = pct >= 100;
   // Versión Estándar/Extendida (solo distancia; cualquier deporte suma 1:1).
-  const version = versionDeInscripcion(item);
-  const versionLabel = etiquetaDeInscripcion(item);
+  const itemNormalizado = { ...item, challenge: nombreReto, km_completados: kmCompletados, distancia_total: distanciaTotal, porcentaje: pct };
+  const version = versionDeInscripcion(itemNormalizado);
+  const versionLabel = etiquetaDeInscripcion(itemNormalizado);
 
   useEffect(() => {
     cargarActividades();
@@ -80,11 +89,21 @@ export default function DetalleRetoScreen({ route, navigation }) {
 
   const cargarActividades = async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/actividades/${userId}`);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        setActividades([]);
+        return;
+      }
+      const res = await fetch(`${BACKEND_URL}/progreso-desglose/${item.challenge_id}/actividades`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('No se pudo cargar la historia del desafío');
       const data = await res.json();
-      setActividades(Array.isArray(data) ? data : []);
+      setActividades(Array.isArray(data?.actividades) ? data.actividades : []);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error cargando historia del desafío:', error);
+      setActividades([]);
     } finally {
       setCargando(false);
     }
@@ -122,10 +141,18 @@ export default function DetalleRetoScreen({ route, navigation }) {
   };
 
   const saveFecha = async (fechaISO) => {
-    await supabase.from('user_challenges').update({ meta_fecha: fechaISO })
-      .eq('user_id', userId).eq('challenge_id', item.challenge_id);
-    setMetaFecha(fechaISO);
-    setEditandoFecha(false);
+    setGuardandoMeta(true);
+    try {
+      const { error } = await supabase.from('user_challenges').update({ meta_fecha: fechaISO })
+        .eq('user_id', userId).eq('challenge_id', item.challenge_id);
+      if (error) throw error;
+      setMetaFecha(fechaISO);
+      setEditandoFecha(false);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo guardar tu fecha objetivo.');
+    } finally {
+      setGuardandoMeta(false);
+    }
   };
 
   const calcularStats = () => {
@@ -158,18 +185,11 @@ export default function DetalleRetoScreen({ route, navigation }) {
 
   const stats = calcularStats();
 
-  const kmRestantes = parseFloat(item.distancia_total) - parseFloat(item.km_completados);
-  const diasDesdeInicio = item.started_at ? diasEntre(new Date(item.started_at), new Date()) : 1;
-  const ritmoDiario = parseFloat(item.km_completados) / diasDesdeInicio;
-  const diasParaTerminar = ritmoDiario > 0 ? Math.ceil(kmRestantes / ritmoDiario) : null;
-  const fechaEstimada = diasParaTerminar ? new Date(Date.now() + diasParaTerminar * 86400000) : null;
-
-  // El plan escala solo por la distancia de la versión.
-  const { factorDescanso, sesionesPorSemana: sesionesporSemana } = planDeVersion(version);
+  const kmRestantes = parseFloat(distanciaTotal) - parseFloat(kmCompletados);
   let acumulado = 0;
   const actividadesConHito = [...actividades].reverse().map((act, i) => {
     acumulado += act.distance_km;
-    const hito = getHitoActividad(act, i, acumulado, parseFloat(item.distancia_total));
+    const hito = getHitoActividad(act, i, acumulado, parseFloat(distanciaTotal));
     return { ...act, hito, acumulado };
   });
   return (
@@ -182,19 +202,19 @@ export default function DetalleRetoScreen({ route, navigation }) {
         </View>
       </TouchableOpacity>
 
-      <Text style={styles.titulo}>{item.challenge || '—'}</Text>
-      <Text style={styles.subtitulo}>Desafío virtual · Versión {versionLabel} · {item.distancia_total}km</Text>
+      <Text style={styles.titulo}>{nombreReto}</Text>
+      <Text style={styles.subtitulo}>Desafío virtual · Versión {versionLabel} · {distanciaTotal}km</Text>
       <Text style={styles.subtituloVersion}>Caminando, corriendo o en bici: todos los km suman igual.</Text>
 
       <View style={styles.progresoCard}>
         <View style={styles.progresoHeader}>
-          <Text style={styles.progresoKm}>{item.km_completados} km</Text>
+          <Text style={styles.progresoKm}>{parseFloat(kmCompletados).toFixed(1)} km</Text>
           <Text style={styles.progresoPct}>{pct.toFixed(0)}%</Text>
         </View>
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: `${pct}%` }, estaCompletado && styles.progressFillCompletado]} />
         </View>
-        <Text style={styles.progresoSub}>de {item.distancia_total} km totales</Text>
+        <Text style={styles.progresoSub}>de {distanciaTotal} km totales</Text>
         {desgloseProgreso && (
           <View style={styles.desgloseProgreso}>
             <Text style={styles.desgloseTitulo}>Cómo se forma tu progreso</Text>
@@ -225,7 +245,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
         <View style={styles.statsCompletadoCard}>
           <Text style={styles.statsCompletadoTitulo}>🏅 Reto completado</Text>
           <Text style={styles.statsCompletadoFrase}>
-            Completaste {item.challenge || 'tu desafío'} en {stats.diasTotales} días
+            Completaste {nombreReto} en {stats.diasTotales} días
           </Text>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
@@ -255,46 +275,50 @@ export default function DetalleRetoScreen({ route, navigation }) {
         </View>
       )}
 
-      {!estaCompletado && (
-        <View style={styles.ritmoCard}>
-          <Text style={styles.ritmoTitulo}>📈 Tu ritmo actual</Text>
-         <Text style={styles.ritmoKm}>{ritmoDiario.toFixed(1)} km/sesión promedio</Text>
-          <Text style={styles.ritmoSesiones}>{sesionesporSemana} sesiones por semana recomendadas</Text>
-          {fechaEstimada && (
-            <Text style={styles.ritmoPrediccion}>
-              A este ritmo terminás el {formatearFecha(fechaEstimada)}
-            </Text>
-          )}
-          <Text style={styles.ritmoRestante}>Faltan {kmRestantes.toFixed(1)}km</Text>
-        </View>
-      )}
 
       {!estaCompletado && (
         <View style={styles.metaCard}>
           <View style={styles.metaHeader}>
             <Text style={styles.metaTitulo}>🎯 Tu meta personal</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('HomeTabs', { screen: 'Perfil' })}>
-              <Text style={styles.metaEditarBtn}>{metaFecha ? 'Editar ✏️' : '+ Agregar'}</Text>
+            <TouchableOpacity onPress={() => {
+              setInputFecha(metaFecha ? new Date(metaFecha).toLocaleDateString('es-AR') : '');
+              setEditandoFecha(v => !v);
+            }}>
+              <Text style={styles.metaEditarBtn}>{editandoFecha ? 'Cancelar' : metaFecha ? 'Editar' : '+ Elegir fecha'}</Text>
             </TouchableOpacity>
           </View>
 
-          {metaFecha ? (
+          {editandoFecha ? (
             <>
-              <Text style={styles.metaFecha}>📅 {formatearFecha(metaFecha)}</Text>
+              <View style={styles.metaInputRow}>
+                <TextInput
+                  style={styles.metaInput}
+                  value={inputFecha}
+                  onChangeText={v => setInputFecha(aplicarMascaraFecha(v))}
+                  placeholder="DD/MM/AAAA"
+                  placeholderTextColor="#6F8EAD"
+                  keyboardType="numeric"
+                  maxLength={10}
+                />
+                <TouchableOpacity style={styles.metaGuardarBtn} onPress={guardarMeta} disabled={guardandoMeta}>
+                  <Text style={styles.metaGuardarBtnText}>{guardandoMeta ? '...' : 'Guardar'}</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.metaAclaracion}>Es una referencia personal. No modifica el desafío ni determina el envío de tu medalla.</Text>
+            </>
+          ) : metaFecha ? (
+            <>
+              <Text style={styles.metaFecha}>📅 Objetivo: {formatearFecha(metaFecha)}</Text>
               <Text style={styles.metaDias}>
-                {diasEntre(new Date(), new Date(metaFecha))} días restantes
+                {diasEntre(new Date(), new Date(metaFecha))} días · {Math.max(0, kmRestantes).toFixed(1)} km por recorrer
               </Text>
               <Text style={styles.metaRitmo}>
-                {(() => {
-                  const diasRestantes = diasEntre(new Date(), new Date(metaFecha));
-                  const sesionesRestantes = Math.floor(diasRestantes * factorDescanso);
-                  const kmPorSesion = sesionesRestantes > 0 ? (kmRestantes / sesionesRestantes).toFixed(1) : '—';
-                  return `${kmPorSesion}km por sesión · ${sesionesporSemana} veces/semana`;
-                })()}
+                Referencia matemática: ~{(Math.max(0, kmRestantes) / diasEntre(new Date(), new Date(metaFecha))).toFixed(1)} km/día
               </Text>
+              <Text style={styles.metaAclaracion}>No es un plan de entrenamiento ni determina el envío de tu medalla.</Text>
             </>
           ) : (
-            <Text style={styles.metaVacio}>Sin meta definida. Podés agregar una fecha límite opcional.</Text>
+            <Text style={styles.metaVacio}>Marcá una fecha objetivo para seguir tu progreso a tu ritmo. Es opcional y no afecta el envío de tu medalla.</Text>
           )}
         </View>
       )}
@@ -327,7 +351,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
                     <Text style={styles.timelineKm}>{parseFloat(act.distance_km).toFixed(1)} km</Text>
                     <Text style={styles.timelineTipo}>{act.sport_type || 'Actividad'} · {act.source === 'manual' ? 'manual' : act.source === 'korva_gps' ? 'Korva GPS' : act.source === 'strava' ? 'Strava' : (act.source || 'Actividad')}</Text>
                   </View>
-                  <Text style={styles.timelineAcumulado}>Total acumulado: {act.acumulado.toFixed(1)}km</Text>
+                  <Text style={styles.timelineAcumulado}>Acumulado en actividades: {act.acumulado.toFixed(1)}km</Text>
                   {act.source === 'korva_gps' && act.id && <RutaGpsActividad activityId={act.id} />}
                 </View>
               </View>
@@ -363,10 +387,10 @@ const styles = StyleSheet.create({
     borderTopColor: '#D7DCE2',
     gap: 6,
   },
-  desgloseTitulo: { fontSize: 12, fontWeight: '600', color: '#5B6573', marginBottom: 2 },
+  desgloseTitulo: { fontSize: 12, fontWeight: '600', color: '#D6E7FA', marginBottom: 2 },
   desgloseFila: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  desgloseLabel: { fontSize: 12, color: '#6B7280' },
-  desgloseValor: { fontSize: 12, fontWeight: '600', color: '#303844' },
+  desgloseLabel: { fontSize: 12, color: '#B8CDE5' },
+  desgloseValor: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
   progresoFecha: { fontSize: 12, color: '#4a6a8a', marginTop: 6 },
   statsCompletadoCard: { backgroundColor: '#1a2a1a', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#FC4C02' },
   statsCompletadoTitulo: { fontSize: 18, fontWeight: 'bold', color: '#FC4C02', marginBottom: 8 },
@@ -381,7 +405,7 @@ const styles = StyleSheet.create({
   ritmoTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
   ritmoKm: { fontSize: 22, fontWeight: 'bold', color: '#1E6FD9', marginBottom: 4 },
   ritmoPrediccion: { fontSize: 13, color: '#A8CFFF', marginBottom: 4 },
-  ritmoRestante: { fontSize: 12, color: '#4a6a8a' },
+  ritmoRestante: { fontSize: 12, color: '#A8CFFF' },
   metaCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 18, marginBottom: 16 },
   metaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   metaTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF' },
@@ -392,8 +416,9 @@ const styles = StyleSheet.create({
   metaGuardarBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
   metaFecha: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   metaDias: { fontSize: 13, color: '#FC4C02', fontWeight: 'bold', marginBottom: 4 },
-  metaRitmo: { fontSize: 12, color: '#A8CFFF' },
-  metaVacio: { fontSize: 13, color: '#4a6a8a', fontStyle: 'italic' },
+  metaRitmo: { fontSize: 12, color: '#A8CFFF', marginBottom: 6 },
+  metaAclaracion: { fontSize: 11, lineHeight: 16, color: '#8EABC8' },
+  metaVacio: { fontSize: 13, color: '#A8CFFF', fontStyle: 'italic' },
   historialSection: { marginTop: 8 },
   historialTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 16 },
   emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 24, alignItems: 'center' },
@@ -409,12 +434,12 @@ const styles = StyleSheet.create({
   timelineLine: { width: 2, flex: 1, backgroundColor: '#2a4a6a', marginVertical: 4 },
   timelineContent: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, marginBottom: 12 },
   timelineHito: { fontSize: 13, fontWeight: 'bold', color: '#FC4C02', marginBottom: 2 },
-  timelineFecha: { fontSize: 11, color: '#4a6a8a', marginBottom: 8 },
+  timelineFecha: { fontSize: 11, color: '#A8CFFF', marginBottom: 8 },
   timelineActRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   timelineEmoji: { fontSize: 16 },
   timelineKm: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
   timelineTipo: { fontSize: 11, color: '#A8CFFF' },
-  timelineAcumulado: { fontSize: 11, color: '#4a6a8a', marginTop: 4 },
+  timelineAcumulado: { fontSize: 11, color: '#A8CFFF', marginTop: 4 },
   backBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  ritmoSesiones: { fontSize: 12, color: '#4a6a8a', marginBottom: 4 },
+  ritmoSesiones: { fontSize: 12, color: '#A8CFFF', marginBottom: 4 },
 });
