@@ -30,8 +30,12 @@ const CAMPOS_DAILY_MOVEMENT = 'fecha, timezone, distancia_caminando_km, distanci
 const TAMANO_LOTE_IDS = 100;
 const CAMPOS_EVENTO = 'id, user_challenge_id, user_id, tipo, estado, intentos, datos, resultado, ultimo_error, procesando_desde, creado_at, actualizado_at';
 
-// Evita que ruido de representación de floats haga perder un CAS válido.
+// PostgREST compara floats por igualdad exacta. km_completed es float y un valor que volvió por JSON
+// puede diferir unas ulps al volver a serializarse (ej. 83.169999999...). Para el CAS de progreso
+// usamos una ventana muchísimo menor que la precisión funcional del motor (1e-6), conservando la
+// detección de escrituras concurrentes reales.
 const EPSILON_CAS_KM = 1e-7;
+
 const filtrarKmLeido = (consulta, kmLeido) => {
   if (kmLeido === null || kmLeido === undefined) return consulta.is('km_completed', null);
   const km = Number(kmLeido);
@@ -200,6 +204,35 @@ const crearRepositorioBase = (supabase) => {
       return data || null;
     },
 
+    /**
+     * Busca una actividad equivalente alrededor del inicio del GPS.
+     * Ventana estrecha (±45 min) + distancia (±0.3 km) + categoría compatible:
+     * evita duplicar una misma salida que ya llegó por Strava/manual sin bloquear
+     * dos entrenamientos distintos del mismo día.
+     */
+    buscarActividadEquivalenteGps: async ({ userId, sportType, distanceKm, recordedAt }) => {
+      const inicioMs = Date.parse(recordedAt);
+      if (!Number.isFinite(inicioMs)) return null;
+      const ventanaMs = 45 * 60 * 1000;
+      const tiposPie = ['run', 'walk', 'hike', 'trailrun', 'virtualrun', 'treadmill'];
+      const tipos = sportType === 'ride'
+        ? ['ride', 'virtualride', 'mountainbikeride', 'gravelride', 'ebikeride']
+        : tiposPie;
+      const { data, error } = await lectura
+        .from('activities')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('excluida', false)
+        .in('sport_type', tipos)
+        .gte('recorded_at', new Date(inicioMs - ventanaMs).toISOString())
+        .lte('recorded_at', new Date(inicioMs + ventanaMs).toISOString())
+        .gte('distance_km', Math.max(0, distanceKm - 0.3))
+        .lte('distance_km', distanceKm + 0.3)
+        .limit(1);
+      if (error) throw error;
+      return Array.isArray(data) && data.length ? data[0] : null;
+    },
+
     /** Inserta una actividad GPS Korva. */
     insertarActividadGps: async ({ actividad }) => {
       const { data, error } = await supabase.from('activities').insert(actividad).select().single();
@@ -323,6 +356,9 @@ const crearRepositorioBase = (supabase) => {
      * La RPC nunca toca km_base.
      */
     completarCAS: async ({ id, kmLeido, kmNuevo, completedAtIso, datos }) => {
+      // La RPC histórica hace igualdad exacta sobre km_completed. Antes de llamarla normalizamos el
+      // float SOLO si sigue dentro de la misma ventana CAS. Una escritura concurrente real queda
+      // fuera de la ventana; si ocurre después, la propia RPC exacta pierde y el servicio relee.
       if (kmLeido !== null && kmLeido !== undefined) {
         const km = Number(kmLeido);
         if (!Number.isFinite(km)) throw new Error('kmLeido inválido');

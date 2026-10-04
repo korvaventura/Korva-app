@@ -10,6 +10,7 @@ const movimientoRoutes = require('./routes/movimiento');
 const residualAdminRoutes = require('./routes/residualAdmin');
 const progresoSombraAdminRoutes = require('./routes/progresoSombraAdmin');
 const progresoHealthSombraAdminRoutes = require('./routes/progresoHealthSombraAdmin');
+const progresoDesgloseRoutes = require('./routes/progresoDesglose');
 const { crearActividadGpsRoutes } = require('./routes/actividadGps');
 const { writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva, stravaWebhookMotorActiva } = require('./lib/flagsMotor');
 const { crearRepositorioSupabase } = require('./lib/progresoRepositorioSupabase');
@@ -94,6 +95,7 @@ app.get('/strava-cupo', async (req, res) => {
 app.use(cors());
 
 app.use('/shopify', shopifyRoutes);
+app.use('/progreso-desglose', progresoDesgloseRoutes);
 
 app.use(express.json({ limit: '10mb' }));
 

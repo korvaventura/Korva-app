@@ -32,3 +32,17 @@ test('servidor rechaza recorridos demasiado cortos', () => {
   ]);
   assert.equal(r.ok, false);
 });
+
+
+test('devuelve para persistencia solo los puntos aceptados por el servidor', () => {
+  const puntos = [
+    p(0, 0, 1000, 5),
+    p(0, 0.0001, 3000, 5),
+    p(0, 0.0002, 5000, 80),
+    p(0, 0.0002, 7000, 5),
+  ];
+  const r = calcularDistanciaGpsServidor(puntos);
+  assert.equal(r.ok, true);
+  assert.equal(r.puntosValidos.length, r.aceptados);
+  assert.equal(r.puntosValidos.some((x) => x.accuracy === 80), false);
+});
