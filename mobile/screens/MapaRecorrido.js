@@ -633,13 +633,16 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
             <View style={styles.previewNavCompacta}>
               <View style={styles.previewNavFila}>
                 <Text style={styles.previewNavKm}>{kmActual.toFixed(1)} km</Text>
-                <View style={styles.previewNavLinea}>
+                <View style={styles.previewNavDireccion}>
                   <View style={styles.previewNavLineaBase} />
-                  <View style={styles.previewNavPin} />
+                  <Text style={styles.previewNavFlecha}>›</Text>
                 </View>
                 <View style={styles.previewNavDestino}>
                   <Text style={styles.previewNavEmoji}>{proximo ? proximo.emoji : '🏁'}</Text>
-                  <Text style={styles.previewNavNombre} numberOfLines={1}>{proximo ? proximo.nombre : 'Meta'}</Text>
+                  <View style={styles.previewNavDestinoTexto}>
+                    <Text style={styles.previewNavRumbo}>RUMBO A</Text>
+                    <Text style={styles.previewNavNombre} numberOfLines={1}>{proximo ? proximo.nombre : 'Meta'}</Text>
+                  </View>
                 </View>
               </View>
               <View style={styles.previewNavFooter}>
@@ -765,12 +768,14 @@ const styles = StyleSheet.create({
     previewNavCompacta: { paddingTop: 4 },
   previewNavFila: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46 },
   previewNavKm: { color: '#F8FAFC', fontSize: 14, fontWeight: '900' },
-  previewNavLinea: { flex: 1, height: 22, justifyContent: 'center', position: 'relative' },
-  previewNavLineaBase: { height: 6, borderRadius: 3, backgroundColor: '#F97316' },
-  previewNavPin: { position: 'absolute', right: -2, width: 14, height: 14, borderRadius: 7, backgroundColor: '#F97316', borderWidth: 3, borderColor: '#FFFFFF' },
-  previewNavDestino: { maxWidth: 118, flexDirection: 'row', alignItems: 'center', gap: 5 },
-  previewNavEmoji: { fontSize: 20 },
-  previewNavNombre: { color: '#F8FAFC', fontSize: 13, fontWeight: '900', flexShrink: 1 },
+  previewNavDireccion: { flex: 1, height: 22, flexDirection: 'row', alignItems: 'center' },
+  previewNavLineaBase: { flex: 1, height: 2, backgroundColor: '#3B5873' },
+  previewNavFlecha: { color: '#7897B7', fontSize: 24, lineHeight: 24, marginLeft: -1, marginTop: -1 },
+  previewNavDestino: { maxWidth: 132, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  previewNavEmoji: { fontSize: 18 },
+  previewNavDestinoTexto: { flexShrink: 1 },
+  previewNavRumbo: { color: '#587796', fontSize: 7, fontWeight: '900', letterSpacing: 1.2, marginBottom: 1 },
+  previewNavNombre: { color: '#F8FAFC', fontSize: 12, fontWeight: '900', flexShrink: 1 },
   previewNavFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#213C58', marginTop: 5, paddingTop: 9 },
   previewNavFalta: { color: '#94A3B8', fontSize: 11 },
   previewNavExplorar: { color: '#67A9FF', fontSize: 12, fontWeight: '900' },
