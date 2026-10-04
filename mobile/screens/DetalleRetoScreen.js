@@ -175,11 +175,6 @@ export default function DetalleRetoScreen({ route, navigation }) {
   const stats = calcularStats();
 
   const kmRestantes = parseFloat(distanciaTotal) - parseFloat(kmCompletados);
-  const diasDesdeInicio = item.started_at ? diasEntre(new Date(item.started_at), new Date()) : 1;
-  const ritmoDiario = parseFloat(kmCompletados) / diasDesdeInicio;
-  const diasParaTerminar = ritmoDiario > 0 ? Math.ceil(kmRestantes / ritmoDiario) : null;
-  const fechaEstimada = diasParaTerminar ? new Date(Date.now() + diasParaTerminar * 86400000) : null;
-
   // El plan escala solo por la distancia de la versión.
   const { factorDescanso, sesionesPorSemana: sesionesporSemana } = planDeVersion(version);
   let acumulado = 0;
@@ -271,19 +266,6 @@ export default function DetalleRetoScreen({ route, navigation }) {
         </View>
       )}
 
-      {!estaCompletado && (
-        <View style={styles.ritmoCard}>
-          <Text style={styles.ritmoTitulo}>📈 Tu ritmo actual</Text>
-         <Text style={styles.ritmoKm}>{ritmoDiario.toFixed(1)} km/día promedio</Text>
-          <Text style={styles.ritmoSesiones}>{sesionesporSemana} sesiones por semana recomendadas</Text>
-          {fechaEstimada && (
-            <Text style={styles.ritmoPrediccion}>
-              A este ritmo terminás el {formatearFecha(fechaEstimada)}
-            </Text>
-          )}
-          <Text style={styles.ritmoRestante}>Faltan {kmRestantes.toFixed(1)}km</Text>
-        </View>
-      )}
 
       {!estaCompletado && (
         <View style={styles.metaCard}>
@@ -409,7 +391,7 @@ const styles = StyleSheet.create({
   metaFecha: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
   metaDias: { fontSize: 13, color: '#FC4C02', fontWeight: 'bold', marginBottom: 4 },
   metaRitmo: { fontSize: 12, color: '#A8CFFF' },
-  metaVacio: { fontSize: 13, color: '#4a6a8a', fontStyle: 'italic' },
+  metaVacio: { fontSize: 13, color: '#A8CFFF', fontStyle: 'italic' },
   historialSection: { marginTop: 8 },
   historialTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 16 },
   emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 24, alignItems: 'center' },
