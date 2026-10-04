@@ -1,12 +1,12 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Modal, Dimensions } from 'react-native';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
-import { versionDeInscripcion, versionesDelDesafio, distanciaDeVersion, distanciaDeInscripcion, etiquetaVersion, modalidadLegacy, planDeVersion } from '../utils/versionDesafio';
+import { versionDeInscripcion, versionesDelDesafio, distanciaDeVersion, distanciaDeInscripcion, etiquetaVersion, modalidadLegacy } from '../utils/versionDesafio';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -24,7 +24,9 @@ const diasEntre = (fecha1, fecha2) => {
 };
 
 export default function PerfilScreen() {
+  const navigation = useNavigation();
   const [usuario, setUsuario] = useState(null);
+  const [modalEnvioReto, setModalEnvioReto] = useState(null);
   const [stats, setStats] = useState(null);
   const [userId, setUserId] = useState(null);
   const scrollRef = useRef(null);
@@ -831,7 +833,6 @@ export default function PerfilScreen() {
               const pct = distanciaTotal > 0 ? Math.min((kmCompletados / distanciaTotal) * 100, 100) : 0;
               const mFecha = metaFecha[cId];
               // El plan escala solo por la distancia de la versión (no asume deporte).
-              const { factorDescanso, sesionesPorSemana: sesionesporSemana } = planDeVersion(versionActual);
 
               return (
                 <View key={cId} style={{ width: SCREEN_WIDTH, paddingHorizontal: 24 }}>
@@ -866,42 +867,66 @@ export default function PerfilScreen() {
                         setInputMeta(prev => ({ ...prev, [cId]: mFecha ? new Date(mFecha).toLocaleDateString('es-AR') : '' }));
                         setEditandoMeta(prev => ({ ...prev, [cId]: !prev[cId] }));
                       }}>
-                        <Text style={styles.metaEditarBtn}>{editandoMeta[cId] ? 'Cancelar' : mFecha ? 'Editar' : '+ Agregar'}</Text>
+                        <Text style={styles.metaEditarBtn}>{editandoMeta[cId] ? 'Cancelar' : mFecha ? 'Editar' : '+ Elegir fecha'}</Text>
                       </TouchableOpacity>
                     </View>
                     {editandoMeta[cId] ? (
-                      <View style={styles.metaInputRow}>
-                        <TextInput
-                          style={styles.metaInput}
-                          value={inputMeta[cId] || ''}
-                          onChangeText={v => setInputMeta(prev => ({ ...prev, [cId]: aplicarMascaraFecha(v) }))}
-                          placeholder="DD/MM/AAAA"
-                          placeholderTextColor="#4a6a8a"
-                          keyboardType="numeric"
-                          maxLength={10}
-                        />
-                        <TouchableOpacity style={styles.metaGuardarBtn} onPress={() => guardarMeta(inscripcion)} disabled={guardandoMeta[cId]}>
-                          {guardandoMeta[cId] ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.metaGuardarBtnText}>Guardar</Text>}
-                        </TouchableOpacity>
-                      </View>
+                      <>
+                        <View style={styles.metaInputRow}>
+                          <TextInput
+                            style={styles.metaInput}
+                            value={inputMeta[cId] || ''}
+                            onChangeText={v => setInputMeta(prev => ({ ...prev, [cId]: aplicarMascaraFecha(v) }))}
+                            placeholder="DD/MM/AAAA"
+                            placeholderTextColor="#4a6a8a"
+                            keyboardType="numeric"
+                            maxLength={10}
+                          />
+                          <TouchableOpacity style={styles.metaGuardarBtn} onPress={() => guardarMeta(inscripcion)} disabled={guardandoMeta[cId]}>
+                            {guardandoMeta[cId] ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.metaGuardarBtnText}>Guardar</Text>}
+                          </TouchableOpacity>
+                        </View>
+                        <Text style={styles.metaVacio}>Referencia personal: no modifica el desafío ni determina el envío de tu medalla.</Text>
+                      </>
                     ) : mFecha ? (
                       <View style={styles.metaInfo}>
-                        <Text style={styles.metaFechaText}>📅 {formatearFecha(mFecha)}</Text>
+                        <Text style={styles.metaFechaText}>📅 Objetivo: {formatearFecha(mFecha)}</Text>
                         <Text style={styles.metaDias}>{diasEntre(new Date(), new Date(mFecha))} días restantes</Text>
                         <Text style={styles.metaRitmo}>
-                          {(() => {
-                            const diasRestantes = diasEntre(new Date(), new Date(mFecha));
-                            const sesionesRestantes = Math.floor(diasRestantes * factorDescanso);
-                            const kmRestantes = Math.max(0, distanciaTotal - kmCompletados);
-                            const kmPorSesion = sesionesRestantes > 0 ? (kmRestantes / sesionesRestantes).toFixed(1) : '—';
-                            return `${kmPorSesion}km por sesión · ${sesionesporSemana} veces/semana`;
-                          })()}
+                          Referencia matemática: ~{(Math.max(0, distanciaTotal - kmCompletados) / diasEntre(new Date(), new Date(mFecha))).toFixed(1)} km/día
                         </Text>
+                        <Text style={styles.metaVacio}>No es un plan de entrenamiento ni determina el envío de tu medalla.</Text>
                       </View>
                     ) : (
-                      <Text style={styles.metaVacio}>Sin meta definida. Opcional.</Text>
+                      <Text style={styles.metaVacio}>Fecha objetivo opcional para organizar tu progreso. No afecta el envío de tu medalla.</Text>
                     )}
                     <View style={styles.metaSeparador} />
+                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                      <TouchableOpacity
+                        style={{ flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: '#2A5A8A', alignItems: 'center', justifyContent: 'center' }}
+                        onPress={() => navigation.navigate('DetalleReto', {
+                          item: {
+                            ...inscripcion,
+                            challenge: inscripcion.challenges?.title || inscripcion.challenges?.name || 'Desafío',
+                            km_completados: kmCompletados,
+                            distancia_total: distanciaTotal,
+                            porcentaje: pct,
+                            meta_fecha: mFecha || inscripcion.meta_fecha || '',
+                          },
+                          userId,
+                        })}
+                      >
+                        <Text style={{ color: '#A8CFFF', fontWeight: 'bold', fontSize: 12 }}>📖 Historia</Text>
+                      </TouchableOpacity>
+                      {['completed', 'cargado', 'shipped'].includes(inscripcion.status) && (
+                        <TouchableOpacity
+                          style={{ flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: '#2A5A8A', alignItems: 'center', justifyContent: 'center' }}
+                          onPress={() => setModalEnvioReto(inscripcion)}
+                        >
+                          <Text style={{ color: '#A8CFFF', fontWeight: 'bold', fontSize: 12 }}>🎁 Medalla y envío</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                     <View style={styles.bibRow}>
                       {inscripcion.status === 'active' && (
                         <TouchableOpacity
@@ -932,6 +957,34 @@ export default function PerfilScreen() {
           )}
         </View>
       )}
+
+      <Modal visible={!!modalEnvioReto} transparent animationType="fade" onRequestClose={() => setModalEnvioReto(null)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalEnvioReto(null)}>
+          <View style={[styles.modalCard, { padding: 24 }]}>
+            <Text style={{ fontSize: 30, marginBottom: 10, textAlign: 'center' }}>🎁</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 }}>Sobre tu medalla</Text>
+            <Text style={{ color: '#6F91B5', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>{modalEnvioReto?.challenge || modalEnvioReto?.challenge_title || ''}</Text>
+            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+              Nuestro equipo está preparando y gestionando tu pedido. Cuando el envío tenga información de seguimiento disponible, la recibirás por correo electrónico.
+            </Text>
+            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+              Si compraste varias medallas en una misma compra, pueden prepararse y enviarse juntas. En ese caso recibirás un único enlace de seguimiento para el pedido, no un correo por cada medalla.
+            </Text>
+            <Text style={{ color: '#7F96AD', fontSize: 12, lineHeight: 18, marginBottom: 18 }}>
+              El estado del desafío dentro de la app no confirma por sí solo que una medalla haya sido despachada individualmente. No necesitás realizar ninguna acción por el momento.
+            </Text>
+            <TouchableOpacity
+              style={{ borderWidth: 1, borderColor: '#2A5A8A', borderRadius: 12, padding: 12, alignItems: 'center', marginBottom: 12 }}
+              onPress={() => Linking.openURL('https://korva.run/pages/envios')}
+            >
+              <Text style={{ color: '#67A9FF', fontWeight: 'bold', fontSize: 13 }}>Ver información completa sobre envíos →</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setModalEnvioReto(null)}>
+              <Text style={{ color: '#6F8298', textAlign: 'center', fontSize: 13 }}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Nivel */}
       {nivel && (
