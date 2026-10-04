@@ -607,76 +607,77 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
     setCpSeleccionado(prev => prev?.id === cp.id ? null : cp);
   };
 
-  // ── MODO PREVIEW ────────────────────────────────────────────
+  // ── MODO PREVIEW LIVIANO ─────────────────────────────────────
   if (!fullscreen) {
+    const kmActual = Math.max(0, Number(kmCompletados) || 0);
+    const total = Math.max(1, Number(distanciaTotal) || distanciaFisica);
+    const pct = Math.max(0, Math.min(100, (kmActual / total) * 100));
+    const proximo = checkpoints.find((cp) => (cp.kmFisico * factor) > kmActual);
+    const proximoKm = proximo ? proximo.kmFisico * factor : total;
+    const faltan = Math.max(0, proximoKm - kmActual);
+
     return (
       <View style={styles.container}>
-        <Text style={styles.titulo}>{titulo}</Text>
-        <TouchableOpacity style={styles.previewWrapper} onPress={() => setModalMapaVisible(true)} activeOpacity={0.85}>
-          {(() => {
-            const previewW = 360;
-            const viewX = Math.max(0, Math.min(pinPos.x - previewW / 2, MAPA_WIDTH_VIRTUAL - previewW));
-            return (
-              <Svg width="100%" height={180} viewBox={`${viewX} 0 ${previewW} 260`}>
-                <Rect x="0" y="0" width={MAPA_WIDTH_VIRTUAL} height="260" fill="#0F172A" />
-                {decoraciones()}
-                <Path d={rutaBasePath} fill="none" stroke="#475569" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />
-                {pathCompletado !== '' && <Path d={pathCompletado} fill="none" stroke="#EA580C" strokeWidth="6" strokeLinecap="square" strokeLinejoin="miter" />}
-                {checkpoints.map((cp) => (
-                  <Circle key={cp.id} cx={cp.x} cy={cp.y} r={desbloqueado(cp) ? 10 : 8}
-                    fill={desbloqueado(cp) ? '#F97316' : '#334155'}
-                    stroke={desbloqueado(cp) ? '#FFFFFF' : '#64748B'} strokeWidth="2" />
-                ))}
-                {kmFisicos > 0 && <Circle cx={pinPos.x} cy={pinPos.y} r={8} fill="#FFFFFF" stroke="#EA580C" strokeWidth="4" />}
-              </Svg>
-            );
-          })()}
-          <View style={styles.previewOverlay}>
-            <View style={styles.previewBtn}>
-              <Text style={styles.previewBtnText}>🗺️ Explorar ruta</Text>
+        <TouchableOpacity style={styles.previewCompacta} onPress={() => setModalMapaVisible(true)} activeOpacity={0.85}>
+          <View style={styles.previewCompactaHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.previewEyebrow}>EXPEDICIÓN</Text>
+              <Text style={styles.previewTitulo} numberOfLines={1}>{titulo.replace(/^🗺️\s*/, '')}</Text>
             </View>
+            <Text style={styles.previewKm}>{kmActual.toFixed(1)} km</Text>
+          </View>
+          <View style={styles.previewBarra}>
+            <View style={[styles.previewBarraFill, { width: `${pct}%` }]} />
+          </View>
+          <View style={styles.previewCompactaFooter}>
+            <Text style={styles.previewSiguiente} numberOfLines={1}>
+              {proximo ? `Próximo: ${proximo.emoji} ${proximo.nombre} · ${faltan.toFixed(1)} km` : '🏁 Ruta completada'}
+            </Text>
+            <Text style={styles.previewExplorar}>Explorar ruta →</Text>
           </View>
         </TouchableOpacity>
 
-        <Modal visible={modalMapaVisible} transparent={false} animationType="slide" onRequestClose={() => setModalMapaVisible(false)}>
-          <View style={styles.fullscreenContainer}>
-            <View style={styles.fullscreenHeader}>
-              <Text style={styles.fullscreenTitulo}>{titulo}</Text>
-              <TouchableOpacity style={styles.cerrarBtn} onPress={() => setModalMapaVisible(false)}>
-                <Text style={styles.cerrarBtnText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.mapaFijoWrapper}>
-              <ScrollView ref={scrollViewRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ width: MAPA_WIDTH_VIRTUAL }} style={{ flex: 1 }}>
-                <MapaSVG config={config} kmFisicos={kmFisicos} pinPos={pinPos} rutaBasePath={rutaBasePath} pathCompletado={pathCompletado} pulseAnim={pulseAnim} onCheckpointPress={handleCheckpointPress} />
-              </ScrollView>
-              {mostrarClima()}
-            </View>
-            <ScrollHintAnimado />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
-              {checkpoints.map((cp) => {
-                const bloqueado = !desbloqueado(cp);
-                const seleccionado = cpSeleccionado?.id === cp.id;
-                return (
-                  <TouchableOpacity key={cp.id} style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo, seleccionado && styles.leyendaItemSeleccionado]} onPress={() => handleCheckpointPress(cp)}>
-                    <Text style={styles.leyendaEmoji}>{bloqueado ? '🔒' : cp.emoji}</Text>
-                    <View style={styles.leyendaTextos}>
-                      <Text style={[styles.leyendaNombre, !bloqueado && styles.leyendaNombreActivo]}>{cp.nombre}</Text>
-                      <Text style={styles.leyendaKm}>{(cp.kmFisico * factor).toFixed(0)} km</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-            {cpSeleccionado ? (
-              <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} />
-            ) : (
-              <View style={styles.historiaPlaceholder}>
-                <Text style={styles.historiaPlaceholderText}>Tocá un punto del mapa o un checkpoint para leer su historia</Text>
+        {modalMapaVisible && (
+          <Modal visible transparent={false} animationType="slide" onRequestClose={() => setModalMapaVisible(false)}>
+            <View style={styles.fullscreenContainer}>
+              <View style={styles.fullscreenHeader}>
+                <Text style={styles.fullscreenTitulo}>{titulo}</Text>
+                <TouchableOpacity style={styles.cerrarBtn} onPress={() => setModalMapaVisible(false)}>
+                  <Text style={styles.cerrarBtnText}>✕</Text>
+                </TouchableOpacity>
               </View>
-            )}
-          </View>
-        </Modal>
+              <View style={styles.mapaFijoWrapper}>
+                <ScrollView ref={scrollViewRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ width: MAPA_WIDTH_VIRTUAL }} style={{ flex: 1 }}>
+                  <MapaSVG config={config} kmFisicos={kmFisicos} pinPos={pinPos} rutaBasePath={rutaBasePath} pathCompletado={pathCompletado} pulseAnim={pulseAnim} onCheckpointPress={handleCheckpointPress} />
+                </ScrollView>
+                {mostrarClima()}
+              </View>
+              <ScrollHintAnimado />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
+                {checkpoints.map((cp) => {
+                  const bloqueado = !desbloqueado(cp);
+                  const seleccionado = cpSeleccionado?.id === cp.id;
+                  return (
+                    <TouchableOpacity key={cp.id} style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo, seleccionado && styles.leyendaItemSeleccionado]} onPress={() => handleCheckpointPress(cp)}>
+                      <Text style={styles.leyendaEmoji}>{bloqueado ? '🔒' : cp.emoji}</Text>
+                      <View style={styles.leyendaTextos}>
+                        <Text style={[styles.leyendaNombre, !bloqueado && styles.leyendaNombreActivo]}>{cp.nombre}</Text>
+                        <Text style={styles.leyendaKm}>{(cp.kmFisico * factor).toFixed(0)} km</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              {cpSeleccionado ? (
+                <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} />
+              ) : (
+                <View style={styles.historiaPlaceholder}>
+                  <Text style={styles.historiaPlaceholderText}>Tocá un punto del mapa o un checkpoint para leer su historia</Text>
+                </View>
+              )}
+            </View>
+          </Modal>
+        )}
       </View>
     );
   }
@@ -724,7 +725,17 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
 const styles = StyleSheet.create({
   container: { marginBottom: 16 },
   titulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 12 },
-  previewWrapper: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#334155', backgroundColor: '#0F172A', position: 'relative', height: 180 },
+  previewCompacta: { borderRadius: 16, borderWidth: 1, borderColor: '#334155', backgroundColor: '#13283D', padding: 15, marginBottom: 4 },
+  previewCompactaHeader: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginBottom: 12 },
+  previewEyebrow: { color: '#64748B', fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginBottom: 3 },
+  previewTitulo: { color: '#F8FAFC', fontSize: 16, fontWeight: '800' },
+  previewKm: { color: '#F97316', fontSize: 17, fontWeight: '900' },
+  previewBarra: { height: 7, borderRadius: 4, backgroundColor: '#0B1726', overflow: 'hidden', marginBottom: 11 },
+  previewBarraFill: { height: '100%', borderRadius: 4, backgroundColor: '#F97316' },
+  previewCompactaFooter: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  previewSiguiente: { color: '#94A3B8', fontSize: 11, flex: 1 },
+  previewExplorar: { color: '#67A9FF', fontSize: 12, fontWeight: '800' },
+    previewWrapper: { borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#334155', backgroundColor: '#0F172A', position: 'relative', height: 180 },
   previewOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center', paddingBottom: 12, backgroundColor: 'rgba(13,27,42,0.5)' },
   previewBtn: { backgroundColor: '#EA580C', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20 },
   previewBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
