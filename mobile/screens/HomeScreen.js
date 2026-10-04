@@ -82,6 +82,7 @@ export default function HomeScreen({ navigation }) {
   const [retoActivoIndex, setRetoActivoIndex] = useState(0);
   const [modalModalidadVisible, setModalModalidadVisible] = useState(false);
   const [actividadReciente, setActividadReciente] = useState(null);
+  const [movimientoY, setMovimientoY] = useState(null);
   const viewShotRefs = useRef([]);
 
   useEffect(() => {
@@ -466,12 +467,12 @@ export default function HomeScreen({ navigation }) {
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
               {[
-                { q: '¿Cómo funciona Korva?', a: 'Elegís un desafío en el Catálogo y lo comprás. Una vez confirmado el pago, el desafío se activa en la app. Registrás tus km corriendo o pedaleando en el mundo real, y cuando completás la distancia total se inicia automáticamente la orden de envío de tu medalla.' },
+                { q: '¿Cómo funciona Korva?', a: 'Elegís un desafío en el Catálogo y lo comprás. Una vez confirmado el pago, el desafío se activa en la app. Registrás tus km caminando, corriendo o en bici y avanzás hasta completar la distancia. La información del envío de tu medalla se gestiona por separado.' },
                 { q: '¿Necesito completar el desafío de una sola vez?', a: 'No. Podés salir a correr o pedalear cuando quieras — salidas cortas, largas, a tu ritmo. Los km se van acumulando hasta completar la distancia total del desafío.' },
                 { q: '¿Puedo mezclar actividades?', a: 'Sí. Podés sumar km caminando, corriendo o en bicicleta, y todos cuentan igual (1 km = 1 km) hacia tu meta. La versión que elegís (Estándar o Extendida) solo define la distancia del desafío, no el tipo de actividad.' },
-                { q: '¿Cómo registro mis kilómetros?', a: 'Desde la pestaña "Registrar" cargás tus km manualmente en segundos. La integración con Strava para sincronización automática estará disponible próximamente.' },
+                { q: '¿Cómo registro mis kilómetros?', a: 'Podés usar Korva GPS, cargar una actividad manualmente o sincronizar Strava si lo tenés conectado. El movimiento pasivo del teléfono no se suma automáticamente a tus desafíos.' },
                 { q: '¿Cómo cargo mi dirección de envío?', a: 'Desde la pestaña "Perfil", sección "Dirección de envío". Asegurate de tenerla cargada antes de completar el desafío para que el envío salga sin demoras.' },
-                { q: '¿Cuándo llega mi medalla?', a: 'Cuando completás el 100% del desafío se inicia la orden de envío automáticamente. Los tiempos varían según tu país — podés consultar los tiempos estimados en korva.run.' },
+                { q: '¿Cuándo llega mi medalla?', a: 'Completar el desafío en la app no confirma por sí solo el despacho físico. Cuando tu pedido tenga información de seguimiento disponible, la recibirás por correo electrónico. Los tiempos y condiciones de envío dependen del país.' },
                 { q: '¿Qué son los logros?', a: 'Los logros son badges gratuitos que ganás por tu actividad — km recorridos, rachas de días activos, cantidad de salidas y más. Se acumulan siempre, tengas o no un desafío activo.' },
                 { q: '¿Puedo usar la app sin comprar un desafío?', a: 'Sí. Podés registrar actividades y acumular logros sin costo. Los desafíos son para quienes quieren una meta con medalla física incluida.' },
                 { q: '¿Puedo cambiar la versión de mi desafío?', a: 'Sí, desde "Mis retos activos" en el Perfil podés cambiar entre la versión Estándar y la Extendida. Tus km no cambian: solo cambia la distancia a completar.' },
@@ -678,18 +679,6 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.gpsInicioCard} onPress={() => navigation.navigate('GpsTracker')}>
-        <View style={styles.gpsInicioIcono}>
-          <Ionicons name="navigate" size={22} color="#FFFFFF" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.gpsInicioEyebrow}>KORVA GPS · PRUEBA</Text>
-          <Text style={styles.gpsInicioTitulo}>Iniciar actividad</Text>
-          <Text style={styles.gpsInicioDesc}>Medí distancia y tiempo con el GPS del teléfono.</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={22} color="#A8CFFF" />
-      </TouchableOpacity>
-
       {/* Banner pago — FIX: usa cerrarBanner() */}
       {bannerVisible && !cargando && (
         <View style={styles.bannerCard}>
@@ -777,20 +766,22 @@ export default function HomeScreen({ navigation }) {
           ) : (
             // FIX: selector siempre visible, aunque sea un solo reto
             <>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.retoTabsScroll}>
-                {challengesActivos.map((item, i) => (
-                  <TouchableOpacity
-                    key={i}
-                    style={[styles.retoTab, i === retoVisibleIndex && styles.retoTabActivo]}
-                    onPress={() => setRetoActivoIndex(i)}
-                  >
-                    <Text style={[styles.retoTabText, i === retoVisibleIndex && styles.retoTabTextActivo]}>
-                      {item.challenge}
-                    </Text>
-                    {parseFloat(item.porcentaje || 0) >= 100 && <Text style={styles.retoTabBadge}>🏅</Text>}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              {challengesActivos.length > 1 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.retoTabsScroll}>
+                  {challengesActivos.map((item, i) => (
+                    <TouchableOpacity
+                      key={item.id || item.challenge_id || i}
+                      style={[styles.retoTab, i === retoVisibleIndex && styles.retoTabActivo]}
+                      onPress={() => setRetoActivoIndex(i)}
+                    >
+                      <Text style={[styles.retoTabText, i === retoVisibleIndex && styles.retoTabTextActivo]}>
+                        {item.challenge}
+                      </Text>
+                      {parseFloat(item.porcentaje || 0) >= 100 && <Text style={styles.retoTabBadge}>🏅</Text>}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
 
               <RetoCard
                 item={challengesActivos[retoVisibleIndex]}
@@ -812,13 +803,38 @@ export default function HomeScreen({ navigation }) {
                 togglePausar={togglePausar}
                 cargandoBib={cargandoBib}
               />
+
+              <TouchableOpacity style={styles.gpsHeroAction} onPress={() => navigation.navigate('GpsTracker')} activeOpacity={0.88}>
+                <View style={styles.gpsHeroTop}>
+                  <View>
+                    <Text style={styles.gpsHeroEyebrow}>KORVA GPS</Text>
+                    <Text style={styles.gpsHeroTitulo}>Registrar actividad</Text>
+                  </View>
+                  <View style={styles.gpsHeroStart}>
+                    <Ionicons name="play" size={14} color="#FFFFFF" />
+                    <Text style={styles.gpsHeroStartText}>INICIAR</Text>
+                  </View>
+                </View>
+                <Text style={styles.gpsHeroDesc}>Correr · caminar · bici</Text>
+                <View style={styles.gpsHeroDivider} />
+                <Text style={styles.gpsHeroHint}>Distancia y tiempo con el GPS del teléfono · confirmás al finalizar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.scrollCue}
+                disabled={movimientoY == null}
+                onPress={() => movimientoY != null && scrollRef.current?.scrollTo({ y: Math.max(0, movimientoY - 24), animated: true })}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="chevron-down" size={20} color="#547493" />
+              </TouchableOpacity>
             </>
           )}
         </>
       )}
 
       {!cargando && !error && (
-        <View style={styles.movimientoSection}>
+        <View style={styles.movimientoSection} onLayout={(e) => setMovimientoY(e.nativeEvent.layout.y)}>
           <Text style={styles.movimientoTitulo}>Tu movimiento</Text>
       {actividadReciente && (
         <TouchableOpacity
@@ -947,7 +963,9 @@ export default function HomeScreen({ navigation }) {
                   <Text style={styles.completadoKm}>{parseFloat(item.km_completados || 0).toFixed(1)} km · {etiquetaDeInscripcion(item)}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                  <Text style={styles.completadoBadge}>{item.status === 'shipped' || item.status === 'cargado' ? '📦 Enviado' : '🏅 Completado'}</Text>
+                  <TouchableOpacity onPress={(e) => { e.stopPropagation(); setModalInfoChallenge(item.challenge || ''); setModalInfoVisible(true); }}>
+                    <Text style={styles.completadoBadge}>🎁 Medalla · Más info</Text>
+                  </TouchableOpacity>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <Text style={{ color: '#1E6FD9', fontSize: 12 }}>Ver historia →</Text>
                     <TouchableOpacity onPress={(e) => { e.stopPropagation(); setModalInfoChallenge(item.challenge || ''); setModalInfoVisible(true); }}>
@@ -972,19 +990,23 @@ export default function HomeScreen({ navigation }) {
       <Modal visible={modalInfoVisible} transparent animationType="fade" onRequestClose={() => setModalInfoVisible(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalInfoVisible(false)}>
           <View style={[styles.modalCard, { padding: 24 }]}>
-            <Text style={{ fontSize: 32, marginBottom: 12, textAlign: 'center' }}>🏅</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 }}>{modalInfoChallenge}</Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 14, lineHeight: 22, textAlign: 'center', marginBottom: 8 }}>
-              Si tu dirección está cargada, nuestro equipo procesará tu pedido y recibirás el número de seguimiento por email en los próximos 5 días hábiles.
+            <Text style={{ fontSize: 30, marginBottom: 10, textAlign: 'center' }}>🎁</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 }}>Sobre tu medalla</Text>
+            <Text style={{ color: '#6F91B5', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>{modalInfoChallenge}</Text>
+            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+              Nuestro equipo está preparando y gestionando tu pedido. Cuando el envío tenga información de seguimiento disponible, la recibirás por correo electrónico.
             </Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 14, lineHeight: 22, textAlign: 'center', marginBottom: 20 }}>
-              Para dudas o cambios de dirección escribinos por WhatsApp.
+            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+              Si compraste varias medallas en una misma compra, pueden prepararse y enviarse juntas. En ese caso recibirás un único enlace de seguimiento para el pedido, no un correo por cada medalla.
+            </Text>
+            <Text style={{ color: '#7F96AD', fontSize: 12, lineHeight: 18, marginBottom: 18 }}>
+              El estado del desafío dentro de la app no confirma por sí solo que una medalla haya sido despachada individualmente. No necesitás realizar ninguna acción por el momento.
             </Text>
             <TouchableOpacity
-              style={{ backgroundColor: '#25D366', borderRadius: 12, padding: 14, alignItems: 'center', marginBottom: 10 }}
-              onPress={() => { setModalInfoVisible(false); Linking.openURL('https://wa.me/61474024238'); }}
+              style={{ borderWidth: 1, borderColor: '#2A5A8A', borderRadius: 12, padding: 12, alignItems: 'center', marginBottom: 12 }}
+              onPress={() => Linking.openURL('https://korva.run/pages/envios')}
             >
-              <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>💬 Escribir por WhatsApp</Text>
+              <Text style={{ color: '#67A9FF', fontWeight: 'bold', fontSize: 13 }}>Ver información completa sobre envíos →</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setModalInfoVisible(false)}>
               <Text style={{ color: '#4a6a8a', textAlign: 'center', fontSize: 13 }}>Cerrar</Text>
@@ -1037,9 +1059,11 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
   const frase = getFrase(pct);
   const mostrarCardMeta = metaVisibles[item.challenge_id];
   const metaFormateada = formatearFechaMeta(item.meta_fecha);
-  const bordeCard = estaCompletado ? '#FC4C02' : pct >= 75 ? '#FC4C02' : '#1E3A5F';
+  const bordeCard = estaCompletado ? '#FC4C02' : '#244766';
   // Versión del desafío (Estándar/Extendida), no deporte. Fallback a `modalidad` de respuestas viejas.
   const modalidadLabel = `VERSIÓN ${etiquetaDeInscripcion(item).toUpperCase()}`;
+  const tituloNormalizado = (item.challenge || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const tieneExpedicion = ['fuji', 'dubrovnik', 'san andres', 'fin del mundo'].some(nombre => tituloNormalizado.includes(nombre));
 
   return (
     <View>
@@ -1050,41 +1074,55 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
         <View style={[styles.shareCard, { borderColor: bordeCard }]}>
           {/* FIX: header rediseñado — sin colores que parezcan botones */}
           <View style={styles.shareHeader}>
-            <Text style={styles.shareKorvaLogo}>🏅 KORVA</Text>
+            <Text style={styles.shareKorvaLogo}>TU AVENTURA</Text>
             <TouchableOpacity onPress={onModalidadPress}>
-              <Text style={[styles.shareDeporte, { opacity: 1, color: '#1E6FD9' }]}>{modalidadLabel}</Text>
+              <Text style={styles.shareDeporte}>{modalidadLabel}</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.sharePctWrapper}>
-            <Text style={styles.sharePctNumero}>{pct.toFixed(0)}</Text>
-            <Text style={styles.sharePctSymbol}>%</Text>
-          </View>
           <Text style={styles.shareChallengeName}>{item.challenge || '—'}</Text>
-          <Text style={styles.shareFrase}>{frase}</Text>
-          <View style={styles.shareProgressBar}>
-            <View style={[styles.shareProgressFill, { width: `${pct}%` }, estaCompletado && styles.shareProgressFillCompletado]} />
+          <View style={styles.heroMetricRow}>
+            <Text style={styles.heroKmNumero}>{Number(item.km_completados || 0).toFixed(1)}</Text>
+            <Text style={styles.heroKmUnidad}>km</Text>
+            <View style={styles.heroPctPill}>
+              <Text style={styles.heroPctText}>{pct.toFixed(0)}%</Text>
+            </View>
           </View>
-          <View style={styles.shareKmRow}>
-            <Text style={styles.shareKmText}>{item.km_completados} km</Text>
-            <Text style={styles.shareKmTotal}>· {getSubtitulo(item.challenge || '')}</Text>
-            {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅</Text>}
+          <Text style={styles.heroTotal}>de {Number(item.distancia_total || 0).toFixed(0)} km</Text>
+          {!tieneExpedicion && (
+            <>
+              <View style={styles.shareProgressBar}>
+                <View style={[styles.shareProgressFill, { width: `${pct}%` }, estaCompletado && styles.shareProgressFillCompletado]} />
+              </View>
+              <Text style={styles.shareFrase}>{frase}</Text>
+            </>
+          )}
+          <View style={styles.heroFooter}>
+            {metaFormateada
+              ? <Text style={styles.shareMetaText}>🎯 Objetivo · {metaFormateada}</Text>
+              : <Text style={styles.heroFooterMuted}>Completalo a tu ritmo</Text>}
+            {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅 Completado</Text>}
           </View>
-          {metaFormateada && <Text style={styles.shareMetaText}>🎯 Meta: {metaFormateada}</Text>}
-          <View style={styles.shareFooter}>
-            <Text style={styles.shareNombre}>{nombre}</Text>
-            <Text style={styles.shareUrl}>korva.run</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.heroHistoria}
+            onPress={() => navigation.navigate('DetalleReto', { item, userId })}
+            activeOpacity={0.72}
+          >
+            <Text style={styles.heroHistoriaText}>Historia del desafío</Text>
+            <Ionicons name="arrow-forward" size={13} color="#67A9FF" />
+          </TouchableOpacity>
         </View>
       </ViewShot>
 
-      <MapaRecorrido
-        kmCompletados={item.km_completados}
-        distanciaTotal={item.distancia_total}
-        porcentaje={item.porcentaje}
-        checkpointsData={item.checkpoints}
-        challengeId={item.challenge_id}
-        challengeTitle={item.challenge || ''}
-      />
+      {tieneExpedicion && (
+        <MapaRecorrido
+          kmCompletados={item.km_completados}
+          distanciaTotal={item.distancia_total}
+          porcentaje={pct}
+          challengeId={item.challenge_id}
+          challengeTitle={item.challenge}
+          integrado
+        />
+      )}
 
       {mostrarCardMeta && (
         <View style={styles.metaCard}>
@@ -1122,34 +1160,6 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
         </View>
       )}
 
-      <TouchableOpacity style={styles.detalleBtn} onPress={() => navigation.navigate('DetalleReto', { item, userId })}>
-        <View style={styles.btnRow}>
-          <Text style={styles.detalleBtnText}>📖 Ver mi historia completa</Text>
-          <Ionicons name="arrow-forward" size={14} color="#1E6FD9" />
-        </View>
-      </TouchableOpacity>
-
-      {item.status === 'active' && (
-        <TouchableOpacity
-          style={[styles.bibBtn, { marginBottom: 8, backgroundColor: estaPausado ? '#1a4a1a' : '#1E3A5F', borderColor: estaPausado ? '#22C55E' : '#2a5a8a' }]}
-          onPress={() => togglePausar(challengeId, estaPausado)}
-        >
-          <Text style={styles.bibBtnText}>{estaPausado ? '▶️ Reanudar desafío' : '⏸ Pausar desafío'}</Text>
-        </TouchableOpacity>
-      )}
-
-      <View style={styles.bibRow}>
-        <TouchableOpacity style={styles.bibBtn} onPress={() => descargarBib('dorsal', challengeId)} disabled={!!cargandoBib}>
-          {cargandoBib === 'dorsal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.bibBtnText}>📄 Mi dorsal</Text>}
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.bibBtn, styles.bibBtnSecundario]} onPress={() => descargarBib('postal', challengeId)} disabled={!!cargandoBib}>
-          {cargandoBib === 'postal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={[styles.bibBtnText, { color: '#A8CFFF' }]}>🖼️ Mi postal</Text>}
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity style={styles.compartirBtn} onPress={() => compartirProgreso(index)}>
-        <Text style={styles.compartirBtnText}>📤 Compartir progreso</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -1157,9 +1167,9 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#0D1B2A' },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   saludo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
-  subtitulo: { fontSize: 13, color: '#A8CFFF' },
+  subtitulo: { fontSize: 12, color: '#7897B7' },
   bannerStrava: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1249,34 +1259,62 @@ const styles = StyleSheet.create({
   emptySubtext: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 20 },
   irCatalogoBtn: { backgroundColor: '#FC4C02', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 14, marginTop: 12 },
   irCatalogoBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
-  retoTabsScroll: { marginBottom: 16 },
-  retoTab: { backgroundColor: '#1E3A5F', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8, borderWidth: 2, borderColor: 'transparent', flexDirection: 'row', alignItems: 'center', gap: 6 },
-  retoTabActivo: { borderColor: '#FC4C02' },
-  retoTabText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
-  retoTabTextActivo: { color: '#FFFFFF' },
+  retoTabsScroll: { marginBottom: 10 },
+  retoTab: { backgroundColor: '#132A42', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, borderWidth: 1, borderColor: '#234766', flexDirection: 'row', alignItems: 'center', gap: 6 },
+  retoTabActivo: { backgroundColor: '#183553', borderColor: '#B94A1A' },
+  retoTabText: { color: '#7897B7', fontWeight: '700', fontSize: 12 },
+  retoTabTextActivo: { color: '#F8FAFC' },
   retoTabBadge: { fontSize: 13 },
-  shareCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 24, marginBottom: 8, borderWidth: 2 },
-  shareHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  shareCard: { backgroundColor: '#152F4A', borderRadius: 24, paddingHorizontal: 22, paddingTop: 20, paddingBottom: 18, marginBottom: 0, borderWidth: 1 },
+  shareHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 13 },
   // FIX: KORVA y modalidad como texto plano, sin colores de botón
-  shareKorvaLogo: { fontSize: 12, fontWeight: 'bold', color: '#A8CFFF', letterSpacing: 2, opacity: 0.7 },
-  shareDeporte: { fontSize: 11, fontWeight: '600', color: '#A8CFFF', letterSpacing: 1, opacity: 0.7 },
-  sharePctWrapper: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 4 },
-  sharePctNumero: { fontSize: 72, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 80 },
-  sharePctSymbol: { fontSize: 32, fontWeight: 'bold', color: '#FC4C02', marginBottom: 12, marginLeft: 4 },
-  shareChallengeName: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
+  shareKorvaLogo: { fontSize: 9, fontWeight: '900', color: '#6888A7', letterSpacing: 2.4 },
+  shareDeporte: { fontSize: 9, fontWeight: '800', color: '#67A9FF', letterSpacing: 1.1 },
+  sharePctWrapper: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 1 },
+  sharePctNumero: { fontSize: 58, fontWeight: '800', color: '#FFFFFF', lineHeight: 64 },
+  sharePctSymbol: { fontSize: 26, fontWeight: '800', color: '#FC4C02', marginBottom: 9, marginLeft: 3 },
+  shareChallengeName: { fontSize: 22, fontWeight: '900', color: '#FFFFFF', marginBottom: 10 },
   shareFrase: { fontSize: 13, color: '#A8CFFF', marginBottom: 12, fontStyle: 'italic' },
-  shareProgressBar: { height: 6, backgroundColor: '#0D1B2A', borderRadius: 3, marginBottom: 12 },
-  shareProgressFill: { height: 6, backgroundColor: '#1E6FD9', borderRadius: 3 },
+  shareProgressBar: { height: 7, backgroundColor: '#091725', borderRadius: 4, marginTop: 12, marginBottom: 12, overflow: 'hidden' },
+  shareProgressFill: { height: 7, backgroundColor: '#FC4C02', borderRadius: 4 },
   shareProgressFillCompletado: { backgroundColor: '#FC4C02' },
-  shareKmRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  shareKmText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
-  shareKmTotal: { fontSize: 12, color: '#4a6a8a', flex: 1 },
+  shareKmRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 6 },
+  shareKmText: { fontSize: 17, fontWeight: '800', color: '#FFFFFF' },
+  shareKmTotal: { fontSize: 11, color: '#7897B7', flex: 1 },
   shareCompletadoBadge: { fontSize: 16 },
-  shareMetaText: { fontSize: 12, color: '#A8CFFF', marginBottom: 16 },
+  shareMetaText: { fontSize: 11, color: '#A8CFFF' },
+  heroMetricRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 2 },
+  heroKmNumero: { color: '#FFFFFF', fontSize: 62, lineHeight: 66, fontWeight: '900', letterSpacing: -2.5 },
+  heroKmUnidad: { color: '#A8CFFF', fontSize: 18, fontWeight: '800', marginLeft: 6, marginBottom: 9 },
+  heroPctPill: { marginLeft: 'auto', marginBottom: 8, backgroundColor: '#0D2236', borderRadius: 18, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: '#284C6E' },
+  heroPctText: { color: '#FC4C02', fontSize: 17, fontWeight: '900' },
+  heroTotal: { color: '#7897B7', fontSize: 12, fontWeight: '700', marginTop: 1 },
+  heroFooter: { minHeight: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroFooterMuted: { color: '#6888A7', fontSize: 11 },
+  gpsHeroAction: { marginTop: 20, minHeight: 142, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 18, backgroundColor: '#14283B', borderWidth: 1, borderColor: '#31506B' },
+  gpsHeroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
+  gpsHeroStart: { height: 42, borderRadius: 21, backgroundColor: '#FC4C02', paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  gpsHeroStartText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  gpsHeroEyebrow: { color: '#6E8BA7', fontSize: 9, fontWeight: '900', letterSpacing: 2.2, marginBottom: 5 },
+  gpsHeroTitulo: { color: '#FFFFFF', fontSize: 21, fontWeight: '900', lineHeight: 25 },
+  gpsHeroDesc: { color: '#A8CFFF', fontSize: 11, marginTop: 10 },
+  gpsHeroDivider: { height: 1, backgroundColor: '#203D57', marginVertical: 12 },
+  gpsHeroHint: { color: '#58748F', fontSize: 9, lineHeight: 13 },
+  heroHistoria: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#244766', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroHistoriaText: { color: '#67A9FF', fontSize: 11, fontWeight: '800' },
+  scrollCue: { alignSelf: 'center', alignItems: 'center', paddingHorizontal: 28, paddingTop: 14, paddingBottom: 4 },
   shareFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#0D1B2A', paddingTop: 12 },
   shareNombre: { fontSize: 12, color: '#4a6a8a', fontWeight: 'bold' },
   shareUrl: { fontSize: 12, color: '#4a6a8a' },
-  detalleBtn: { backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#1E6FD9', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
+  retoAcciones: { marginTop: 18, marginBottom: 24, borderTopWidth: 1, borderTopColor: '#213C58', paddingTop: 14 },
+  historiaLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 7, marginBottom: 10 },
+  historiaLinkText: { color: '#67A9FF', fontSize: 13, fontWeight: '800' },
+  accionesSecundarias: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 22, paddingVertical: 9 },
+  accionSutil: { minHeight: 28, justifyContent: 'center' },
+  accionSutilText: { color: '#A8CFFF', fontSize: 11, fontWeight: '700' },
+  pausaSutil: { alignItems: 'center', paddingTop: 10, marginTop: 4 },
+  pausaSutilText: { color: '#6F8298', fontSize: 10, fontWeight: '700' },
+    detalleBtn: { backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#1E6FD9', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
   detalleBtnText: { color: '#1E6FD9', fontSize: 13, fontWeight: 'bold' },
   compartirBtn: { backgroundColor: '#0D1B2A', borderWidth: 1, borderColor: '#2a4a6a', paddingVertical: 10, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
   compartirBtnText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
@@ -1309,7 +1347,7 @@ const styles = StyleSheet.create({
   storyFooter: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', borderTopWidth: 1, borderTopColor: '#1E3A5F', paddingTop: 12 },
   storyNombre: { fontSize: 13, color: '#FFFFFF', fontWeight: 'bold' },
   storyUrl: { fontSize: 13, color: '#FC4C02' },
-  movimientoSection: { marginHorizontal: 20, marginTop: 18, marginBottom: 6 },
+  movimientoSection: { marginHorizontal: 0, marginTop: 26, marginBottom: 6 },
   movimientoTitulo: { color: '#A8CFFF', fontSize: 11, fontWeight: '800', letterSpacing: 1.4, marginBottom: 10 },
   actividadRecienteCard: { backgroundColor: '#13283D', borderRadius: 16, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#1E3A5F' },
   actividadRecienteHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 },
@@ -1322,11 +1360,13 @@ const styles = StyleSheet.create({
   actividadesInicioCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 4, marginBottom: 10, borderTopWidth: 1, borderTopColor: '#1E3A5F' },
   actividadesInicioTitulo: { color: '#A8CFFF', fontSize: 13, fontWeight: '800' },
   actividadesInicioDesc: { color: '#A8CFFF', fontSize: 11, marginTop: 3 },
-  gpsInicioCard: { marginHorizontal: 20, marginTop: 4, marginBottom: 14, padding: 14, borderRadius: 18, backgroundColor: '#10253A', borderWidth: 1, borderColor: '#1E3A5F', flexDirection: 'row', alignItems: 'center', gap: 13 },
-  gpsInicioIcono: { width: 46, height: 46, borderRadius: 15, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center' },
-  gpsInicioEyebrow: { color: '#617184', fontSize: 9, fontWeight: '700', letterSpacing: 1.4, marginBottom: 3 },
-  gpsInicioTitulo: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', marginBottom: 2 },
-  gpsInicioDesc: { color: '#A8CFFF', fontSize: 11, lineHeight: 16 },
+  gpsInicioCard: { marginHorizontal: 20, marginTop: 4, marginBottom: 14, paddingHorizontal: 15, paddingVertical: 13, minHeight: 72, borderRadius: 18, backgroundColor: '#122A42', borderWidth: 1, borderColor: '#244B70', flexDirection: 'row', alignItems: 'center', gap: 12 },
+  gpsInicioIcono: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#173B60', borderWidth: 1, borderColor: '#28577F', alignItems: 'center', justifyContent: 'center' },
+  gpsInicioEyebrow: { color: '#6F95BA', fontSize: 8, fontWeight: '800', letterSpacing: 1.8, marginBottom: 2 },
+  gpsInicioTitulo: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', marginBottom: 2 },
+  gpsInicioDesc: { color: '#8FAECC', fontSize: 10, lineHeight: 14 },
+  gpsInicioAccion: { height: 34, borderRadius: 17, backgroundColor: '#FC4C02', paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  gpsInicioAccionText: { color: '#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   actualizarBtn: { marginTop: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center' },
   actualizarBtnText: { color: '#A8CFFF', fontSize: 14 },
   metaCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 18, marginBottom: 8, borderWidth: 1, borderColor: '#FC4C02' },
