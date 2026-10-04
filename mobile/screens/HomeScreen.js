@@ -680,15 +680,16 @@ export default function HomeScreen({ navigation }) {
 
       <TouchableOpacity style={styles.gpsInicioCard} onPress={() => navigation.navigate('GpsTracker')} activeOpacity={0.86}>
         <View style={styles.gpsInicioIcono}>
-          <Ionicons name="navigate" size={25} color="#FFFFFF" />
+          <Ionicons name="navigate" size={20} color="#7FB7F3" />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.gpsInicioEyebrow}>KORVA GPS</Text>
-          <Text style={styles.gpsInicioTitulo}>Registrar actividad</Text>
-          <Text style={styles.gpsInicioDesc}>Correr, caminar o bici · GPS del teléfono</Text>
+          <Text style={styles.gpsInicioTitulo}>Registrar con GPS</Text>
+          <Text style={styles.gpsInicioDesc}>Correr · caminar · bici</Text>
         </View>
         <View style={styles.gpsInicioAccion}>
-          <Ionicons name="play" size={16} color="#FFFFFF" />
+          <Ionicons name="play" size={12} color="#FFFFFF" />
+          <Text style={styles.gpsInicioAccionText}>INICIAR</Text>
         </View>
       </TouchableOpacity>
 
@@ -1060,7 +1061,7 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
         <View style={[styles.shareCard, { borderColor: bordeCard }]}>
           {/* FIX: header rediseñado — sin colores que parezcan botones */}
           <View style={styles.shareHeader}>
-            <Text style={styles.shareKorvaLogo}>🏅 KORVA</Text>
+            <Text style={styles.shareKorvaLogo}>KORVA · DESAFÍO</Text>
             <TouchableOpacity onPress={onModalidadPress}>
               <Text style={[styles.shareDeporte, { opacity: 1, color: '#1E6FD9' }]}>{modalidadLabel}</Text>
             </TouchableOpacity>
@@ -1247,24 +1248,24 @@ const styles = StyleSheet.create({
   retoTabText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
   retoTabTextActivo: { color: '#FFFFFF' },
   retoTabBadge: { fontSize: 13 },
-  shareCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 24, marginBottom: 8, borderWidth: 2 },
-  shareHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  shareCard: { backgroundColor: '#1B3A5D', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 18, marginBottom: 8, borderWidth: 1 },
+  shareHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 },
   // FIX: KORVA y modalidad como texto plano, sin colores de botón
-  shareKorvaLogo: { fontSize: 12, fontWeight: 'bold', color: '#A8CFFF', letterSpacing: 2, opacity: 0.7 },
-  shareDeporte: { fontSize: 11, fontWeight: '600', color: '#A8CFFF', letterSpacing: 1, opacity: 0.7 },
-  sharePctWrapper: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 4 },
-  sharePctNumero: { fontSize: 72, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 80 },
-  sharePctSymbol: { fontSize: 32, fontWeight: 'bold', color: '#FC4C02', marginBottom: 12, marginLeft: 4 },
-  shareChallengeName: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
+  shareKorvaLogo: { fontSize: 10, fontWeight: '800', color: '#86A9CC', letterSpacing: 2.2 },
+  shareDeporte: { fontSize: 10, fontWeight: '700', color: '#67A9FF', letterSpacing: 1.2 },
+  sharePctWrapper: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 1 },
+  sharePctNumero: { fontSize: 58, fontWeight: '800', color: '#FFFFFF', lineHeight: 64 },
+  sharePctSymbol: { fontSize: 26, fontWeight: '800', color: '#FC4C02', marginBottom: 9, marginLeft: 3 },
+  shareChallengeName: { fontSize: 19, fontWeight: '800', color: '#FFFFFF', marginBottom: 7 },
   shareFrase: { fontSize: 13, color: '#A8CFFF', marginBottom: 12, fontStyle: 'italic' },
   shareProgressBar: { height: 6, backgroundColor: '#0D1B2A', borderRadius: 3, marginBottom: 12 },
   shareProgressFill: { height: 6, backgroundColor: '#1E6FD9', borderRadius: 3 },
   shareProgressFillCompletado: { backgroundColor: '#FC4C02' },
-  shareKmRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  shareKmText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
-  shareKmTotal: { fontSize: 12, color: '#4a6a8a', flex: 1 },
+  shareKmRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 6 },
+  shareKmText: { fontSize: 17, fontWeight: '800', color: '#FFFFFF' },
+  shareKmTotal: { fontSize: 11, color: '#7897B7', flex: 1 },
   shareCompletadoBadge: { fontSize: 16 },
-  shareMetaText: { fontSize: 12, color: '#A8CFFF', marginBottom: 16 },
+  shareMetaText: { fontSize: 11, color: '#A8CFFF', marginTop: 1 },
   shareFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#0D1B2A', paddingTop: 12 },
   shareNombre: { fontSize: 12, color: '#4a6a8a', fontWeight: 'bold' },
   shareUrl: { fontSize: 12, color: '#4a6a8a' },
@@ -1322,12 +1323,13 @@ const styles = StyleSheet.create({
   actividadesInicioCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 4, marginBottom: 10, borderTopWidth: 1, borderTopColor: '#1E3A5F' },
   actividadesInicioTitulo: { color: '#A8CFFF', fontSize: 13, fontWeight: '800' },
   actividadesInicioDesc: { color: '#A8CFFF', fontSize: 11, marginTop: 3 },
-  gpsInicioCard: { marginHorizontal: 20, marginTop: 4, marginBottom: 16, padding: 16, minHeight: 86, borderRadius: 20, backgroundColor: '#12345A', borderWidth: 1, borderColor: '#2A67A5', flexDirection: 'row', alignItems: 'center', gap: 14 },
-  gpsInicioIcono: { width: 52, height: 52, borderRadius: 17, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center' },
-  gpsInicioEyebrow: { color: '#7FB7F3', fontSize: 9, fontWeight: '800', letterSpacing: 1.8, marginBottom: 4 },
-  gpsInicioTitulo: { color: '#FFFFFF', fontSize: 18, fontWeight: '800', marginBottom: 3 },
-  gpsInicioDesc: { color: '#B8D6F5', fontSize: 11, lineHeight: 16 },
-  gpsInicioAccion: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FC4C02', alignItems: 'center', justifyContent: 'center' },
+  gpsInicioCard: { marginHorizontal: 20, marginTop: 4, marginBottom: 14, paddingHorizontal: 15, paddingVertical: 13, minHeight: 72, borderRadius: 18, backgroundColor: '#122A42', borderWidth: 1, borderColor: '#244B70', flexDirection: 'row', alignItems: 'center', gap: 12 },
+  gpsInicioIcono: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#173B60', borderWidth: 1, borderColor: '#28577F', alignItems: 'center', justifyContent: 'center' },
+  gpsInicioEyebrow: { color: '#6F95BA', fontSize: 8, fontWeight: '800', letterSpacing: 1.8, marginBottom: 2 },
+  gpsInicioTitulo: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', marginBottom: 2 },
+  gpsInicioDesc: { color: '#8FAECC', fontSize: 10, lineHeight: 14 },
+  gpsInicioAccion: { height: 34, borderRadius: 17, backgroundColor: '#FC4C02', paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  gpsInicioAccionText: { color: '#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   actualizarBtn: { marginTop: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center' },
   actualizarBtnText: { color: '#A8CFFF', fontSize: 14 },
   metaCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 18, marginBottom: 8, borderWidth: 1, borderColor: '#FC4C02' },
