@@ -306,6 +306,8 @@ const clienteSupabaseSimulado = (respuestas = {}) => {
       update: (p) => { op.metodo = 'update'; op.payload = p; return q; },
       insert: (p) => { op.metodo = 'insert'; op.payload = p; return q; },
       eq: (c, v) => { op.filtros.push(`eq:${c}=${v}`); return q; },
+      gte: (c, v) => { op.filtros.push(`gte:${c}=${v}`); return q; },
+      lte: (c, v) => { op.filtros.push(`lte:${c}=${v}`); return q; },
       is: (c, v) => { op.filtros.push(`is:${c}=${v}`); return q; },
       in: (c, v) => { op.filtros.push(`in:${c}`); return q; },
       or: (f) => { op.filtros.push(`or:${f}`); return q; },
@@ -326,7 +328,16 @@ test('repo Supabase: actualizar km es condicional y nunca incluye km_base', asyn
   assert.equal(await repo.actualizarKmCAS({ id: 'uc1', kmLeido: 10, kmNuevo: 15 }), true);
   const op = registro.find((r) => r.metodo === 'update');
   assert.deepEqual(op.payload, { km_completed: 15 });
-  assert.deepEqual(op.filtros, ['eq:id=uc1', 'eq:status=active', 'eq:km_completed=10']);
+  assert.deepEqual(op.filtros, ['eq:id=uc1', 'eq:status=active', 'gte:km_completed=9.9999999', 'lte:km_completed=10.0000001']);
+});
+
+test('repo Supabase: CAS tolera ruido sub-micrométrico de float sin abrir la puerta a cambios reales', async () => {
+  const { cliente, registro } = clienteSupabaseSimulado({ update: { data: [{ id: 'uc1' }], error: null } });
+  const repo = crearRepositorioSupabase(cliente);
+  assert.equal(await repo.actualizarKmCAS({ id: 'uc1', kmLeido: 83.17, kmNuevo: 88.27 }), true);
+  const op = registro.find((r) => r.metodo === 'update');
+  assert.ok(op.filtros.includes('gte:km_completed=83.1699999'));
+  assert.ok(op.filtros.includes('lte:km_completed=83.1700001'));
 });
 
 test('repo Supabase: completar usa la RPC atómica (CAS + evento) con los parámetros exactos y sin km_base', async () => {
@@ -337,7 +348,8 @@ test('repo Supabase: completar usa la RPC atómica (CAS + evento) con los parám
   const op = registro.find((x) => x.metodo === 'rpc');
   assert.equal(op.tabla, 'rpc:completar_desafio_motor');
   assert.deepEqual(op.payload, { p_id: 'uc1', p_km_leido: null, p_km_nuevo: 103, p_completed_at: '2026-10-02T10:00:00.000Z', p_datos: { motivo: 'x' } });
-  assert.ok(!registro.some((x) => x.metodo === 'update' && x.tabla === 'user_challenges'), 'la completitud no usa un UPDATE directo');
+  // Con kmLeido=null no hace falta normalizar; la RPC conserva la transición atómica.
+  assert.ok(!registro.some((x) => x.metodo === 'update' && x.tabla === 'user_challenges'));
   const perdio = crearRepositorioSupabase(clienteSupabaseSimulado().cliente);
   assert.deepEqual(await perdio.completarCAS({ id: 'uc1', kmLeido: 1, kmNuevo: 2, completedAtIso: 'x' }), { gano: false, eventoId: null, eventoNuevo: false });
 });
