@@ -18,7 +18,6 @@ const formatearFecha = (date) => {
 };
 
 export default function RegistroManualScreen({ navigation }) {
-  const [deporte, setDeporte] = useState('manual');
   const [descripcionActividad, setDescripcionActividad] = useState('');
   const [distancia, setDistancia] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -186,8 +185,9 @@ export default function RegistroManualScreen({ navigation }) {
         setMensaje(data.error);
         setExito(false);
       } else {
+        const actividadLabel = descripcionActividad.trim();
         const msgModo = challengeId
-          ? `${distancia} km de ${deporte === 'run' ? 'running' : 'ciclismo'} registrados!`
+          ? `${distancia} km${actividadLabel ? ` de ${actividadLabel}` : ''} registrados!`
           : `${distancia} km guardados en modo libre 🏃`;
         setMensaje(msgModo);
         setExito(true);
