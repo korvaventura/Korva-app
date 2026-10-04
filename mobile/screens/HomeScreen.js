@@ -1124,34 +1124,32 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
         </View>
       )}
 
-      <TouchableOpacity style={styles.detalleBtn} onPress={() => navigation.navigate('DetalleReto', { item, userId })}>
-        <View style={styles.btnRow}>
-          <Text style={styles.detalleBtnText}>📖 Ver mi historia completa</Text>
-          <Ionicons name="arrow-forward" size={14} color="#1E6FD9" />
+      <View style={styles.retoAcciones}>
+        <TouchableOpacity style={styles.historiaLink} onPress={() => navigation.navigate('DetalleReto', { item, userId })}>
+          <Text style={styles.historiaLinkText}>📖 Ver mi historia</Text>
+          <Ionicons name="arrow-forward" size={14} color="#67A9FF" />
+        </TouchableOpacity>
+
+        <View style={styles.accionesSecundarias}>
+          <TouchableOpacity style={styles.accionSutil} onPress={() => descargarBib('dorsal', challengeId)} disabled={!!cargandoBib}>
+            {cargandoBib === 'dorsal' ? <ActivityIndicator color="#A8CFFF" size="small" /> : <Text style={styles.accionSutilText}>📄 Dorsal</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.accionSutil} onPress={() => descargarBib('postal', challengeId)} disabled={!!cargandoBib}>
+            {cargandoBib === 'postal' ? <ActivityIndicator color="#A8CFFF" size="small" /> : <Text style={styles.accionSutilText}>🖼️ Postal</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.accionSutil} onPress={() => compartirProgreso(index)}>
+            <Text style={styles.accionSutilText}>↗ Compartir</Text>
+          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
 
-      {item.status === 'active' && (
-        <TouchableOpacity
-          style={[styles.bibBtn, { marginBottom: 8, backgroundColor: estaPausado ? '#1a4a1a' : '#1E3A5F', borderColor: estaPausado ? '#22C55E' : '#2a5a8a' }]}
-          onPress={() => togglePausar(challengeId, estaPausado)}
-        >
-          <Text style={styles.bibBtnText}>{estaPausado ? '▶️ Reanudar desafío' : '⏸ Pausar desafío'}</Text>
-        </TouchableOpacity>
-      )}
-
-      <View style={styles.bibRow}>
-        <TouchableOpacity style={styles.bibBtn} onPress={() => descargarBib('dorsal', challengeId)} disabled={!!cargandoBib}>
-          {cargandoBib === 'dorsal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.bibBtnText}>📄 Mi dorsal</Text>}
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.bibBtn, styles.bibBtnSecundario]} onPress={() => descargarBib('postal', challengeId)} disabled={!!cargandoBib}>
-          {cargandoBib === 'postal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={[styles.bibBtnText, { color: '#A8CFFF' }]}>🖼️ Mi postal</Text>}
-        </TouchableOpacity>
+        {item.status === 'active' && (
+          <TouchableOpacity style={styles.pausaSutil} onPress={() => togglePausar(challengeId, estaPausado)}>
+            <Text style={[styles.pausaSutilText, estaPausado && { color: '#86EFAC' }]}>
+              {estaPausado ? '▶ Reanudar desafío' : '⏸ Pausar desafío'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
-
-      <TouchableOpacity style={styles.compartirBtn} onPress={() => compartirProgreso(index)}>
-        <Text style={styles.compartirBtnText}>📤 Compartir progreso</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -1278,7 +1276,15 @@ const styles = StyleSheet.create({
   shareFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#0D1B2A', paddingTop: 12 },
   shareNombre: { fontSize: 12, color: '#4a6a8a', fontWeight: 'bold' },
   shareUrl: { fontSize: 12, color: '#4a6a8a' },
-  detalleBtn: { backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#1E6FD9', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
+  retoAcciones: { marginTop: 18, marginBottom: 24, borderTopWidth: 1, borderTopColor: '#213C58', paddingTop: 14 },
+  historiaLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 7, marginBottom: 10 },
+  historiaLinkText: { color: '#67A9FF', fontSize: 13, fontWeight: '800' },
+  accionesSecundarias: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 22, paddingVertical: 9 },
+  accionSutil: { minHeight: 28, justifyContent: 'center' },
+  accionSutilText: { color: '#A8CFFF', fontSize: 11, fontWeight: '700' },
+  pausaSutil: { alignItems: 'center', paddingTop: 10, marginTop: 4 },
+  pausaSutilText: { color: '#6F8298', fontSize: 10, fontWeight: '700' },
+    detalleBtn: { backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#1E6FD9', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
   detalleBtnText: { color: '#1E6FD9', fontSize: 13, fontWeight: 'bold' },
   compartirBtn: { backgroundColor: '#0D1B2A', borderWidth: 1, borderColor: '#2a4a6a', paddingVertical: 10, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
   compartirBtnText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
