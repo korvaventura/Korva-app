@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path, Polyline } from 'react-native-svg';
 import { colors } from '../theme/korvaTheme';
 
@@ -39,10 +39,17 @@ export default function KorvaActivityShareCard({
   const pct = totalKm > 0 ? Math.min(100, Math.max(0, challengeKm / totalKm * 100)) : null;
   const challengeName = challenge?.challenge || challenge?.challenge_title;
   const story = variante === 'story';
+  const fondoDesafio = backgroundImageUrl || challenge?.share_background_url || null;
 
   return (
     <View collapsable={false} style={[styles.card, story ? styles.story : styles.overlay]}>
-      {story && !backgroundImageUrl && (
+      {story && fondoDesafio && (
+        <>
+          <Image pointerEvents="none" source={{ uri: fondoDesafio }} style={styles.storyBackground} resizeMode="cover" />
+          <View pointerEvents="none" style={styles.storyShade} />
+        </>
+      )}
+      {story && !fondoDesafio && (
         <View pointerEvents="none" style={styles.topography}>
           <Svg width="100%" height="100%" viewBox="0 0 360 640">
             <Path d="M-30 115 C55 45 120 170 205 92 S330 42 405 112" fill="none" stroke="rgba(168,207,255,0.08)" strokeWidth="1" />
@@ -116,6 +123,8 @@ const styles = StyleSheet.create({
   overlay: { backgroundColor: 'transparent' },
   story: { width: 360, height: 640, backgroundColor: colors.backgroundDeep, paddingHorizontal: 28, paddingVertical: 34, overflow: 'hidden' },
   topography: { ...StyleSheet.absoluteFillObject },
+  storyBackground: { ...StyleSheet.absoluteFillObject, width: 'auto', height: 'auto', opacity: 0.42 },
+  storyShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(9,23,37,0.56)' },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   korva: { color: colors.text, fontSize: 11, fontWeight: '900', letterSpacing: 3, ...shadow },
   brandLine: { width: 22, height: 2, backgroundColor: colors.brandOrange },
