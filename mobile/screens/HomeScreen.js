@@ -12,6 +12,8 @@ import * as Sharing from 'expo-sharing';
 import MapaRecorrido from './MapaRecorrido';
 import { Ionicons } from '@expo/vector-icons';
 import { etiquetaDeInscripcion } from '../utils/versionDesafio';
+import { listarMisActividades } from '../services/actividadesApi';
+import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -81,6 +83,7 @@ export default function HomeScreen({ navigation }) {
   const [faqAbierta, setFaqAbierta] = useState(null);
   const [retoActivoIndex, setRetoActivoIndex] = useState(0);
   const [modalModalidadVisible, setModalModalidadVisible] = useState(false);
+  const [actividadReciente, setActividadReciente] = useState(null);
   const viewShotRefs = useRef([]);
 
   useEffect(() => {
@@ -109,6 +112,7 @@ export default function HomeScreen({ navigation }) {
       if (userId) {
         cargarProgreso();
         verificarStrava();
+        listarMisActividades().then((lista) => setActividadReciente(lista[0] || null)).catch(() => {});
       }
     }, [userId])
   );
@@ -728,10 +732,36 @@ export default function HomeScreen({ navigation }) {
         <Ionicons name="chevron-forward" size={22} color="#A8CFFF" />
       </TouchableOpacity>
 
+      {actividadReciente && (
+        <TouchableOpacity
+          style={styles.actividadRecienteCard}
+          onPress={() => navigation.navigate('DetalleActividad', { actividad: actividadReciente })}
+        >
+          <View style={styles.actividadRecienteHeader}>
+            <Text style={styles.actividadRecienteEyebrow}>ACTIVIDAD RECIENTE</Text>
+            <Text style={styles.actividadRecienteFecha}>
+              {actividadReciente.recorded_at ? new Date(actividadReciente.recorded_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) : ''}
+            </Text>
+          </View>
+          <View style={styles.actividadRecienteFila}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.actividadRecienteDeporte}>
+                {nombreDeporteActividad(actividadReciente.sport_type)}
+              </Text>
+              <Text style={styles.actividadRecienteFuente}>
+                {nombreFuenteActividad(actividadReciente.source)}
+              </Text>
+            </View>
+            <Text style={styles.actividadRecienteKm}>{Number(actividadReciente.distance_km || 0).toFixed(2)} km</Text>
+            <Ionicons name="chevron-forward" size={20} color="#67A9FF" />
+          </View>
+        </TouchableOpacity>
+      )}
+
       <TouchableOpacity style={styles.actividadesInicioCard} onPress={() => navigation.navigate('MisActividades')}>
         <View style={{ flex: 1 }}>
           <Text style={styles.actividadesInicioTitulo}>Mis actividades</Text>
-          <Text style={styles.actividadesInicioDesc}>Historial, estadísticas y recorridos GPS</Text>
+          <Text style={styles.actividadesInicioDesc}>Ver historial completo, estadísticas y recorridos GPS</Text>
         </View>
         <Ionicons name="chevron-forward" size={20} color="#67A9FF" />
       </TouchableOpacity>
@@ -1345,6 +1375,14 @@ const styles = StyleSheet.create({
   storyFooter: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', borderTopWidth: 1, borderTopColor: '#1E3A5F', paddingTop: 12 },
   storyNombre: { fontSize: 13, color: '#FFFFFF', fontWeight: 'bold' },
   storyUrl: { fontSize: 13, color: '#FC4C02' },
+  actividadRecienteCard: { backgroundColor: '#13283D', borderRadius: 16, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#1E3A5F' },
+  actividadRecienteHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 },
+  actividadRecienteEyebrow: { color: '#617184', fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
+  actividadRecienteFecha: { color: '#617184', fontSize: 11, fontWeight: '600' },
+  actividadRecienteFila: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  actividadRecienteDeporte: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  actividadRecienteFuente: { color: '#A8CFFF', fontSize: 11, marginTop: 3 },
+  actividadRecienteKm: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
   actividadesInicioCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#13283D', borderRadius: 14, padding: 14, marginBottom: 14 },
   actividadesInicioTitulo: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
   actividadesInicioDesc: { color: '#A8CFFF', fontSize: 11, marginTop: 3 },
