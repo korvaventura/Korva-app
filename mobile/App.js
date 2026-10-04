@@ -21,6 +21,8 @@ import ResetPasswordScreen from './screens/ResetPasswordScreen';
 import DetalleRetoScreen from './screens/DetalleRetoScreen';
 import SaludDiagnosticoScreen from './screens/SaludDiagnosticoScreen';
 import GpsTrackerScreen from './screens/GpsTrackerScreen';
+import MisActividadesScreen from './screens/MisActividadesScreen';
+import DetalleActividadScreen from './screens/DetalleActividadScreen';
 import useHealthAutoSync from './services/health/useHealthAutoSync';
 
 // ACÁ AGRUPAMOS TODO LO DE REACT NATIVE EN UNA SOLA LÍNEA Y AGREGAMOS 'View':
@@ -212,6 +214,8 @@ export default function App() {
         </Stack.Screen>
         <Stack.Screen name="DetalleReto" component={DetalleRetoScreen} />
         <Stack.Screen name="GpsTracker" component={GpsTrackerScreen} />
+        <Stack.Screen name="MisActividades" component={MisActividadesScreen} />
+        <Stack.Screen name="DetalleActividad" component={DetalleActividadScreen} />
         {esAdmin && (
           <Stack.Screen name="SaludDiagnostico" component={SaludDiagnosticoScreen} />
         )}
