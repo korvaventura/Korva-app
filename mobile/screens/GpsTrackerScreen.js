@@ -12,6 +12,7 @@ import {
 } from '../services/gps/gpsPersistence';
 import { iniciarGpsBackground, detenerGpsBackground } from '../services/gps/gpsBackgroundTask';
 import { confirmarActividadGps } from '../services/gps/gpsApi';
+import { colors, radius } from '../theme/korvaTheme';
 
 const {
   crearSesionGps,
@@ -249,7 +250,7 @@ export default function GpsTrackerScreen({ navigation }) {
               style={[styles.sportOption, deporte === value && styles.sportOptionActive]}
               onPress={() => setDeporte(value)}
             >
-              <Ionicons name={icon} size={18} color={deporte === value ? '#FFFFFF' : '#A8CFFF'} />
+              <Ionicons name={icon} size={18} color={deporte === value ? colors.text : colors.textSoft} />
               <Text style={[styles.sportText, deporte === value && styles.sportTextActive]}>{label}</Text>
             </TouchableOpacity>
           ))}
@@ -376,44 +377,44 @@ export default function GpsTrackerScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#07131F', paddingHorizontal: 22, paddingTop: 54 },
+  container: { flex: 1, backgroundColor: colors.backgroundDeep, paddingHorizontal: 22, paddingTop: 54 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
+  headerTitle: { color: colors.text, fontSize: 17, fontWeight: '700' },
   sportRow: { flexDirection: 'row', gap: 8, marginTop: 24 },
-  sportOption: { flex: 1, height: 46, borderRadius: 14, backgroundColor: '#0D1B2A', flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
-  sportOptionActive: { backgroundColor: '#1E6FD9' },
-  sportText: { color: '#A8CFFF', fontSize: 12, fontWeight: '700' },
-  sportTextActive: { color: '#FFFFFF' },
+  sportOption: { flex: 1, height: 46, borderRadius: radius.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.borderSoft, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
+  sportOptionActive: { backgroundColor: colors.surfaceRaised, borderColor: colors.brandOrange },
+  sportText: { color: colors.textSoft, fontSize: 12, fontWeight: '700' },
+  sportTextActive: { color: colors.text },
   statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 30 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#617184', marginRight: 8 },
-  dotActivo: { backgroundColor: '#4CAF50' },
-  statusText: { color: '#A8CFFF', fontSize: 13 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.textMuted, marginRight: 8 },
+  dotActivo: { backgroundColor: colors.success },
+  statusText: { color: colors.textSoft, fontSize: 13 },
   hero: { alignItems: 'center', marginTop: 56 },
-  label: { color: '#617184', fontSize: 11, fontWeight: '700', letterSpacing: 2.5 },
-  distance: { color: '#FFFFFF', fontSize: 84, lineHeight: 92, fontWeight: '700', letterSpacing: -4, marginTop: 8 },
-  unit: { color: '#A8CFFF', fontSize: 18, marginTop: -4 },
-  statsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 54, backgroundColor: '#0D1B2A', borderRadius: 18, paddingVertical: 22 },
+  label: { color: colors.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 2.5 },
+  distance: { color: colors.text, fontSize: 84, lineHeight: 92, fontWeight: '700', letterSpacing: -4, marginTop: 8 },
+  unit: { color: colors.textSoft, fontSize: 18, marginTop: -4 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 54, backgroundColor: colors.background, borderRadius: 18, paddingVertical: 22 },
   stat: { flex: 1, alignItems: 'center' },
-  statValue: { color: '#FFFFFF', fontSize: 24, fontWeight: '700' },
-  statLabel: { color: '#617184', fontSize: 10, fontWeight: '700', letterSpacing: 1.5, marginTop: 7 },
-  divider: { width: 1, height: 38, backgroundColor: '#1E3A5F' },
-  note: { flexDirection: 'row', gap: 10, backgroundColor: '#0D1B2A', borderRadius: 14, padding: 15, marginTop: 18, alignItems: 'center' },
-  noteText: { color: '#A8CFFF', fontSize: 12, lineHeight: 17, flex: 1 },
-  summaryCard: { backgroundColor: '#0D1B2A', borderRadius: 18, padding: 18, marginBottom: 12 },
-  summaryTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
-  summarySport: { color: '#A8CFFF', fontSize: 13, marginTop: 3, marginBottom: 16 },
+  statValue: { color: colors.text, fontSize: 24, fontWeight: '700' },
+  statLabel: { color: colors.textMuted, fontSize: 10, fontWeight: '700', letterSpacing: 1.5, marginTop: 7 },
+  divider: { width: 1, height: 38, backgroundColor: colors.surfaceStrong },
+  note: { flexDirection: 'row', gap: 10, backgroundColor: colors.background, borderRadius: 14, padding: 15, marginTop: 18, alignItems: 'center' },
+  noteText: { color: colors.textSoft, fontSize: 12, lineHeight: 17, flex: 1 },
+  summaryCard: { backgroundColor: colors.background, borderRadius: 18, padding: 18, marginBottom: 12 },
+  summaryTitle: { color: colors.text, fontSize: 18, fontWeight: '700' },
+  summarySport: { color: colors.textSoft, fontSize: 13, marginTop: 3, marginBottom: 16 },
   summaryRow: { flexDirection: 'row', marginTop: 10 },
   summaryItem: { flex: 1 },
-  summaryValue: { color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
-  summaryLabel: { color: '#617184', fontSize: 9, fontWeight: '700', letterSpacing: 1, marginTop: 4 },
+  summaryValue: { color: colors.text, fontSize: 17, fontWeight: '700' },
+  summaryLabel: { color: colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 1, marginTop: 4 },
   controls: { marginTop: 'auto', paddingBottom: 38 },
-  primary: { height: 58, borderRadius: 18, backgroundColor: '#1E6FD9', flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center' },
-  primaryText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  primary: { height: 58, borderRadius: 18, backgroundColor: colors.brandOrange, flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center' },
+  primaryText: { color: colors.text, fontSize: 16, fontWeight: '700' },
   controlRow: { flexDirection: 'row', gap: 12 },
-  secondary: { flex: 1, height: 58, borderRadius: 18, backgroundColor: '#1E3A5F', flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
-  primarySmall: { flex: 1, height: 58, borderRadius: 18, backgroundColor: '#1E6FD9', flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
+  secondary: { flex: 1, height: 58, borderRadius: 18, backgroundColor: colors.surfaceStrong, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
+  primarySmall: { flex: 1, height: 58, borderRadius: 18, backgroundColor: colors.brandOrange, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
   finish: { flex: 1, height: 58, borderRadius: 18, backgroundColor: '#B23A3A', flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
-  secondaryText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  secondaryText: { color: colors.text, fontSize: 14, fontWeight: '700' },
   disabled: { opacity: 0.55 },
 });
