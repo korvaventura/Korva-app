@@ -14,14 +14,14 @@ export default function MovimientoPersonalCard({ estado, onActualizar }) {
   const listo = estado.status === 'disponible';
   const r = listo ? estado.datos : null;
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, !listo && styles.cardCompact]}>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={styles.eyebrow}>TU MOVIMIENTO</Text>
           <Text style={styles.title}>Cada paso cuenta</Text>
         </View>
         <TouchableOpacity onPress={onActualizar} disabled={estado.status === 'cargando'} accessibilityRole="button" accessibilityLabel="Actualizar tu movimiento" hitSlop={10}>
-          <Text style={styles.refresh}>Actualizar</Text>
+          <Text style={styles.refresh}>{estado.status === 'no_disponible' ? 'Consultar' : 'Actualizar'}</Text>
         </TouchableOpacity>
       </View>
       {!listo ? (
@@ -72,6 +72,7 @@ export default function MovimientoPersonalCard({ estado, onActualizar }) {
 
 const styles = StyleSheet.create({
   card: { backgroundColor: colors.surfaceSoft, borderColor: colors.border, borderWidth: 1, borderRadius: radius.xl, padding: spacing.xl, marginBottom: spacing.lg },
+  cardCompact: { backgroundColor: colors.backgroundDeep, paddingVertical: spacing.lg, borderColor: colors.borderSoft },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.lg },
   eyebrow: { color: colors.textMuted, fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginBottom: spacing.xs },
   title: { color: colors.text, fontSize: 20, fontWeight: '800' },

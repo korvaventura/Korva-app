@@ -18,6 +18,7 @@ import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/activida
 import { colors } from '../theme/korvaTheme';
 import MovimientoPersonalCard from '../components/MovimientoPersonalCard';
 import useMovimientoPersonal from '../services/useMovimientoPersonal';
+import KorvaCompletedShare from '../components/KorvaCompletedShare';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -62,10 +63,12 @@ export default function HomeScreen({ navigation }) {
   const [error, setError] = useState(false);
   const [userId, setUserId] = useState(null);
   const [completado, setCompletado] = useState(null);
+  const [retoCompartir, setRetoCompartir] = useState(null);
   const [mostrarTutorial, setMostrarTutorial] = useState(false);
   const [modalInfoVisible, setModalInfoVisible] = useState(false);
   const [modalInfoChallenge, setModalInfoChallenge] = useState('');
   const [nombre, setNombre] = useState('');
+  const [nombreCompartir, setNombreCompartir] = useState('');
   const [bannerVisible, setBannerVisible] = useState(false);
   const [bannerCerrado, setBannerCerrado] = useState(false); // FIX: estado separado para cerrar manualmente
   const [metaInputs, setMetaInputs] = useState({});
@@ -93,6 +96,7 @@ export default function HomeScreen({ navigation }) {
         try {
           await AsyncStorage.setItem('tutorial_visto', 'true');
         } catch (e) {}
+        setNombreCompartir(session.user.user_metadata?.name || session.user.user_metadata?.full_name || '');
         const metaNombre = session.user.user_metadata?.name?.split(' ')[0] || 
                            session.user.user_metadata?.full_name?.split(' ')[0] || '';
         if (metaNombre) {
@@ -100,6 +104,7 @@ export default function HomeScreen({ navigation }) {
         } else {
           const { data } = await supabase.from('users').select('name').eq('id', session.user.id).single();
           setNombre(data?.name?.split(' ')[0] || '');
+          setNombreCompartir(data?.name || '');
         }
       } else {
         setCargando(false);
@@ -145,7 +150,7 @@ export default function HomeScreen({ navigation }) {
     try {
       const { data } = await supabase
         .from('user_challenges')
-        .select('challenge_id,status,completed_at,pausado')
+        .select('challenge_id,status,completed_at,pausado,numero_bib')
         .eq('user_id', userId);
       const porChallenge = new Map((data || []).map((x) => [x.challenge_id, x]));
       return lista.map((item) => ({ ...item, ...(porChallenge.get(item.challenge_id) || {}) }));
@@ -767,6 +772,7 @@ export default function HomeScreen({ navigation }) {
                 item={challengesActivos[retoVisibleIndex]}
                 index={retoVisibleIndex}
                 nombre={nombre}
+                nombrePersona={nombreCompartir}
                 userId={userId}
                 navigation={navigation}
                 metaVisibles={metaVisibles}
@@ -850,7 +856,7 @@ export default function HomeScreen({ navigation }) {
             <View key={i} style={styles.completadoCard}>
               <TouchableOpacity
                 style={{ flexDirection: 'row', alignItems: 'center' }}
-                onPress={() => navigation.navigate('DetalleReto', { item, userId })}
+                onPress={() => navigation.navigate('DetalleReto', { item, userId, nombrePersona: nombreCompartir })}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.completadoChallenge}>{item.challenge || item.challenge_title || '—'}</Text>
@@ -863,7 +869,7 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
               <View style={styles.completedActions}>
                 <TouchableOpacity style={styles.completedAction}
-                  onPress={() => navigation.navigate('DetalleReto', { item, userId })}>
+                  onPress={() => navigation.navigate('DetalleReto', { item, userId, nombrePersona: nombreCompartir })}>
                   <Ionicons name="book-outline" size={15} color={colors.textSoft} />
                   <Text style={styles.completedActionText}>Ver historia</Text>
                 </TouchableOpacity>
@@ -873,7 +879,10 @@ export default function HomeScreen({ navigation }) {
                   <Text style={styles.completedActionText}>Medalla y envío</Text>
                 </TouchableOpacity>
               </View>
-
+              <TouchableOpacity style={styles.completedShareBtn} accessibilityRole="button" onPress={() => setRetoCompartir(item)}>
+                <Ionicons name="share-outline" size={16} color={colors.brandOrangeSoft} />
+                <Text style={styles.completedShareText}>Compartir desafío completado</Text>
+              </TouchableOpacity>
             </View>
           ))}
         </View>
@@ -943,6 +952,7 @@ export default function HomeScreen({ navigation }) {
       </Modal>
 
       <StatusBar style="light" />
+      <KorvaCompletedShare nombrePersona={nombreCompartir} reto={retoCompartir} onClose={() => setRetoCompartir(null)} />
     </ScrollView>
   );
 }
@@ -968,7 +978,7 @@ function GpsHomeAction({ navigation }) {
   );
 }
 
-function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress, scrollRef, descargarBib, cargandoBib, togglePausar }) {
+function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress, scrollRef, descargarBib, cargandoBib, togglePausar }) {
   const challengeId = item.challenge_id;
   const estaPausado = item.pausado || false;
   const estaActivo = item.status === 'active';
@@ -1023,7 +1033,7 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
           </View>
           <TouchableOpacity
             style={styles.heroHistoria}
-            onPress={() => navigation.navigate('DetalleReto', { item, userId })}
+            onPress={() => navigation.navigate('DetalleReto', { item, userId, nombrePersona })}
             activeOpacity={0.72}
           >
             <Text style={styles.heroHistoriaText}>Historia del desafío</Text>
@@ -1084,6 +1094,8 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
 }
 
 const styles = StyleSheet.create({
+  completedShareBtn: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 4 },
+  completedShareText: { fontSize: 12, fontWeight: '800', color: colors.brandOrangeSoft },
   scroll: { flex: 1, backgroundColor: colors.background },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },

@@ -1,4 +1,5 @@
-import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
+import { nombreDeporteActividad, nombreFuenteActividad, iconoDeporteActividad } from '../utils/actividadPresentacion';
+import KorvaCompletedShare from '../components/KorvaCompletedShare';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Modal, Dimensions } from 'react-native';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -32,6 +33,7 @@ export default function PerfilScreen() {
   const [usuario, setUsuario] = useState(null);
   const [modalEnvioReto, setModalEnvioReto] = useState(null);
   const [detallesReto, setDetallesReto] = useState({});
+  const [retoCompartir, setRetoCompartir] = useState(null);
   const [stats, setStats] = useState(null);
   const [userId, setUserId] = useState(null);
   const scrollRef = useRef(null);
@@ -186,7 +188,7 @@ export default function PerfilScreen() {
     try {
       const { data, error } = await supabase
         .from('user_challenges')
-        .select('id, version, modalidad, challenge_id, meta_fecha, km_completed, status, pausado, completed_at, challenges(title, modalidades, total_distance_km)')
+        .select('id, numero_bib, version, modalidad, challenge_id, meta_fecha, km_completed, status, pausado, completed_at, challenges(title, modalidades, total_distance_km)')
         .eq('user_id', userId)
         .in('status', ['active', 'completed', 'shipped', 'cargado']);
       if (!error && data) {
@@ -574,12 +576,6 @@ export default function PerfilScreen() {
     return new Date(fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
-  const deporteEmoji = (tipo) => {
-    if (tipo === 'run') return '🏃';
-    if (tipo === 'ride') return '🚴';
-    return '🏅';
-  };
-
   const toggleHistorial = () => {
     setMostrarTodasActividades(!mostrarTodasActividades);
     if (mostrarTodasActividades) {
@@ -954,6 +950,7 @@ export default function PerfilScreen() {
                             meta_fecha: mFecha || inscripcion.meta_fecha || '',
                           },
                           userId,
+                          nombrePersona: usuario?.name,
                         })}
                       >
                         <Text style={{ color: colors.textSoft, fontWeight: 'bold', fontSize: 12 }}><Ionicons name="book-outline" size={14} color={colors.textSoft} /> Historia</Text>
@@ -986,6 +983,13 @@ export default function PerfilScreen() {
                         {cargandoBib === 'postal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={[styles.bibBtnText, { color: colors.textSoft }]}><Ionicons name="image-outline" size={14} color={colors.textSoft} /> Mi postal</Text>}
                       </TouchableOpacity>
                     </View>}
+                    {['completed', 'cargado', 'shipped'].includes(inscripcion.status) && (
+                      <TouchableOpacity style={styles.completedShareBtn} accessibilityRole="button"
+                        onPress={() => setRetoCompartir({ ...inscripcion, distancia_total: distanciaTotal })}>
+                        <Ionicons name="share-outline" size={16} color={colors.brandOrangeSoft} />
+                        <Text style={styles.completedShareText}>Compartir desafío completado</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               );
@@ -1061,7 +1065,7 @@ export default function PerfilScreen() {
                 activeOpacity={0.82}
                 onPress={() => navigation.navigate('DetalleActividad', { actividad: act, userId })}
               >
-                <Text style={styles.actividadEmoji}>{deporteEmoji(act.sport_type)}</Text>
+                <View style={styles.actividadIcon}><Ionicons name={iconoDeporteActividad(act.sport_type)} size={22} color={colors.brandOrangeSoft} /></View>
                 <View style={styles.actividadInfo}>
                   <Text style={styles.actividadFecha}>{formatearFechaCorta(act.recorded_at)}</Text>
                   <Text style={styles.actividadTipo}>
@@ -1069,7 +1073,7 @@ export default function PerfilScreen() {
                     {' · ' + nombreFuenteActividad(act.source)}
                   </Text>
                 </View>
-                <Text style={styles.actividadKm}>{parseFloat(act.distance_km).toFixed(1)} km</Text>
+                <Text style={styles.actividadKm}>{parseFloat(act.distance_km).toFixed(2)} km</Text>
                 <TouchableOpacity onPress={() => eliminarActividad(act.id)} style={styles.eliminarBtn}
                   accessibilityRole="button" accessibilityLabel="Eliminar actividad">
                   <Ionicons name="trash-outline" size={17} color={colors.textMuted} />
@@ -1493,11 +1497,15 @@ Compartilo con tu grupo para que se unan.`);
         <Text style={styles.eliminarCuentaBtnText}>Eliminar cuenta</Text>
       </TouchableOpacity>
 
+      <KorvaCompletedShare nombrePersona={usuario?.name} reto={retoCompartir} onClose={() => setRetoCompartir(null)} />
     </ScrollView></SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  completedShareBtn: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderSoft },
+  completedShareText: { fontSize: 12, fontWeight: '800', color: colors.brandOrangeSoft },
+  actividadIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundDeep },
   scroll: { flex: 1, backgroundColor: colors.background },
   container: { paddingBottom: 60, alignItems: 'center' },
   heroBg: { width: '100%', paddingHorizontal: 24, paddingTop: 18, paddingBottom: 12, marginBottom: spacing.sm },

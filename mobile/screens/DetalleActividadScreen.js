@@ -1,4 +1,4 @@
-import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
@@ -8,11 +8,12 @@ import { obtenerRutaGps } from '../services/gps/gpsApi';
 import { supabase } from '../supabase';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../theme/korvaTheme';
+import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
-const deporte = (tipo) => ({ run: 'Running', walk: 'Caminata', ride: 'Ciclismo', swim: 'Natación' }[tipo] || tipo || 'Actividad');
-const fuente = (source) => source === 'korva_gps' ? 'Korva GPS' : source === 'strava' ? 'Strava' : source === 'manual' ? 'Manual' : (source || 'Korva');
+const deporte = nombreDeporteActividad;
+const fuente = nombreFuenteActividad;
 
 const duracion = (segundos) => {
   const s = Math.max(0, Number(segundos) || 0);
@@ -21,6 +22,8 @@ const duracion = (segundos) => {
 };
 
 export default function DetalleActividadScreen({ route, navigation }) {
+  const { width } = useWindowDimensions();
+  const anchoShare = Math.min(360, width - 36);
   const a = route.params?.actividad || {};
   const userIdParam = route.params?.userId || null;
   const recienGuardada = route.params?.recienGuardada === true;
@@ -190,7 +193,7 @@ export default function DetalleActividadScreen({ route, navigation }) {
                 options={{ format: 'png', quality: 1, result: 'tmpfile' }}
                 style={shareVariant === 'overlay' ? styles.transparentShot : null}
               >
-                <KorvaActivityShareCard actividad={a} puntos={puntos} challenge={retoShare} variante={shareVariant} />
+                <KorvaActivityShareCard actividad={a} puntos={puntos} challenge={retoShare} variante={shareVariant} ancho={anchoShare} />
               </ViewShot>
             </View>
 

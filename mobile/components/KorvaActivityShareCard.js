@@ -28,6 +28,7 @@ export default function KorvaActivityShareCard({
   challenge = null,
   variante = 'overlay',
   backgroundImageUrl = null,
+  ancho = null,
 }) {
   const km = Number(actividad.distance_km || 0);
   const segundos = Number(actividad.duration_seconds || 0);
@@ -39,10 +40,14 @@ export default function KorvaActivityShareCard({
   const pct = totalKm > 0 ? Math.min(100, Math.max(0, challengeKm / totalKm * 100)) : null;
   const challengeName = challenge?.challenge || challenge?.challenge_title;
   const story = variante === 'story';
+  const tieneRuta = trazado.length >= 2;
+  const anchoCard = ancho || (story ? 360 : 340);
+  const tipo = ({ ride: 'RIDE', walk: 'WALK', run: 'RUN', swim: 'SWIM' })[actividad.sport_type] || 'ACTIVITY';
   const fondoDesafio = backgroundImageUrl || challenge?.share_background_url || null;
 
   return (
-    <View collapsable={false} style={[styles.card, story ? styles.story : styles.overlay]}>
+    <View collapsable={false} style={[styles.card, story ? styles.story : styles.overlay,
+      { width: anchoCard }, story && { height: anchoCard * 16 / 9 }, !story && !tieneRuta && styles.overlayCompact]}>
       {story && fondoDesafio && (
         <>
           <Image pointerEvents="none" source={{ uri: fondoDesafio }} style={styles.storyBackground} resizeMode="cover" />
@@ -63,7 +68,7 @@ export default function KorvaActivityShareCard({
       <View style={styles.brandRow}>
         <Text style={styles.korva}>KORVA</Text>
         <View style={styles.brandLine} />
-        <Text style={styles.activityType}>{actividad.sport_type === 'ride' ? 'RIDE' : actividad.sport_type === 'walk' ? 'WALK' : 'RUN'}</Text>
+        <Text style={styles.activityType}>{tipo}</Text>
       </View>
 
       {challengeName ? (
@@ -73,32 +78,32 @@ export default function KorvaActivityShareCard({
       )}
 
       <View style={styles.metricRow}>
-        <Text style={styles.distance}>{km.toFixed(2)}</Text>
+        <Text style={[styles.distance, km.toFixed(2).length > 6 && styles.distanceSmall]}>{km.toFixed(2)}</Text>
         <Text style={styles.unit}>KM</Text>
       </View>
 
-      <View style={styles.sessionRow}>
+      {segundos > 0 && <View style={styles.sessionRow}>
         <Text style={styles.session}>{duracion(segundos)}</Text>
         <Text style={styles.dot}>·</Text>
         <Text style={styles.session}>{ritmo(km, segundos, actividad.sport_type)}</Text>
-      </View>
+      </View>}
 
-      <View style={styles.route}>
-        {trazado.length >= 2 ? (
+      <View style={[styles.route, story && styles.routeStory, !story && !tieneRuta && styles.routeCompact]}>
+        {tieneRuta ? (
           <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
             <Polyline points={points} fill="none" stroke={colors.text} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
             <Circle cx={trazado[0].x} cy={trazado[0].y} r="4" fill={colors.text} />
             <Circle cx={trazado[trazado.length - 1].x} cy={trazado[trazado.length - 1].y} r="5" fill={colors.brandOrange} />
           </Svg>
         ) : (
-          <View style={styles.routeFallback}><Text style={styles.routeFallbackText}>RECORRIDO GPS</Text></View>
+          <View style={styles.routeFallback}><View style={styles.fallbackLine} /><Text style={styles.routeFallbackText}>CADA PASO CUENTA</Text></View>
         )}
       </View>
 
       {challengeName && totalKm > 0 && (
         <View style={styles.challengeBlock}>
           <View style={styles.challengeNumbers}>
-            <Text style={styles.challengeProgress}>{challengeKm.toFixed(1)} / {totalKm.toFixed(0)} KM</Text>
+            <Text style={styles.challengeProgress}>{challengeKm.toFixed(1)} / {String(Number(totalKm.toFixed(2)))} KM</Text>
             <Text style={styles.challengePct}>{pct.toFixed(0)}%</Text>
           </View>
           <View style={styles.progressTrack}>
@@ -121,6 +126,7 @@ const shadow = {
 const styles = StyleSheet.create({
   card: { width: 340, minHeight: 470, paddingHorizontal: 22, paddingVertical: 24, justifyContent: 'flex-start' },
   overlay: { backgroundColor: 'transparent' },
+  overlayCompact: { minHeight: 300 },
   story: { width: 360, height: 640, backgroundColor: colors.backgroundDeep, paddingHorizontal: 28, paddingVertical: 34, overflow: 'hidden' },
   topography: { ...StyleSheet.absoluteFillObject },
   storyBackground: { ...StyleSheet.absoluteFillObject, opacity: 0.42 },
@@ -132,13 +138,17 @@ const styles = StyleSheet.create({
   roadTo: { color: colors.brandOrangeSoft, fontSize: 10, fontWeight: '900', letterSpacing: 1.8, marginTop: 26, ...shadow },
   metricRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 4 },
   distance: { color: colors.text, fontSize: 64, lineHeight: 70, fontWeight: '900', letterSpacing: -3, ...shadow },
+  distanceSmall: { fontSize: 46, lineHeight: 56, letterSpacing: -2 },
   unit: { color: colors.text, fontSize: 18, fontWeight: '900', marginLeft: 6, marginBottom: 10, ...shadow },
   sessionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
   session: { color: colors.text, fontSize: 12, fontWeight: '800', letterSpacing: 0.6, ...shadow },
   dot: { color: colors.brandOrange, fontSize: 15, fontWeight: '900', ...shadow },
   route: { height: H, marginTop: 18, justifyContent: 'center' },
+  routeStory: { flex: 1, minHeight: H },
+  routeCompact: { height: 70 },
   routeFallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   routeFallbackText: { color: colors.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 2 },
+  fallbackLine: { width: 28, height: 2, backgroundColor: colors.brandOrange, marginBottom: 12 },
   challengeBlock: { marginTop: 12 },
   challengeNumbers: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   challengeProgress: { color: colors.text, fontSize: 12, fontWeight: '900', letterSpacing: 0.8, ...shadow },
