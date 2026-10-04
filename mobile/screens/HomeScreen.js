@@ -1040,6 +1040,8 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
   const bordeCard = estaCompletado ? '#FC4C02' : pct >= 75 ? '#FC4C02' : '#1E3A5F';
   // Versión del desafío (Estándar/Extendida), no deporte. Fallback a `modalidad` de respuestas viejas.
   const modalidadLabel = `VERSIÓN ${etiquetaDeInscripcion(item).toUpperCase()}`;
+  const tituloNormalizado = (item.challenge || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const tieneExpedicion = ['fuji', 'dubrovnik', 'san andres', 'fin del mundo'].some(nombre => tituloNormalizado.includes(nombre));
 
   return (
     <View>
@@ -1070,21 +1072,7 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
             {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅</Text>}
           </View>
           {metaFormateada && <Text style={styles.shareMetaText}>🎯 Meta: {metaFormateada}</Text>}
-          <View style={styles.shareFooter}>
-            <Text style={styles.shareNombre}>{nombre}</Text>
-            <Text style={styles.shareUrl}>korva.run</Text>
-          </View>
-        </View>
-      </ViewShot>
-
-      <MapaRecorrido
-        kmCompletados={item.km_completados}
-        distanciaTotal={item.distancia_total}
-        porcentaje={item.porcentaje}
-        checkpointsData={item.checkpoints}
-        challengeId={item.challenge_id}
-        challengeTitle={item.challenge || ''}
-      />
+          {tieneExpedicion && (
 
       {mostrarCardMeta && (
         <View style={styles.metaCard}>
