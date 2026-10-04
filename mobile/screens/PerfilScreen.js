@@ -907,7 +907,17 @@ export default function PerfilScreen() {
                     <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
                       <TouchableOpacity
                         style={{ flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: '#2A5A8A', alignItems: 'center', justifyContent: 'center' }}
-                        onPress={() => navigation.navigate('DetalleReto', { item: inscripcion, userId })}
+                        onPress={() => navigation.navigate('DetalleReto', {
+                          item: {
+                            ...inscripcion,
+                            challenge: inscripcion.challenges?.title || inscripcion.challenges?.name || 'Desafío',
+                            km_completados: kmCompletados,
+                            distancia_total: distanciaTotal,
+                            porcentaje: pct,
+                            meta_fecha: mFecha || inscripcion.meta_fecha || '',
+                          },
+                          userId,
+                        })}
                       >
                         <Text style={{ color: '#A8CFFF', fontWeight: 'bold', fontSize: 12 }}>📖 Historia</Text>
                       </TouchableOpacity>
