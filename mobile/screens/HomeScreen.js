@@ -678,6 +678,18 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
+      <TouchableOpacity style={styles.gpsInicioCard} onPress={() => navigation.navigate('GpsTracker')}>
+        <View style={styles.gpsInicioIcono}>
+          <Ionicons name="navigate" size={22} color="#FFFFFF" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.gpsInicioEyebrow}>KORVA GPS · PRUEBA</Text>
+          <Text style={styles.gpsInicioTitulo}>Iniciar actividad</Text>
+          <Text style={styles.gpsInicioDesc}>Medí distancia y tiempo con el GPS del teléfono.</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={22} color="#A8CFFF" />
+      </TouchableOpacity>
+
       {/* Banner pago — FIX: usa cerrarBanner() */}
       {bannerVisible && !cargando && (
         <View style={styles.bannerCard}>
@@ -808,18 +820,6 @@ export default function HomeScreen({ navigation }) {
       {!cargando && !error && (
         <View style={styles.movimientoSection}>
           <Text style={styles.movimientoTitulo}>Tu movimiento</Text>
-      <TouchableOpacity style={styles.gpsInicioCard} onPress={() => navigation.navigate('GpsTracker')}>
-        <View style={styles.gpsInicioIcono}>
-          <Ionicons name="navigate" size={22} color="#FFFFFF" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.gpsInicioEyebrow}>KORVA GPS · PRUEBA</Text>
-          <Text style={styles.gpsInicioTitulo}>Iniciar actividad</Text>
-          <Text style={styles.gpsInicioDesc}>Medí distancia y tiempo con el GPS del teléfono.</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={22} color="#A8CFFF" />
-      </TouchableOpacity>
-
       {actividadReciente && (
         <TouchableOpacity
           style={styles.actividadRecienteCard}
@@ -1322,7 +1322,7 @@ const styles = StyleSheet.create({
   actividadesInicioCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 4, marginBottom: 10, borderTopWidth: 1, borderTopColor: '#1E3A5F' },
   actividadesInicioTitulo: { color: '#A8CFFF', fontSize: 13, fontWeight: '800' },
   actividadesInicioDesc: { color: '#A8CFFF', fontSize: 11, marginTop: 3 },
-  gpsInicioCard: { marginTop: 0, marginBottom: 10, padding: 16, borderRadius: 18, backgroundColor: '#10253A', borderWidth: 1, borderColor: '#1E3A5F', flexDirection: 'row', alignItems: 'center', gap: 13 },
+  gpsInicioCard: { marginHorizontal: 20, marginTop: 4, marginBottom: 14, padding: 14, borderRadius: 18, backgroundColor: '#10253A', borderWidth: 1, borderColor: '#1E3A5F', flexDirection: 'row', alignItems: 'center', gap: 13 },
   gpsInicioIcono: { width: 46, height: 46, borderRadius: 15, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center' },
   gpsInicioEyebrow: { color: '#617184', fontSize: 9, fontWeight: '700', letterSpacing: 1.4, marginBottom: 3 },
   gpsInicioTitulo: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', marginBottom: 2 },
