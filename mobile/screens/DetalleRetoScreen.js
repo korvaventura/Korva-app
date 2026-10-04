@@ -199,7 +199,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
 
       <View style={styles.progresoCard}>
         <View style={styles.progresoHeader}>
-          <Text style={styles.progresoKm}>{kmCompletados} km</Text>
+          <Text style={styles.progresoKm}>{parseFloat(kmCompletados).toFixed(1)} km</Text>
           <Text style={styles.progresoPct}>{pct.toFixed(0)}%</Text>
         </View>
         <View style={styles.progressBar}>
