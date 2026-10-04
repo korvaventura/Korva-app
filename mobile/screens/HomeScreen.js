@@ -714,6 +714,14 @@ export default function HomeScreen({ navigation }) {
         <Ionicons name="chevron-forward" size={22} color="#A8CFFF" />
       </TouchableOpacity>
 
+      <TouchableOpacity style={styles.actividadesInicioCard} onPress={() => navigation.navigate('MisActividades')}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.actividadesInicioTitulo}>Mis actividades</Text>
+          <Text style={styles.actividadesInicioDesc}>Historial, estadísticas y recorridos GPS</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color="#67A9FF" />
+      </TouchableOpacity>
+
       {/* Banner pago — FIX: usa cerrarBanner() */}
       {bannerVisible && !cargando && (
         <View style={styles.bannerCard}>
@@ -1323,6 +1331,9 @@ const styles = StyleSheet.create({
   storyFooter: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', borderTopWidth: 1, borderTopColor: '#1E3A5F', paddingTop: 12 },
   storyNombre: { fontSize: 13, color: '#FFFFFF', fontWeight: 'bold' },
   storyUrl: { fontSize: 13, color: '#FC4C02' },
+  actividadesInicioCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#13283D', borderRadius: 14, padding: 14, marginBottom: 14 },
+  actividadesInicioTitulo: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  actividadesInicioDesc: { color: '#A8CFFF', fontSize: 11, marginTop: 3 },
   gpsInicioCard: { marginHorizontal: 20, marginTop: 8, marginBottom: 14, padding: 16, borderRadius: 18, backgroundColor: '#10253A', borderWidth: 1, borderColor: '#1E3A5F', flexDirection: 'row', alignItems: 'center', gap: 13 },
   gpsInicioIcono: { width: 46, height: 46, borderRadius: 15, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center' },
   gpsInicioEyebrow: { color: '#617184', fontSize: 9, fontWeight: '700', letterSpacing: 1.4, marginBottom: 3 },
