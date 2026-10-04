@@ -947,7 +947,9 @@ export default function HomeScreen({ navigation }) {
                   <Text style={styles.completadoKm}>{parseFloat(item.km_completados || 0).toFixed(1)} km · {etiquetaDeInscripcion(item)}</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                  <Text style={styles.completadoBadge}>{item.status === 'shipped' || item.status === 'cargado' ? '📦 Enviado' : '🏅 Completado'}</Text>
+                  <TouchableOpacity onPress={(e) => { e.stopPropagation(); setModalInfoChallenge(item.challenge || ''); setModalInfoVisible(true); }}>
+                    <Text style={styles.completadoBadge}>🎁 Medalla · Más info</Text>
+                  </TouchableOpacity>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <Text style={{ color: '#1E6FD9', fontSize: 12 }}>Ver historia →</Text>
                     <TouchableOpacity onPress={(e) => { e.stopPropagation(); setModalInfoChallenge(item.challenge || ''); setModalInfoVisible(true); }}>
@@ -972,19 +974,23 @@ export default function HomeScreen({ navigation }) {
       <Modal visible={modalInfoVisible} transparent animationType="fade" onRequestClose={() => setModalInfoVisible(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalInfoVisible(false)}>
           <View style={[styles.modalCard, { padding: 24 }]}>
-            <Text style={{ fontSize: 32, marginBottom: 12, textAlign: 'center' }}>🏅</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 }}>{modalInfoChallenge}</Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 14, lineHeight: 22, textAlign: 'center', marginBottom: 8 }}>
-              Si tu dirección está cargada, nuestro equipo procesará tu pedido y recibirás el número de seguimiento por email en los próximos 5 días hábiles.
+            <Text style={{ fontSize: 30, marginBottom: 10, textAlign: 'center' }}>🎁</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 }}>Sobre tu medalla</Text>
+            <Text style={{ color: '#6F91B5', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>{modalInfoChallenge}</Text>
+            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+              Nuestro equipo está preparando y gestionando tu pedido. Cuando el envío tenga información de seguimiento disponible, la recibirás por correo electrónico.
             </Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 14, lineHeight: 22, textAlign: 'center', marginBottom: 20 }}>
-              Para dudas o cambios de dirección escribinos por WhatsApp.
+            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+              Si compraste varias medallas en una misma compra, pueden prepararse y enviarse juntas. En ese caso recibirás un único enlace de seguimiento para el pedido, no un correo por cada medalla.
+            </Text>
+            <Text style={{ color: '#7F96AD', fontSize: 12, lineHeight: 18, marginBottom: 18 }}>
+              El estado del desafío dentro de la app no confirma por sí solo que una medalla haya sido despachada individualmente. No necesitás realizar ninguna acción por el momento.
             </Text>
             <TouchableOpacity
-              style={{ backgroundColor: '#25D366', borderRadius: 12, padding: 14, alignItems: 'center', marginBottom: 10 }}
-              onPress={() => { setModalInfoVisible(false); Linking.openURL('https://wa.me/61474024238'); }}
+              style={{ borderWidth: 1, borderColor: '#2A5A8A', borderRadius: 12, padding: 12, alignItems: 'center', marginBottom: 12 }}
+              onPress={() => Linking.openURL('https://korva.run/pages/envios')}
             >
-              <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>💬 Escribir por WhatsApp</Text>
+              <Text style={{ color: '#67A9FF', fontWeight: 'bold', fontSize: 13 }}>Ver información completa sobre envíos →</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setModalInfoVisible(false)}>
               <Text style={{ color: '#4a6a8a', textAlign: 'center', fontSize: 13 }}>Cerrar</Text>
