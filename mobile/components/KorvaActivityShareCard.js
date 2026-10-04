@@ -88,7 +88,7 @@ export default function KorvaActivityShareCard({
         </View>
       )}
 
-      <Text style={styles.signature}>CADA PASO CUENTA · KORVA</Text>
+      <Text style={styles.signature}>KORVA</Text>
     </View>
   );
 }
