@@ -1131,30 +1131,14 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
       )}
 
       <View style={styles.retoAcciones}>
-        <TouchableOpacity style={styles.historiaLink} onPress={() => navigation.navigate('DetalleReto', { item, userId })}>
+        <TouchableOpacity
+          style={styles.historiaLink}
+          hitSlop={{ top: 10, bottom: 10, left: 16, right: 16 }}
+          onPress={() => navigation.navigate('DetalleReto', { item, userId })}
+        >
           <Text style={styles.historiaLinkText}>📖 Ver mi historia</Text>
           <Ionicons name="arrow-forward" size={14} color="#67A9FF" />
         </TouchableOpacity>
-
-        <View style={styles.accionesSecundarias}>
-          <TouchableOpacity style={styles.accionSutil} onPress={() => descargarBib('dorsal', challengeId)} disabled={!!cargandoBib}>
-            {cargandoBib === 'dorsal' ? <ActivityIndicator color="#A8CFFF" size="small" /> : <Text style={styles.accionSutilText}>📄 Dorsal</Text>}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.accionSutil} onPress={() => descargarBib('postal', challengeId)} disabled={!!cargandoBib}>
-            {cargandoBib === 'postal' ? <ActivityIndicator color="#A8CFFF" size="small" /> : <Text style={styles.accionSutilText}>🖼️ Postal</Text>}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.accionSutil} onPress={() => compartirProgreso(index)}>
-            <Text style={styles.accionSutilText}>↗ Compartir</Text>
-          </TouchableOpacity>
-        </View>
-
-        {item.status === 'active' && (
-          <TouchableOpacity style={styles.pausaSutil} onPress={() => togglePausar(challengeId, estaPausado)}>
-            <Text style={[styles.pausaSutilText, estaPausado && { color: '#86EFAC' }]}>
-              {estaPausado ? '▶ Reanudar desafío' : '⏸ Pausar desafío'}
-            </Text>
-          </TouchableOpacity>
-        )}
       </View>
     </View>
   );
