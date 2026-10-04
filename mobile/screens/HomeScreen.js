@@ -1072,7 +1072,18 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
             {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅</Text>}
           </View>
           {metaFormateada && <Text style={styles.shareMetaText}>🎯 Meta: {metaFormateada}</Text>}
-          {tieneExpedicion && (
+        </View>
+      </ViewShot>
+
+      {tieneExpedicion && (
+        <MapaRecorrido
+          kmCompletados={item.km_completados}
+          distanciaTotal={item.distancia_total}
+          porcentaje={pct}
+          challengeId={item.challenge_id}
+          challengeTitle={item.challenge}
+        />
+      )}
 
       {mostrarCardMeta && (
         <View style={styles.metaCard}>
