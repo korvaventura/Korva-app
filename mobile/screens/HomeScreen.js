@@ -13,6 +13,7 @@ import MapaRecorrido from './MapaRecorrido';
 import { Ionicons } from '@expo/vector-icons';
 import { etiquetaDeInscripcion } from '../utils/versionDesafio';
 import { listarMisActividades } from '../services/actividadesApi';
+import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -745,10 +746,10 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.actividadRecienteFila}>
             <View style={{ flex: 1 }}>
               <Text style={styles.actividadRecienteDeporte}>
-                {{ run: 'Running', walk: 'Caminata', ride: 'Ciclismo', swim: 'Natación' }[actividadReciente.sport_type] || actividadReciente.sport_type || 'Actividad'}
+                {nombreDeporteActividad(actividadReciente.sport_type)}
               </Text>
               <Text style={styles.actividadRecienteFuente}>
-                {actividadReciente.source === 'korva_gps' ? 'Korva GPS' : actividadReciente.source === 'strava' ? 'Strava' : actividadReciente.source === 'manual' ? 'Manual' : (actividadReciente.source || 'Korva')}
+                {nombreFuenteActividad(actividadReciente.source)}
               </Text>
             </View>
             <Text style={styles.actividadRecienteKm}>{Number(actividadReciente.distance_km || 0).toFixed(2)} km</Text>
