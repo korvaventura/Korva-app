@@ -26,14 +26,18 @@ const diasEntre = (fecha1, fecha2) => {
 
 const getHitoActividad = (actividad, index, totalKmAcumulado, distanciaTotal) => {
   const pct = (totalKmAcumulado / distanciaTotal) * 100;
+  const acumuladoAnterior = totalKmAcumulado - (Number(actividad.distance_km) || 0);
+  const cruzaMeta = acumuladoAnterior < distanciaTotal && totalKmAcumulado >= distanciaTotal;
+  const emojis = { ride: '🚴', run: '🏃', swim: '🏊', walk: '🚶' };
+  const textos = { ride: 'Ciclismo', run: 'Running', swim: 'Natación', walk: 'Caminata' };
+  const actividadNormal = { emoji: emojis[actividad.sport_type] || '⚡', texto: textos[actividad.sport_type] || (actividad.sport_type || 'Actividad') };
   if (index === 0) return { emoji: '🌱', texto: 'Primer paso' };
-  if (pct >= 100) return { emoji: '🏅', texto: '¡Completado!' };
+  if (cruzaMeta) return { emoji: '🏅', texto: '¡Completado!' };
+  if (pct >= 100) return actividadNormal;
   if (pct >= 75) return { emoji: '🔥', texto: 'En la recta final' };
   if (pct >= 50) return { emoji: '⚡', texto: 'Mitad del camino' };
   if (pct >= 25) return { emoji: '💪', texto: 'Arrancando fuerte' };
-  const emojis = { ride: '🚴', run: '🏃', swim: '🏊', walk: '🚶' };
-  const textos = { ride: 'Ciclismo', run: 'Running', swim: 'Natación', walk: 'Caminata' };
-  return { emoji: emojis[actividad.sport_type] || '⚡', texto: textos[actividad.sport_type] || (actividad.sport_type || 'Actividad') };
+  return actividadNormal;
 };
 
 export default function DetalleRetoScreen({ route, navigation }) {
