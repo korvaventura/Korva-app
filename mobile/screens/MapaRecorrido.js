@@ -629,7 +629,12 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
               </View>
             </View>
           )}
-          {integrado && <Text style={styles.previewEyebrow}>TU EXPEDICIÓN · PRÓXIMO OBJETIVO</Text>}
+          {integrado && (
+            <View style={styles.previewContinuacionHeader}>
+              <Text style={styles.previewEyebrow}>TU RECORRIDO</Text>
+              <Text style={styles.previewKmCompacto}>{kmActual.toFixed(1)} / {total.toFixed(0)} km</Text>
+            </View>
+          )}
 
           <View style={styles.previewEscena}>
             <View style={styles.previewRutaBase} />
@@ -645,9 +650,9 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
 
           <View style={styles.previewNarrativa}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.previewAhora}>ESTÁS EN EL KM {kmActual.toFixed(1)}</Text>
+              <Text style={styles.previewAhora}>{integrado ? 'PRÓXIMO OBJETIVO' : `ESTÁS EN EL KM ${kmActual.toFixed(1)}`}</Text>
               <Text style={styles.previewHacia} numberOfLines={1}>
-                {proximo ? `Rumbo a ${proximo.nombre}` : 'Llegaste a la meta'}
+                {proximo ? (integrado ? `${proximo.emoji} ${proximo.nombre}` : `Rumbo a ${proximo.nombre}`) : '🏁 Meta alcanzada'}
               </Text>
               <Text style={styles.previewFalta}>
                 {proximo ? `Te separan ${faltan.toFixed(1)} km del próximo punto` : `${total.toFixed(0)} km completados`}
@@ -747,6 +752,8 @@ const styles = StyleSheet.create({
   titulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 12 },
   containerIntegrado: { marginTop: 14 },
   previewIntegrada: { borderTopWidth: 1, borderTopColor: '#35577A', paddingTop: 13 },
+    previewContinuacionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
+  previewKmCompacto: { color: '#6F91B5', fontSize: 11, fontWeight: '800' },
     previewAventura: { borderRadius: 18, borderWidth: 1, borderColor: '#29496B', backgroundColor: '#10243A', padding: 16, marginBottom: 4, overflow: 'hidden' },
   previewAventuraTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
   previewTituloGrande: { color: '#F8FAFC', fontSize: 19, fontWeight: '900' },
