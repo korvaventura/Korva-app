@@ -11,7 +11,6 @@
 // efectos de progreso_eventos: primero los que creó la misma ronda y después los pendientes, con
 // error ya vencido o con lease vencido. Así una caída después de completar converge sola.
 const { recalcularProgresoUsuario, MODOS } = require('./progresoServicio');
-const { healthMotorActivo } = require('./flagsMotor');
 
 const ESPERAS_REINTENTO_MS = [0, 250, 1000]; // 3 intentos dentro del mismo pedido
 const ANTIGUEDAD_MINIMA_MS = 2 * 60 * 1000;  // no tocar marcas de pedidos que pueden estar en curso
@@ -48,7 +47,9 @@ const logMotor = (datos) => {
  */
 const recalcularConReintentos = async ({
   repo, userId, challengeId = null, marcasALimpiar, ucId, marcaIso, motivo, ahoraMs,
-  incluirHealth = healthMotorActivo(), esperasMs = ESPERAS_REINTENTO_MS, esperar = dormir,
+  // Health pasivo NO entra a desafíos por defecto. Solo podrá incluirse mediante una
+  // decisión explícita por desafío; daily_movement sigue disponible para Tu movimiento.
+  incluirHealth = false, esperasMs = ESPERAS_REINTENTO_MS, esperar = dormir,
 }) => {
   const marcas = marcasALimpiar || (ucId ? [{ id: ucId, marca: marcaIso }] : []);
   let ultimoError = null;
