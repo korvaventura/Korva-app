@@ -320,7 +320,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
                   <View style={styles.timelineActRow}>
                     <Text style={styles.timelineEmoji}>{act.sport_type === 'ride' ? '🚴' : '🏃'}</Text>
                     <Text style={styles.timelineKm}>{parseFloat(act.distance_km).toFixed(1)} km</Text>
-                    <Text style={styles.timelineTipo}>{act.sport_type || 'Actividad'} · {act.source === 'manual' ? 'manual' : 'Strava'}</Text>
+                    <Text style={styles.timelineTipo}>{act.sport_type || 'Actividad'} · {act.source === 'manual' ? 'manual' : act.source === 'korva_gps' ? 'Korva GPS' : act.source === 'strava' ? 'Strava' : (act.source || 'Actividad')}</Text>
                   </View>
                   <Text style={styles.timelineAcumulado}>Total acumulado: {act.acumulado.toFixed(1)}km</Text>
                 </View>
