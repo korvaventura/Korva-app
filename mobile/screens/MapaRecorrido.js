@@ -548,7 +548,7 @@ function MapaSVG({ config, kmFisicos, pinPos, rutaBasePath, pathCompletado, puls
   );
 }
 
-export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, onScrollBegin, onScrollEnd, fullscreen = false }) {
+export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, onScrollBegin, onScrollEnd, fullscreen = false, integrado = false }) {
   const [cpSeleccionado, setCpSeleccionado] = useState(null);
   const [modalMapaVisible, setModalMapaVisible] = useState(false);
   const scrollViewRef = useRef(null);
@@ -616,17 +616,20 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
     const faltan = Math.max(0, proximoKm - kmActual);
 
     return (
-      <View style={styles.container}>
-        <TouchableOpacity style={styles.previewAventura} onPress={() => setModalMapaVisible(true)} activeOpacity={0.88}>
-          <View style={styles.previewAventuraTop}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.previewEyebrow}>TU EXPEDICIÓN</Text>
-              <Text style={styles.previewTituloGrande} numberOfLines={1}>{titulo.replace(/^🗺️\s*/, '')}</Text>
+      <View style={integrado ? styles.containerIntegrado : styles.container}>
+        <TouchableOpacity style={integrado ? styles.previewIntegrada : styles.previewAventura} onPress={() => setModalMapaVisible(true)} activeOpacity={0.88}>
+          {!integrado && (
+            <View style={styles.previewAventuraTop}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.previewEyebrow}>TU EXPEDICIÓN</Text>
+                <Text style={styles.previewTituloGrande} numberOfLines={1}>{titulo.replace(/^🗺️\s*/, '')}</Text>
+              </View>
+              <View style={styles.previewPctPill}>
+                <Text style={styles.previewPctText}>{Math.round(pct)}%</Text>
+              </View>
             </View>
-            <View style={styles.previewPctPill}>
-              <Text style={styles.previewPctText}>{Math.round(pct)}%</Text>
-            </View>
-          </View>
+          )}
+          {integrado && <Text style={styles.previewEyebrow}>TU EXPEDICIÓN · PRÓXIMO OBJETIVO</Text>}
 
           <View style={styles.previewEscena}>
             <View style={styles.previewRutaBase} />
@@ -742,7 +745,9 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
 const styles = StyleSheet.create({
   container: { marginBottom: 16 },
   titulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 12 },
-  previewAventura: { borderRadius: 18, borderWidth: 1, borderColor: '#29496B', backgroundColor: '#10243A', padding: 16, marginBottom: 4, overflow: 'hidden' },
+  containerIntegrado: { marginTop: 14 },
+  previewIntegrada: { borderTopWidth: 1, borderTopColor: '#35577A', paddingTop: 13 },
+    previewAventura: { borderRadius: 18, borderWidth: 1, borderColor: '#29496B', backgroundColor: '#10243A', padding: 16, marginBottom: 4, overflow: 'hidden' },
   previewAventuraTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
   previewTituloGrande: { color: '#F8FAFC', fontSize: 19, fontWeight: '900' },
   previewPctPill: { backgroundColor: '#173A5E', borderRadius: 14, paddingHorizontal: 11, paddingVertical: 6 },
