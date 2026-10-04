@@ -4,6 +4,7 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import gpsCore from '../services/gps/gpsCore';
 import {
+  archivarSesionGpsConfirmada,
   borrarSesionGpsLocal,
   guardarSesionGpsLocal,
   leerSesionGpsLocal,
@@ -183,6 +184,9 @@ export default function GpsTrackerScreen({ navigation }) {
     setConfirmando(true);
     try {
       const data = await confirmarActividadGps(sesion, resumenSesionGps(sesion));
+      // Conservamos el trazado confirmado antes de limpiar la sesión activa.
+      // Así el recorrido no se pierde mientras el backend aún no persiste rutas.
+      await archivarSesionGpsConfirmada(sesion, data);
       await borrarSesionGpsLocal();
       publicar(null, { persistir: false });
       setEstadoGps('listo');
