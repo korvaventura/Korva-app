@@ -876,6 +876,33 @@ test('integración flag ON: sin distancia, duplicada, 404, atleta desconocido �
   assert.equal(x.efectos.push.length, 0);
 });
 
+test('integración: Korva GPS primero + misma salida llega por Strava (webhook e import) → no duplica', async () => {
+  const gps = {
+    id: 'dddddddd-0000-4000-8000-000000000001',
+    user_id: U,
+    challenge_id: null,
+    source: 'korva_gps',
+    external_id: 'korva_gps_canary_reverse_dedup',
+    sport_type: 'run',
+    distance_km: 7.02,
+    duration_seconds: 2700,
+    recorded_at: '2026-09-12T08:00:00Z',
+    excluida: false,
+  };
+  const x = await correr({
+    flag: FLAG_ON,
+    lista: [actStrava(9015, 7.08)],
+    tablas: tablasIntegracion({ activities: [A1, A9, gps] }),
+    pasos: [hook(ev('create', 9015)), homeImporta],
+  });
+  assert.equal(x.db.activities.filter((a) => a.source === 'korva_gps').length, 1);
+  assert.equal(x.db.activities.filter((a) => a.source === 'strava' && a.external_id === '9015').length, 0);
+  assert.deepEqual(x.bandeja().map((f) => [f.object_id, f.estado, f.resultado]), [
+    [9015, 'ignorado', 'duplicada_mismo_dia'],
+  ]);
+  assert.equal(x.efectos.push.length, 0);
+});
+
 test('integración flag ON: webhook + importación de la Home a la vez (misma actividad) → una fila, un evento, efectos una vez', async () => {
   const x = await correr({ flag: FLAG_ON, lista: [actStrava(9012, 15)], pasos: [[hook(ev('create', 9012)), homeImporta, hook(ev('create', 9012))]] });
   assert.equal(x.strava(9012).length, 1);
