@@ -7,7 +7,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "node --test tests/versionDesafio.test.js tests/textosVersion.test.js tests/gpsCore.test.js"
+    "test": "node --test tests/versionDesafio.test.js tests/textosVersion.test.js tests/gpsCore.test.js tests/gpsArchiveCore.test.js"
   },
   "dependencies": {
     "@kingstinct/react-native-healthkit": "16.0.0",
