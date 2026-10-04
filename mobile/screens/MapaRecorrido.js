@@ -669,7 +669,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
                 <Text style={styles.previewExplorarGrande}>Explorar{String.fromCharCode(10)}ruta →</Text>
               </View>
             </>
-          ))}
+          )}
         </TouchableOpacity>
 
         {modalMapaVisible && (
