@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { versionDeInscripcion, etiquetaDeInscripcion, planDeVersion } from '../utils/versionDesafio';
+import RutaGpsActividad from '../components/RutaGpsActividad';
 
 const aplicarMascaraFecha = (texto) => {
   const numeros = texto.replace(/[^0-9]/g, '');
@@ -323,6 +324,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
                     <Text style={styles.timelineTipo}>{act.sport_type || 'Actividad'} · {act.source === 'manual' ? 'manual' : act.source === 'korva_gps' ? 'Korva GPS' : act.source === 'strava' ? 'Strava' : (act.source || 'Actividad')}</Text>
                   </View>
                   <Text style={styles.timelineAcumulado}>Total acumulado: {act.acumulado.toFixed(1)}km</Text>
+                  {act.source === 'korva_gps' && act.id && <RutaGpsActividad activityId={act.id} />}
                 </View>
               </View>
             ))}
