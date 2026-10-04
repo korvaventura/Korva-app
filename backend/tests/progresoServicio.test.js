@@ -336,8 +336,10 @@ test('repo Supabase: CAS tolera ruido sub-micrométrico de float sin abrir la pu
   const repo = crearRepositorioSupabase(cliente);
   assert.equal(await repo.actualizarKmCAS({ id: 'uc1', kmLeido: 83.17, kmNuevo: 88.27 }), true);
   const op = registro.find((r) => r.metodo === 'update');
-  assert.ok(op.filtros.includes('gte:km_completed=83.1699999'));
-  assert.ok(op.filtros.includes('lte:km_completed=83.1700001'));
+  const inferior = Number(op.filtros.find((x) => x.startsWith('gte:km_completed=')).split('=')[1]);
+  const superior = Number(op.filtros.find((x) => x.startsWith('lte:km_completed=')).split('=')[1]);
+  assert.ok(Math.abs(inferior - (83.17 - 1e-7)) < 1e-12);
+  assert.ok(Math.abs(superior - (83.17 + 1e-7)) < 1e-12);
 });
 
 test('repo Supabase: completar usa la RPC atómica (CAS + evento) con los parámetros exactos y sin km_base', async () => {
@@ -364,8 +366,10 @@ test('repo Supabase: completar con km float normaliza por ventana antes de la RP
   assert.equal(r.gano, true);
   const normaliza = registro.find((x) => x.metodo === 'update' && x.tabla === 'user_challenges');
   assert.deepEqual(normaliza.payload, { km_completed: 83.17 });
-  assert.ok(normaliza.filtros.includes('gte:km_completed=83.1699999'));
-  assert.ok(normaliza.filtros.includes('lte:km_completed=83.1700001'));
+  const inferior = Number(normaliza.filtros.find((x) => x.startsWith('gte:km_completed=')).split('=')[1]);
+  const superior = Number(normaliza.filtros.find((x) => x.startsWith('lte:km_completed=')).split('=')[1]);
+  assert.ok(Math.abs(inferior - (83.17 - 1e-7)) < 1e-12);
+  assert.ok(Math.abs(superior - (83.17 + 1e-7)) < 1e-12);
   assert.ok(registro.some((x) => x.tabla === 'rpc:completar_desafio_motor'));
 });
 
