@@ -64,8 +64,10 @@ router.get('/:challengeId/actividades', requireUser, async (req, res) => {
         .filter((a) => a.motivo === MOTIVOS.CUENTA)
         .map((a) => a.id)
     );
+    const completadoMs = uc.completed_at ? Date.parse(uc.completed_at) : null;
     const actividades = estado.actividades
       .filter((a) => idsQueCuentan.has(a.id))
+      .filter((a) => !Number.isFinite(completadoMs) || Date.parse(a.recorded_at) <= completadoMs)
       .sort((a, b) => String(b.recorded_at).localeCompare(String(a.recorded_at)));
 
     return res.json({
