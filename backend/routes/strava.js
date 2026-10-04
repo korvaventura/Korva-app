@@ -633,6 +633,8 @@ router.get('/progreso/:userId', async (req, res) => {
           estado: 'PENDIENTE',
           started_at: uc.started_at,
           meta_fecha: uc.meta_fecha,
+          status: uc.status,
+          completed_at: uc.completed_at || null,
           link_shopify: uc.challenges.link_shopify || null,
           pending: true
         };
@@ -659,6 +661,8 @@ router.get('/progreso/:userId', async (req, res) => {
           estado: yaCompletado ? 'COMPLETADO' : 'En progreso',
           started_at: uc.started_at,
           meta_fecha: uc.meta_fecha,
+          status: uc.status,
+          completed_at: uc.completed_at || null,
           pausado: uc.pausado || false,
           pending: false
         };
@@ -718,6 +722,8 @@ router.get('/progreso/:userId', async (req, res) => {
         estado: parseFloat(porcentaje) >= 100 ? 'COMPLETADO' : 'En progreso',
         started_at: uc.started_at,
         meta_fecha: uc.meta_fecha,
+        status: nuevoStatus,
+        completed_at: parseFloat(porcentaje) >= 100 ? (uc.completed_at || new Date().toISOString()) : (uc.completed_at || null),
         pausado: uc.pausado || false,
         pending: false
       };
