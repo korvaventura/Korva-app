@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Polyline } from 'react-native-svg';
+import Svg, { Circle, Path, Polyline } from 'react-native-svg';
 import { colors } from '../theme/korvaTheme';
 
 const { proyectarRuta } = require('../services/gps/rutaVisualCore');
@@ -27,6 +27,7 @@ export default function KorvaActivityShareCard({
   puntos = [],
   challenge = null,
   variante = 'overlay',
+  backgroundImageUrl = null,
 }) {
   const km = Number(actividad.distance_km || 0);
   const segundos = Number(actividad.duration_seconds || 0);
@@ -41,6 +42,17 @@ export default function KorvaActivityShareCard({
 
   return (
     <View collapsable={false} style={[styles.card, story ? styles.story : styles.overlay]}>
+      {story && !backgroundImageUrl && (
+        <View pointerEvents="none" style={styles.topography}>
+          <Svg width="100%" height="100%" viewBox="0 0 360 640">
+            <Path d="M-30 115 C55 45 120 170 205 92 S330 42 405 112" fill="none" stroke="rgba(168,207,255,0.08)" strokeWidth="1" />
+            <Path d="M-35 145 C50 75 125 198 210 122 S335 72 410 142" fill="none" stroke="rgba(168,207,255,0.07)" strokeWidth="1" />
+            <Path d="M-40 176 C45 106 130 228 215 153 S340 103 415 173" fill="none" stroke="rgba(168,207,255,0.06)" strokeWidth="1" />
+            <Path d="M-55 455 C45 385 110 515 205 442 S330 392 420 462" fill="none" stroke="rgba(243,107,10,0.08)" strokeWidth="1" />
+            <Path d="M-60 486 C40 416 115 545 210 473 S335 423 425 493" fill="none" stroke="rgba(243,107,10,0.07)" strokeWidth="1" />
+          </Svg>
+        </View>
+      )}
       <View style={styles.brandRow}>
         <Text style={styles.korva}>KORVA</Text>
         <View style={styles.brandLine} />
@@ -102,7 +114,8 @@ const shadow = {
 const styles = StyleSheet.create({
   card: { width: 340, minHeight: 470, paddingHorizontal: 22, paddingVertical: 24, justifyContent: 'flex-start' },
   overlay: { backgroundColor: 'transparent' },
-  story: { width: 360, height: 640, backgroundColor: colors.backgroundDeep, paddingHorizontal: 28, paddingVertical: 34 },
+  story: { width: 360, height: 640, backgroundColor: colors.backgroundDeep, paddingHorizontal: 28, paddingVertical: 34, overflow: 'hidden' },
+  topography: { ...StyleSheet.absoluteFillObject },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   korva: { color: colors.text, fontSize: 11, fontWeight: '900', letterSpacing: 3, ...shadow },
   brandLine: { width: 22, height: 2, backgroundColor: colors.brandOrange },
