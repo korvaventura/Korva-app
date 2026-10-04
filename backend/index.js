@@ -2147,6 +2147,23 @@ app.post('/admin/challenges', async (req, res) => {
   }
 });
 
+app.get('/actividades', require('./middleware/requireUser'), async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('activities')
+      .select('*')
+      .eq('user_id', req.userId)
+      .eq('excluida', false)
+      .order('recorded_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error) {
+    res.status(500).json({ error: 'Error obteniendo actividades', detalle: error.message });
+  }
+});
+
 app.get('/actividades/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
