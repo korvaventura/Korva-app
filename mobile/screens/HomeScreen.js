@@ -82,6 +82,7 @@ export default function HomeScreen({ navigation }) {
   const [retoActivoIndex, setRetoActivoIndex] = useState(0);
   const [modalModalidadVisible, setModalModalidadVisible] = useState(false);
   const [actividadReciente, setActividadReciente] = useState(null);
+  const [movimientoY, setMovimientoY] = useState(null);
   const viewShotRefs = useRef([]);
 
   useEffect(() => {
@@ -801,24 +802,37 @@ export default function HomeScreen({ navigation }) {
                 cargandoBib={cargandoBib}
               />
 
-              <TouchableOpacity style={styles.gpsHeroAction} onPress={() => navigation.navigate('GpsTracker')} activeOpacity={0.88}>
-                <View style={styles.gpsHeroPlay}>
-                  <Ionicons name="play" size={16} color="#FFFFFF" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.gpsHeroEyebrow}>KORVA GPS</Text>
-                  <Text style={styles.gpsHeroTitulo}>Iniciar actividad</Text>
-                  <Text style={styles.gpsHeroDesc}>Correr · caminar · bici</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={19} color="#FFB08B" />
-              </TouchableOpacity>
-
               <TouchableOpacity
                 style={styles.historiaHomeLink}
                 onPress={() => navigation.navigate('DetalleReto', { item: challengesActivos[retoVisibleIndex], userId })}
               >
-                <Text style={styles.historiaHomeText}>Ver historia del desafío</Text>
-                <Ionicons name="arrow-forward" size={14} color="#67A9FF" />
+                <Text style={styles.historiaHomeText}>Historia del desafío</Text>
+                <Ionicons name="arrow-forward" size={13} color="#67A9FF" />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.gpsHeroAction} onPress={() => navigation.navigate('GpsTracker')} activeOpacity={0.88}>
+                <View style={styles.gpsHeroTop}>
+                  <View>
+                    <Text style={styles.gpsHeroEyebrow}>KORVA GPS</Text>
+                    <Text style={styles.gpsHeroTitulo}>Tu próxima actividad empieza acá</Text>
+                  </View>
+                  <View style={styles.gpsHeroPlay}>
+                    <Ionicons name="play" size={20} color="#FFFFFF" />
+                  </View>
+                </View>
+                <Text style={styles.gpsHeroDesc}>Correr · caminar · bici</Text>
+                <View style={styles.gpsHeroDivider} />
+                <Text style={styles.gpsHeroHint}>Registrá con el GPS del teléfono y confirmá al finalizar.</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.scrollCue}
+                disabled={movimientoY == null}
+                onPress={() => movimientoY != null && scrollRef.current?.scrollTo({ y: Math.max(0, movimientoY - 24), animated: true })}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.scrollCueText}>Tu movimiento</Text>
+                <Ionicons name="chevron-down" size={18} color="#547493" />
               </TouchableOpacity>
             </>
           )}
@@ -826,7 +840,7 @@ export default function HomeScreen({ navigation }) {
       )}
 
       {!cargando && !error && (
-        <View style={styles.movimientoSection}>
+        <View style={styles.movimientoSection} onLayout={(e) => setMovimientoY(e.nativeEvent.layout.y)}>
           <Text style={styles.movimientoTitulo}>Tu movimiento</Text>
       {actividadReciente && (
         <TouchableOpacity
@@ -1080,10 +1094,14 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
             </View>
           </View>
           <Text style={styles.heroTotal}>de {Number(item.distancia_total || 0).toFixed(0)} km</Text>
-          <View style={styles.shareProgressBar}>
-            <View style={[styles.shareProgressFill, { width: `${pct}%` }, estaCompletado && styles.shareProgressFillCompletado]} />
-          </View>
-          {!tieneExpedicion && <Text style={styles.shareFrase}>{frase}</Text>}
+          {!tieneExpedicion && (
+            <>
+              <View style={styles.shareProgressBar}>
+                <View style={[styles.shareProgressFill, { width: `${pct}%` }, estaCompletado && styles.shareProgressFillCompletado]} />
+              </View>
+              <Text style={styles.shareFrase}>{frase}</Text>
+            </>
+          )}
           <View style={styles.heroFooter}>
             {metaFormateada
               ? <Text style={styles.shareMetaText}>🎯 Objetivo · {metaFormateada}</Text>
@@ -1271,13 +1289,18 @@ const styles = StyleSheet.create({
   heroTotal: { color: '#7897B7', fontSize: 12, fontWeight: '700', marginTop: 1 },
   heroFooter: { minHeight: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   heroFooterMuted: { color: '#6888A7', fontSize: 11 },
-  gpsHeroAction: { marginTop: 16, minHeight: 74, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 13, backgroundColor: '#182C40', borderWidth: 1, borderColor: '#3A4B5D', flexDirection: 'row', alignItems: 'center', gap: 13 },
-  gpsHeroPlay: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FC4C02', alignItems: 'center', justifyContent: 'center', paddingLeft: 2 },
-  gpsHeroEyebrow: { color: '#7897B7', fontSize: 8, fontWeight: '900', letterSpacing: 1.8, marginBottom: 2 },
-  gpsHeroTitulo: { color: '#FFFFFF', fontSize: 16, fontWeight: '900', marginBottom: 2 },
-  gpsHeroDesc: { color: '#8FAECC', fontSize: 10 },
-  historiaHomeLink: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 7, paddingVertical: 13 },
-  historiaHomeText: { color: '#67A9FF', fontSize: 12, fontWeight: '800' },
+  gpsHeroAction: { marginTop: 8, minHeight: 142, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 18, backgroundColor: '#14283B', borderWidth: 1, borderColor: '#31506B' },
+  gpsHeroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
+  gpsHeroPlay: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#FC4C02', alignItems: 'center', justifyContent: 'center', paddingLeft: 3 },
+  gpsHeroEyebrow: { color: '#6E8BA7', fontSize: 9, fontWeight: '900', letterSpacing: 2.2, marginBottom: 5 },
+  gpsHeroTitulo: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', maxWidth: 230, lineHeight: 22 },
+  gpsHeroDesc: { color: '#A8CFFF', fontSize: 11, marginTop: 10 },
+  gpsHeroDivider: { height: 1, backgroundColor: '#203D57', marginVertical: 12 },
+  gpsHeroHint: { color: '#6888A7', fontSize: 10, lineHeight: 14 },
+  historiaHomeLink: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 2 },
+  historiaHomeText: { color: '#67A9FF', fontSize: 11, fontWeight: '800' },
+  scrollCue: { alignSelf: 'center', alignItems: 'center', paddingHorizontal: 24, paddingTop: 12, paddingBottom: 2 },
+  scrollCueText: { color: '#547493', fontSize: 9, fontWeight: '800', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 1 },
   shareFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#0D1B2A', paddingTop: 12 },
   shareNombre: { fontSize: 12, color: '#4a6a8a', fontWeight: 'bold' },
   shareUrl: { fontSize: 12, color: '#4a6a8a' },
