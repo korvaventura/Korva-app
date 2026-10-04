@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { etiquetaDeInscripcion } from '../utils/versionDesafio';
 import { listarMisActividades } from '../services/actividadesApi';
 import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
+import { colors } from '../theme/korvaTheme';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -28,7 +29,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const PASOS = [
   { emoji: '📝', titulo: 'Registrá tus km', desc: 'Usá la pestaña "Registrar" para cargar tus actividades manualmente.' },
   { emoji: '🏃', titulo: 'Empezá a correr', desc: 'Cada km cuenta hacia tu medalla.' },
-  { emoji: '📦', titulo: 'Recibí tu medalla', desc: 'Al llegar al 100% te la enviamos a casa.' },
+  { emoji: '🏅', titulo: 'Completá el desafío', desc: 'Tu progreso en la app y el envío físico de tu medalla se gestionan por separado.' },
 ];
 
 const getFrase = (pct) => {
@@ -441,7 +442,7 @@ export default function HomeScreen({ navigation }) {
     >
       {/* Banner dirección — para completados sin dirección */}
       {bannerDireccionVisible && (
-        <View style={[styles.bannerStrava, { borderLeftColor: '#FC4C02', backgroundColor: '#1A0D00' }]}>
+        <View style={[styles.bannerStrava, { borderLeftColor: colors.brandOrange, backgroundColor: '#1A0D00' }]}>
           <View style={{ flex: 1 }}>
             <Text style={styles.bannerStravaTitulo}>📦 ¡Cargá tu dirección!</Text>
             <Text style={styles.bannerStravaDesc}>Completaste tu desafío pero falta tu dirección de envío. Cargala en el Perfil para que podamos enviarte tu medalla.</Text>
@@ -511,7 +512,7 @@ export default function HomeScreen({ navigation }) {
                     : pct >= 25 ? 'EN MOVIMIENTO'
                     : 'EN RUTA';
                   return (
-                    <View style={{ backgroundColor: '#0D1B2A', borderRadius: 20, width: 320, overflow: 'hidden' }}>
+                    <View style={{ backgroundColor: colors.background, borderRadius: 20, width: 320, overflow: 'hidden' }}>
                       <View style={{ padding: 28, alignItems: 'center' }}>
                         {/* Logo */}
                         <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, letterSpacing: 4, fontWeight: 'bold', marginBottom: 24 }}>KORVA AVENTURAS</Text>
@@ -526,14 +527,14 @@ export default function HomeScreen({ navigation }) {
                           {modalCompartirItem.challenge || '—'}
                         </Text>
                         {/* Porcentaje grande */}
-                        <Text style={{ color: '#FFFFFF', fontSize: 80, fontWeight: 'bold', letterSpacing: -3, lineHeight: 84 }}>
+                        <Text style={{ color: colors.text, fontSize: 80, fontWeight: 'bold', letterSpacing: -3, lineHeight: 84 }}>
                           {pct.toFixed(0)}<Text style={{ fontSize: 28, color: 'rgba(255,255,255,0.4)', fontWeight: '300' }}>%</Text>
                         </Text>
                         {/* Mensaje estado */}
                         <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, letterSpacing: 3, marginTop: 6, marginBottom: 24 }}>{mensaje}</Text>
                         {/* Barra progreso */}
                         <View style={{ width: '100%', height: 3, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 2, marginBottom: 8 }}>
-                          <View style={{ width: `${pct}%`, height: 3, backgroundColor: '#FFFFFF', borderRadius: 2 }} />
+                          <View style={{ width: `${pct}%`, height: 3, backgroundColor: colors.text, borderRadius: 2 }} />
                         </View>
                         {/* km */}
                         <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, letterSpacing: 1, marginBottom: 28 }}>
@@ -551,8 +552,8 @@ export default function HomeScreen({ navigation }) {
               </ViewShot>
             )}
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
-              <TouchableOpacity style={[styles.modalBtn, { flex: 1, backgroundColor: '#1E3A5F' }]} onPress={() => setModalCompartirItem(null)}>
-                <Text style={[styles.modalBtnText, { color: '#A8CFFF' }]}>Cancelar</Text>
+              <TouchableOpacity style={[styles.modalBtn, { flex: 1, backgroundColor: colors.surfaceStrong }]} onPress={() => setModalCompartirItem(null)}>
+                <Text style={[styles.modalBtnText, { color: colors.textSoft }]}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalBtn, { flex: 1 }]} onPress={ejecutarCompartir}>
                 <Text style={styles.modalBtnText}>📤 Compartir</Text>
@@ -726,7 +727,7 @@ export default function HomeScreen({ navigation }) {
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     style={{ backgroundColor: '#2a1a1a', borderRadius: 8, padding: 6, marginLeft: 8 }}
                   >
-                    <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 12 }}>✕</Text>
+                    <Text style={{ color: colors.brandOrange, fontWeight: 'bold', fontSize: 12 }}>✕</Text>
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.pendingModalidad}>Versión {etiquetaDeInscripcion(item)}</Text>
@@ -746,9 +747,9 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.emptyText}>No tenés desafíos activos</Text>
 
               {/* Si compraron pero no ven el desafío */}
-              <View style={{ backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, marginBottom: 16, width: '100%' }}>
-                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13, marginBottom: 6 }}>¿Ya compraste un desafío?</Text>
-                <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20 }}>Asegurate de estar registrado con el mismo email con el que compraste en korva.run. Una vez que iniciés sesión con ese email, el desafío aparece automáticamente.</Text>
+              <View style={{ backgroundColor: colors.surfaceStrong, borderRadius: 12, padding: 14, marginBottom: 16, width: '100%' }}>
+                <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 13, marginBottom: 6 }}>¿Ya compraste un desafío?</Text>
+                <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20 }}>Asegurate de estar registrado con el mismo email con el que compraste en korva.run. Una vez que iniciés sesión con ese email, el desafío aparece automáticamente.</Text>
               </View>
 
               {/* Si no compraron todavía */}
@@ -811,7 +812,7 @@ export default function HomeScreen({ navigation }) {
                     <Text style={styles.gpsHeroTitulo}>Registrar actividad</Text>
                   </View>
                   <View style={styles.gpsHeroStart}>
-                    <Ionicons name="play" size={14} color="#FFFFFF" />
+                    <Ionicons name="play" size={14} color={colors.text} />
                     <Text style={styles.gpsHeroStartText}>INICIAR</Text>
                   </View>
                 </View>
@@ -857,7 +858,7 @@ export default function HomeScreen({ navigation }) {
               </Text>
             </View>
             <Text style={styles.actividadRecienteKm}>{Number(actividadReciente.distance_km || 0).toFixed(2)} km</Text>
-            <Ionicons name="chevron-forward" size={20} color="#67A9FF" />
+            <Ionicons name="chevron-forward" size={20} color={colors.actionBlue} />
           </View>
         </TouchableOpacity>
       )}
@@ -867,7 +868,7 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.actividadesInicioTitulo}>Mis actividades</Text>
           <Text style={styles.actividadesInicioDesc}>Ver historial completo, estadísticas y recorridos GPS</Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color="#67A9FF" />
+        <Ionicons name="chevron-forward" size={20} color={colors.actionBlue} />
       </TouchableOpacity>
         </View>
       )}
@@ -877,12 +878,12 @@ export default function HomeScreen({ navigation }) {
         <View style={{ margin: 20 }}>
 
           {/* Header modo libre */}
-          <View style={{ backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20, marginBottom: 16 }}>
-            <Text style={{ color: '#A8CFFF', fontSize: 11, letterSpacing: 2, fontWeight: 'bold', marginBottom: 8 }}>MODO LIBRE</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 22, fontWeight: 'bold', marginBottom: 4 }}>
+          <View style={{ backgroundColor: colors.surfaceStrong, borderRadius: 16, padding: 20, marginBottom: 16 }}>
+            <Text style={{ color: colors.textSoft, fontSize: 11, letterSpacing: 2, fontWeight: 'bold', marginBottom: 8 }}>MODO LIBRE</Text>
+            <Text style={{ color: colors.text, fontSize: 22, fontWeight: 'bold', marginBottom: 4 }}>
               {nombre ? `¡Seguís en movimiento, ${nombre}!` : '¡Seguís en movimiento!'}
             </Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20 }}>
+            <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20 }}>
               Tus km se acumulan en tu historial y siguen sumando hacia logros — aunque no tengas un desafío activo.
             </Text>
           </View>
@@ -890,16 +891,16 @@ export default function HomeScreen({ navigation }) {
           {/* Stats globales */}
           {statsLibre && (
             <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-              <View style={{ flex: 1, backgroundColor: '#0D1B2A', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E3A5F' }}>
-                <Text style={{ color: '#FC4C02', fontSize: 26, fontWeight: 'bold' }}>{statsLibre.total_km || 0}</Text>
+              <View style={{ flex: 1, backgroundColor: colors.background, borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: colors.surfaceStrong }}>
+                <Text style={{ color: colors.brandOrange, fontSize: 26, fontWeight: 'bold' }}>{statsLibre.total_km || 0}</Text>
                 <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 4 }}>km totales</Text>
               </View>
-              <View style={{ flex: 1, backgroundColor: '#0D1B2A', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E3A5F' }}>
-                <Text style={{ color: '#FC4C02', fontSize: 26, fontWeight: 'bold' }}>🔥 {statsLibre.racha_actual || 0}</Text>
+              <View style={{ flex: 1, backgroundColor: colors.background, borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: colors.surfaceStrong }}>
+                <Text style={{ color: colors.brandOrange, fontSize: 26, fontWeight: 'bold' }}>🔥 {statsLibre.racha_actual || 0}</Text>
                 <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 4 }}>racha semanal</Text>
               </View>
-              <View style={{ flex: 1, backgroundColor: '#0D1B2A', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E3A5F' }}>
-                <Text style={{ color: '#FC4C02', fontSize: 26, fontWeight: 'bold' }}>{statsLibre.medallas || 0}</Text>
+              <View style={{ flex: 1, backgroundColor: colors.background, borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: colors.surfaceStrong }}>
+                <Text style={{ color: colors.brandOrange, fontSize: 26, fontWeight: 'bold' }}>{statsLibre.medallas || 0}</Text>
                 <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 4 }}>🏅 medallas</Text>
               </View>
             </View>
@@ -907,10 +908,10 @@ export default function HomeScreen({ navigation }) {
 
           {/* Próximo logro */}
           {statsLibre?.proximo_logro && (
-            <View style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#1E3A5F' }}>
+            <View style={{ backgroundColor: colors.background, borderRadius: 12, padding: 14, marginBottom: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.surfaceStrong }}>
               <Text style={{ fontSize: 24, marginRight: 12 }}>🎯</Text>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' }}>{statsLibre.proximo_logro.nombre}</Text>
+                <Text style={{ color: colors.text, fontSize: 13, fontWeight: 'bold' }}>{statsLibre.proximo_logro.nombre}</Text>
                 <Text style={{ color: '#4a6a8a', fontSize: 12 }}>Faltan {statsLibre.proximo_logro.falta} {statsLibre.proximo_logro.unidad}</Text>
               </View>
             </View>
@@ -922,7 +923,7 @@ export default function HomeScreen({ navigation }) {
               <Text style={[styles.seccionTitulo, { marginBottom: 12 }]}>Actividades recientes</Text>
               {actividadesLibres.slice(0, 5).map((a, i) => (
                 <View key={i} style={styles.actividadLibreCard}>
-                  <Text style={{ color: '#A8CFFF', fontSize: 13 }}>
+                  <Text style={{ color: colors.textSoft, fontSize: 13 }}>
                     {a.sport_type === 'run' ? '🏃' : a.sport_type === 'ride' ? '🚴' : a.sport_type === 'swim' ? '🏊' : a.sport_type === 'walk' ? '🚶' : '⚡'} {parseFloat(a.distance_km).toFixed(1)} km
                   </Text>
                   <Text style={{ color: '#4a6a8a', fontSize: 12 }}>{new Date(a.recorded_at).toLocaleDateString('es-AR')}</Text>
@@ -933,14 +934,14 @@ export default function HomeScreen({ navigation }) {
 
           {/* CTA suave hacia el catálogo */}
           <TouchableOpacity
-            style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#FC4C02' }}
+            style={{ backgroundColor: colors.background, borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.brandOrange }}
             onPress={() => navigation.navigate('Catalogo')}
           >
             <View style={{ flex: 1 }}>
-              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>¿Listo para tu próxima aventura?</Text>
+              <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 14 }}>¿Listo para tu próxima aventura?</Text>
               <Text style={{ color: '#4a6a8a', fontSize: 12, marginTop: 4 }}>Explorá los desafíos disponibles</Text>
             </View>
-            <Text style={{ color: '#FC4C02', fontSize: 20 }}>→</Text>
+            <Text style={{ color: colors.brandOrange, fontSize: 20 }}>→</Text>
           </TouchableOpacity>
 
         </View>
@@ -967,7 +968,7 @@ export default function HomeScreen({ navigation }) {
                     <Text style={styles.completadoBadge}>🎁 Medalla · Más info</Text>
                   </TouchableOpacity>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text style={{ color: '#1E6FD9', fontSize: 12 }}>Ver historia →</Text>
+                    <Text style={{ color: colors.actionBlueStrong, fontSize: 12 }}>Ver historia →</Text>
                     <TouchableOpacity onPress={(e) => { e.stopPropagation(); setModalInfoChallenge(item.challenge || ''); setModalInfoVisible(true); }}>
                       <Text style={{ color: '#4a6a8a', fontSize: 16 }}>ℹ️</Text>
                     </TouchableOpacity>
@@ -991,12 +992,12 @@ export default function HomeScreen({ navigation }) {
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalInfoVisible(false)}>
           <View style={[styles.modalCard, { padding: 24 }]}>
             <Text style={{ fontSize: 30, marginBottom: 10, textAlign: 'center' }}>🎁</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 }}>Sobre tu medalla</Text>
+            <Text style={{ color: colors.text, fontSize: 17, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 }}>Sobre tu medalla</Text>
             <Text style={{ color: '#6F91B5', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>{modalInfoChallenge}</Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+            <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
               Nuestro equipo está preparando y gestionando tu pedido. Cuando el envío tenga información de seguimiento disponible, la recibirás por correo electrónico.
             </Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+            <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
               Si compraste varias medallas en una misma compra, pueden prepararse y enviarse juntas. En ese caso recibirás un único enlace de seguimiento para el pedido, no un correo por cada medalla.
             </Text>
             <Text style={{ color: '#7F96AD', fontSize: 12, lineHeight: 18, marginBottom: 18 }}>
@@ -1006,7 +1007,7 @@ export default function HomeScreen({ navigation }) {
               style={{ borderWidth: 1, borderColor: '#2A5A8A', borderRadius: 12, padding: 12, alignItems: 'center', marginBottom: 12 }}
               onPress={() => Linking.openURL('https://korva.run/pages/envios')}
             >
-              <Text style={{ color: '#67A9FF', fontWeight: 'bold', fontSize: 13 }}>Ver información completa sobre envíos →</Text>
+              <Text style={{ color: colors.actionBlue, fontWeight: 'bold', fontSize: 13 }}>Ver información completa sobre envíos →</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setModalInfoVisible(false)}>
               <Text style={{ color: '#4a6a8a', textAlign: 'center', fontSize: 13 }}>Cerrar</Text>
@@ -1059,7 +1060,7 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
   const frase = getFrase(pct);
   const mostrarCardMeta = metaVisibles[item.challenge_id];
   const metaFormateada = formatearFechaMeta(item.meta_fecha);
-  const bordeCard = estaCompletado ? '#FC4C02' : '#244766';
+  const bordeCard = estaCompletado ? colors.brandOrange : colors.borderSoft;
   // Versión del desafío (Estándar/Extendida), no deporte. Fallback a `modalidad` de respuestas viejas.
   const modalidadLabel = `VERSIÓN ${etiquetaDeInscripcion(item).toUpperCase()}`;
   const tituloNormalizado = (item.challenge || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -1108,7 +1109,7 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
             activeOpacity={0.72}
           >
             <Text style={styles.heroHistoriaText}>Historia del desafío</Text>
-            <Ionicons name="arrow-forward" size={13} color="#67A9FF" />
+            <Ionicons name="arrow-forward" size={13} color={colors.actionBlue} />
           </TouchableOpacity>
         </View>
       </ViewShot>
@@ -1149,7 +1150,7 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
               disabled={guardandoMeta[item.challenge_id]}
             >
               {guardandoMeta[item.challenge_id]
-                ? <ActivityIndicator color="#FFFFFF" size="small" />
+                ? <ActivityIndicator color={colors.text} size="small" />
                 : <Text style={styles.metaGuardarBtnText}>Guardar</Text>
               }
             </TouchableOpacity>
@@ -1165,217 +1166,217 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#0D1B2A' },
+  scroll: { flex: 1, backgroundColor: colors.background },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  saludo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
-  subtitulo: { fontSize: 12, color: '#7897B7' },
+  saludo: { fontSize: 22, fontWeight: 'bold', color: colors.text, marginBottom: 2 },
+  subtitulo: { fontSize: 12, color: colors.textMuted },
   bannerStrava: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: '#0D2A1A',
     borderRadius: 14,
     borderLeftWidth: 4,
-    borderLeftColor: '#FC4C02',
+    borderLeftColor: colors.brandOrange,
     padding: 16,
     marginBottom: 16,
     gap: 12,
   },
   bannerStravaTitulo: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 14,
     fontWeight: 'bold',
     marginBottom: 4,
   },
   bannerStravaDesc: {
-    color: '#A8CFFF',
+    color: colors.textSoft,
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 8,
   },
   bannerStravaBtn: {
-    color: '#FC4C02',
+    color: colors.brandOrange,
     fontSize: 13,
     fontWeight: 'bold',
   },
-  stravaProximoBtn: { backgroundColor: '#1E3A5F', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2a4a6a' },
+  stravaProximoBtn: { backgroundColor: colors.surfaceStrong, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2a4a6a' },
   stravaProximoBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
-  stravaBtn: { backgroundColor: '#FC4C02', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
-  stravaBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
+  stravaBtn: { backgroundColor: colors.brandOrange, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  stravaBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 13 },
   stravaConectadoBadge: { backgroundColor: '#1a3a1a', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2a6a2a' },
-  stravaConectadoBadgeText: { color: '#4CAF50', fontWeight: 'bold', fontSize: 13 },
+  stravaConectadoBadgeText: { color: colors.success, fontWeight: 'bold', fontSize: 13 },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  modalCard: { backgroundColor: '#1E3A5F', borderRadius: 24, padding: 28, width: '100%', borderWidth: 1, borderColor: '#FC4C02' },
+  modalCard: { backgroundColor: colors.surfaceStrong, borderRadius: 24, padding: 28, width: '100%', borderWidth: 1, borderColor: colors.brandOrange },
   modalEmoji: { fontSize: 48, textAlign: 'center', marginBottom: 12 },
-  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', marginBottom: 6 },
-  modalSubtitulo: { fontSize: 13, color: '#A8CFFF', textAlign: 'center', marginBottom: 24 },
+  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: 6 },
+  modalSubtitulo: { fontSize: 13, color: colors.textSoft, textAlign: 'center', marginBottom: 24 },
   modalPaso: { flexDirection: 'row', gap: 14, marginBottom: 18, alignItems: 'flex-start' },
   modalPasoEmoji: { fontSize: 24, width: 32 },
   modalPasoInfo: { flex: 1 },
-  modalPasoTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 3 },
-  modalPasoDesc: { fontSize: 12, color: '#A8CFFF', lineHeight: 18 },
-  modalBtn: { backgroundColor: '#FC4C02', paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginTop: 8 },
-  modalBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
-  bannerCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#1E6FD9' },
+  modalPasoTitulo: { fontSize: 14, fontWeight: 'bold', color: colors.text, marginBottom: 3 },
+  modalPasoDesc: { fontSize: 12, color: colors.textSoft, lineHeight: 18 },
+  modalBtn: { backgroundColor: colors.brandOrange, paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginTop: 8 },
+  modalBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 15 },
+  bannerCard: { backgroundColor: colors.surfaceStrong, borderRadius: 20, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: colors.actionBlueStrong },
   bannerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  bannerTitulo: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
-  bannerCerrar: { fontSize: 18, color: '#A8CFFF', paddingHorizontal: 4, paddingVertical: 2 },
-  bannerSubtitulo: { fontSize: 13, color: '#A8CFFF', marginBottom: 16 },
+  bannerTitulo: { fontSize: 18, fontWeight: 'bold', color: colors.text },
+  bannerCerrar: { fontSize: 18, color: colors.textSoft, paddingHorizontal: 4, paddingVertical: 2 },
+  bannerSubtitulo: { fontSize: 13, color: colors.textSoft, marginBottom: 16 },
   pasoRow: { flexDirection: 'row', gap: 12, marginBottom: 12, alignItems: 'flex-start' },
   pasoEmoji: { fontSize: 20, width: 28 },
   pasoInfo: { flex: 1 },
-  pasoTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
-  pasoDesc: { fontSize: 12, color: '#A8CFFF' },
-  bannerBtn: { backgroundColor: '#1E6FD9', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginTop: 8 },
-  bannerBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
+  pasoTitulo: { fontSize: 14, fontWeight: 'bold', color: colors.text, marginBottom: 2 },
+  pasoDesc: { fontSize: 12, color: colors.textSoft },
+  bannerBtn: { backgroundColor: colors.actionBlueStrong, paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginTop: 8 },
+  bannerBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 14 },
   btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  errorCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 40, alignItems: 'center', marginTop: 20, borderWidth: 1, borderColor: '#2a3a4a' },
+  errorCard: { backgroundColor: colors.surfaceStrong, borderRadius: 20, padding: 40, alignItems: 'center', marginTop: 20, borderWidth: 1, borderColor: '#2a3a4a' },
   errorEmoji: { fontSize: 48, marginBottom: 16 },
-  errorTitulo: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
-  errorSubtitulo: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 20, marginBottom: 24 },
-  reintentarBtn: { backgroundColor: '#1E6FD9', paddingVertical: 12, paddingHorizontal: 32, borderRadius: 12 },
-  reintentarText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
+  errorTitulo: { fontSize: 20, fontWeight: 'bold', color: colors.text, marginBottom: 8 },
+  errorSubtitulo: { fontSize: 14, color: colors.textSoft, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  reintentarBtn: { backgroundColor: colors.actionBlueStrong, paddingVertical: 12, paddingHorizontal: 32, borderRadius: 12 },
+  reintentarText: { color: colors.text, fontWeight: 'bold', fontSize: 15 },
   pendingCard: { backgroundColor: '#1E2A1A', borderRadius: 16, padding: 18, marginBottom: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 14, borderWidth: 1, borderColor: '#2a4a2a' },
   pendingEmoji: { fontSize: 28 },
   pendingInfo: { flex: 1 },
-  pendingTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
-  pendingModalidad: { fontSize: 12, color: '#A8CFFF', marginBottom: 6 },
+  pendingTitulo: { fontSize: 15, fontWeight: 'bold', color: colors.text, marginBottom: 2 },
+  pendingModalidad: { fontSize: 12, color: colors.textSoft, marginBottom: 6 },
   pendingTexto: { fontSize: 12, color: '#6a8a6a', lineHeight: 18 },
-  pendingBtn: { marginTop: 10, backgroundColor: '#1E6FD9', paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-  pendingBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 },
-  ayudaBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center', justifyContent: 'center' },
-  ayudaBtnText: { color: '#A8CFFF', fontWeight: 'bold', fontSize: 15 },
+  pendingBtn: { marginTop: 10, backgroundColor: colors.actionBlueStrong, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+  pendingBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 12 },
+  ayudaBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center', justifyContent: 'center' },
+  ayudaBtnText: { color: colors.textSoft, fontWeight: 'bold', fontSize: 15 },
   faqItem: { borderBottomWidth: 1, borderBottomColor: '#2a4a6a', paddingVertical: 14 },
   faqHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  faqPregunta: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', flex: 1, paddingRight: 12 },
+  faqPregunta: { fontSize: 14, fontWeight: 'bold', color: colors.text, flex: 1, paddingRight: 12 },
   faqChevron: { color: '#4a6a8a', fontSize: 12 },
-  faqRespuesta: { fontSize: 13, color: '#A8CFFF', lineHeight: 20, marginTop: 10 },
+  faqRespuesta: { fontSize: 13, color: colors.textSoft, lineHeight: 20, marginTop: 10 },
   emptyLogrosRow: { flexDirection: 'row', gap: 8, marginVertical: 16, flexWrap: 'wrap', justifyContent: 'center' },
-  emptyLogroItem: { backgroundColor: '#1E3A5F', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, fontSize: 12, color: '#A8CFFF', fontWeight: 'bold' },
-  emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 32, alignItems: 'center', marginTop: 20, gap: 8 },
+  emptyLogroItem: { backgroundColor: colors.surfaceStrong, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, fontSize: 12, color: colors.textSoft, fontWeight: 'bold' },
+  emptyCard: { backgroundColor: colors.surfaceStrong, borderRadius: 20, padding: 32, alignItems: 'center', marginTop: 20, gap: 8 },
   emptyEmoji: { fontSize: 48, marginBottom: 16 },
-  emptyText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
-  emptySubtext: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 20 },
-  irCatalogoBtn: { backgroundColor: '#FC4C02', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 14, marginTop: 12 },
-  irCatalogoBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
+  emptyText: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginBottom: 8 },
+  emptySubtext: { fontSize: 14, color: colors.textSoft, textAlign: 'center', lineHeight: 20 },
+  irCatalogoBtn: { backgroundColor: colors.brandOrange, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 14, marginTop: 12 },
+  irCatalogoBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 15 },
   retoTabsScroll: { marginBottom: 10 },
   retoTab: { backgroundColor: '#132A42', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, borderWidth: 1, borderColor: '#234766', flexDirection: 'row', alignItems: 'center', gap: 6 },
   retoTabActivo: { backgroundColor: '#183553', borderColor: '#B94A1A' },
-  retoTabText: { color: '#7897B7', fontWeight: '700', fontSize: 12 },
+  retoTabText: { color: colors.textMuted, fontWeight: '700', fontSize: 12 },
   retoTabTextActivo: { color: '#F8FAFC' },
   retoTabBadge: { fontSize: 13 },
   shareCard: { backgroundColor: '#152F4A', borderRadius: 24, paddingHorizontal: 22, paddingTop: 20, paddingBottom: 18, marginBottom: 0, borderWidth: 1 },
   shareHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 13 },
   // FIX: KORVA y modalidad como texto plano, sin colores de botón
   shareKorvaLogo: { fontSize: 9, fontWeight: '900', color: '#6888A7', letterSpacing: 2.4 },
-  shareDeporte: { fontSize: 9, fontWeight: '800', color: '#67A9FF', letterSpacing: 1.1 },
+  shareDeporte: { fontSize: 9, fontWeight: '800', color: colors.actionBlue, letterSpacing: 1.1 },
   sharePctWrapper: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 1 },
-  sharePctNumero: { fontSize: 58, fontWeight: '800', color: '#FFFFFF', lineHeight: 64 },
-  sharePctSymbol: { fontSize: 26, fontWeight: '800', color: '#FC4C02', marginBottom: 9, marginLeft: 3 },
-  shareChallengeName: { fontSize: 22, fontWeight: '900', color: '#FFFFFF', marginBottom: 10 },
-  shareFrase: { fontSize: 13, color: '#A8CFFF', marginBottom: 12, fontStyle: 'italic' },
+  sharePctNumero: { fontSize: 58, fontWeight: '800', color: colors.text, lineHeight: 64 },
+  sharePctSymbol: { fontSize: 26, fontWeight: '800', color: colors.brandOrange, marginBottom: 9, marginLeft: 3 },
+  shareChallengeName: { fontSize: 22, fontWeight: '900', color: colors.text, marginBottom: 10 },
+  shareFrase: { fontSize: 13, color: colors.textSoft, marginBottom: 12, fontStyle: 'italic' },
   shareProgressBar: { height: 7, backgroundColor: '#091725', borderRadius: 4, marginTop: 12, marginBottom: 12, overflow: 'hidden' },
-  shareProgressFill: { height: 7, backgroundColor: '#FC4C02', borderRadius: 4 },
-  shareProgressFillCompletado: { backgroundColor: '#FC4C02' },
+  shareProgressFill: { height: 7, backgroundColor: colors.brandOrange, borderRadius: 4 },
+  shareProgressFillCompletado: { backgroundColor: colors.brandOrange },
   shareKmRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 6 },
-  shareKmText: { fontSize: 17, fontWeight: '800', color: '#FFFFFF' },
-  shareKmTotal: { fontSize: 11, color: '#7897B7', flex: 1 },
+  shareKmText: { fontSize: 17, fontWeight: '800', color: colors.text },
+  shareKmTotal: { fontSize: 11, color: colors.textMuted, flex: 1 },
   shareCompletadoBadge: { fontSize: 16 },
-  shareMetaText: { fontSize: 11, color: '#A8CFFF' },
+  shareMetaText: { fontSize: 11, color: colors.textSoft },
   heroMetricRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 2 },
-  heroKmNumero: { color: '#FFFFFF', fontSize: 62, lineHeight: 66, fontWeight: '900', letterSpacing: -2.5 },
-  heroKmUnidad: { color: '#A8CFFF', fontSize: 18, fontWeight: '800', marginLeft: 6, marginBottom: 9 },
+  heroKmNumero: { color: colors.text, fontSize: 62, lineHeight: 66, fontWeight: '900', letterSpacing: -2.5 },
+  heroKmUnidad: { color: colors.textSoft, fontSize: 18, fontWeight: '800', marginLeft: 6, marginBottom: 9 },
   heroPctPill: { marginLeft: 'auto', marginBottom: 8, backgroundColor: '#0D2236', borderRadius: 18, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: '#284C6E' },
-  heroPctText: { color: '#FC4C02', fontSize: 17, fontWeight: '900' },
-  heroTotal: { color: '#7897B7', fontSize: 12, fontWeight: '700', marginTop: 1 },
+  heroPctText: { color: colors.brandOrange, fontSize: 17, fontWeight: '900' },
+  heroTotal: { color: colors.textMuted, fontSize: 12, fontWeight: '700', marginTop: 1 },
   heroFooter: { minHeight: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   heroFooterMuted: { color: '#6888A7', fontSize: 11 },
-  gpsHeroAction: { marginTop: 20, minHeight: 142, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 18, backgroundColor: '#14283B', borderWidth: 1, borderColor: '#31506B' },
+  gpsHeroAction: { marginTop: 20, minHeight: 142, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 18, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderStrong },
   gpsHeroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
-  gpsHeroStart: { height: 42, borderRadius: 21, backgroundColor: '#FC4C02', paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  gpsHeroStartText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  gpsHeroStart: { height: 42, borderRadius: 21, backgroundColor: colors.brandOrange, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  gpsHeroStartText: { color: colors.text, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   gpsHeroEyebrow: { color: '#6E8BA7', fontSize: 9, fontWeight: '900', letterSpacing: 2.2, marginBottom: 5 },
-  gpsHeroTitulo: { color: '#FFFFFF', fontSize: 21, fontWeight: '900', lineHeight: 25 },
-  gpsHeroDesc: { color: '#A8CFFF', fontSize: 11, marginTop: 10 },
+  gpsHeroTitulo: { color: colors.text, fontSize: 21, fontWeight: '900', lineHeight: 25 },
+  gpsHeroDesc: { color: colors.textSoft, fontSize: 11, marginTop: 10 },
   gpsHeroDivider: { height: 1, backgroundColor: '#203D57', marginVertical: 12 },
-  gpsHeroHint: { color: '#58748F', fontSize: 9, lineHeight: 13 },
-  heroHistoria: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#244766', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  heroHistoriaText: { color: '#67A9FF', fontSize: 11, fontWeight: '800' },
+  gpsHeroHint: { color: colors.textDim, fontSize: 9, lineHeight: 13 },
+  heroHistoria: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.borderSoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroHistoriaText: { color: colors.actionBlue, fontSize: 11, fontWeight: '800' },
   scrollCue: { alignSelf: 'center', alignItems: 'center', paddingHorizontal: 28, paddingTop: 14, paddingBottom: 4 },
-  shareFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#0D1B2A', paddingTop: 12 },
+  shareFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.background, paddingTop: 12 },
   shareNombre: { fontSize: 12, color: '#4a6a8a', fontWeight: 'bold' },
   shareUrl: { fontSize: 12, color: '#4a6a8a' },
   retoAcciones: { marginTop: 18, marginBottom: 24, borderTopWidth: 1, borderTopColor: '#213C58', paddingTop: 14 },
   historiaLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 7, marginBottom: 10 },
-  historiaLinkText: { color: '#67A9FF', fontSize: 13, fontWeight: '800' },
+  historiaLinkText: { color: colors.actionBlue, fontSize: 13, fontWeight: '800' },
   accionesSecundarias: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 22, paddingVertical: 9 },
   accionSutil: { minHeight: 28, justifyContent: 'center' },
-  accionSutilText: { color: '#A8CFFF', fontSize: 11, fontWeight: '700' },
+  accionSutilText: { color: colors.textSoft, fontSize: 11, fontWeight: '700' },
   pausaSutil: { alignItems: 'center', paddingTop: 10, marginTop: 4 },
   pausaSutilText: { color: '#6F8298', fontSize: 10, fontWeight: '700' },
-    detalleBtn: { backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#1E6FD9', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
-  detalleBtnText: { color: '#1E6FD9', fontSize: 13, fontWeight: 'bold' },
-  compartirBtn: { backgroundColor: '#0D1B2A', borderWidth: 1, borderColor: '#2a4a6a', paddingVertical: 10, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
-  compartirBtnText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
+    detalleBtn: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.actionBlueStrong, paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
+  detalleBtnText: { color: colors.actionBlueStrong, fontSize: 13, fontWeight: 'bold' },
+  compartirBtn: { backgroundColor: colors.background, borderWidth: 1, borderColor: '#2a4a6a', paddingVertical: 10, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
+  compartirBtnText: { color: colors.textSoft, fontSize: 13, fontWeight: 'bold' },
   bibRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  bibBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 12, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: '#FC4C02' },
-  bibBtnSecundario: { borderColor: '#1E6FD9' },
-  bibBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 },
-  completadoCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 16, marginHorizontal: 20, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderLeftWidth: 4, borderLeftColor: '#FC4C02' },
-  completadoChallenge: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  completadoKm: { fontSize: 13, color: '#A8CFFF' },
-  completadoBadge: { fontSize: 12, color: '#4CAF50', fontWeight: 'bold' },
-  seccionTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
-  modolLibreBanner: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 16, flexDirection: 'row', gap: 12, borderLeftWidth: 4, borderLeftColor: '#1E6FD9' },
+  bibBtn: { flex: 1, backgroundColor: colors.surfaceStrong, borderRadius: 12, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.brandOrange },
+  bibBtnSecundario: { borderColor: colors.actionBlueStrong },
+  bibBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 12 },
+  completadoCard: { backgroundColor: colors.surfaceStrong, borderRadius: 14, padding: 16, marginHorizontal: 20, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderLeftWidth: 4, borderLeftColor: colors.brandOrange },
+  completadoChallenge: { fontSize: 15, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  completadoKm: { fontSize: 13, color: colors.textSoft },
+  completadoBadge: { fontSize: 12, color: colors.success, fontWeight: 'bold' },
+  seccionTitulo: { fontSize: 16, fontWeight: 'bold', color: colors.text },
+  modolLibreBanner: { backgroundColor: colors.surfaceStrong, borderRadius: 16, padding: 16, flexDirection: 'row', gap: 12, borderLeftWidth: 4, borderLeftColor: colors.actionBlueStrong },
   modoLibreEmoji: { fontSize: 32 },
-  modoLibreTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  modoLibreDesc: { fontSize: 13, color: '#A8CFFF', lineHeight: 18, marginBottom: 8 },
-  modoLibreBtn: { fontSize: 13, color: '#FC4C02', fontWeight: 'bold' },
-  actividadLibreCard: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#1E3A5F' },
-  storyCard: { backgroundColor: '#0D1B2A', borderRadius: 20, padding: 28, width: 300, borderWidth: 2, borderColor: '#FC4C02', alignItems: 'center' },
+  modoLibreTitulo: { fontSize: 15, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  modoLibreDesc: { fontSize: 13, color: colors.textSoft, lineHeight: 18, marginBottom: 8 },
+  modoLibreBtn: { fontSize: 13, color: colors.brandOrange, fontWeight: 'bold' },
+  actividadLibreCard: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.surfaceStrong },
+  storyCard: { backgroundColor: colors.background, borderRadius: 20, padding: 28, width: 300, borderWidth: 2, borderColor: colors.brandOrange, alignItems: 'center' },
   storyHeader: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 24 },
-  storyLogo: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
-  storyTagline: { fontSize: 12, color: '#FC4C02', fontWeight: 'bold', letterSpacing: 2 },
+  storyLogo: { fontSize: 18, fontWeight: 'bold', color: colors.text },
+  storyTagline: { fontSize: 12, color: colors.brandOrange, fontWeight: 'bold', letterSpacing: 2 },
   storyPctWrapper: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
-  storyPctNumero: { fontSize: 72, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 80 },
-  storyPctSymbol: { fontSize: 28, fontWeight: 'bold', color: '#FC4C02', marginTop: 16 },
-  storyChallenge: { fontSize: 16, fontWeight: 'bold', color: '#A8CFFF', marginBottom: 16, textAlign: 'center' },
-  storyBar: { height: 6, backgroundColor: '#1E3A5F', borderRadius: 3, width: '100%', marginBottom: 8 },
-  storyBarFill: { height: 6, backgroundColor: '#FC4C02', borderRadius: 3 },
-  storyKm: { fontSize: 13, color: '#A8CFFF', marginBottom: 24 },
-  storyFooter: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', borderTopWidth: 1, borderTopColor: '#1E3A5F', paddingTop: 12 },
-  storyNombre: { fontSize: 13, color: '#FFFFFF', fontWeight: 'bold' },
-  storyUrl: { fontSize: 13, color: '#FC4C02' },
+  storyPctNumero: { fontSize: 72, fontWeight: 'bold', color: colors.text, lineHeight: 80 },
+  storyPctSymbol: { fontSize: 28, fontWeight: 'bold', color: colors.brandOrange, marginTop: 16 },
+  storyChallenge: { fontSize: 16, fontWeight: 'bold', color: colors.textSoft, marginBottom: 16, textAlign: 'center' },
+  storyBar: { height: 6, backgroundColor: colors.surfaceStrong, borderRadius: 3, width: '100%', marginBottom: 8 },
+  storyBarFill: { height: 6, backgroundColor: colors.brandOrange, borderRadius: 3 },
+  storyKm: { fontSize: 13, color: colors.textSoft, marginBottom: 24 },
+  storyFooter: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', borderTopWidth: 1, borderTopColor: colors.surfaceStrong, paddingTop: 12 },
+  storyNombre: { fontSize: 13, color: colors.text, fontWeight: 'bold' },
+  storyUrl: { fontSize: 13, color: colors.brandOrange },
   movimientoSection: { marginHorizontal: 0, marginTop: 26, marginBottom: 6 },
-  movimientoTitulo: { color: '#A8CFFF', fontSize: 11, fontWeight: '800', letterSpacing: 1.4, marginBottom: 10 },
-  actividadRecienteCard: { backgroundColor: '#13283D', borderRadius: 16, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#1E3A5F' },
+  movimientoTitulo: { color: colors.textSoft, fontSize: 11, fontWeight: '800', letterSpacing: 1.4, marginBottom: 10 },
+  actividadRecienteCard: { backgroundColor: '#13283D', borderRadius: 16, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: colors.surfaceStrong },
   actividadRecienteHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 },
   actividadRecienteEyebrow: { color: '#617184', fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
   actividadRecienteFecha: { color: '#617184', fontSize: 11, fontWeight: '600' },
   actividadRecienteFila: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  actividadRecienteDeporte: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
-  actividadRecienteFuente: { color: '#A8CFFF', fontSize: 11, marginTop: 3 },
-  actividadRecienteKm: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
-  actividadesInicioCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 4, marginBottom: 10, borderTopWidth: 1, borderTopColor: '#1E3A5F' },
-  actividadesInicioTitulo: { color: '#A8CFFF', fontSize: 13, fontWeight: '800' },
-  actividadesInicioDesc: { color: '#A8CFFF', fontSize: 11, marginTop: 3 },
+  actividadRecienteDeporte: { color: colors.text, fontSize: 16, fontWeight: '800' },
+  actividadRecienteFuente: { color: colors.textSoft, fontSize: 11, marginTop: 3 },
+  actividadRecienteKm: { color: colors.text, fontSize: 18, fontWeight: '800' },
+  actividadesInicioCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 4, marginBottom: 10, borderTopWidth: 1, borderTopColor: colors.surfaceStrong },
+  actividadesInicioTitulo: { color: colors.textSoft, fontSize: 13, fontWeight: '800' },
+  actividadesInicioDesc: { color: colors.textSoft, fontSize: 11, marginTop: 3 },
   gpsInicioCard: { marginHorizontal: 20, marginTop: 4, marginBottom: 14, paddingHorizontal: 15, paddingVertical: 13, minHeight: 72, borderRadius: 18, backgroundColor: '#122A42', borderWidth: 1, borderColor: '#244B70', flexDirection: 'row', alignItems: 'center', gap: 12 },
   gpsInicioIcono: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#173B60', borderWidth: 1, borderColor: '#28577F', alignItems: 'center', justifyContent: 'center' },
   gpsInicioEyebrow: { color: '#6F95BA', fontSize: 8, fontWeight: '800', letterSpacing: 1.8, marginBottom: 2 },
-  gpsInicioTitulo: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', marginBottom: 2 },
+  gpsInicioTitulo: { color: colors.text, fontSize: 16, fontWeight: '800', marginBottom: 2 },
   gpsInicioDesc: { color: '#8FAECC', fontSize: 10, lineHeight: 14 },
-  gpsInicioAccion: { height: 34, borderRadius: 17, backgroundColor: '#FC4C02', paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
-  gpsInicioAccionText: { color: '#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  gpsInicioAccion: { height: 34, borderRadius: 17, backgroundColor: colors.brandOrange, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  gpsInicioAccionText: { color: colors.text, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   actualizarBtn: { marginTop: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center' },
-  actualizarBtnText: { color: '#A8CFFF', fontSize: 14 },
-  metaCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 18, marginBottom: 8, borderWidth: 1, borderColor: '#FC4C02' },
-  metaCardTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  metaCardSubtitulo: { fontSize: 12, color: '#A8CFFF', marginBottom: 14 },
+  actualizarBtnText: { color: colors.textSoft, fontSize: 14 },
+  metaCard: { backgroundColor: colors.surfaceStrong, borderRadius: 16, padding: 18, marginBottom: 8, borderWidth: 1, borderColor: colors.brandOrange },
+  metaCardTitulo: { fontSize: 15, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  metaCardSubtitulo: { fontSize: 12, color: colors.textSoft, marginBottom: 14 },
   metaInputRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  metaInput: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, color: '#FFFFFF', fontSize: 14, borderWidth: 1, borderColor: '#2a4a6a' },
-  metaGuardarBtn: { backgroundColor: '#FC4C02', borderRadius: 10, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
-  metaGuardarBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
+  metaInput: { flex: 1, backgroundColor: colors.background, borderRadius: 10, padding: 12, color: colors.text, fontSize: 14, borderWidth: 1, borderColor: '#2a4a6a' },
+  metaGuardarBtn: { backgroundColor: colors.brandOrange, borderRadius: 10, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  metaGuardarBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 14 },
   metaSaltarBtn: { alignItems: 'center', paddingVertical: 4 },
   metaSaltarText: { color: '#4a6a8a', fontSize: 12 },
 });
