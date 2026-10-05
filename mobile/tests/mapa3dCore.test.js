@@ -95,3 +95,38 @@ test('las etiquetas de checkpoints no se pisan', () => {
     assert.ok(cajas[i].x >= 0 && cajas[i].x + cajas[i].w <= 360);
   }
 });
+
+
+test('Journey Engine deriva conquistados, proximo y distancia restante sin conocer la escena', () => {
+  const { estadoJourney } = require('../services/mapa3d/journeyCore');
+  const estado = estadoJourney({
+    distanciaKm: 100,
+    kmProgreso: 37,
+    checkpoints: [
+      { id: 'a', kmFisico: 0 },
+      { id: 'b', kmFisico: 20 },
+      { id: 'c', kmFisico: 45 },
+      { id: 'd', kmFisico: 80 },
+    ],
+  });
+  assert.equal(estado.checkpoints[0].estadoJourney, 'conquistado');
+  assert.equal(estado.checkpoints[1].estadoJourney, 'conquistado');
+  assert.equal(estado.checkpoints[2].estadoJourney, 'proximo');
+  assert.equal(estado.checkpoints[3].estadoJourney, 'bloqueado');
+  assert.equal(estado.siguiente.id, 'c');
+  assert.equal(estado.kmHastaSiguiente, 8);
+});
+
+test('Journey Engine completa cualquier escena usando su distancia', () => {
+  const { estadoJourney } = require('../services/mapa3d/journeyCore');
+  const estado = estadoJourney({
+    distanciaKm: 68,
+    kmProgreso: 10,
+    completado: true,
+    checkpoints: [{ id: 'inicio', kmFisico: 0 }, { id: 'meta', kmFisico: 68 }],
+  });
+  assert.equal(estado.kmActual, 68);
+  assert.equal(estado.porcentaje, 1);
+  assert.equal(estado.siguiente, null);
+  assert.equal(estado.checkpoints[1].estadoJourney, 'conquistado');
+});
