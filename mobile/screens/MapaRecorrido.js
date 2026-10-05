@@ -446,10 +446,10 @@ function ScrollHintAnimado() {
 }
 
 // ─── HISTORIA INLINE ─────────────────────────────────────────────
-function HistoriaInline({ cp, factor, distanciaTotal, estaDesbloqueado, esInicio, esFin, onCerrar }) {
+function HistoriaInline({ cp, factor, distanciaTotal, estaDesbloqueado, esInicio, esFin, onCerrar, compacto = false }) {
   if (!cp) return null;
   return (
-    <View style={styles.historiaContainer}>
+    <View style={[styles.historiaContainer, compacto && styles.historiaContainerCompacto]}>
       <View style={styles.historiaHeader}>
         <Text style={styles.historiaEmoji}>{estaDesbloqueado ? cp.emoji : '🔒'}</Text>
         <View style={styles.historiaTituloWrap}>
@@ -465,7 +465,7 @@ function HistoriaInline({ cp, factor, distanciaTotal, estaDesbloqueado, esInicio
           {(esInicio || esFin) && (
             <View style={styles.mensajeEspecialBox}>
               <Text style={styles.mensajeEspecial}>
-                {esInicio ? '🚀 ¡Bienvenido al desafío! Cada paso te acerca a tu medalla.' : '🏅 ¡Lo lograste! Tu medalla está en camino.'}
+                {esInicio ? '🚀 ¡Bienvenido al desafío! Cada paso te acerca a tu medalla.' : '🏅 ¡Conquista completada! Llegaste al final de este recorrido.'}
               </Text>
             </View>
           )}
@@ -754,28 +754,30 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
       </View>
       )}
       {!esFinDelMundo && <ScrollHintAnimado />}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
-        {checkpoints.map((cp) => {
-          const bloqueado = !desbloqueado(cp);
-          const seleccionado = cpSeleccionado?.id === cp.id;
-          return (
-            <TouchableOpacity key={cp.id} style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo, seleccionado && styles.leyendaItemSeleccionado]} onPress={() => handleCheckpointPress(cp)}>
-              <Text style={styles.leyendaEmoji}>{bloqueado ? '🔒' : cp.emoji}</Text>
-              <View style={styles.leyendaTextos}>
-                <Text style={[styles.leyendaNombre, !bloqueado && styles.leyendaNombreActivo]}>{cp.nombre}</Text>
-                <Text style={styles.leyendaKm}>{(cp.kmFisico * factor).toFixed(0)} km</Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      {!esFinDelMundo && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
+          {checkpoints.map((cp) => {
+            const bloqueado = !desbloqueado(cp);
+            const seleccionado = cpSeleccionado?.id === cp.id;
+            return (
+              <TouchableOpacity key={cp.id} style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo, seleccionado && styles.leyendaItemSeleccionado]} onPress={() => handleCheckpointPress(cp)}>
+                <Text style={styles.leyendaEmoji}>{bloqueado ? '🔒' : cp.emoji}</Text>
+                <View style={styles.leyendaTextos}>
+                  <Text style={[styles.leyendaNombre, !bloqueado && styles.leyendaNombreActivo]}>{cp.nombre}</Text>
+                  <Text style={styles.leyendaKm}>{(cp.kmFisico * factor).toFixed(0)} km</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
       {cpSeleccionado ? (
-        <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} />
-      ) : (
+        <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} compacto={esFinDelMundo} />
+      ) : !esFinDelMundo ? (
         <View style={styles.historiaPlaceholder}>
           <Text style={styles.historiaPlaceholderText}>Tocá un punto del mapa o un checkpoint para leer su historia</Text>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -850,6 +852,7 @@ const styles = StyleSheet.create({
   leyendaNombreActivo: { color: '#F8FAFC' },
   leyendaKm: { fontSize: 10, color: '#94A3B8', marginTop: 2 },
   historiaContainer: { backgroundColor: '#1E293B', borderRadius: 16, marginHorizontal: 16, marginTop: 4, marginBottom: 8, padding: 16, borderWidth: 1, borderColor: '#334155', maxHeight: 280 },
+  historiaContainerCompacto: { marginTop: 10, padding: 14, borderColor: '#29496B', backgroundColor: '#13283D', maxHeight: 230 },
   historiaHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   historiaEmoji: { fontSize: 28, marginRight: 12 },
   historiaTituloWrap: { flex: 1 },
