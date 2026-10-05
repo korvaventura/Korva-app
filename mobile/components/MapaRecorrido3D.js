@@ -375,6 +375,11 @@ export default function MapaRecorrido3D({
           {
             x: p.cabeza.x + 11,
             y: p.cabeza.y - 15,
+            // En replay reservamos ancho suficiente para el nombre completo.
+            // Si no entra en pantalla, la etiqueta se oculta en vez de mostrar
+            // un nombre truncado como "USHUA...".
+            w: Math.max(74, (p.cp.nombre?.length || 0) * 7.4 + 18),
+            lado: 'derecha',
             visible: true,
           },
         ]))
@@ -521,7 +526,7 @@ export default function MapaRecorrido3D({
                 >
                   {sel && <View style={styles.pinNucleo} />}
                 </TouchableOpacity>
-                {caja && (
+                {caja && (!reproduciendo || (caja.x >= 4 && caja.x + caja.w <= (tam?.w || 0) - 4)) && (
                   <TouchableOpacity activeOpacity={0.75} onPress={presionar} style={[styles.etiqueta, { left: caja.x, top: caja.y, width: caja.w }, caja.lado === 'izquierda' && styles.etiquetaIzq, (caja.lado === 'arriba' || caja.lado === 'abajo') && styles.etiquetaCentro]}>
                     <Text numberOfLines={1} style={[styles.etiquetaNombre, !desbloqueado && styles.etiquetaBloqueada, sel && styles.etiquetaSel]}>{cp.nombre?.toUpperCase()}</Text>
                     <Text numberOfLines={1} style={styles.etiquetaKm}>{desbloqueado ? `${Math.round(km)} km` : estadoJourney === 'proximo' ? `PRÓXIMO · ${Math.round(km)} km` : `🔒 ${Math.round(km)} km`}</Text>
