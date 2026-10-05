@@ -117,22 +117,6 @@ export default function DetalleRetoScreen({ route, navigation }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json().catch(() => null);
-      console.log('[KORVA_ACTIVIDADES_DIAG]', {
-        challenge_id: item.challenge_id,
-        status: res.status,
-        ok: res.ok,
-        started_at: data?.started_at ?? item?.started_at ?? null,
-        completed_at: item?.completed_at ?? null,
-        cantidad: Array.isArray(data?.actividades) ? data.actividades.length : null,
-        error: data?.error ?? null,
-        muestra: Array.isArray(data?.actividades) ? data.actividades.slice(0, 3).map((a) => ({
-          id: a.id,
-          source: a.source,
-          sport_type: a.sport_type,
-          distance_km: a.distance_km,
-          recorded_at: a.recorded_at,
-        })) : null,
-      });
       if (!res.ok) throw new Error(data?.error || 'No se pudo cargar la historia del desafío');
       setActividades(Array.isArray(data?.actividades) ? data.actividades : []);
     } catch (error) {
@@ -286,15 +270,27 @@ export default function DetalleRetoScreen({ route, navigation }) {
           <Text style={styles.rutaTitulo}>Tu ruta</Text>
         </View>
         <Text style={styles.rutaSubtitulo}>{estaCompletado ? 'Recorré nuevamente los checkpoints de tu conquista.' : 'Explorá los checkpoints de tu aventura.'}</Text>
-        <MapaRecorrido
-          kmCompletados={kmCompletados}
-          distanciaTotal={distanciaTotal}
-          porcentaje={pct}
-          challengeId={item.challenge_id}
-          challengeTitle={nombreReto}
-          actividades={actividades}
-          fullscreen
-        />
+        {abrirRuta ? (
+          <MapaRecorrido
+            kmCompletados={kmCompletados}
+            distanciaTotal={distanciaTotal}
+            porcentaje={pct}
+            challengeId={item.challenge_id}
+            challengeTitle={nombreReto}
+            actividades={actividades}
+            fullscreen
+          />
+        ) : (
+          <TouchableOpacity
+            style={styles.abrirRutaBtn}
+            accessibilityRole="button"
+            onPress={() => navigation.push('DetalleReto', { item, userId, nombrePersona, abrirRuta: true })}
+          >
+            <Ionicons name="map-outline" size={18} color={colors.actionBlue} />
+            <Text style={styles.abrirRutaBtnText}>Abrir mapa del recorrido</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.actionBlue} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {estaCompletado && (
@@ -439,6 +435,8 @@ export default function DetalleRetoScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   rutaSection: { marginBottom: spacing.xl },
   rutaTitulo: { fontSize: 16, fontWeight: '800', color: colors.text },
+  abrirRutaBtn: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 48, paddingHorizontal: 14, borderRadius: 12, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderSoft },
+  abrirRutaBtnText: { flex: 1, color: colors.actionBlue, fontSize: 14, fontWeight: '800' },
   rutaSubtitulo: { fontSize: 12, lineHeight: 18, color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.md },
   completedShareBtn: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderSoft, borderRadius: radius.pill, marginBottom: spacing.lg, paddingHorizontal: spacing.md },
   completedShareText: { fontSize: 13, fontWeight: '800', color: colors.brandOrangeSoft },
