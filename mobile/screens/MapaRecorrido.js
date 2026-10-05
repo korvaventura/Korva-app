@@ -549,7 +549,7 @@ function MapaSVG({ config, kmFisicos, pinPos, rutaBasePath, pathCompletado, puls
   );
 }
 
-export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, onScrollBegin, onScrollEnd, fullscreen = false, integrado = false }) {
+export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, actividades = [], onScrollBegin, onScrollEnd, fullscreen = false, integrado = false }) {
   const [cpSeleccionado, setCpSeleccionado] = useState(null);
   const [modalMapaVisible, setModalMapaVisible] = useState(false);
   const scrollViewRef = useRef(null);
@@ -738,6 +738,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
             completado={completado3D}
             kmUsuario={Number(kmCompletados) || 0}
             kmTotalUsuario={totalUsuario}
+            actividades={actividades}
             seleccionadoId={cpSeleccionado?.id}
             onSelect={handleCheckpointPress}
           />
