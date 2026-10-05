@@ -91,28 +91,58 @@ function geometriaTerreno(datos, conv) {
 // agua y el terreno que sube: orillas suaves sin polígonos de contorno.
 function crearAguas(datos, conv, escena) {
   const grupo = new THREE.Group();
-  const { nx, nz, xs, zs, agua } = datos.campo;
+  const { nx, nz, xs, zs, agua, alturas } = datos.campo;
   const estilo = escena.agua || {};
-  const niveles = [...new Set(escena.aguas.map((a) => a.nivelM))];
+  const niveles = [...new Set([...(escena.aguas || []).map((a) => a.nivelM), ...(escena.mar ? [escena.mar.nivelM] : [])])];
+  // Color por profundidad (opcional): laguna turquesa -> azul profundo.
+  const porProfundidad = !!(estilo.somero && estilo.profundo);
+  const somero = porProfundidad ? new THREE.Color(estilo.somero) : null;
+  const medio = porProfundidad ? new THREE.Color(estilo.medio || estilo.somero) : null;
+  const profundo = porProfundidad ? new THREE.Color(estilo.profundo) : null;
+  const escalaM = estilo.profundidadColorM ?? 40;
+  const espuma = estilo.espuma ? new THREE.Color(estilo.espuma) : null;
+  const c = new THREE.Color();
 
   niveles.forEach((nivel) => {
+    // Indexada: comparte vértices de grilla (un mar puede cubrir casi todo el mundo).
     const pos = [];
+    const col = [];
+    const indices = [];
+    const mapa = new Int32Array(nx * nz).fill(-1);
     const pertenece = (k) => agua[k] > -Infinity && Math.abs(agua[k] - nivel) < 0.01;
-    const vert = (i, j) => pos.push(conv.x(xs[i]), conv.y(nivel + 1.5), conv.z(zs[j]));
+    const vert = (i, j) => {
+      const k = j * nx + i;
+      if (mapa[k] >= 0) return mapa[k];
+      mapa[k] = pos.length / 3;
+      pos.push(conv.x(xs[i]), conv.y(nivel + (estilo.elevacionM ?? 1.5)), conv.z(zs[j]));
+      if (porProfundidad) {
+        const prof = nivel - alturas[k];
+        const t = Math.min(1, Math.max(0, prof / escalaM));
+        if (t < 0.35) c.copy(somero).lerp(medio, t / 0.35);
+        else c.copy(medio).lerp(profundo, (t - 0.35) / 0.65);
+        // Rompiente: espuma sobre crestas casi a flor de agua (arrecifes, bajíos).
+        if (espuma && prof > 0 && prof < (estilo.espumaHastaM ?? 1.2)) c.lerp(espuma, 0.55 * (1 - prof / (estilo.espumaHastaM ?? 1.2)));
+        col.push(c.r, c.g, c.b);
+      }
+      return mapa[k];
+    };
     for (let j = 0; j < nz - 1; j += 1) {
       for (let i = 0; i < nx - 1; i += 1) {
         const a = j * nx + i;
         if (!(pertenece(a) || pertenece(a + 1) || pertenece(a + nx) || pertenece(a + nx + 1))) continue;
-        vert(i, j); vert(i, j + 1); vert(i + 1, j);
-        vert(i + 1, j); vert(i, j + 1); vert(i + 1, j + 1);
+        const va = vert(i, j); const vb = vert(i + 1, j); const vc = vert(i, j + 1); const vd = vert(i + 1, j + 1);
+        indices.push(va, vc, vb, vb, vc, vd);
       }
     }
     if (!pos.length) return;
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    if (porProfundidad) g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setIndex(pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(indices, 1) : new THREE.Uint16BufferAttribute(indices, 1));
     g.computeVertexNormals();
     const m = new THREE.MeshStandardMaterial({
-      color: estilo.color || '#2B6079',
+      color: porProfundidad ? '#FFFFFF' : (estilo.color || '#2B6079'),
+      vertexColors: porProfundidad,
       roughness: estilo.rugosidad ?? 0.32,
       metalness: 0,
       transparent: true,

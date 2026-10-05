@@ -159,7 +159,9 @@ function interpolarTabla(tabla, clave) {
 // Los waypoints con `km` son anclas: así un checkpoint de km 45 cae exactamente
 // en el Paso Garibaldi aunque el trazado geométrico mida distinto.
 function prepararRuta(escena, proy) {
-  const pts = escena.ruta.map((w) => ({ ...proy.aKm(w.lat, w.lon), km: w.km }));
+  // `agua: true` en un waypoint = el tramo que sale de él es náutico (cruce a
+  // un cayo, navegación): va sobre la superficie y no talla terreno.
+  const pts = escena.ruta.map((w) => ({ ...proy.aKm(w.lat, w.lon), km: w.km, agua: !!w.agua }));
   const acum = longitudesAcumuladas(pts);
   const anclas = [];
   pts.forEach((p, i) => { if (Number.isFinite(p.km)) anclas.push([acum[i], p.km]); });
@@ -171,8 +173,9 @@ function prepararRuta(escena, proy) {
   return { pts, acum, largo, kmDeS, sDeKm };
 }
 
-function prepararAguas(escena, proy) {
-  return escena.aguas.map((agua) => {
+// Cápsulas sobre una polilínea [lat, lon, semiancho km]: lagos, canales e islas.
+function prepararCapsulas(lista, proy) {
+  return (lista || []).map((agua) => {
     const pts = agua.eje.map(([lat, lon, ancho]) => ({ ...proy.aKm(lat, lon), ancho }));
     const acum = longitudesAcumuladas(pts);
     let minX = Infinity; let maxX = -Infinity; let minZ = Infinity; let maxZ = -Infinity;
@@ -190,7 +193,7 @@ function prepararAguas(escena, proy) {
   });
 }
 
-// Distancia con signo al borde de un cuerpo de agua (negativa = adentro).
+// Distancia con signo al borde de una cápsula (negativa = adentro).
 function distanciaAgua(agua, x, z, ruido) {
   const { d, i, t } = distanciaPolilinea(x, z, agua.pts, null);
   const a = agua.pts[i];
@@ -206,8 +209,11 @@ function crearFuncionAltura(escena) {
   const proy = crearProyeccion(escena.centro);
   const ruido = crearRuido(escena.semilla);
   const ruta = prepararRuta(escena, proy);
-  const aguas = prepararAguas(escena, proy);
+  const aguas = prepararCapsulas(escena.aguas, proy);
   const relieve = escena.relieve;
+  // Masas de tierra (islas, penínsulas) que emergen de un fondo marino.
+  const masas = prepararCapsulas(relieve.masas, proy);
+  const mar = escena.mar || null;
   const picos = (relieve.picos || []).map((p) => ({ ...p, ...proy.aKm(p.lat, p.lon) }));
   const perfil = escena.perfilRuta; // [[km, metros], ...]
 
@@ -216,7 +222,7 @@ function crearFuncionAltura(escena) {
     const wx = x + 5.5 * ruido.fbm(x * 0.045 + 3.1, z * 0.045 - 1.7, 3);
     const wz = z + 3.5 * ruido.fbm(x * 0.045 - 8.2, z * 0.045 + 5.9, 3);
 
-    let h = 0;
+    let h = mar ? -Infinity : 0; // mar permite batimetría; escenas previas conservan su piso
     for (const faja of relieve.fajas) {
       // Centro de la faja variable con x para que la cordillera no sea una regla.
       const cz = faja.centroZ + (faja.inclinacion || 0) * x + 2.5 * ruido.perlin(x * 0.03, 9.1);
@@ -236,6 +242,24 @@ function crearFuncionAltura(escena) {
     const colinas = relieve.colinas;
     const lomas = colinas.base + colinas.amp * (0.5 + 0.5 * ruido.fbm(x * 0.07 + 20, z * 0.07 - 20, 4));
     h = Math.max(h, lomas);
+
+    // Masas de tierra: costa en `costaM`, sube hacia el interior y cae al fondo
+    // con un talud. Una isla, un banco de arena o un arrecife sumergido son
+    // la misma primitiva con distintos parámetros.
+    for (const m of masas) {
+      const c = m.caja;
+      const margen = m.alcanceKm ?? 6;
+      if (x < c.minX - margen || x > c.maxX + margen || z < c.minZ - margen || z > c.maxZ + margen) continue;
+      const d = distanciaAgua(m, x, z, ruido);
+      let hm;
+      if (d < 0) {
+        const t = Math.pow(smoothstep(0, m.interiorKm ?? 1, -d), m.forma ?? 1);
+        hm = m.costaM + (m.alturaM - m.costaM) * t + (m.rugosidadM ?? 0) * ruido.fbm(x * 1.4 + 3.3, z * 1.4 - 8.1, 3) * t;
+      } else {
+        hm = m.costaM - (m.taludMporKm ?? 20) * d;
+      }
+      h = Math.max(h, hm);
+    }
 
     // Picos nombrados: masas reconocibles dentro del mismo campo continuo.
     for (const p of picos) {
@@ -294,13 +318,14 @@ function crearFuncionAltura(escena) {
 
     // Corredor de la RN3: valle glaciar en U siguiendo la ruta.
     const cr = distanciaPolilinea(x, z, ruta.pts, ruta.acum);
+    const nautico = !!ruta.pts[cr.i]?.agua;
     const piso = perfilSiguiendoTerreno
       ? interpolarTabla(perfilSiguiendoTerreno, cr.s)
       : interpolarTabla(perfil, ruta.kmDeS(cr.s));
     const corredor = escena.corredor;
     const exceso = Math.max(0, cr.d - corredor.planoKm);
     const valle = piso + corredor.paredM * Math.pow(exceso, corredor.potencia);
-    h = smin(h, valle, corredor.suavizadoM);
+    if (!nautico) h = smin(h, valle, corredor.suavizadoM);
 
     // Cuerpos de agua: cuencas talladas + costas que suben desde el nivel.
     let nivelAgua = -Infinity;
@@ -336,8 +361,10 @@ function crearFuncionAltura(escena) {
       }
     }
 
-    // La ruta nunca queda bajo el agua ni enterrada.
-    if (cr.d < corredor.planoKm * 1.6) {
+    if (mar && h < mar.nivelM) nivelAgua = Math.max(nivelAgua, mar.nivelM);
+
+    // Los cruces marítimos no construyen un terraplén en el fondo.
+    if (!nautico && cr.d < corredor.planoKm * 1.6) {
       const t = smoothstep(corredor.planoKm * 1.6, corredor.planoKm * 0.6, cr.d);
       h = lerp(h, Math.max(h, piso), t);
     }
@@ -345,7 +372,7 @@ function crearFuncionAltura(escena) {
     return { h, nivelAgua };
   };
 
-  return { altura, ruta, aguas, proy, ruido, picos };
+  return { altura, ruta, aguas, masas, mar, proy, ruido, picos };
 }
 
 // ── Mundo continuo: grilla graduada ───────────────────────────────────────
@@ -554,7 +581,7 @@ function colorearTerreno(campo, escena, luz) {
       let c;
       const bajoAgua = agua[idx] > -Infinity && h < agua[idx];
       if (bajoAgua) {
-        const prof = clamp((agua[idx] - h) / 60, 0, 1);
+        const prof = clamp((agua[idx] - h) / (pisos.profundidadColorM ?? 60), 0, 1);
         c = mezclar(pal.fondoSomero, pal.fondoProfundo, prof);
       } else {
         // Llanura norte: turba y coirón en tonos oliva/ocre.
@@ -681,6 +708,13 @@ function marcarCosta(campo) {
 function muestrearRuta(campo, pasoKm = 0.25) {
   const { ruta } = campo.geo;
   const salida = [];
+  // En tramos náuticos la ruta flota sobre la superficie del agua.
+  const alturaRuta = (x, z, nautico) => {
+    const h = campo.muestrear(x, z);
+    if (!nautico) return h;
+    const nivel = campo.agua[indiceCercano(campo, x, z)];
+    return nivel > -Infinity ? Math.max(h, nivel) : h;
+  };
   const n = Math.max(2, Math.ceil(ruta.largo / pasoKm));
   for (let k = 0; k <= n; k += 1) {
     const s = (ruta.largo * k) / n;
@@ -691,7 +725,8 @@ function muestrearRuta(campo, pasoKm = 0.25) {
     const b = ruta.pts[i + 1];
     const x = lerp(a.x, b.x, t);
     const z = lerp(a.z, b.z, t);
-    salida.push({ x, z, h: campo.muestrear(x, z), km: ruta.kmDeS(s) });
+    const nautico = !!a.agua;
+    salida.push({ x, z, h: alturaRuta(x, z, nautico), km: ruta.kmDeS(s), nautico });
   }
   // Suavizado Chaikin-lite para que las esquinas del trazado no se vean poligonales.
   for (let pasada = 0; pasada < 2; pasada += 1) {
@@ -699,7 +734,7 @@ function muestrearRuta(campo, pasoKm = 0.25) {
       const p = salida[k];
       p.x = (salida[k - 1].x + p.x * 2 + salida[k + 1].x) / 4;
       p.z = (salida[k - 1].z + p.z * 2 + salida[k + 1].z) / 4;
-      p.h = campo.muestrear(p.x, p.z);
+      p.h = alturaRuta(p.x, p.z, p.nautico);
     }
   }
   return salida;

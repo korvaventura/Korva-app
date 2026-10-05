@@ -9,6 +9,12 @@ function anchoEstimado(texto) {
   return Math.max(36, String(texto || '').length * ANCHO_LETRA + 16);
 }
 
+function medidasEtiqueta(texto, ancho) {
+  const estimado = anchoEstimado(texto);
+  const w = Math.min(estimado, 240, Math.max(36, ancho - MARGEN * 2));
+  return { w, h: estimado > w ? 42 : ALTO_ETIQUETA };
+}
+
 function seSuperponen(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
@@ -21,8 +27,7 @@ function ubicarEtiquetas(items, ancho, alto, { radioPin = 9, ocupados = [], ocul
   const orden = [...items].sort((a, b) => (b.prioridad || 0) - (a.prioridad || 0));
   const salida = {};
   for (const it of orden) {
-    const w = anchoEstimado(it.texto);
-    const h = ALTO_ETIQUETA;
+    const { w, h } = medidasEtiqueta(it.texto, ancho);
     const candidatos = [
       { lado: 'derecha', x: it.x + radioPin + 5, y: it.y - h / 2 },
       { lado: 'izquierda', x: it.x - radioPin - 5 - w, y: it.y - h / 2 },
@@ -31,10 +36,41 @@ function ubicarEtiquetas(items, ancho, alto, { radioPin = 9, ocupados = [], ocul
       { lado: 'derecha', x: it.x + radioPin + 5, y: it.y - h - 2 },
       { lado: 'derecha', x: it.x + radioPin + 5, y: it.y + 2 },
     ];
+    // Cerca del borde el nombre puede quedar arriba/abajo del pin sin salir
+    // de pantalla. Las alternativas verticales permiten títulos de dos líneas.
+    const centrado = Math.max(MARGEN, Math.min(ancho - MARGEN - w, it.x - w / 2));
+    candidatos.push(...[-1, 1].flatMap((signo) => [0, 14, 28, 42].map((extra) => ({
+      lado: signo < 0 ? 'arriba' : 'abajo', x: centrado,
+      y: signo < 0 ? it.y - radioPin - 4 - h - extra : it.y + radioPin + 4 + extra,
+    }))));
+    const acotarX = (x) => Math.max(MARGEN, Math.min(ancho - MARGEN - w, x));
+    for (const paso of [18, 36, 54, 72, 90, 108, 126]) {
+      candidatos.push(
+        { lado: 'derecha', x: acotarX(it.x + radioPin + 5 + paso), y: it.y - h / 2 },
+        { lado: 'izquierda', x: acotarX(it.x - radioPin - 5 - w - paso), y: it.y - h / 2 },
+        ...[-1, 1].flatMap((signo) => [centrado, acotarX(it.x + radioPin + 5), acotarX(it.x - radioPin - 5 - w)].map((x) => ({
+          lado: signo < 0 ? 'arriba' : 'abajo', x,
+          y: signo < 0 ? it.y - radioPin - 4 - h - paso : it.y + radioPin + 4 + paso,
+        }))),
+      );
+    }
     const dentro = (c) => c.x >= MARGEN && c.y >= MARGEN && c.x + w <= ancho - MARGEN && c.y + h <= alto - MARGEN;
     const libre = (c) => !cajas.some((o) => seSuperponen({ ...c, w, h }, o));
     let elegido = candidatos.find((c) => dentro(c) && libre(c));
-    if (!elegido && ocultarSiNoCabe) continue;
+    if (!elegido && ocultarSiNoCabe) {
+      // Última opción: buscar un hueco cercano entre controles y otros nombres.
+      // Una guía une la caja desplazada con su pin en la vista.
+      let mejor = Infinity;
+      for (let y = MARGEN; y <= alto - MARGEN - h; y += 14) {
+        for (let x = MARGEN; x <= ancho - MARGEN - w; x += 14) {
+          const d = Math.hypot(x + w / 2 - it.x, y + h / 2 - it.y);
+          if (d > 200 || d >= mejor) continue;
+          const c = { lado: 'arriba', x, y };
+          if (libre(c)) { elegido = c; mejor = d; }
+        }
+      }
+      if (!elegido) continue;
+    }
     if (!elegido) elegido = candidatos.find((c) => dentro(c)) || candidatos[0];
     const caja = { lado: elegido.lado, x: elegido.x, y: elegido.y, w, h };
     cajas.push(caja);
@@ -43,4 +79,4 @@ function ubicarEtiquetas(items, ancho, alto, { radioPin = 9, ocupados = [], ocul
   return salida;
 }
 
-module.exports = { ubicarEtiquetas, anchoEstimado, seSuperponen };
+module.exports = { ubicarEtiquetas, anchoEstimado, medidasEtiqueta, seSuperponen };

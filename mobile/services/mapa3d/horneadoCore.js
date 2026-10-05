@@ -46,7 +46,11 @@ function serializarDiorama(datos) {
   const { campo, colores, ruta } = datos;
   const n = campo.nx * campo.nz;
   const aguas = campo.geo.aguas.map((a) => ({ id: a.id, nivelM: a.nivelM, caja: a.caja }));
-  const niveles = aguas.map((a) => a.nivelM);
+  // Solo las escenas marinas usan la tabla explícita; conserva el formato anterior.
+  const niveles = campo.geo.mar
+    ? [...new Set(Array.from(campo.agua).filter(Number.isFinite))].sort((a, b) => a - b)
+    : aguas.map((a) => a.nivelM);
+  const nauticos = ruta.some((p) => p.nautico);
   const alturas = new Int16Array(n);
   const agua = new Uint8Array(n);
   const rgb = new Uint8Array(n * 3);
@@ -65,7 +69,8 @@ function serializarDiorama(datos) {
     alturas: bytesABase64(new Uint8Array(alturas.buffer)),
     agua: bytesABase64(agua),
     colores: bytesABase64(rgb),
-    ruta: ruta.map((p) => [r(p.x), r(p.z), r(p.h, 1), r(p.km, 3)]),
+    ruta: ruta.map((p) => [...[r(p.x), r(p.z), r(p.h, 1), r(p.km, 3)], ...(nauticos ? [p.nautico ? 1 : 0] : [])]),
+    ...(campo.geo.mar ? { niveles } : {}),
     aguas,
   };
 }
@@ -76,6 +81,7 @@ const clampI16 = (v) => Math.max(-32000, Math.min(32000, v));
 function deserializarDiorama(escena, h) {
   if (h.version !== VERSION) throw new Error(`Horneado v${h.version} incompatible: correr node scripts/hornearMapa3D.js`);
   const n = h.nx * h.nz;
+  const niveles = h.niveles ?? h.aguas.map((a) => a.nivelM);
   const xs = new Float32Array(base64ABytes(h.xs).buffer);
   const zs = new Float32Array(base64ABytes(h.zs).buffer);
   const alturasI = new Int16Array(base64ABytes(h.alturas).buffer);
@@ -86,7 +92,7 @@ function deserializarDiorama(escena, h) {
   const colores = new Float32Array(n * 3);
   for (let i = 0; i < n; i += 1) {
     alturas[i] = alturasI[i];
-    agua[i] = aguaI[i] === 0 ? -Infinity : h.aguas[aguaI[i] - 1].nivelM;
+    agua[i] = aguaI[i] === 0 ? -Infinity : niveles[aguaI[i] - 1];
   }
   for (let i = 0; i < n * 3; i += 1) colores[i] = rgb[i] / 255;
   const campo = {
@@ -103,7 +109,7 @@ function deserializarDiorama(escena, h) {
     geo: { proy: crearProyeccion(escena.centro), aguas: h.aguas },
   };
   campo.muestrear = (x, z) => muestrearBilineal(campo, x, z);
-  const ruta = h.ruta.map(([x, z, alt, km]) => ({ x, z, h: alt, km }));
+  const ruta = h.ruta.map(([x, z, alt, km, nautico]) => ({ x, z, h: alt, km, ...(nautico == null ? {} : { nautico: nautico === 1 }) }));
   return { campo, colores, ruta };
 }
 

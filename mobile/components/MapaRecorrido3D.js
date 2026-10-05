@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, InteractionManager, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop, Line } from 'react-native-svg';
 import { Canvas, useThree } from '@react-three/fiber/native';
 import * as THREE from 'three';
 import { colors } from '../theme/korvaTheme';
 import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
+import { muestraGesto, avanzarGesto } from '../services/mapa3d/gestosCore';
 import { estadoJourney } from '../services/mapa3d/journeyCore';
-import { ubicarEtiquetas, anchoEstimado, seSuperponen } from '../services/mapa3d/etiquetasCore';
+import { ubicarEtiquetas, medidasEtiqueta, seSuperponen } from '../services/mapa3d/etiquetasCore';
 import {
   actualizarAtmosfera,
   configurarCamara,
@@ -24,8 +25,6 @@ import {
 // pines son vistas nativas proyectadas desde 3D. Render bajo demanda.
 
 const ALTURA_PIN_M = 380; // altura del pin sobre la ruta (m reales)
-const ZOOM_MIN = 0.38;
-const ZOOM_MAX = 1.7;
 const cacheEscenas = new Map();
 
 function obtenerMundo(escena, horneado) {
@@ -147,7 +146,7 @@ export default function MapaRecorrido3D({
   const [listo, setListo] = useState(cacheEscenas.has(escena.id));
   const [tam, setTam] = useState(null);
   const [revisionCamara, setRevisionCamara] = useState(0);
-  const revisionPendienteRef = useRef(false);
+  const revisionPendienteRef = useRef(null);
   const [reproduciendo, setReproduciendo] = useState(false);
   const [kmPlayback, setKmPlayback] = useState(null);
   const [cierreVisible, setCierreVisible] = useState(false);
@@ -155,38 +154,22 @@ export default function MapaRecorrido3D({
   const aparicion = useRef(new Animated.Value(0)).current;
   const controlRef = useRef({ azimut: 0, elevacion: 0, zoom: 1 });
   const r3fRef = useRef(null);
-  const gestoRef = useRef({
-    distancia: null,
-    zoomInicial: 1,
-    objetivoInicial: null,
-    centroInicial: null,
-    anguloInicial: null,
-    azimutInicial: 0,
-  });
+  const gestoRef = useRef(null);
   const playbackRef = useRef(null);
 
   const aplicarCamara = () => {
-    const estado = r3fRef.current;
-    if (!estado) return;
-    configurarCamara(
-      estado.camera,
-      escena,
-      estado.size.width / Math.max(1, estado.size.height),
-      controlRef.current,
-    );
-    const mundoActual = cacheEscenas.get(escena.id);
-    if (mundoActual) actualizarAtmosfera(mundoActual, escena, estado.camera);
-    estado.invalidate();
-    // Los eventos táctiles pueden llegar mucho más rápido que React puede
-    // renderizar. Agrupamos la reproyección del overlay a un frame para evitar
-    // tirones mientras la cámara sigue actualizándose inmediatamente.
-    if (!revisionPendienteRef.current) {
-      revisionPendienteRef.current = true;
-      requestAnimationFrame(() => {
-        revisionPendienteRef.current = false;
-        setRevisionCamara((v) => v + 1);
-      });
-    }
+    // Cámara, atmósfera y pines se actualizan juntos una vez por frame.
+    if (revisionPendienteRef.current != null) return;
+    revisionPendienteRef.current = requestAnimationFrame(() => {
+      revisionPendienteRef.current = null;
+      const estado = r3fRef.current;
+      if (!estado) return;
+      configurarCamara(estado.camera, escena, estado.size.width / Math.max(1, estado.size.height), controlRef.current);
+      const mundoActual = cacheEscenas.get(escena.id);
+      if (mundoActual) actualizarAtmosfera(mundoActual, escena, estado.camera);
+      estado.invalidate();
+      setRevisionCamara((v) => v + 1);
+    });
   };
 
   const moverObjetivo = (dx, dy, baseObjetivo) => {
@@ -196,14 +179,16 @@ export default function MapaRecorrido3D({
     const objetivo = new THREE.Vector3(...baseObjetivo);
     const frente = objetivo.clone().sub(cam.position).normalize();
     const derecha = new THREE.Vector3().crossVectors(frente, cam.up).normalize();
-    const arribaPlano = new THREE.Vector3().crossVectors(derecha, frente).normalize();
+    const arribaPlano = new THREE.Vector3().crossVectors(derecha, frente);
+    arribaPlano.y = 0;
+    arribaPlano.normalize();
     // Escala con zoom: al alejarse, el mismo gesto recorre más territorio.
-    const escala = 0.0082 * (controlRef.current.zoom || 1);
+    const escala = 2 * cam.position.distanceTo(objetivo) * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) / Math.max(1, estado.size.height);
     const delta = derecha.multiplyScalar(-dx * escala)
       .add(arribaPlano.multiplyScalar(dy * escala));
     controlRef.current.objetivo = [
       baseObjetivo[0] + delta.x,
-      baseObjetivo[1] + delta.y * 0.18,
+      baseObjetivo[1],
       baseObjetivo[2] + delta.z,
     ];
   };
@@ -228,76 +213,32 @@ export default function MapaRecorrido3D({
       return ax > 7 && ax > ay * 0.72;
     },
     onPanResponderGrant: (e) => {
-      const ts = e.nativeEvent.touches || [];
-      const objetivo = controlRef.current.objetivo || escena.camara.objetivo;
-      gestoRef.current.objetivoInicial = [...objetivo];
-      gestoRef.current.zoomInicial = controlRef.current.zoom;
-      gestoRef.current.azimutInicial = controlRef.current.azimut || 0;
-      if (ts.length >= 2) {
-        gestoRef.current.distancia = Math.hypot(ts[0].pageX - ts[1].pageX, ts[0].pageY - ts[1].pageY);
-        gestoRef.current.centroInicial = {
-          x: (ts[0].pageX + ts[1].pageX) / 2,
-          y: (ts[0].pageY + ts[1].pageY) / 2,
-        };
-        gestoRef.current.anguloInicial = Math.atan2(
-          ts[1].pageY - ts[0].pageY,
-          ts[1].pageX - ts[0].pageX,
-        );
-      } else {
-        gestoRef.current.distancia = null;
-        gestoRef.current.centroInicial = null;
-        gestoRef.current.anguloInicial = null;
+      // Un gesto toma el control sin que el replay siga moviendo la cámara.
+      if (playbackRef.current) {
+        cancelAnimationFrame(playbackRef.current);
+        playbackRef.current = null;
+        setKmPlayback(null);
+        setReproduciendo(false);
       }
+      gestoRef.current = muestraGesto(e.nativeEvent.touches);
     },
-    onPanResponderMove: (e, g) => {
-      const ts = e.nativeEvent.touches || [];
-      const base = gestoRef.current.objetivoInicial || escena.camara.objetivo;
-      if (ts.length >= 2) {
-        const d = Math.hypot(ts[0].pageX - ts[1].pageX, ts[0].pageY - ts[1].pageY);
-        if (!gestoRef.current.distancia) gestoRef.current.distancia = d;
-        controlRef.current.zoom = THREE.MathUtils.clamp(
-          gestoRef.current.zoomInicial * (gestoRef.current.distancia / Math.max(1, d)),
-          ZOOM_MIN,
-          ZOOM_MAX,
-        );
-        const centro = {
-          x: (ts[0].pageX + ts[1].pageX) / 2,
-          y: (ts[0].pageY + ts[1].pageY) / 2,
-        };
-        const c0 = gestoRef.current.centroInicial || centro;
-        moverObjetivo(centro.x - c0.x, centro.y - c0.y, base);
-
-        // Giro deliberado con dos dedos. Separado del pan de un dedo para que
-        // explorar el mapa no haga orbitar la cámara accidentalmente.
-        const angulo = Math.atan2(
-          ts[1].pageY - ts[0].pageY,
-          ts[1].pageX - ts[0].pageX,
-        );
-        const a0 = gestoRef.current.anguloInicial ?? angulo;
-        let deltaAngulo = angulo - a0;
-        if (deltaAngulo > Math.PI) deltaAngulo -= Math.PI * 2;
-        if (deltaAngulo < -Math.PI) deltaAngulo += Math.PI * 2;
-        controlRef.current.azimut = THREE.MathUtils.clamp(
-          gestoRef.current.azimutInicial + deltaAngulo * 0.52,
-          -1.15,
-          1.15,
-        );
-      } else {
-        // Un dedo desplaza el territorio como un mapa. No rota la cámara.
-        moverObjetivo(g.dx, g.dy, base);
-      }
+    onPanResponderMove: (e) => {
+      const actual = muestraGesto(e.nativeEvent.touches);
+      const estado = r3fRef.current;
+      if (!estado) return;
+      const siguiente = avanzarGesto(controlRef.current, gestoRef.current, actual, {
+        ancho: estado.size.width, alto: estado.size.height,
+        elevacionBase: THREE.MathUtils.degToRad(escena.camara.elevacionGrados),
+      });
+      controlRef.current = siguiente.control;
+      if (siguiente.pan) moverObjetivo(siguiente.pan.dx, siguiente.pan.dy, controlRef.current.objetivo || escena.camara.objetivo);
+      gestoRef.current = actual;
       aplicarCamara();
     },
-    onPanResponderRelease: () => {
-      gestoRef.current.distancia = null;
-      gestoRef.current.centroInicial = null;
-      gestoRef.current.anguloInicial = null;
-    },
-    onPanResponderTerminate: () => {
-      gestoRef.current.distancia = null;
-      gestoRef.current.centroInicial = null;
-      gestoRef.current.anguloInicial = null;
-    },
+    onPanResponderRelease: () => { gestoRef.current = null; },
+    onPanResponderTerminate: () => { gestoRef.current = null; },
+    onPanResponderTerminationRequest: () => false,
+
   }), [escena]);
 
   // Decodificar el horneado fuera de la transición de navegación.
@@ -339,7 +280,9 @@ export default function MapaRecorrido3D({
       return {
         cp,
         km,
-        cabeza: aPx(posicionEnKm(datos, conv, km, ALTURA_PIN_M)),
+        cabeza: aPx(escena.alturaPinUnidades == null
+          ? posicionEnKm(datos, conv, km, ALTURA_PIN_M)
+          : posicionEnKm(datos, conv, km, 0).add(new THREE.Vector3(0, escena.alturaPinUnidades, 0))),
         base: aPx(posicionEnKm(datos, conv, km, 0)),
         desbloqueado: cp.estadoJourney === 'conquistado',
         estadoJourney: cp.estadoJourney,
@@ -356,7 +299,7 @@ export default function MapaRecorrido3D({
     ];
     const aguas = (escena.etiquetas || []).map((e) => {
       const agua = escena.aguas.find((a) => a.id === e.id);
-      return { ...e, ...aPx(posicionGeo(datos, conv, e.lat, e.lon, agua ? agua.nivelM : undefined)) };
+      return { ...e, ...aPx(posicionGeo(datos, conv, e.lat, e.lon, agua ? agua.nivelM : (e.tipo === 'agua' ? escena.mar?.nivelM : undefined))) };
     }).filter((e) => {
       const caja = { x: e.x - 80, y: e.y - 7, w: 160, h: 16 };
       return e.visible && caja.x >= 6 && caja.x + caja.w <= tam.w - 6
@@ -371,7 +314,6 @@ export default function MapaRecorrido3D({
     const b = aPx(new THREE.Vector3(0, 0, -1));
     const anguloNorte = Math.atan2(b.x - a.x, -(b.y - a.y));
     const ocupados = [
-      ...aguas.map((e) => ({ x: e.x - 80, y: e.y - 7, w: 160, h: 16 })),
       ...(actual ? [{ x: actual.x - 12, y: actual.y - 12, w: 24, h: 24 }] : []),
       ...zonasHud,
     ];
@@ -382,14 +324,12 @@ export default function MapaRecorrido3D({
       ? Object.fromEntries(pinesVisibles.map((p) => [
           p.cp.id,
           {
-            x: p.cabeza.x + 11,
+            x: Math.max(6, Math.min(tam.w - 6 - medidasEtiqueta(p.cp.nombre?.toUpperCase(), tam.w).w, p.cabeza.x + 11)),
             y: p.cabeza.y - 15,
             // En replay reservamos ancho suficiente para el nombre completo.
-            // Si no entra en pantalla, la etiqueta se oculta en vez de mostrar
-            // un nombre truncado como "USHUA...".
-            w: anchoEstimado(p.cp.nombre?.toUpperCase()),
+            // Dos líneas y caja acotada al ancho disponible.
+            ...medidasEtiqueta(p.cp.nombre?.toUpperCase(), tam.w),
             lado: 'derecha',
-            h: 26,
             visible: true,
           },
         ]))
@@ -399,7 +339,18 @@ export default function MapaRecorrido3D({
           tam.h,
           { ocupados, ocultarSiNoCabe: true },
         );
-    return { pines: pinesVisibles, aguas, actual, anguloNorte, etiquetas, zonasHud };
+    const tomadas = [
+      ...Object.values(etiquetas),
+      ...pinesVisibles.map((p) => ({ x: p.cabeza.x - 10, y: p.cabeza.y - 10, w: 20, h: 20 })),
+      ...ocupados,
+    ];
+    const aguasVisibles = aguas.filter((e) => {
+      const caja = { x: e.x - 80, y: e.y - 7, w: 160, h: 16 };
+      if (tomadas.some((o) => seSuperponen(caja, o))) return false;
+      tomadas.push(caja);
+      return true;
+    });
+    return { pines: pinesVisibles, aguas: aguasVisibles, actual, anguloNorte, etiquetas, zonasHud };
   }, [mundo, tam, journey, escena, kmProgreso, seleccionadoId, revisionCamara, reproduciendo, actividades.length]);
 
   const alCrear = ({ gl, camera, size, scene, invalidate }) => {
@@ -412,6 +363,8 @@ export default function MapaRecorrido3D({
 
   useEffect(() => () => {
     if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
+    if (revisionPendienteRef.current != null) cancelAnimationFrame(revisionPendienteRef.current);
+    r3fRef.current = null;
   }, []);
 
   const iniciarJourney = () => {
@@ -547,8 +500,17 @@ export default function MapaRecorrido3D({
             const sel = cp.id === seleccionadoId;
             const caja = overlay.etiquetas[cp.id];
             const presionar = () => onSelect?.(cp);
+            const extremo = caja ? {
+              x: Math.max(caja.x, Math.min(caja.x + caja.w, cabeza.x)),
+              y: Math.max(caja.y, Math.min(caja.y + caja.h, cabeza.y)),
+            } : null;
             return (
               <View key={cp.id} pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+                {extremo && Math.hypot(extremo.x - cabeza.x, extremo.y - cabeza.y) > 24 && (
+                  <Svg pointerEvents="none" width={tam.w} height={tam.h} style={StyleSheet.absoluteFill}>
+                    <Line x1={cabeza.x} y1={cabeza.y} x2={extremo.x} y2={extremo.y} stroke="rgba(214,228,240,0.4)" strokeWidth={0.8} />
+                  </Svg>
+                )}
                 <View pointerEvents="none" style={[styles.tallo, { left: cabeza.x - 0.5, top: cabeza.y, height: Math.max(0, base.y - cabeza.y) }, desbloqueado && styles.talloActivo]} />
                 <View pointerEvents="none" style={[styles.pie, { left: base.x - 2.5, top: base.y - 1.5 }, desbloqueado && styles.pieActivo]} />
                 <TouchableOpacity
@@ -560,8 +522,8 @@ export default function MapaRecorrido3D({
                   {sel && <View style={styles.pinNucleo} />}
                 </TouchableOpacity>
                 {caja && !overlay.zonasHud.some((zona) => seSuperponen(caja, zona)) && (!reproduciendo || (caja.x >= 4 && caja.x + caja.w <= (tam?.w || 0) - 4)) && (
-                  <TouchableOpacity activeOpacity={0.75} onPress={presionar} style={[styles.etiqueta, { left: caja.x, top: caja.y, width: caja.w }, caja.lado === 'izquierda' && styles.etiquetaIzq, (caja.lado === 'arriba' || caja.lado === 'abajo') && styles.etiquetaCentro]}>
-                    <Text allowFontScaling={false} numberOfLines={1} style={[styles.etiquetaNombre, !desbloqueado && styles.etiquetaBloqueada, sel && styles.etiquetaSel]}>{cp.nombre?.toUpperCase()}</Text>
+                  <TouchableOpacity activeOpacity={0.75} onPress={presionar} style={[styles.etiqueta, { left: caja.x, top: caja.y, width: caja.w, height: caja.h }, caja.lado === 'izquierda' && styles.etiquetaIzq, (caja.lado === 'arriba' || caja.lado === 'abajo') && styles.etiquetaCentro]}>
+                    <Text allowFontScaling={false} numberOfLines={2} style={[styles.etiquetaNombre, !desbloqueado && styles.etiquetaBloqueada, sel && styles.etiquetaSel]}>{cp.nombre?.toUpperCase()}</Text>
                     <Text allowFontScaling={false} numberOfLines={1} style={styles.etiquetaKm}>{desbloqueado ? `${Math.round(km)} km` : estadoJourney === 'proximo' ? `PRÓXIMO · ${Math.round(km)} km` : `🔒 ${Math.round(km)} km`}</Text>
                   </TouchableOpacity>
                 )}
@@ -638,7 +600,7 @@ export default function MapaRecorrido3D({
           <Text style={styles.proximoKm}>a {journey.kmHastaSiguiente.toFixed(journey.kmHastaSiguiente < 10 ? 1 : 0)} km</Text>
         </View>
       )}
-      <Text pointerEvents="none" style={styles.pista}>1 dedo mueve · 2 dedos zoom y rotación</Text>
+      <Text pointerEvents="none" style={styles.pista}>1 dedo gira · 2 dedos zoom y desplazar</Text>
       <View pointerEvents="none" style={styles.borde} />
     </View>
   );
@@ -701,7 +663,7 @@ const styles = StyleSheet.create({
   etiqueta: { position: 'absolute', height: 26, justifyContent: 'center' },
   etiquetaIzq: { alignItems: 'flex-end' },
   etiquetaCentro: { alignItems: 'center' },
-  etiquetaNombre: { color: '#FFFFFF', fontSize: 10, fontWeight: '800', letterSpacing: 1.1, ...sombraTexto },
+  etiquetaNombre: { color: '#FFFFFF', fontSize: 10, lineHeight: 12, fontWeight: '800', letterSpacing: 1.1, ...sombraTexto },
   etiquetaBloqueada: { color: '#C9D6E0' },
   etiquetaSel: { color: colors.brandOrangeSoft },
   etiquetaKm: { color: colors.textSoft, fontSize: 9, fontWeight: '600', ...sombraTexto },

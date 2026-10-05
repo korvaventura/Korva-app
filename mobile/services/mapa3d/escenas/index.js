@@ -4,6 +4,7 @@
 // cuando se abre su mapa.
 
 const ESCENAS = {
+  san_andres: () => ({ escena: require('./sanAndres'), horneado: require('./sanAndres.horneado') }),
   default: () => ({ escena: require('./finDelMundo'), horneado: require('./finDelMundo.horneado') }),
   monte_fuji: () => ({ escena: require('./monteFuji'), horneado: require('./monteFuji.horneado') }),
 };

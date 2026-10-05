@@ -186,6 +186,7 @@ test('el agua es geografía: Fagnano y Beagle existen en el mundo y la ruta los 
 // ── Invariantes del motor para cada escena registrada ─────────────────────
 const { escenaParaConfig, clavesConEscena } = require('../services/mapa3d/escenas');
 const CHECKPOINTS_POR_ESCENA = {
+  san_andres: [0, 11, 21, 34, 44, 57],
   default: [0, 20, 45, 80, 103],
   monte_fuji: [0, 18, 22, 40, 45, 54, 61, 68],
 };
@@ -198,6 +199,7 @@ for (const clave of clavesConEscena()) {
     const fresco = serializarDiorama(construirDatosDiorama(esc));
     assert.equal(horn.alturas, fresco.alturas, 'regenerar con: node scripts/hornearMapa3D.js');
     assert.equal(horn.colores, fresco.colores, 'regenerar con: node scripts/hornearMapa3D.js');
+    assert.deepEqual(horn, fresco, 'el formato, agua y ruta también deben conservarse');
   });
 
   test(`[${esc.id}] ruta completa y checkpoints sobre sus anclas`, () => {
@@ -245,7 +247,83 @@ test('[monte_fuji] el Fuji es un volcán reconocible y la ruta lo sube de verdad
 
 test('registro: claves sin escena 3D devuelven null (siguen con el mapa 2D)', () => {
   assert.equal(escenaParaConfig('dubrovnik'), null);
-  assert.equal(escenaParaConfig('san_andres'), null);
+  assert.ok(escenaParaConfig('san_andres'));
   assert.equal(escenaParaConfig('toString'), null);
   assert.equal(escenaParaConfig(undefined), null);
+});
+
+test('[san_andres] isla real sobre el mar: travesías náuticas a superficie y cayos que emergen', () => {
+  const { escena: sa, horneado: horn } = escenaParaConfig('san_andres');
+  const d = deserializarDiorama(sa, horn);
+  const { proy } = crearFuncionAltura(sa);
+  const celda = (lat, lon) => {
+    const { x, z } = proy.aKm(lat, lon);
+    const k = indiceCercano(d.campo, x, z);
+    return { h: d.campo.alturas[k], agua: d.campo.agua[k] };
+  };
+  // Mar abierto profundo, laguna somera, isla con La Loma.
+  assert.ok(celda(12.53, -81.62).h < -100, 'falta el mar profundo');
+  const laguna = celda(12.575, -81.678);
+  assert.equal(laguna.agua, 0);
+  assert.ok(laguna.h > -12 && laguna.h < 0, `laguna ${laguna.h}`);
+  assert.ok(celda(12.54, -81.711).h > 60, 'falta La Loma');
+  // Johnny Cay emerge del agua.
+  assert.ok(celda(12.6005, -81.6878).h > 0, 'Johnny Cay sumergido');
+  // Tramos náuticos: existen y van sobre la superficie, sin terraplenes.
+  // (Al llegar a la costa el tramo puede subir por la playa: eso es desembarcar.)
+  const sobreAgua = d.ruta.filter((p) => {
+    if (!p.nautico) return false;
+    const k = indiceCercano(d.campo, p.x, p.z);
+    return d.campo.agua[k] > -Infinity && d.campo.alturas[k] < d.campo.agua[k];
+  });
+  assert.ok(sobreAgua.length > 100, `solo ${sobreAgua.length} puntos navegando`);
+  for (const p of sobreAgua) assert.ok(Math.abs(p.h) < 1.5, `tramo náutico a ${p.h} m sobre el agua`);
+  // Terrestres sobre la isla.
+  assert.ok(puntoEnKm(d.ruta, 30).h > 30);
+});
+
+
+const { muestraGesto, avanzarGesto } = require('../services/mapa3d/gestosCore');
+const { medidasEtiqueta } = require('../services/mapa3d/etiquetasCore');
+const viewport = { ancho: 360, alto: 520, elevacionBase: Math.PI / 6 };
+const dedo = (x, y, id = 1) => ({ pageX: x, pageY: y, identifier: id });
+test('órbita de un dedo gira 360 grados sin desplazar el objetivo ni tocar zoom', () => {
+  const c = { azimut: 0, elevacion: 0, zoom: 1, objetivo: [0, 0, 0] };
+  const res = avanzarGesto(c, muestraGesto([dedo(0, 0)]), muestraGesto([dedo(720, 0)]), viewport);
+  assert.ok(Math.abs(res.control.azimut + 2 * Math.PI) < 1e-10);
+  assert.deepEqual(res.control.objetivo, c.objetivo);
+  assert.equal(res.control.zoom, 1);
+  assert.equal(res.pan, null);
+});
+test('gestos: agregar o quitar un dedo no salta; pinch, pan y giro cruzan ±pi', () => {
+  const c = { azimut: 0, elevacion: 0, zoom: 1 };
+  const a = muestraGesto([dedo(0, 0)]);
+  const b = muestraGesto([dedo(0, 0), dedo(100, 0, 2)]);
+  assert.deepEqual(avanzarGesto(c, a, b, viewport).control, c);
+  assert.deepEqual(avanzarGesto(c, b, a, viewport).control, c);
+  const res = avanzarGesto(c, b, muestraGesto([dedo(-40, 10), dedo(160, 10, 2)]), viewport);
+  assert.equal(res.control.zoom, 0.5);
+  assert.deepEqual(res.pan, { dx: 10, dy: 10 });
+  const giro = avanzarGesto(c, { ...b, angulo: Math.PI - 0.01 }, { ...b, angulo: -Math.PI + 0.01 }, viewport);
+  assert.ok(Math.abs(giro.control.azimut - 0.02) < 1e-10);
+  const alto = avanzarGesto(c, a, muestraGesto([dedo(0, 10000)]), viewport).control.elevacion + viewport.elevacionBase;
+  assert.ok(Math.abs(alto - 75 * Math.PI / 180) < 1e-10);
+});
+test('etiquetas: nombre largo se acomoda en dos líneas dentro del mapa', () => {
+  const nombre = 'FUJIYOSHIDA & CHUREITO';
+  const medida = medidasEtiqueta(nombre, 180);
+  assert.equal(medida.h, 42);
+  const cajas = ubicarEtiquetas([{ id: 'inicio', x: 12, y: 200, texto: nombre }], 180, 400, { ocultarSiNoCabe: true });
+  assert.ok(cajas.inicio);
+  assert.ok(cajas.inicio.x >= 6 && cajas.inicio.x + cajas.inicio.w <= 174);
+});
+test('horneados: agua finita y rutas válidas en formato anterior y marino', () => {
+  for (const clave of clavesConEscena()) {
+    const { escena: esc, horneado: horn } = escenaParaConfig(clave);
+    const d = deserializarDiorama(esc, horn);
+    assert.ok(Array.from(d.campo.agua).every((n) => n === -Infinity || Number.isFinite(n)), clave);
+    assert.ok(d.ruta.every((p) => [p.x, p.z, p.h, p.km].every(Number.isFinite)), clave);
+    if (esc.mar) assert.ok(d.ruta.some((p) => p.nautico));
+    else assert.equal(horn.niveles, undefined, 'conservar formato legacy');
+  }
 });

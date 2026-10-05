@@ -597,6 +597,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
   const modalScrollRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
+  const altoMapaModal = Math.max(380, Math.min(560, altoModal * 0.72));
   const config = getConfig(challengeId, challengeTitle);
   const { titulo, distanciaFisica, clima, segmentos, checkpoints, decoraciones } = config;
 
@@ -740,8 +741,8 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
                 <MapaRecorrido
                   fullscreen
                   ocultarTitulo
-                  alturaMapa={Math.max(455, altoModal - 32)}
-                  onHistoriaAbierta={() => requestAnimationFrame(() => modalScrollRef.current?.scrollTo({ y: Math.max(0, altoModal - 180), animated: true }))}
+                  alturaMapa={altoMapaModal}
+                  onHistoriaAbierta={() => requestAnimationFrame(() => modalScrollRef.current?.scrollTo({ y: Math.max(0, altoMapaModal - 120), animated: true }))}
                   kmCompletados={kmCompletados}
                   distanciaTotal={distanciaTotal}
                   porcentaje={porcentaje}
