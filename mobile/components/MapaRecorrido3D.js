@@ -26,8 +26,8 @@ import {
 // pines son vistas nativas proyectadas desde 3D. Render bajo demanda.
 
 const ALTURA_PIN_M = 380; // altura del pin sobre la ruta (m reales)
-const ZOOM_MIN = 0.5;
-const ZOOM_MAX = 1.35;
+const ZOOM_MIN = 0.38;
+const ZOOM_MAX = 1.7;
 const cacheEscenas = new Map();
 
 function obtenerMundo(escena, horneado) {
@@ -153,7 +153,7 @@ export default function MapaRecorrido3D({
   const aparicion = useRef(new Animated.Value(0)).current;
   const controlRef = useRef({ azimut: 0, elevacion: 0, zoom: 1 });
   const r3fRef = useRef(null);
-  const gestoRef = useRef({ distancia: null, zoomInicial: 1 });
+  const gestoRef = useRef({ distancia: null, zoomInicial: 1, azimutInicial: 0, elevacionInicial: 0 });
   const playbackRef = useRef(null);
 
   const aplicarCamara = () => {
@@ -172,24 +172,38 @@ export default function MapaRecorrido3D({
   };
 
   const panResponder = useMemo(() => PanResponder.create({
+    // Captura el gesto desde cualquier punto del mapa, incluso encima de labels/pines.
+    // Un tap sigue llegando al checkpoint; sólo tomamos control cuando hay movimiento
+    // o cuando aparecen dos dedos.
     onStartShouldSetPanResponder: (e) => e.nativeEvent.touches?.length >= 2,
-    onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) + Math.abs(g.dy) > 4,
+    onStartShouldSetPanResponderCapture: (e) => e.nativeEvent.touches?.length >= 2,
+    onMoveShouldSetPanResponder: (e, g) => (e.nativeEvent.touches?.length >= 2) || Math.abs(g.dx) + Math.abs(g.dy) > 5,
+    onMoveShouldSetPanResponderCapture: (e, g) => (e.nativeEvent.touches?.length >= 2) || Math.abs(g.dx) + Math.abs(g.dy) > 5,
     onPanResponderGrant: (e) => {
       const ts = e.nativeEvent.touches || [];
       gestoRef.current.distancia = ts.length >= 2
         ? Math.hypot(ts[0].pageX - ts[1].pageX, ts[0].pageY - ts[1].pageY)
         : null;
       gestoRef.current.zoomInicial = controlRef.current.zoom;
+      gestoRef.current.azimutInicial = controlRef.current.azimut || 0;
+      gestoRef.current.elevacionInicial = controlRef.current.elevacion || 0;
     },
     onPanResponderMove: (e, g) => {
       const ts = e.nativeEvent.touches || [];
       if (ts.length >= 2) {
         const d = Math.hypot(ts[0].pageX - ts[1].pageX, ts[0].pageY - ts[1].pageY);
-        const d0 = gestoRef.current.distancia || d;
-        controlRef.current.zoom = THREE.MathUtils.clamp(gestoRef.current.zoomInicial * (d0 / Math.max(1, d)), ZOOM_MIN, ZOOM_MAX);
+        if (!gestoRef.current.distancia) {
+          gestoRef.current.distancia = d;
+          gestoRef.current.zoomInicial = controlRef.current.zoom;
+        }
+        controlRef.current.zoom = THREE.MathUtils.clamp(
+          gestoRef.current.zoomInicial * (gestoRef.current.distancia / Math.max(1, d)),
+          ZOOM_MIN,
+          ZOOM_MAX,
+        );
       } else {
-        controlRef.current.azimut = THREE.MathUtils.clamp(controlRef.current.azimut + g.dx * 0.0035, -0.72, 0.72);
-        controlRef.current.elevacion = THREE.MathUtils.clamp(controlRef.current.elevacion - g.dy * 0.0026, -0.24, 0.28);
+        controlRef.current.azimut = THREE.MathUtils.clamp(gestoRef.current.azimutInicial + g.dx * 0.0042, -1.15, 1.15);
+        controlRef.current.elevacion = THREE.MathUtils.clamp(gestoRef.current.elevacionInicial - g.dy * 0.0032, -0.32, 0.42);
       }
       aplicarCamara();
     },
