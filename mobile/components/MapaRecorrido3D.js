@@ -148,6 +148,7 @@ export default function MapaRecorrido3D({
   const [listo, setListo] = useState(cacheEscenas.has(escena.id));
   const [tam, setTam] = useState(null);
   const [revisionCamara, setRevisionCamara] = useState(0);
+  const revisionPendienteRef = useRef(false);
   const [reproduciendo, setReproduciendo] = useState(false);
   const [kmPlayback, setKmPlayback] = useState(null);
   const aparicion = useRef(new Animated.Value(0)).current;
@@ -175,7 +176,16 @@ export default function MapaRecorrido3D({
     const mundoActual = cacheEscenas.get(escena.id);
     if (mundoActual) actualizarAtmosfera(mundoActual, escena, estado.camera);
     estado.invalidate();
-    setRevisionCamara((v) => v + 1);
+    // Los eventos táctiles pueden llegar mucho más rápido que React puede
+    // renderizar. Agrupamos la reproyección del overlay a un frame para evitar
+    // tirones mientras la cámara sigue actualizándose inmediatamente.
+    if (!revisionPendienteRef.current) {
+      revisionPendienteRef.current = true;
+      requestAnimationFrame(() => {
+        revisionPendienteRef.current = false;
+        setRevisionCamara((v) => v + 1);
+      });
+    }
   };
 
   const moverObjetivo = (dx, dy, baseObjetivo) => {
@@ -187,7 +197,7 @@ export default function MapaRecorrido3D({
     const derecha = new THREE.Vector3().crossVectors(frente, cam.up).normalize();
     const arribaPlano = new THREE.Vector3().crossVectors(derecha, frente).normalize();
     // Escala con zoom: al alejarse, el mismo gesto recorre más territorio.
-    const escala = 0.0105 * (controlRef.current.zoom || 1);
+    const escala = 0.0082 * (controlRef.current.zoom || 1);
     const delta = derecha.multiplyScalar(-dx * escala)
       .add(arribaPlano.multiplyScalar(dy * escala));
     controlRef.current.objetivo = [
@@ -253,7 +263,7 @@ export default function MapaRecorrido3D({
         if (deltaAngulo > Math.PI) deltaAngulo -= Math.PI * 2;
         if (deltaAngulo < -Math.PI) deltaAngulo += Math.PI * 2;
         controlRef.current.azimut = THREE.MathUtils.clamp(
-          gestoRef.current.azimutInicial + deltaAngulo * 0.72,
+          gestoRef.current.azimutInicial + deltaAngulo * 0.52,
           -1.15,
           1.15,
         );
