@@ -275,6 +275,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
           porcentaje={pct}
           challengeId={item.challenge_id}
           challengeTitle={nombreReto}
+          actividades={actividades}
           fullscreen
         />
       </View>
