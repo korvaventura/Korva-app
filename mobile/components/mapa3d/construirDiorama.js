@@ -82,47 +82,42 @@ function geometriaTerreno(datos, conv, escena) {
   const { nx, nz, dx, dz, minX, minZ, alturas } = campo;
   const pos = new Float32Array(nx * nz * 3);
   const col = new Float32Array(nx * nz * 3);
-  const pesos = new Float32Array(nx * nz);
-  const niebla = new THREE.Color(escena.niebla?.color || '#3F5872');
+
+  // El terreno representa la región completa del desafío. Antes se recortaba
+  // alrededor de la ruta con mascaraTerreno(); eso convertía Tierra del Fuego
+  // en una tira/isla flotando sobre el fondo azul. El agua ahora existe SOLO
+  // donde el heightfield horneado marca un lago, bahía o canal real.
   for (let j = 0; j < nz; j += 1) {
     for (let i = 0; i < nx; i += 1) {
       const k = j * nx + i;
       const x = minX + i * dx;
       const z = minZ + j * dz;
-      const m = mascaraTerreno(datos, escena, x, z);
-      pesos[k] = m.peso;
       pos[k * 3] = conv.x(x);
-      pos[k * 3 + 1] = conv.y(alturas[k] - m.caidaM);
+      pos[k * 3 + 1] = conv.y(alturas[k]);
       pos[k * 3 + 2] = conv.z(z);
-      const fade = THREE.MathUtils.smoothstep(m.peso, 0.18, 0.82);
-      col[k * 3] = THREE.MathUtils.lerp(niebla.r, LUT_LINEAL[Math.round(colores[k * 3] * 255)], fade);
-      col[k * 3 + 1] = THREE.MathUtils.lerp(niebla.g, LUT_LINEAL[Math.round(colores[k * 3 + 1] * 255)], fade);
-      col[k * 3 + 2] = THREE.MathUtils.lerp(niebla.b, LUT_LINEAL[Math.round(colores[k * 3 + 2] * 255)], fade);
+      col[k * 3] = LUT_LINEAL[Math.round(colores[k * 3] * 255)];
+      col[k * 3 + 1] = LUT_LINEAL[Math.round(colores[k * 3 + 1] * 255)];
+      col[k * 3 + 2] = LUT_LINEAL[Math.round(colores[k * 3 + 2] * 255)];
     }
   }
-  const indices = [];
+
+  const indices = new (nx * nz > 65535 ? Uint32Array : Uint16Array)((nx - 1) * (nz - 1) * 6);
+  let p = 0;
   for (let j = 0; j < nz - 1; j += 1) {
     for (let i = 0; i < nx - 1; i += 1) {
-      const a = j * nx + i; const b = a + 1; const c = a + nx; const d = c + 1;
-      const maxP = Math.max(pesos[a], pesos[b], pesos[c], pesos[d]);
-      const minP = Math.min(pesos[a], pesos[b], pesos[c], pesos[d]);
-      if (maxP < 0.035) continue;
-      // En el anillo final salteamos algunas celdas de forma determinística:
-      // rompe la línea de borde continua sin transparencias costosas.
-      if (maxP < 0.16) {
-        const hash = ((i * 73856093) ^ (j * 19349663)) >>> 0;
-        if ((hash % 100) > Math.round(maxP * 520)) continue;
-      }
-      // Evita triángulos largos cuando una celda cruza demasiado el borde.
-      if (maxP - minP > 0.72 && minP < 0.04) continue;
-      indices.push(a, c, b, b, c, d);
+      const a = j * nx + i;
+      const b = a + 1;
+      const cc = a + nx;
+      const d = cc + 1;
+      indices[p++] = a; indices[p++] = cc; indices[p++] = b;
+      indices[p++] = b; indices[p++] = cc; indices[p++] = d;
     }
   }
-  const IndexArray = nx * nz > 65535 ? Uint32Array : Uint16Array;
+
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  geo.setIndex(new THREE.BufferAttribute(new IndexArray(indices), 1));
+  geo.setIndex(new THREE.BufferAttribute(indices, 1));
   geo.computeVertexNormals();
   geo.computeBoundingSphere();
   return geo;
@@ -193,7 +188,6 @@ function crearAguas(datos, conv, escena) {
         const a = j * nx + i; const b = a + 1; const c = a + nx; const d = c + 1;
         const pertenece = (k) => Number.isFinite(agua[k]) && Math.abs(agua[k] - nivel) < 0.01;
         const x = minX + (i + 0.5) * dx; const z = minZ + (j + 0.5) * dz;
-        if (mascaraTerreno(datos, escena, x, z).peso < 0.16) continue;
         if (!(pertenece(a) || pertenece(b) || pertenece(c) || pertenece(d))) continue;
         push(i, j); push(i, j + 1); push(i + 1, j);
         push(i + 1, j); push(i, j + 1); push(i + 1, j + 1);
@@ -224,7 +218,10 @@ export function construirDiorama(escena, horneado) {
     new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0, flatShading: false }),
   );
   grupo.add(terreno);
-
+  grupo.add(new THREE.Mesh(
+    geometriaZocalo(datos, conv, escena),
+    new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, side: THREE.DoubleSide }),
+  ));
   grupo.add(crearAguas(datos, conv, escena));
   return { grupo, datos, conv };
 }
