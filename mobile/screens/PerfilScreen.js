@@ -814,6 +814,26 @@ export default function PerfilScreen() {
         <View style={styles.statCard}><Ionicons name="flame-outline" size={16} color={colors.brandOrangeSoft} style={{ marginBottom: 6 }} /><Text style={styles.statNumero}>{stats?.racha_actual || 0}</Text><Text style={styles.statLabel}>Semanas en racha</Text></View>
       </View>
 
+      <TouchableOpacity
+        style={styles.korvaMundiPerfil}
+        onPress={() => navigation.navigate('KorvaMundi')}
+        activeOpacity={0.82}
+        accessibilityRole="button"
+        accessibilityLabel="Abrir KorvaMundi"
+      >
+        <View style={styles.korvaMundiPerfilIcon}>
+          <Ionicons name="globe-outline" size={18} color={colors.textSoft} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.korvaMundiPerfilTitle}>KorvaMundi</Text>
+          <Text style={styles.korvaMundiPerfilMeta}>
+            {Number(stats?.medallas || 0) > 0
+              ? `${stats.medallas} conquista${Number(stats.medallas) === 1 ? '' : 's'} · Tu mundo`
+              : 'Tu mundo está esperando'}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={colors.textDim} />
+      </TouchableOpacity>
 
 
       {/* Retos activos */}
@@ -1323,6 +1343,10 @@ const styles = StyleSheet.create({
 
   nombre: { fontSize: 22, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
   email: { fontSize: 13, color: colors.textSoft },
+  korvaMundiPerfil: { width: '100%', marginTop: -12, marginBottom: spacing.xxl, paddingHorizontal: spacing.xxl, minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  korvaMundiPerfilIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderSoft, alignItems: 'center', justifyContent: 'center' },
+  korvaMundiPerfilTitle: { color: colors.textSoft, fontSize: 12, fontWeight: '800', letterSpacing: 0.2 },
+  korvaMundiPerfilMeta: { color: colors.textDim, fontSize: 10, marginTop: 2 },
   statsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.xxl, width: '100%', paddingHorizontal: spacing.xxl },
   statCard: { flex: 1, backgroundColor: colors.surfaceSoft, borderRadius: radius.md, paddingVertical: 14, paddingHorizontal: 8, alignItems: 'center', borderWidth: 1, borderColor: colors.borderSoft },
   statNumero: { fontSize: 22, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
