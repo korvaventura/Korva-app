@@ -153,7 +153,12 @@ export default function MapaRecorrido3D({
   const aparicion = useRef(new Animated.Value(0)).current;
   const controlRef = useRef({ azimut: 0, elevacion: 0, zoom: 1 });
   const r3fRef = useRef(null);
-  const gestoRef = useRef({ distancia: null, zoomInicial: 1, azimutInicial: 0, elevacionInicial: 0 });
+  const gestoRef = useRef({
+    distancia: null,
+    zoomInicial: 1,
+    objetivoInicial: null,
+    centroInicial: null,
+  });
   const playbackRef = useRef(null);
 
   const aplicarCamara = () => {
@@ -171,44 +176,77 @@ export default function MapaRecorrido3D({
     setRevisionCamara((v) => v + 1);
   };
 
+  const moverObjetivo = (dx, dy, baseObjetivo) => {
+    const estado = r3fRef.current;
+    if (!estado) return;
+    const cam = estado.camera;
+    const objetivo = new THREE.Vector3(...baseObjetivo);
+    const frente = objetivo.clone().sub(cam.position).normalize();
+    const derecha = new THREE.Vector3().crossVectors(frente, cam.up).normalize();
+    const arribaPlano = new THREE.Vector3().crossVectors(derecha, frente).normalize();
+    // Escala con zoom: al alejarse, el mismo gesto recorre más territorio.
+    const escala = 0.0105 * (controlRef.current.zoom || 1);
+    const delta = derecha.multiplyScalar(-dx * escala)
+      .add(arribaPlano.multiplyScalar(dy * escala));
+    controlRef.current.objetivo = [
+      baseObjetivo[0] + delta.x,
+      baseObjetivo[1] + delta.y * 0.18,
+      baseObjetivo[2] + delta.z,
+    ];
+  };
+
   const panResponder = useMemo(() => PanResponder.create({
-    // Captura el gesto desde cualquier punto del mapa, incluso encima de labels/pines.
-    // Un tap sigue llegando al checkpoint; sólo tomamos control cuando hay movimiento
-    // o cuando aparecen dos dedos.
     onStartShouldSetPanResponder: (e) => e.nativeEvent.touches?.length >= 2,
     onStartShouldSetPanResponderCapture: (e) => e.nativeEvent.touches?.length >= 2,
     onMoveShouldSetPanResponder: (e, g) => (e.nativeEvent.touches?.length >= 2) || Math.abs(g.dx) + Math.abs(g.dy) > 5,
     onMoveShouldSetPanResponderCapture: (e, g) => (e.nativeEvent.touches?.length >= 2) || Math.abs(g.dx) + Math.abs(g.dy) > 5,
     onPanResponderGrant: (e) => {
       const ts = e.nativeEvent.touches || [];
-      gestoRef.current.distancia = ts.length >= 2
-        ? Math.hypot(ts[0].pageX - ts[1].pageX, ts[0].pageY - ts[1].pageY)
-        : null;
+      const objetivo = controlRef.current.objetivo || escena.camara.objetivo;
+      gestoRef.current.objetivoInicial = [...objetivo];
       gestoRef.current.zoomInicial = controlRef.current.zoom;
-      gestoRef.current.azimutInicial = controlRef.current.azimut || 0;
-      gestoRef.current.elevacionInicial = controlRef.current.elevacion || 0;
+      if (ts.length >= 2) {
+        gestoRef.current.distancia = Math.hypot(ts[0].pageX - ts[1].pageX, ts[0].pageY - ts[1].pageY);
+        gestoRef.current.centroInicial = {
+          x: (ts[0].pageX + ts[1].pageX) / 2,
+          y: (ts[0].pageY + ts[1].pageY) / 2,
+        };
+      } else {
+        gestoRef.current.distancia = null;
+        gestoRef.current.centroInicial = null;
+      }
     },
     onPanResponderMove: (e, g) => {
       const ts = e.nativeEvent.touches || [];
+      const base = gestoRef.current.objetivoInicial || escena.camara.objetivo;
       if (ts.length >= 2) {
         const d = Math.hypot(ts[0].pageX - ts[1].pageX, ts[0].pageY - ts[1].pageY);
-        if (!gestoRef.current.distancia) {
-          gestoRef.current.distancia = d;
-          gestoRef.current.zoomInicial = controlRef.current.zoom;
-        }
+        if (!gestoRef.current.distancia) gestoRef.current.distancia = d;
         controlRef.current.zoom = THREE.MathUtils.clamp(
           gestoRef.current.zoomInicial * (gestoRef.current.distancia / Math.max(1, d)),
           ZOOM_MIN,
           ZOOM_MAX,
         );
+        const centro = {
+          x: (ts[0].pageX + ts[1].pageX) / 2,
+          y: (ts[0].pageY + ts[1].pageY) / 2,
+        };
+        const c0 = gestoRef.current.centroInicial || centro;
+        moverObjetivo(centro.x - c0.x, centro.y - c0.y, base);
       } else {
-        controlRef.current.azimut = THREE.MathUtils.clamp(gestoRef.current.azimutInicial + g.dx * 0.0042, -1.15, 1.15);
-        controlRef.current.elevacion = THREE.MathUtils.clamp(gestoRef.current.elevacionInicial - g.dy * 0.0032, -0.32, 0.42);
+        // Un dedo desplaza el territorio como un mapa. No rota la cámara.
+        moverObjetivo(g.dx, g.dy, base);
       }
       aplicarCamara();
     },
-    onPanResponderRelease: () => { gestoRef.current.distancia = null; },
-    onPanResponderTerminate: () => { gestoRef.current.distancia = null; },
+    onPanResponderRelease: () => {
+      gestoRef.current.distancia = null;
+      gestoRef.current.centroInicial = null;
+    },
+    onPanResponderTerminate: () => {
+      gestoRef.current.distancia = null;
+      gestoRef.current.centroInicial = null;
+    },
   }), [escena]);
 
   // Decodificar el horneado fuera de la transición de navegación.
@@ -453,7 +491,7 @@ export default function MapaRecorrido3D({
           <Text style={styles.proximoKm}>a {journey.kmHastaSiguiente.toFixed(journey.kmHastaSiguiente < 10 ? 1 : 0)} km</Text>
         </View>
       )}
-      <Text pointerEvents="none" style={styles.pista}>Arrastrá para explorar · pellizcá para zoom</Text>
+      <Text pointerEvents="none" style={styles.pista}>Deslizá para mover · pellizcá para zoom</Text>
       <View pointerEvents="none" style={styles.borde} />
     </View>
   );
