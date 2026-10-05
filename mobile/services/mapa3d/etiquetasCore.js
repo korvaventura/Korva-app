@@ -1,12 +1,12 @@
 // Ubicación de etiquetas 2D sobre el diorama: evita superposiciones entre
 // nombres de checkpoints y respeta los bordes del mapa. Pura y testeable.
 
-const ANCHO_LETRA = 7.6; // px aprox. para 10px bold con tracking 1.1
+const ANCHO_LETRA = 8.6; // margen conservador para mayúsculas, bold y tracking 1.1
 const ALTO_ETIQUETA = 26;
 const MARGEN = 6;
 
 function anchoEstimado(texto) {
-  return Math.max(36, String(texto || '').length * ANCHO_LETRA + 4);
+  return Math.max(36, String(texto || '').length * ANCHO_LETRA + 16);
 }
 
 function seSuperponen(a, b) {

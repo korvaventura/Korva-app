@@ -449,6 +449,45 @@ function ScrollHintAnimado() {
 // ─── HISTORIA INLINE ─────────────────────────────────────────────
 function HistoriaInline({ cp, factor, distanciaTotal, estaDesbloqueado, esInicio, esFin, onCerrar, compacto = false }) {
   if (!cp) return null;
+  if (compacto) {
+    const kmPunto = ((cp.kmFisico || 0) * factor).toFixed(0);
+    const estado = !estaDesbloqueado ? 'POR DESCUBRIR' : esInicio ? 'PUNTO DE PARTIDA' : esFin ? 'DESTINO CONQUISTADO' : 'LUGAR CONQUISTADO';
+    return (
+      <View style={styles.journeyHistoria}>
+        <View style={styles.journeyHistoriaCabecera}>
+          <View style={styles.historiaTituloWrap}>
+            <Text style={styles.journeyHistoriaEstado}>{estado}</Text>
+            <Text style={styles.journeyHistoriaNombre}>{cp.nombre}</Text>
+            <Text style={styles.journeyHistoriaKm}>KM {kmPunto} · RECORRIDO DE {distanciaTotal} KM</Text>
+          </View>
+          <TouchableOpacity onPress={onCerrar} accessibilityRole="button" accessibilityLabel="Cerrar historia" style={styles.journeyHistoriaCerrar}>
+            <Text style={styles.journeyHistoriaCerrarTexto}>✕</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.journeyHistoriaSeparador} />
+        {estaDesbloqueado ? (
+          <>
+            {(esInicio || esFin) && <Text style={styles.journeyHistoriaIntroduccion}>{esInicio ? 'Tu recorrido empieza acá.' : 'Llegaste al final de esta aventura.'}</Text>}
+            <Text style={styles.journeyHistoriaCuerpo}>{cp.desc}</Text>
+            {!!cp.datoRaro && (
+              <View style={styles.journeyHistoriaDetalle}>
+                <Text style={styles.journeyHistoriaDetalleTitulo}>UNA HISTORIA DEL LUGAR</Text>
+                <Text style={styles.journeyHistoriaCuerpo}>{String(cp.datoRaro).replace(/^[^A-Za-zÀ-ÿ0-9]+/, '')}</Text>
+              </View>
+            )}
+          </>
+        ) : (
+          <>
+            <Text style={styles.journeyHistoriaCuerpo}>{cp.pista}</Text>
+            <View style={styles.journeyHistoriaDetalle}>
+              <Text style={styles.journeyHistoriaDetalleTitulo}>TU PRÓXIMA CONQUISTA</Text>
+              <Text style={styles.journeyHistoriaCuerpo}>La historia completa se revela al llegar al km {kmPunto}.</Text>
+            </View>
+          </>
+        )}
+      </View>
+    );
+  }
   return (
     <View style={[styles.historiaContainer, compacto && styles.historiaContainerCompacto]}>
       <View style={styles.historiaHeader}>
@@ -855,6 +894,18 @@ const styles = StyleSheet.create({
   leyendaNombre: { fontSize: 11, color: '#64748B', fontWeight: 'bold' },
   leyendaNombreActivo: { color: '#F8FAFC' },
   leyendaKm: { fontSize: 10, color: '#94A3B8', marginTop: 2 },
+  journeyHistoria: { marginTop: 14, marginBottom: 12, padding: 20, borderRadius: 18, backgroundColor: '#0E2132', borderWidth: 1, borderColor: 'rgba(168,207,255,0.18)' },
+  journeyHistoriaCabecera: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  journeyHistoriaEstado: { color: '#FFB078', fontSize: 9, fontWeight: '800', letterSpacing: 1.6, marginBottom: 7 },
+  journeyHistoriaNombre: { color: '#F8FAFC', fontSize: 20, fontWeight: '700', lineHeight: 26, marginBottom: 7 },
+  journeyHistoriaKm: { color: '#8DA4B8', fontSize: 10, fontWeight: '600', letterSpacing: 0.6, lineHeight: 16 },
+  journeyHistoriaCerrar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(168,207,255,0.07)' },
+  journeyHistoriaCerrarTexto: { color: '#A8BFD0', fontSize: 17, fontWeight: '400' },
+  journeyHistoriaSeparador: { height: 1, backgroundColor: 'rgba(168,207,255,0.14)', marginVertical: 18 },
+  journeyHistoriaIntroduccion: { color: '#FFB078', fontSize: 14, fontWeight: '600', marginBottom: 12, lineHeight: 22 },
+  journeyHistoriaCuerpo: { color: '#CFDDE7', fontSize: 15, fontWeight: '400', lineHeight: 24 },
+  journeyHistoriaDetalle: { marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(168,207,255,0.14)' },
+  journeyHistoriaDetalleTitulo: { color: '#8DA4B8', fontSize: 9, fontWeight: '800', letterSpacing: 1.2, marginBottom: 9 },
   historiaContainer: { backgroundColor: '#1E293B', borderRadius: 16, marginHorizontal: 16, marginTop: 4, marginBottom: 8, padding: 16, borderWidth: 1, borderColor: '#334155' },
   historiaContainerCompacto: { marginHorizontal: 0, marginTop: 12, padding: 14, borderColor: '#29496B', backgroundColor: '#13283D' },
   historiaHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
