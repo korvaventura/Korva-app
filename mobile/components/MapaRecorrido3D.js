@@ -210,8 +210,22 @@ export default function MapaRecorrido3D({
   const panResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: (e) => e.nativeEvent.touches?.length >= 2,
     onStartShouldSetPanResponderCapture: (e) => e.nativeEvent.touches?.length >= 2,
-    onMoveShouldSetPanResponder: (e, g) => (e.nativeEvent.touches?.length >= 2) || Math.abs(g.dx) + Math.abs(g.dy) > 5,
-    onMoveShouldSetPanResponderCapture: (e, g) => (e.nativeEvent.touches?.length >= 2) || Math.abs(g.dx) + Math.abs(g.dy) > 5,
+    onMoveShouldSetPanResponder: (e, g) => {
+      const dedos = e.nativeEvent.touches?.length || 0;
+      if (dedos >= 2) return true;
+      const ax = Math.abs(g.dx);
+      const ay = Math.abs(g.dy);
+      // Un dedo: el mapa sólo toma intención horizontal/diagonal clara.
+      // El gesto vertical queda libre para el ScrollView padre.
+      return ax > 7 && ax > ay * 0.72;
+    },
+    onMoveShouldSetPanResponderCapture: (e, g) => {
+      const dedos = e.nativeEvent.touches?.length || 0;
+      if (dedos >= 2) return true;
+      const ax = Math.abs(g.dx);
+      const ay = Math.abs(g.dy);
+      return ax > 7 && ax > ay * 0.72;
+    },
     onPanResponderGrant: (e) => {
       const ts = e.nativeEvent.touches || [];
       const objetivo = controlRef.current.objetivo || escena.camara.objetivo;
