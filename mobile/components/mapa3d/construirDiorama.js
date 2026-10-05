@@ -240,7 +240,7 @@ export function configurarCamara(camara, escena, aspecto, control = {}) {
   const az = THREE.MathUtils.degToRad(c.azimutGrados) + (control.azimut || 0);
   const ajuste = Math.max(1, (c.aspectoReferencia || 1.0) / Math.max(0.3, aspecto));
   const d = c.distancia * ajuste * THREE.MathUtils.clamp(control.zoom || 1, 0.58, 1.7);
-  const [tx, ty, tz] = c.objetivo;
+  const [tx, ty, tz] = control.objetivo || c.objetivo;
   // Cámara al norte (-z) mirando al sur (+z); azimut rota hacia el este (+x).
   camara.position.set(tx + Math.sin(az) * Math.cos(el) * d, ty + Math.sin(el) * d, tz - Math.cos(az) * Math.cos(el) * d);
   camara.fov = c.fov;
