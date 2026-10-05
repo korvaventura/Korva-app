@@ -435,6 +435,10 @@ export default function HomeScreen({ navigation }) {
           setCompletado(null);
           navigation.navigate('Perfil');
         }}
+        onVerKorvaMundi={() => {
+          setCompletado(null);
+          navigation.navigate('KorvaMundi');
+        }}
       />
     );
   }
