@@ -151,6 +151,8 @@ export default function MapaRecorrido3D({
   const revisionPendienteRef = useRef(false);
   const [reproduciendo, setReproduciendo] = useState(false);
   const [kmPlayback, setKmPlayback] = useState(null);
+  const [cierreVisible, setCierreVisible] = useState(false);
+  const cierreOpacity = useRef(new Animated.Value(0)).current;
   const aparicion = useRef(new Animated.Value(0)).current;
   const controlRef = useRef({ azimut: 0, elevacion: 0, zoom: 1 });
   const r3fRef = useRef(null);
@@ -393,6 +395,8 @@ export default function MapaRecorrido3D({
     // Fin del Mundo completo (~103 km) queda cerca de 16 s.
     const duracion = THREE.MathUtils.clamp(9000 + metaKm * 70, 10000, 18000);
     const inicio = Date.now();
+    setCierreVisible(false);
+    cierreOpacity.setValue(0);
     setReproduciendo(true);
     controlRef.current = { azimut: 0, elevacion: 0.08, zoom: 0.66 };
 
@@ -410,6 +414,16 @@ export default function MapaRecorrido3D({
         playbackRef.current = null;
         setKmPlayback(null);
         setReproduciendo(false);
+        if (completado) {
+          setCierreVisible(true);
+          Animated.sequence([
+            Animated.timing(cierreOpacity, { toValue: 1, duration: 450, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+            Animated.delay(2200),
+            Animated.timing(cierreOpacity, { toValue: 0, duration: 650, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+          ]).start(({ finished }) => {
+            if (finished) setCierreVisible(false);
+          });
+        }
         const fin = posicionEnKm(mundo.datos, mundo.conv, kmProgresoReal, 0);
         controlRef.current.objetivo = [fin.x, fin.y, fin.z];
         aplicarCamara();
@@ -519,6 +533,14 @@ export default function MapaRecorrido3D({
           {completado ? '✓ CONQUISTADO' : `${kmTxt.toFixed(kmTxt < 10 ? 1 : 0)} / ${Math.round(totalTxt)} km`}
         </Text>
       </View>
+      {cierreVisible && (
+        <Animated.View pointerEvents="none" style={[styles.cierreLogro, { opacity: cierreOpacity }]}>
+          <Text style={styles.cierreEyebrow}>RECORRIDO COMPLETADO</Text>
+          <Text style={styles.cierreKm}>{Math.round(totalTxt)} KM</Text>
+          <View style={styles.cierreLinea} />
+          <Text style={styles.cierreTitulo}>{escena.presentacion?.titulo || 'Tu conquista'}</Text>
+        </Animated.View>
+      )}
       <TouchableOpacity
         activeOpacity={0.86}
         onPress={reproduciendo ? detenerJourney : iniciarJourney}
@@ -565,6 +587,11 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.textSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
   chipTxtCompleto: { color: colors.brandOrangeSoft, letterSpacing: 1.2 },
   pista: { position: 'absolute', right: 14, bottom: 12, color: 'rgba(168,207,255,0.6)', fontSize: 10 },
+  cierreLogro: { position: 'absolute', left: 0, right: 0, top: '36%', alignItems: 'center', paddingVertical: 18, backgroundColor: 'rgba(9,23,37,0.76)' },
+  cierreEyebrow: { color: colors.brandOrangeSoft, fontSize: 9, fontWeight: '900', letterSpacing: 2.4, ...sombraTexto },
+  cierreKm: { color: '#FFFFFF', fontSize: 34, fontWeight: '900', letterSpacing: 1.2, marginTop: 3, ...sombraTexto },
+  cierreLinea: { width: 34, height: 2, borderRadius: 1, backgroundColor: colors.brandOrange, marginVertical: 7 },
+  cierreTitulo: { color: colors.textSoft, fontSize: 12, fontWeight: '800', letterSpacing: 0.8, ...sombraTexto },
   playJourney: { position: 'absolute', left: 14, top: 54, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, backgroundColor: 'rgba(243,107,10,0.9)', shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 2 } },
   playJourneyActivo: { backgroundColor: 'rgba(9,23,37,0.88)', borderWidth: 1, borderColor: 'rgba(255,176,120,0.65)' },
   playJourneyTxt: { color: '#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
