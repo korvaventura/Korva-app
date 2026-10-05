@@ -45,39 +45,71 @@ const LUT_LINEAL = (() => {
   return t;
 })();
 
-function geometriaTerreno(datos, conv) {
+function distanciaRutaVisual(datos, x, z) {
+  let mejor = Infinity;
+  // La ruta horneada es densa; muestrear cada pocos puntos alcanza para la máscara.
+  const paso = Math.max(1, Math.floor(datos.ruta.length / 90));
+  for (let i = 0; i < datos.ruta.length; i += paso) {
+    const p = datos.ruta[i];
+    mejor = Math.min(mejor, Math.hypot(x - p.x, z - p.z));
+  }
+  const ultimo = datos.ruta[datos.ruta.length - 1];
+  return Math.min(mejor, Math.hypot(x - ultimo.x, z - ultimo.z));
+}
+
+function pesoMascara(datos, escena, x, z) {
+  const cfg = escena.terrenoVisual || {};
+  const corredor = cfg.corredorKm ?? 24;
+  const borde = cfg.bordeKm ?? 7;
+  const variacion = cfg.variacionKm ?? 4;
+  const frecuencia = cfg.frecuencia ?? 0.09;
+  const ondulacion =
+    Math.sin(x * frecuencia + z * frecuencia * 0.63) * variacion * 0.55 +
+    Math.sin(x * frecuencia * 0.47 - z * frecuencia * 1.31 + 1.7) * variacion * 0.45;
+  const limite = corredor + ondulacion;
+  const d = distanciaRutaVisual(datos, x, z);
+  return THREE.MathUtils.smoothstep(limite + borde, limite - borde, d);
+}
+
+function geometriaTerreno(datos, conv, escena) {
   const { campo, colores } = datos;
   const { nx, nz, dx, dz, minX, minZ, alturas } = campo;
   const pos = new Float32Array(nx * nz * 3);
   const col = new Float32Array(nx * nz * 3);
+  const pesos = new Float32Array(nx * nz);
+  const niebla = new THREE.Color(escena.niebla?.color || '#3F5872');
   for (let j = 0; j < nz; j += 1) {
     for (let i = 0; i < nx; i += 1) {
       const k = j * nx + i;
-      pos[k * 3] = conv.x(minX + i * dx);
+      const x = minX + i * dx;
+      const z = minZ + j * dz;
+      const peso = pesoMascara(datos, escena, x, z);
+      pesos[k] = peso;
+      pos[k * 3] = conv.x(x);
       pos[k * 3 + 1] = conv.y(alturas[k]);
-      pos[k * 3 + 2] = conv.z(minZ + j * dz);
+      pos[k * 3 + 2] = conv.z(z);
+      const fade = THREE.MathUtils.smoothstep(peso, 0.12, 0.72);
+      col[k * 3] = THREE.MathUtils.lerp(niebla.r, LUT_LINEAL[Math.round(colores[k * 3] * 255)], fade);
+      col[k * 3 + 1] = THREE.MathUtils.lerp(niebla.g, LUT_LINEAL[Math.round(colores[k * 3 + 1] * 255)], fade);
+      col[k * 3 + 2] = THREE.MathUtils.lerp(niebla.b, LUT_LINEAL[Math.round(colores[k * 3 + 2] * 255)], fade);
     }
   }
-  for (let k = 0; k < nx * nz * 3; k += 1) col[k] = LUT_LINEAL[Math.round(colores[k] * 255)];
-  // Misma diagonal que muestrearBilineal: (i+1,j)-(i,j+1).
-  const idx = new Uint16Array((nx - 1) * (nz - 1) * 6);
-  let p = 0;
+  const indices = [];
   for (let j = 0; j < nz - 1; j += 1) {
     for (let i = 0; i < nx - 1; i += 1) {
-      const a = j * nx + i;
-      const b = a + 1;
-      const c = a + nx;
-      const d = c + 1;
-      idx[p++] = a; idx[p++] = c; idx[p++] = b;
-      idx[p++] = b; idx[p++] = c; idx[p++] = d;
+      const a = j * nx + i; const b = a + 1; const c = a + nx; const d = c + 1;
+      if (Math.max(pesos[a], pesos[b], pesos[c], pesos[d]) < 0.08) continue;
+      indices.push(a, c, b, b, c, d);
     }
   }
+  const IndexArray = nx * nz > 65535 ? Uint32Array : Uint16Array;
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  g.setIndex(new THREE.BufferAttribute(idx, 1));
+  g.setIndex(new THREE.BufferAttribute(new IndexArray(indices), 1));
   g.computeVertexNormals();
   g.computeBoundingSphere();
+  g.userData.pesosMascara = pesos;
   return g;
 }
 
@@ -132,38 +164,33 @@ function geometriaZocalo(datos, conv, escena) {
 function crearAguas(datos, conv, escena) {
   const grupo = new THREE.Group();
   const { campo } = datos;
+  const { nx, nz, dx, dz, minX, minZ, agua } = campo;
   const niveles = [...new Set(escena.aguas.map((a) => a.nivelM))];
+
   niveles.forEach((nivel) => {
-    const cuerpos = campo.geo.aguas.filter((a) => a.nivelM === nivel);
-    let minX = Infinity; let maxX = -Infinity; let minZ = Infinity; let maxZ = -Infinity;
-    cuerpos.forEach(({ caja }) => {
-      minX = Math.min(minX, caja.minX); maxX = Math.max(maxX, caja.maxX);
-      minZ = Math.min(minZ, caja.minZ); maxZ = Math.max(maxZ, caja.maxZ);
-    });
-    minX = Math.max(minX, campo.minX); maxX = Math.min(maxX, campo.maxX);
-    minZ = Math.max(minZ, campo.minZ); maxZ = Math.min(maxZ, campo.maxZ);
-    const segX = 24; const segZ = 12;
-    const g = new THREE.PlaneGeometry(conv.x(maxX - minX), conv.z(maxZ - minZ), segX, segZ);
-    g.rotateX(-Math.PI / 2);
-    g.translate(conv.x((minX + maxX) / 2), conv.y(nivel), conv.z((minZ + maxZ) / 2));
-    const p = g.attributes.position;
-    const col = new Float32Array(p.count * 3);
-    const cerca = lineal(0.045, 0.16, 0.24);
-    const lejos = lineal(0.20, 0.36, 0.46);
-    for (let i = 0; i < p.count; i += 1) {
-      // Cámara al norte (-z): lo lejano es +z.
-      const t = THREE.MathUtils.smoothstep(p.getZ(i), conv.z(campo.minZ), conv.z(campo.maxZ));
-      const c = cerca.clone().lerp(lejos, t * 0.85);
-      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    const pos = [];
+    const push = (i, j) => {
+      const k = j * nx + i;
+      pos.push(conv.x(minX + i * dx), conv.y(nivel + 1.5), conv.z(minZ + j * dz));
+    };
+    for (let j = 0; j < nz - 1; j += 1) {
+      for (let i = 0; i < nx - 1; i += 1) {
+        const a = j * nx + i; const b = a + 1; const c = a + nx; const d = c + 1;
+        const pertenece = (k) => Number.isFinite(agua[k]) && Math.abs(agua[k] - nivel) < 0.01;
+        const x = minX + (i + 0.5) * dx; const z = minZ + (j + 0.5) * dz;
+        if (pesoMascara(datos, escena, x, z) < 0.1) continue;
+        if (!(pertenece(a) || pertenece(b) || pertenece(c) || pertenece(d))) continue;
+        push(i, j); push(i, j + 1); push(i + 1, j);
+        push(i + 1, j); push(i, j + 1); push(i + 1, j + 1);
+      }
     }
-    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    if (!pos.length) return;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.computeVertexNormals();
     const m = new THREE.MeshStandardMaterial({
-      vertexColors: true,
-      roughness: 0.42,
-      metalness: 0.0,
-      transparent: true,
-      opacity: 0.86,
-      depthWrite: false,
+      color: '#24566F', roughness: 0.38, metalness: 0,
+      transparent: true, opacity: 0.82, depthWrite: false,
     });
     const mesh = new THREE.Mesh(g, m);
     mesh.renderOrder = 2;
@@ -178,16 +205,11 @@ export function construirDiorama(escena, horneado) {
   const grupo = new THREE.Group();
 
   const terreno = new THREE.Mesh(
-    geometriaTerreno(datos, conv),
+    geometriaTerreno(datos, conv, escena),
     new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0, flatShading: false }),
   );
   grupo.add(terreno);
 
-  const zocalo = new THREE.Mesh(
-    geometriaZocalo(datos, conv, escena),
-    new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, fog: true }),
-  );
-  grupo.add(zocalo);
   grupo.add(crearAguas(datos, conv, escena));
   return { grupo, datos, conv };
 }
