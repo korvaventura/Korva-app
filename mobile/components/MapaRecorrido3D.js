@@ -389,7 +389,9 @@ export default function MapaRecorrido3D({
     if (!mundo || reproduciendo) return;
     if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
     const metaKm = Math.max(0.1, kmProgresoReal);
-    const duracion = THREE.MathUtils.clamp(5000 + metaKm * 55, 6000, 12000);
+    // El replay debe sentirse como un viaje, no como una barra de progreso.
+    // Fin del Mundo completo (~103 km) queda cerca de 16 s.
+    const duracion = THREE.MathUtils.clamp(9000 + metaKm * 70, 10000, 18000);
     const inicio = Date.now();
     setReproduciendo(true);
     controlRef.current = { azimut: 0, elevacion: 0.08, zoom: 0.66 };
