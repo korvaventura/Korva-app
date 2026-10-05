@@ -112,11 +112,28 @@ export default function DetalleRetoScreen({ route, navigation }) {
         setActividades([]);
         return;
       }
-      const res = await fetch(`${BACKEND_URL}/progreso-desglose/${item.challenge_id}/actividades`, {
+      const url = `${BACKEND_URL}/progreso-desglose/${item.challenge_id}/actividades`;
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('No se pudo cargar la historia del desafío');
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      console.log('[KORVA_ACTIVIDADES_DIAG]', {
+        challenge_id: item.challenge_id,
+        status: res.status,
+        ok: res.ok,
+        started_at: data?.started_at ?? item?.started_at ?? null,
+        completed_at: item?.completed_at ?? null,
+        cantidad: Array.isArray(data?.actividades) ? data.actividades.length : null,
+        error: data?.error ?? null,
+        muestra: Array.isArray(data?.actividades) ? data.actividades.slice(0, 3).map((a) => ({
+          id: a.id,
+          source: a.source,
+          sport_type: a.sport_type,
+          distance_km: a.distance_km,
+          recorded_at: a.recorded_at,
+        })) : null,
+      });
+      if (!res.ok) throw new Error(data?.error || 'No se pudo cargar la historia del desafío');
       setActividades(Array.isArray(data?.actividades) ? data.actividades : []);
     } catch (error) {
       console.error('Error cargando historia del desafío:', error);
