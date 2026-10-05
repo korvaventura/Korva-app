@@ -895,6 +895,11 @@ export default function HomeScreen({ navigation }) {
                   <Text style={styles.completedActionText}>Ver historia</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.completedAction}
+                  onPress={() => navigation.navigate('DetalleReto', { item, userId, nombrePersona: nombreCompartir, abrirRuta: true })}>
+                  <Ionicons name="map-outline" size={15} color={colors.actionBlue} />
+                  <Text style={styles.completedActionText}>Ver ruta</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.completedAction}
                   onPress={() => { setModalInfoChallenge(item.challenge || ''); setModalInfoVisible(true); }}>
                   <Ionicons name="medal-outline" size={15} color={colors.brandOrangeSoft} />
                   <Text style={styles.completedActionText}>Medalla y envío</Text>
