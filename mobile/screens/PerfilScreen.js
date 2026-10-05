@@ -889,6 +889,26 @@ export default function PerfilScreen() {
                         </View>
                       )}
                     </View>
+                    <TouchableOpacity
+                      style={styles.retoRutaBtn}
+                      onPress={() => navigation.navigate('DetalleReto', {
+                        item: {
+                          ...inscripcion,
+                          challenge: inscripcion.challenges?.title,
+                          km_completados: kmCompletados,
+                          distancia_total: distanciaTotal,
+                          porcentaje: pct,
+                        },
+                        userId,
+                        nombrePersona: usuario?.nombre || usuario?.name || '',
+                        abrirRuta: true,
+                      })}
+                      accessibilityRole="button"
+                    >
+                      <Ionicons name="map-outline" size={16} color={colors.actionBlue} />
+                      <Text style={styles.retoRutaBtnText}>Ver ruta</Text>
+                      <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+                    </TouchableOpacity>
                     <TouchableOpacity style={styles.retoDetailsToggle}
                       onPress={() => setDetallesReto(prev => ({ ...prev, [cId]: !prev[cId] }))}
                       accessibilityRole="button" accessibilityState={{ expanded: detallesAbiertos }}>
@@ -1376,6 +1396,8 @@ const styles = StyleSheet.create({
   retoVersionResumen: { color: colors.textSoft, fontSize: 11, fontWeight: '600' },
   retoMetaResumen: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   retoMetaResumenText: { color: colors.textMuted, fontSize: 11 },
+  retoRutaBtn: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.backgroundDeep, borderWidth: 1, borderColor: colors.borderSoft },
+  retoRutaBtnText: { flex: 1, color: colors.textSoft, fontSize: 12, fontWeight: '800' },
   retoDetailsToggle: { minHeight: 44, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   retoDetailsLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
   retoSettings: { backgroundColor: colors.backgroundDeep, borderRadius: 14, padding: 12, marginBottom: 8 },
