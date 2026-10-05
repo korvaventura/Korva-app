@@ -6,6 +6,10 @@
 const finDelMundo = {
   id: 'fin_del_mundo',
   distanciaKm: 103,
+  presentacion: {
+    eyebrow: 'TIERRA DEL FUEGO · RN3',
+    titulo: 'Tolhuin → Ushuaia',
+  },
   semilla: 2026,
   centro: { lat: -54.70, lon: -67.75 },
   limitesKm: { minX: -43, maxX: 40, minZ: -26, maxZ: 27 },
