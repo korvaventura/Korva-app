@@ -550,7 +550,7 @@ function MapaSVG({ config, kmFisicos, pinPos, rutaBasePath, pathCompletado, puls
   );
 }
 
-export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, actividades = [], onScrollBegin, onScrollEnd, fullscreen = false, integrado = false }) {
+export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, actividades = [], onScrollBegin, onScrollEnd, fullscreen = false, integrado = false, ocultarTitulo = false }) {
   const [cpSeleccionado, setCpSeleccionado] = useState(null);
   const [modalMapaVisible, setModalMapaVisible] = useState(false);
   const scrollViewRef = useRef(null);
@@ -566,7 +566,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
   const pathCompletado = getCompletedPathString(segmentos, kmFisicos);
 
   useEffect(() => {
-    if (fullscreen) {
+    if (fullscreen || modalMapaVisible) {
       pulseAnim.setValue(0);
       return undefined;
     }
@@ -576,7 +576,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
     ]));
     loop.start();
     return () => loop.stop();
-  }, [fullscreen, pulseAnim]);
+  }, [fullscreen, modalMapaVisible, pulseAnim]);
 
   useEffect(() => { setCpSeleccionado(null); }, [challengeId]);
 
@@ -692,35 +692,18 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
                   <Text style={styles.cerrarBtnText}>✕</Text>
                 </TouchableOpacity>
               </View>
-              <View style={styles.mapaFijoWrapper}>
-                <ScrollView ref={scrollViewRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ width: MAPA_WIDTH_VIRTUAL }} style={{ flex: 1 }}>
-                  <MapaSVG config={config} kmFisicos={kmFisicos} pinPos={pinPos} rutaBasePath={rutaBasePath} pathCompletado={pathCompletado} pulseAnim={pulseAnim} onCheckpointPress={handleCheckpointPress} />
-                </ScrollView>
-                {mostrarClima()}
-              </View>
-              <ScrollHintAnimado />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
-                {checkpoints.map((cp) => {
-                  const bloqueado = !desbloqueado(cp);
-                  const seleccionado = cpSeleccionado?.id === cp.id;
-                  return (
-                    <TouchableOpacity key={cp.id} style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo, seleccionado && styles.leyendaItemSeleccionado]} onPress={() => handleCheckpointPress(cp)}>
-                      <Text style={styles.leyendaEmoji}>{bloqueado ? '🔒' : cp.emoji}</Text>
-                      <View style={styles.leyendaTextos}>
-                        <Text style={[styles.leyendaNombre, !bloqueado && styles.leyendaNombreActivo]}>{cp.nombre}</Text>
-                        <Text style={styles.leyendaKm}>{(cp.kmFisico * factor).toFixed(0)} km</Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+                <MapaRecorrido
+                  fullscreen
+                  ocultarTitulo
+                  kmCompletados={kmCompletados}
+                  distanciaTotal={distanciaTotal}
+                  porcentaje={porcentaje}
+                  challengeId={challengeId}
+                  challengeTitle={challengeTitle}
+                  actividades={actividades}
+                />
               </ScrollView>
-              {cpSeleccionado ? (
-                <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} />
-              ) : (
-                <View style={styles.historiaPlaceholder}>
-                  <Text style={styles.historiaPlaceholderText}>Tocá un punto del mapa o un checkpoint para leer su historia</Text>
-                </View>
-              )}
             </View>
           </Modal>
         )}
@@ -737,7 +720,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
 
   return (
     <View style={styles.container}>
-      <Text style={styles.titulo}>{titulo}</Text>
+      {!ocultarTitulo && <Text style={styles.titulo}>{titulo}</Text>}
       {mapa3D ? (
         <View style={styles.mapa3DWrapper}>
           <MapaRecorrido3D
