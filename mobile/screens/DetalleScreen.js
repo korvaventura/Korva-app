@@ -19,6 +19,7 @@ const COMO_FUNCIONA = [
 export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
   const [modalFaqVisible, setModalFaqVisible] = useState(false);
   const [distanciasAbiertas, setDistanciasAbiertas] = useState(false);
+  const [comoFuncionaAbierto, setComoFuncionaAbierto] = useState(false);
 
   if (!challenge) return null;
 
@@ -87,23 +88,16 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
       )}
 
 
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>Cómo funciona</Text>
-        {COMO_FUNCIONA.map((paso, i) => (
-          <View key={i} style={styles.pasoRow}>
-            <Text style={styles.pasoEmoji}>{i + 1}</Text>
-            <View style={styles.pasoInfo}>
-              <Text style={styles.pasoTitulo}>{paso.titulo}</Text>
-              <Text style={styles.pasoDesc}>{paso.desc}</Text>
-            </View>
+      {/* La aventura es el producto: la ruta aparece antes que la explicación operativa. */}
+      <View style={styles.seccionRuta}>
+        <View style={styles.rutaHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rutaEyebrow}>EXPLORÁ LA AVENTURA</Text>
+            <Text style={styles.rutaTitulo}>La ruta</Text>
           </View>
-        ))}
-      </View>
-
-      {/* Mapa interactivo real */}
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>La ruta</Text>
-        <Text style={styles.mapaSubtitulo}>Explorá los checkpoints — se desbloquean a medida que avanzás</Text>
+          <Ionicons name="map-outline" size={21} color={colors.brandOrangeSoft} />
+        </View>
+        <Text style={styles.mapaSubtitulo}>Descubrí los checkpoints y las historias que vas desbloqueando a medida que avanzás.</Text>
         <MapaRecorrido
           kmCompletados={0}
           distanciaTotal={distanciaTotal}
@@ -112,6 +106,37 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
           challengeTitle={challenge.title}
           fullscreen={true}
         />
+      </View>
+
+      <View style={styles.comoFuncionaBox}>
+        <TouchableOpacity
+          style={styles.comoFuncionaToggle}
+          onPress={() => setComoFuncionaAbierto(prev => !prev)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: comoFuncionaAbierto }}
+        >
+          <View style={styles.comoFuncionaToggleCopy}>
+            <Ionicons name="information-circle-outline" size={19} color={colors.textSoft} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.comoFuncionaTitulo}>¿Cómo funciona el desafío?</Text>
+              {!comoFuncionaAbierto && <Text style={styles.comoFuncionaResumen}>Compra · registrá tus km · completá a tu ritmo · recibí tu medalla</Text>}
+            </View>
+          </View>
+          <Ionicons name={comoFuncionaAbierto ? 'chevron-up' : 'chevron-down'} size={17} color={colors.textMuted} />
+        </TouchableOpacity>
+        {comoFuncionaAbierto && (
+          <View style={styles.comoFuncionaContenido}>
+            {COMO_FUNCIONA.map((paso, i) => (
+              <View key={i} style={styles.pasoRow}>
+                <Text style={styles.pasoEmoji}>{i + 1}</Text>
+                <View style={styles.pasoInfo}>
+                  <Text style={styles.pasoTitulo}>{paso.titulo}</Text>
+                  <Text style={styles.pasoDesc}>{paso.desc}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
 
       {galeria.length > 0 && (
@@ -164,6 +189,16 @@ const styles = StyleSheet.create({
   heroBadge: { position: 'absolute', bottom: 16, right: 16, backgroundColor: colors.brandOrange, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20 },
   heroBadgeText: { color: colors.text, fontWeight: '800', fontSize: 10 },
   seccion: { paddingHorizontal: 24, marginTop: 28 },
+  seccionRuta: { paddingHorizontal: 24, marginTop: 22 },
+  rutaHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
+  rutaEyebrow: { color: colors.brandOrangeSoft, fontSize: 9, fontWeight: '900', letterSpacing: 1.6, marginBottom: 3 },
+  rutaTitulo: { color: colors.text, fontSize: 21, fontWeight: '900' },
+  comoFuncionaBox: { marginHorizontal: 24, marginTop: 24, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.borderSoft },
+  comoFuncionaToggle: { minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 10 },
+  comoFuncionaToggleCopy: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  comoFuncionaTitulo: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  comoFuncionaResumen: { color: colors.textMuted, fontSize: 10, lineHeight: 15, marginTop: 2 },
+  comoFuncionaContenido: { paddingTop: 8, paddingBottom: 6 },
   seccionTitulo: { fontSize: 15, fontWeight: 'bold', color: colors.text, marginBottom: 6 },
   mapaSubtitulo: { fontSize: 12, color: colors.textMuted, marginBottom: 14 },
   deporte: { fontSize: 11, fontWeight: 'bold', color: colors.actionBlue, letterSpacing: 1, marginBottom: 8 },
