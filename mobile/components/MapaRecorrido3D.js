@@ -7,6 +7,7 @@ import { colors } from '../theme/korvaTheme';
 import escenaFinDelMundo from '../services/mapa3d/escenas/finDelMundo';
 import horneadoFinDelMundo from '../services/mapa3d/escenas/finDelMundo.horneado';
 import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
+import { estadoJourney } from '../services/mapa3d/journeyCore';
 import { ubicarEtiquetas } from '../services/mapa3d/etiquetasCore';
 import {
   ajustarNiebla,
@@ -200,6 +201,12 @@ export default function MapaRecorrido3D({
 
   const diorama = listo ? obtenerDiorama(escena, horneado) : null;
   const kmProgreso = kmDeProgreso(progreso, escena.distanciaKm, completado);
+  const journey = useMemo(() => estadoJourney({
+    checkpoints,
+    kmProgreso,
+    distanciaKm: escena.distanciaKm,
+    completado,
+  }), [checkpoints, kmProgreso, escena.distanciaKm, completado]);
 
   // Proyección de pines y etiquetas con la misma cámara que usa el Canvas.
   const overlay = useMemo(() => {
@@ -211,14 +218,15 @@ export default function MapaRecorrido3D({
       const p = v.clone().project(cam);
       return { x: ((p.x + 1) / 2) * tam.w, y: ((1 - p.y) / 2) * tam.h };
     };
-    const pines = checkpoints.map((cp, i) => {
-      const km = Number.isFinite(cp.kmFisico) ? cp.kmFisico : (escena.distanciaKm * i) / Math.max(1, checkpoints.length - 1);
+    const pines = journey.checkpoints.map((cp, i) => {
+      const km = cp.kmJourney;
       return {
         cp,
         km,
         cabeza: aPx(posicionEnKm(datos, conv, km, ALTURA_PIN_M)),
         base: aPx(posicionEnKm(datos, conv, km, 0)),
-        desbloqueado: km <= kmProgreso + 0.01,
+        desbloqueado: cp.estadoJourney === 'conquistado',
+        estadoJourney: cp.estadoJourney,
       };
     });
     const aguas = (escena.etiquetas || []).map((e) => {
@@ -246,7 +254,7 @@ export default function MapaRecorrido3D({
       { ocupados },
     );
     return { pines, aguas, actual, anguloNorte, etiquetas };
-  }, [diorama, tam, checkpoints, escena, kmProgreso, seleccionadoId]);
+  }, [diorama, tam, journey, escena, kmProgreso, seleccionadoId]);
 
   const alCrear = ({ gl, camera, size, scene, invalidate }) => {
     r3fRef.current = { camera, size, scene, invalidate };
@@ -293,7 +301,7 @@ export default function MapaRecorrido3D({
             <Text key={e.id} pointerEvents="none" style={[styles.etiquetaAgua, e.tipo === 'region' && styles.etiquetaRegion, { left: e.x - 80, top: e.y - 7 }]}>{e.texto}</Text>
           ))}
 
-          {overlay.pines.map(({ cp, km, cabeza, base, desbloqueado }) => {
+          {overlay.pines.map(({ cp, km, cabeza, base, desbloqueado, estadoJourney }) => {
             const sel = cp.id === seleccionadoId;
             const caja = overlay.etiquetas[cp.id];
             const presionar = () => onSelect?.(cp);
@@ -305,14 +313,14 @@ export default function MapaRecorrido3D({
                   activeOpacity={0.75}
                   onPress={presionar}
                   hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-                  style={[styles.pin, sel && styles.pinSel, desbloqueado ? styles.pinActivo : styles.pinBloqueado, { left: cabeza.x - (sel ? 11 : 8), top: cabeza.y - (sel ? 11 : 8) }]}
+                  style={[styles.pin, sel && styles.pinSel, desbloqueado ? styles.pinActivo : styles.pinBloqueado, estadoJourney === 'proximo' && styles.pinProximo, { left: cabeza.x - (sel ? 11 : 8), top: cabeza.y - (sel ? 11 : 8) }]}
                 >
                   {sel && <View style={styles.pinNucleo} />}
                 </TouchableOpacity>
                 {caja && (
                   <TouchableOpacity activeOpacity={0.75} onPress={presionar} style={[styles.etiqueta, { left: caja.x, top: caja.y, width: caja.w }, caja.lado === 'izquierda' && styles.etiquetaIzq, (caja.lado === 'arriba' || caja.lado === 'abajo') && styles.etiquetaCentro]}>
                     <Text numberOfLines={1} style={[styles.etiquetaNombre, !desbloqueado && styles.etiquetaBloqueada, sel && styles.etiquetaSel]}>{cp.nombre?.toUpperCase()}</Text>
-                    <Text numberOfLines={1} style={styles.etiquetaKm}>{desbloqueado ? `${Math.round(km)} km` : `🔒 ${Math.round(km)} km`}</Text>
+                    <Text numberOfLines={1} style={styles.etiquetaKm}>{desbloqueado ? `${Math.round(km)} km` : estadoJourney === 'proximo' ? `PRÓXIMO · ${Math.round(km)} km` : `🔒 ${Math.round(km)} km`}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -333,6 +341,13 @@ export default function MapaRecorrido3D({
           {completado ? '✓ CONQUISTADO' : `${kmTxt.toFixed(kmTxt < 10 ? 1 : 0)} / ${Math.round(totalTxt)} km`}
         </Text>
       </View>
+      {!completado && journey.siguiente && (
+        <View pointerEvents="none" style={styles.proximoHud}>
+          <Text style={styles.proximoEyebrow}>PRÓXIMO DESTINO</Text>
+          <Text numberOfLines={1} style={styles.proximoNombre}>{journey.siguiente.nombre}</Text>
+          <Text style={styles.proximoKm}>a {journey.kmHastaSiguiente.toFixed(journey.kmHastaSiguiente < 10 ? 1 : 0)} km</Text>
+        </View>
+      )}
       <Text pointerEvents="none" style={styles.pista}>Arrastrá para explorar · pellizcá para zoom</Text>
       <View pointerEvents="none" style={styles.borde} />
     </View>
@@ -355,6 +370,10 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.textSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
   chipTxtCompleto: { color: colors.brandOrangeSoft, letterSpacing: 1.2 },
   pista: { position: 'absolute', right: 14, bottom: 12, color: 'rgba(168,207,255,0.6)', fontSize: 10 },
+  proximoHud: { position: 'absolute', left: 14, bottom: 46, maxWidth: 170, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, backgroundColor: 'rgba(9,23,37,0.78)', borderWidth: 1, borderColor: 'rgba(255,176,120,0.3)' },
+  proximoEyebrow: { color: colors.brandOrangeSoft, fontSize: 8, fontWeight: '900', letterSpacing: 1.4 },
+  proximoNombre: { color: colors.text, fontSize: 12, fontWeight: '800', marginTop: 2 },
+  proximoKm: { color: colors.textSoft, fontSize: 10, fontWeight: '600', marginTop: 1 },
 
   tallo: { position: 'absolute', width: 1, backgroundColor: 'rgba(214,228,240,0.38)' },
   talloActivo: { backgroundColor: 'rgba(255,190,140,0.6)' },
@@ -363,6 +382,7 @@ const styles = StyleSheet.create({
   pin: { position: 'absolute', width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   pinActivo: { backgroundColor: colors.brandOrange, borderWidth: 2, borderColor: '#FFFFFF' },
   pinBloqueado: { backgroundColor: '#13283D', borderWidth: 1.5, borderColor: '#8DA4B8' },
+  pinProximo: { borderColor: colors.brandOrangeSoft, borderWidth: 2, shadowColor: colors.brandOrange, shadowOpacity: 0.8, shadowRadius: 7 },
   pinSel: { width: 22, height: 22, borderRadius: 11, borderWidth: 3, borderColor: '#FFFFFF', shadowColor: colors.brandOrange, shadowOpacity: 0.9, shadowRadius: 8 },
   pinNucleo: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFFFFF' },
 
