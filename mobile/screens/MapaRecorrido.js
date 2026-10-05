@@ -461,7 +461,7 @@ function HistoriaInline({ cp, factor, distanciaTotal, estaDesbloqueado, esInicio
         </TouchableOpacity>
       </View>
       {estaDesbloqueado ? (
-        <ScrollView style={styles.historiaScroll} showsVerticalScrollIndicator={false}>
+        <View>
           {(esInicio || esFin) && (
             <View style={styles.mensajeEspecialBox}>
               <Text style={styles.mensajeEspecial}>
@@ -475,7 +475,7 @@ function HistoriaInline({ cp, factor, distanciaTotal, estaDesbloqueado, esInicio
               <Text style={styles.datoRaroTexto}>{cp.datoRaro}</Text>
             </View>
           )}
-        </ScrollView>
+        </View>
       ) : (
         <>
           <View style={styles.pistaBox}>
@@ -852,7 +852,7 @@ const styles = StyleSheet.create({
   leyendaNombreActivo: { color: '#F8FAFC' },
   leyendaKm: { fontSize: 10, color: '#94A3B8', marginTop: 2 },
   historiaContainer: { backgroundColor: '#1E293B', borderRadius: 16, marginHorizontal: 16, marginTop: 4, marginBottom: 8, padding: 16, borderWidth: 1, borderColor: '#334155', maxHeight: 280 },
-  historiaContainerCompacto: { marginTop: 10, padding: 14, borderColor: '#29496B', backgroundColor: '#13283D', maxHeight: 230 },
+  historiaContainerCompacto: { marginTop: 10, padding: 14, borderColor: '#29496B', backgroundColor: '#13283D' },
   historiaHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   historiaEmoji: { fontSize: 28, marginRight: 12 },
   historiaTituloWrap: { flex: 1 },
