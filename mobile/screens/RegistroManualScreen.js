@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../supabase';
@@ -28,8 +28,14 @@ export default function RegistroManualScreen({ navigation }) {
   const [exito, setExito] = useState(false);
   const [userId, setUserId] = useState(null);
   const [diasAtras, setDiasAtras] = useState(0);
-  const [challengeId, setChallengeId] = useState(null);
-  const [challengeTitle, setChallengeTitle] = useState('');
+  const [desafios, setDesafios] = useState([]);
+  const [desafiosVisibles, setDesafiosVisibles] = useState(false);
+  const [estadoDesafios, setEstadoDesafios] = useState('cargando');
+  const [cambiandoDesafio, setCambiandoDesafio] = useState(null);
+  const generacion = useRef(0);
+  const cambioPendiente = useRef(false);
+  const activos = desafios.filter((reto) => !reto.pausado);
+  const challengeId = activos[0]?.challenge_id || null;
 
   const [evidenciaUri, setEvidenciaUri] = useState(null);
   const [subiendoEvidencia, setSubiendoEvidencia] = useState(false);
@@ -38,29 +44,77 @@ export default function RegistroManualScreen({ navigation }) {
   const [minutos, setMinutos] = useState('');
   const [segundos, setSegundos] = useState('');
 
-  useFocusEffect(useCallback(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user?.id) {
-        setUserId(session.user.id);
-        const { data } = await supabase
-          .from('user_challenges')
-          .select('challenge_id, challenges(title)')
-          .eq('user_id', session.user.id)
-          .eq('status', 'active')
-          .eq('pausado', false)
-          .order('started_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        if (data?.challenge_id) {
-          setChallengeId(data.challenge_id);
-          setChallengeTitle(data.challenges?.title || '');
-        } else {
-          setChallengeId(null);
-          setChallengeTitle('');
-        }
+  const cargarDesafios = useCallback(async (usuario, turno) => {
+    const { data, error } = await supabase
+      .from('user_challenges')
+      .select('id, challenge_id, pausado, challenges(title)')
+      .eq('user_id', usuario)
+      .eq('status', 'active')
+      .order('started_at', { ascending: true });
+    if (turno !== generacion.current) return;
+    if (error) throw error;
+    setDesafios(data || []);
+    setEstadoDesafios('listo');
+  }, []);
+
+  const consultarDesafios = useCallback(async () => {
+    const turno = ++generacion.current;
+    setEstadoDesafios('cargando');
+    setDesafios([]);
+    setUserId(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (turno !== generacion.current) return;
+      if (!session?.user?.id) {
+        setEstadoDesafios('sesion');
+        return;
       }
-    });
-  }, []));
+      setUserId(session.user.id);
+      await cargarDesafios(session.user.id, turno);
+    } catch {
+      if (turno === generacion.current) setEstadoDesafios('error');
+    }
+  }, [cargarDesafios]);
+
+  useFocusEffect(useCallback(() => {
+    consultarDesafios();
+    return () => { generacion.current += 1; };
+  }, [consultarDesafios]));
+
+  const cambiarPausa = async (reto) => {
+    if (cambioPendiente.current || cargando || !userId) return;
+    const turno = generacion.current;
+    cambioPendiente.current = true;
+    setCambiandoDesafio(reto.id);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (turno !== generacion.current) return;
+      if (session?.user?.id !== userId) throw new Error('Volvé a iniciar sesión para gestionar tus desafíos.');
+      const res = await fetch(`${BACKEND_URL}/challenges/${reto.pausado ? 'reanudar' : 'pausar'}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ user_id: userId, challenge_id: reto.challenge_id }),
+        signal: controller.signal,
+      });
+      const data = await res.json();
+      if (turno !== generacion.current) return;
+      if (!res.ok || data.error) throw new Error(data.error || 'No se pudo cambiar el estado del desafío.');
+      // Releer también permite retirar un reto que se completó al reanudarlo.
+      setEstadoDesafios('cargando');
+      await cargarDesafios(userId, turno);
+    } catch (error) {
+      if (turno === generacion.current) {
+        setEstadoDesafios('error');
+        Alert.alert('Revisá tus desafíos', error.name === 'AbortError' ? 'La consulta tardó demasiado. Tocá Reintentar para confirmar el estado.' : 'No pudimos confirmar el estado. Tocá Reintentar.');
+      }
+    } finally {
+      clearTimeout(timeout);
+      cambioPendiente.current = false;
+      setCambiandoDesafio(null);
+    }
+  };
 
   const seleccionarEvidencia = async () => {
     try {
@@ -141,6 +195,7 @@ export default function RegistroManualScreen({ navigation }) {
   };
 
   const registrar = async () => {
+    if (cambioPendiente.current || estadoDesafios !== 'listo') return;
     if (!distancia || parseFloat(distancia) <= 0) {
       setMensaje('Ingresa una distancia valida');
       setExito(false);
@@ -194,6 +249,14 @@ export default function RegistroManualScreen({ navigation }) {
           : `${distancia} km guardados en modo libre 🏃`;
         setMensaje(msgModo);
         setExito(true);
+        // El guardado puede completar un desafío: actualizar la lista sin
+        // convertir un fallo de consulta en un fallo de registro.
+        const turno = generacion.current;
+        try {
+          await cargarDesafios(userId, turno);
+        } catch {
+          if (turno === generacion.current) setEstadoDesafios('error');
+        }
         setDistancia('');
         setDiasAtras(0);
         setEvidenciaUri(null);
@@ -241,6 +304,17 @@ export default function RegistroManualScreen({ navigation }) {
         ))}
       </View>
 
+      {estadoDesafios === 'listo' && desafios.length === 0 && (
+        <View style={styles.freeMode}>
+          <Text style={styles.challengeTitle}>Modo libre</Text>
+          <Text style={styles.challengeExplanation}>Tus kilómetros quedan guardados en tu historial personal. Podés empezar ahora y elegir un desafío cuando quieras.</Text>
+          <TouchableOpacity style={styles.freeLink} onPress={() => navigation.navigate('Catalogo')} accessibilityRole="button">
+            <Text style={styles.challengeActionText}>Explorar desafíos</Text>
+            <Ionicons name="arrow-forward" size={15} color={colors.actionBlue} />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {modoRegistro === 'gps' ? (
         <View style={styles.gpsCard}>
           <Ionicons name="navigate-outline" size={32} color={colors.brandOrangeSoft} />
@@ -248,7 +322,8 @@ export default function RegistroManualScreen({ navigation }) {
           <Text style={styles.gpsCopy}>Distancia y tiempo con el GPS del teléfono.</Text>
           <Text style={styles.gpsSports}>Correr · caminar · bici</Text>
           <Text style={styles.gpsExplanation}>Podés pausar durante la salida. Al finalizar, revisás y confirmás la actividad antes de guardarla.</Text>
-          <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('GpsTracker')}>
+          <TouchableOpacity style={[styles.button, cambiandoDesafio && styles.buttonDisabled]}
+            disabled={!!cambiandoDesafio} onPress={() => navigation.navigate('GpsTracker')}>
             <View style={styles.btnRow}>
               <Ionicons name="arrow-forward" size={18} color={colors.text} />
               <Text style={styles.buttonText}>Abrir Korva GPS</Text>
@@ -259,9 +334,7 @@ export default function RegistroManualScreen({ navigation }) {
       ) : (
         <>
       <Text style={styles.manualNote}>
-        {challengeTitle
-          ? 'Suma a tus desafíos activos que correspondan a la fecha de la actividad. Podés pausarlos desde Inicio o Perfil.'
-          : 'Tu actividad queda en el historial aunque no tengas un desafío activo.'}
+        Tu actividad queda en el historial y suma a los desafíos que correspondan a su fecha.
       </Text>
 
       <View style={styles.distanciaCard}>
@@ -408,9 +481,9 @@ export default function RegistroManualScreen({ navigation }) {
       ) : null}
 
       <TouchableOpacity
-        style={[styles.button, cargando && styles.buttonDisabled]}
+        style={[styles.button, (cargando || cambiandoDesafio || estadoDesafios !== 'listo') && styles.buttonDisabled]}
         onPress={registrar}
-        disabled={cargando}
+        disabled={cargando || !!cambiandoDesafio || estadoDesafios !== 'listo'}
       >
         {cargando ? (
           <ActivityIndicator color="#FFFFFF" />
@@ -424,11 +497,61 @@ export default function RegistroManualScreen({ navigation }) {
 
         </>
       )}
+
+      <View style={styles.challengeSection}>
+        <TouchableOpacity style={styles.challengeHeading} onPress={() => setDesafiosVisibles(!desafiosVisibles)}
+          accessibilityRole="button" accessibilityState={{ expanded: desafiosVisibles }}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.challengeTitle}>Tus desafíos</Text>
+            <Text style={styles.challengeHint}>
+              {estadoDesafios === 'listo' ? (desafios.length ? `${activos.length} activos · Gestionar pausas` : 'Sin desafíos activos · Podés registrar igual')
+                : estadoDesafios === 'cargando' ? 'Consultando desafíos…' : 'No pudimos consultar tus desafíos'}
+            </Text>
+          </View>
+          <Ionicons name={desafiosVisibles ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSoft} />
+        </TouchableOpacity>
+        {(estadoDesafios === 'error' || estadoDesafios === 'sesion') && (
+          <TouchableOpacity style={styles.retryChallenges} onPress={consultarDesafios} disabled={!!cambiandoDesafio}>
+            <Text style={styles.challengeActionText}>Reintentar</Text>
+          </TouchableOpacity>
+        )}
+        {desafiosVisibles && estadoDesafios === 'listo' && (
+          <>
+            {desafios.map((reto) => (
+              <View key={reto.id} style={styles.challengeRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.challengeName}>{reto.challenges?.title || 'Desafío'}</Text>
+                  <Text style={styles.challengeHint}>{reto.pausado ? 'Pausado' : 'Activo'}</Text>
+                </View>
+                <TouchableOpacity style={styles.challengeAction} onPress={() => cambiarPausa(reto)}
+                  disabled={!!cambiandoDesafio || cargando} accessibilityRole="button"
+                  accessibilityLabel={`${reto.pausado ? 'Reanudar' : 'Pausar'} ${reto.challenges?.title || 'desafío'}`}>
+                  {cambiandoDesafio === reto.id ? <ActivityIndicator size="small" color={colors.actionBlue} />
+                    : <Text style={[styles.challengeActionText, (cambiandoDesafio || cargando) && { opacity: 0.4 }]}>{reto.pausado ? 'Reanudar' : 'Pausar'}</Text>}
+                </TouchableOpacity>
+              </View>
+            ))}
+            {desafios.length > 0 && <Text style={styles.challengeExplanation}>¿Querés hacer tus desafíos uno a la vez? Dejá activo el que estás haciendo y pausá los demás: tus nuevas actividades no sumarán en ellos. Conservás el progreso y podés reanudarlos cuando quieras. Si cargás una actividad de otro día, cuenta si el desafío estaba activo cuando la hiciste.</Text>}
+          </>
+        )}
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  freeMode: { padding: 16, borderRadius: 16, backgroundColor: colors.surfaceSoft, marginBottom: 20 },
+  freeLink: { flexDirection: 'row', gap: 8, alignItems: 'center', minHeight: 44, marginTop: 6 },
+  challengeSection: { marginTop: 24, borderTopWidth: 1, borderColor: colors.borderSoft },
+  challengeHeading: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 16, minHeight: 60 },
+  challengeTitle: { color: colors.textSoft, fontSize: 14, fontWeight: '700' },
+  challengeHint: { color: colors.textMuted, fontSize: 11, lineHeight: 17, marginTop: 4 },
+  challengeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  challengeName: { color: colors.text, fontSize: 13, fontWeight: '600' },
+  challengeAction: { minWidth: 82, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
+  challengeActionText: { color: colors.actionBlue, fontSize: 12, fontWeight: '700' },
+  challengeExplanation: { color: colors.textMuted, fontSize: 11, lineHeight: 18, marginTop: 12 },
+  retryChallenges: { alignSelf: 'flex-start', paddingVertical: 12, minHeight: 44 },
   scroll: { flex: 1, backgroundColor: colors.background },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
   titulo: { fontSize: 28, fontWeight: 'bold', color: colors.text, marginBottom: 4 },

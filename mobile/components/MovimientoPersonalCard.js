@@ -1,4 +1,7 @@
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors, radius, spacing } from '../theme/korvaTheme';
 
 const format = (n, decimales = 2) => n.toLocaleString('es-AR', { maximumFractionDigits: decimales });
@@ -10,9 +13,51 @@ const estados = {
   error: 'No pudimos cargar tu movimiento. Intentá nuevamente.',
 };
 
-export default function MovimientoPersonalCard({ estado, onActualizar }) {
+export default function MovimientoPersonalCard({ estado, onActualizar, compacto = false }) {
+  const [detalleAbierto, setDetalleAbierto] = useState(false);
   const listo = estado.status === 'disponible';
   const r = listo ? estado.datos : null;
+  if (compacto) return (
+    <>
+      <TouchableOpacity style={styles.summary} activeOpacity={0.85} onPress={() => setDetalleAbierto(true)}
+        accessibilityRole="button" accessibilityLabel="Ver mi movimiento de hoy y esta semana">
+        <View style={styles.summaryHeader}>
+          <Text style={styles.eyebrow}>TU MOVIMIENTO · HOY</Text>
+          <Ionicons name="chevron-forward" size={17} color={colors.textSoft} />
+        </View>
+        {listo ? (
+          <View style={styles.metrics}>
+            <View style={styles.metric}>
+              <Text style={styles.summaryValue}>{format(r.hoy.km_movimiento)}<Text style={styles.summaryUnit}> km</Text></Text>
+              <Text style={styles.label}>de movimiento</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.summaryValue}>{r.hoy.pasos === null ? '—' : format(r.hoy.pasos, 0)}</Text>
+              <Text style={styles.label}>Pasos</Text>
+            </View>
+          </View>
+        ) : <Text style={styles.note}>{estados[estado.status] || estados.error}</Text>}
+        <Text style={styles.summaryLink}>Ver mi movimiento</Text>
+      </TouchableOpacity>
+      <Modal visible={detalleAbierto} animationType="slide" presentationStyle="pageSheet" allowSwipeDismissal
+        onRequestClose={() => setDetalleAbierto(false)} onDismiss={() => setDetalleAbierto(false)}>
+        <SafeAreaProvider>
+          <SafeAreaView style={styles.sheet} edges={['top', 'bottom']}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.title}>Tu movimiento</Text>
+              <TouchableOpacity style={styles.close} onPress={() => setDetalleAbierto(false)}
+                accessibilityRole="button" accessibilityLabel="Cerrar mi movimiento">
+                <Ionicons name="close" size={24} color={colors.textSoft} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.sheetContent}>
+              <MovimientoPersonalCard estado={estado} onActualizar={onActualizar} />
+            </ScrollView>
+          </SafeAreaView>
+        </SafeAreaProvider>
+      </Modal>
+    </>
+  );
   return (
     <View style={[styles.card, !listo && styles.cardCompact]}>
       <View style={styles.header}>
@@ -71,6 +116,15 @@ export default function MovimientoPersonalCard({ estado, onActualizar }) {
 }
 
 const styles = StyleSheet.create({
+  summary: { backgroundColor: colors.backgroundDeep, borderWidth: 1, borderColor: colors.borderSoft, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg },
+  summaryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  summaryValue: { color: colors.text, fontSize: 25, fontWeight: '800' },
+  summaryUnit: { color: colors.textSoft, fontSize: 13, fontWeight: '600' },
+  summaryLink: { color: colors.actionBlue, fontSize: 11, fontWeight: '700', marginTop: spacing.sm },
+  sheet: { flex: 1, backgroundColor: colors.backgroundDeep },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.lg },
+  close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: colors.surfaceSoft },
+  sheetContent: { padding: spacing.lg },
   card: { backgroundColor: colors.surfaceSoft, borderColor: colors.border, borderWidth: 1, borderRadius: radius.xl, padding: spacing.xl, marginBottom: spacing.lg },
   cardCompact: { backgroundColor: colors.backgroundDeep, paddingVertical: spacing.lg, borderColor: colors.borderSoft },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.lg },

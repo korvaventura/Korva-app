@@ -1,432 +1,153 @@
+import KorvaSheet from '../components/KorvaSheet';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Image, Linking, Alert } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../supabase';
 import DetalleScreen from './DetalleScreen';
 import { Ionicons } from '@expo/vector-icons';
-import { ESTANDAR, versionesDelDesafio, distanciaDeVersion, etiquetaVersion, modalidadLegacy } from '../utils/versionDesafio';
-
+import { ESTANDAR, distanciaDeVersion, modalidadLegacy } from '../utils/versionDesafio';
+import { precioReferencia } from '../utils/precioCatalogo';
+import { colors } from '../theme/korvaTheme';
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
-
-const ADMINS = [
-  'korvaventura@gmail.com',
-  'fabrialejandrogonzalez@gmail.com',
-  'malejo.eche16@gmail.com',
-];
 
 export default function CatalogoScreen() {
   const [challenges, setChallenges] = useState([]);
-  const [challengesBloqueados, setChallengesBloqueados] = useState([]);
   const [cargando, setCargando] = useState(true);
-  const [modalModalidad, setModalModalidad] = useState(false);
-  const [modalConfirmModalidad, setModalConfirmModalidad] = useState(null); // { version, label, distancia_km }
-  const [cantidad, setCantidad] = useState(1);
+  const [error, setError] = useState(false);
   const [challengeSeleccionado, setChallengeSeleccionado] = useState(null);
   const [detalleVisible, setDetalleVisible] = useState(false);
-  const [userId, setUserId] = useState(null);
-  const [esAdmin, setEsAdmin] = useState(false);
+  const [modalTienda, setModalTienda] = useState(false);
+  const [abriendoTienda, setAbriendoTienda] = useState(false);
+  const tiendaPendiente = useRef(false);
   const [misDesafios, setMisDesafios] = useState([]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
+    let vigente = true;
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user?.id) {
-        setUserId(session.user.id);
-        setEsAdmin(ADMINS.includes(session.user.email?.toLowerCase()));
-        // Cargar desafíos del usuario para mostrar badge "Ya inscripto"
-        const { data: ucs } = await supabase
-          .from('user_challenges')
-          .select('challenge_id, status')
-          .eq('user_id', session.user.id)
-          .in('status', ['active', 'completed', 'shipped', 'cargado', 'pending']);
-        if (ucs) setMisDesafios(ucs.map(u => u.challenge_id));
-      }
-    });
-    cargarChallenges();
-  }, []);
+      if (!vigente) return;
+      setMisDesafios([]);
+      if (!session?.user?.id) return;
+      const { data } = await supabase.from('user_challenges').select('challenge_id, status')
+        .eq('user_id', session.user.id).in('status', ['active', 'completed', 'shipped', 'cargado', 'pending']);
+      if (vigente) setMisDesafios(data || []);
+    }).catch(() => {});
+    return () => { vigente = false; };
+  }, []));
 
   const cargarChallenges = async () => {
+    setCargando(true);
+    setError(false);
     try {
       const res = await fetch(`${BACKEND_URL}/challenges`);
-      const activos = await res.json();
-      setChallenges(Array.isArray(activos) ? activos : []);
-
-      // Bloqueados ocultos — no mostrar próximamente hasta lanzamiento oficial
-      setChallengesBloqueados([]);
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setCargando(false);
-    }
+      const data = await res.json();
+      if (!res.ok || !Array.isArray(data)) throw new Error('No se pudo consultar el catálogo');
+      setChallenges(data);
+    } catch { setError(true); }
+    finally { setCargando(false); }
   };
+  useEffect(() => { cargarChallenges(); }, []);
 
-  const abrirDetalle = (challenge) => {
-    setChallengeSeleccionado(challenge);
-    setDetalleVisible(true);
-  };
+  const abrirDetalle = (challenge) => { setChallengeSeleccionado(challenge); setDetalleVisible(true); };
+  const prepararTienda = (challenge) => { setChallengeSeleccionado(challenge); setModalTienda(true); };
+  const cerrarTienda = () => setModalTienda(false);
 
-  const abrirModal = (challenge) => {
-    setChallengeSeleccionado(challenge);
-    setCantidad(1);
-    setModalModalidad(true);
-  };
-
-  const irALaTienda = async () => {
+  // Conserva la preparación pendiente existente. Abrir la tienda no activa el reto.
+  const irALaTienda = async (version = ESTANDAR) => {
+    if (tiendaPendiente.current) return;
+    tiendaPendiente.current = true;
+    setAbriendoTienda(true);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
     try {
       const link = challengeSeleccionado?.link_shopify;
-      if (!link) {
-        Alert.alert('Link no disponible', 'El link de pago para este reto todavía no está configurado. Contactanos a korvaventura@gmail.com');
-        return;
+      if (!link || !/^https:\/\//i.test(link)) throw new Error('La tienda de este desafío todavía no está disponible. Contactanos a korvaventura@gmail.com.');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        const res = await fetch(`${BACKEND_URL}/challenges/inscribir`, {
+          method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: session.user.id, challenge_id: challengeSeleccionado.id, version, modalidad: modalidadLegacy(version) }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error('No pudimos preparar tu compra. Intentá nuevamente.');
       }
-      Linking.openURL(link);
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo abrir la tienda.');
-    }
+      await Linking.openURL(link);
+      setModalTienda(false);
+    } catch (error) { Alert.alert('No pudimos abrir la tienda', error.name === 'AbortError' ? 'La conexión tardó demasiado. Intentá nuevamente.' : error.message); }
+    finally { clearTimeout(timeout); tiendaPendiente.current = false; setAbriendoTienda(false); }
   };
 
-  // Inscribe en una VERSIÓN (Estándar por defecto; después se puede pasar a Extendida desde el Perfil).
-  // Se manda también `modalidad` legacy por compatibilidad; el backend usa `version`.
-  const elegirModalidad = async (version = ESTANDAR) => {
-    try {
-      await fetch(`${BACKEND_URL}/challenges/inscribir`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, challenge_id: challengeSeleccionado.id, version, modalidad: modalidadLegacy(version) })
-      });
-      setModalModalidad(false);
-      irALaTienda();
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo completar la inscripción.');
-    }
-  };
-
-  if (detalleVisible && challengeSeleccionado) {
-    return (
-      <DetalleScreen
-        challenge={challengeSeleccionado}
-        userId={userId}
-        onVolver={() => setDetalleVisible(false)}
-        onInscribir={() => {
-          setDetalleVisible(false);
-          setModalModalidad(true);
-        }}
-      />
-    );
-  }
-
-  const renderCardActiva = (item, index) => {
-    const yaInscripto = misDesafios.includes(item.id);
-    return (
-    <TouchableOpacity key={index} style={[styles.card, yaInscripto && { borderWidth: 1.5, borderColor: '#22C55E' }]} onPress={() => abrirDetalle(item)} activeOpacity={0.85}>
-      <View style={styles.imageWrapper}>
-        {item.medal_image_url && (
-          <Image source={{ uri: item.medal_image_url }} style={styles.medallaImage} resizeMode="contain" />
-        )}
-        {yaInscripto && (
-          <View style={[styles.ofertaBadge, { backgroundColor: '#15803D' }]}>
-            <Text style={styles.ofertaTexto}>✅ Ya inscripto</Text>
-          </View>
-        )}
-        {!yaInscripto && item.oferta_texto && (
-          <View style={styles.ofertaBadge}>
-            <Text style={styles.ofertaTexto}>🔥 {item.oferta_texto}</Text>
-          </View>
-        )}
-      </View>
-      <View style={styles.cardBody}>
-        <View style={styles.deporteRow}>
-          <Text style={styles.deporte}>
-            {versionesDelDesafio(item).filter(v => v.distancia_km !== null).map(v => `${v.label.toUpperCase()} ${v.distancia_km} KM`).join(' · ') || '🌐 CAMINÁ, CORRÉ O PEDALEÁ'}
-          </Text>
-          <View>
-            <Text style={styles.precio}>USD ${item.price_usd}</Text>
-            {item.price_ars && <Text style={styles.precioArs}>$ {item.price_ars.toLocaleString('es-AR')} ARS</Text>}
-          </View>
-        </View>
-        <Text style={styles.titulo2}>{item.title}</Text>
-        <Text style={styles.descripcion} numberOfLines={2}>{item.description}</Text>
-
-        <View style={styles.botonesRow}>
-          <TouchableOpacity style={styles.detalleBtn} onPress={() => abrirDetalle(item)}>
-            <Text style={styles.detalleBtnText}>Ver detalle</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={(e) => { e.stopPropagation?.(); abrirModal(item); }}>
-            <View style={styles.btnRow}>
-              <Text style={styles.buttonText}>Inscribirme</Text>
-              <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </TouchableOpacity>
-    );
-  };
-
-  const renderCardBloqueadaAdmin = (item, index) => (
-    <TouchableOpacity key={`admin-${index}`} style={[styles.card, styles.cardAdminPreview]} onPress={() => abrirDetalle(item)} activeOpacity={0.85}>
-      <View style={styles.imageWrapper}>
-        {item.medal_image_url && (
-          <Image source={{ uri: item.medal_image_url }} style={styles.medallaImage} resizeMode="contain" />
-        )}
-        <View style={styles.adminPreviewBadge}>
-          <Text style={styles.adminPreviewBadgeText}>👁️ PREVIEW ADMIN</Text>
-        </View>
-      </View>
-      <View style={styles.cardBody}>
-        <View style={styles.deporteRow}>
-          <Text style={styles.deporte}>🔒 PRÓXIMAMENTE</Text>
-          <Text style={styles.precio}>USD ${item.price_usd}</Text>
-        </View>
-        <Text style={styles.titulo2}>{item.title}</Text>
-        <Text style={styles.descripcion} numberOfLines={2}>{item.description}</Text>
-
-        {item.modalidades && (
-          <View style={styles.modalidadesContainer}>
-            {versionesDelDesafio(item).map((v, i) => (
-              <View key={i} style={styles.modalidadTag}>
-                <Text style={styles.modalidadEmoji}>{v.label}</Text>
-                <Text style={styles.modalidadText}>{v.distancia_km}km</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        <TouchableOpacity style={styles.detalleBtn} onPress={() => abrirDetalle(item)}>
-          <Text style={styles.detalleBtnText}>Ver detalle (preview)</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
+  const modalCompra = (
+    <KorvaSheet visible={modalTienda} title="Ir a la tienda" onClose={cerrarTienda}>
+      <Text style={styles.modalTitle}>{challengeSeleccionado?.title}</Text>
+      <Text style={styles.modalCopy}>Incluye el desafío virtual y su medalla física. En la tienda podés consultar el precio final y el envío.</Text>
+      <Text style={styles.modalCopy}>Comprá con el mismo correo que usás en Korva para vincular el desafío a tu cuenta.</Text>
+      <TouchableOpacity style={[styles.storeButton, { flex: 0, minHeight: 52 }]} onPress={() => irALaTienda()} disabled={abriendoTienda}>
+        {abriendoTienda ? <ActivityIndicator color={colors.text} /> : <><Text style={styles.storeText}>Continuar a la tienda</Text><Ionicons name="open-outline" size={17} color={colors.text} /></>}
+      </TouchableOpacity>
+    </KorvaSheet>
   );
 
-  const renderCardBloqueada = (item, index) => (
-    <View key={`bloqueado-${index}`} style={styles.cardBloqueada}>
-      <View style={styles.imageWrapperBloqueado}>
-        {item.medal_image_url ? (
-          <Image source={{ uri: item.medal_image_url }} style={styles.medallaImageBloqueada} resizeMode="contain" blurRadius={18} />
-        ) : (
-          <View style={styles.medallaImageBloqueada} />
-        )}
-        <View style={styles.blurOverlay} />
-        <View style={styles.candadoWrapper}>
-          <Text style={styles.candadoEmoji}>🔒</Text>
-          <Text style={styles.candadoTexto}>Próximamente</Text>
-        </View>
-      </View>
-      <View style={styles.cardBodyBloqueado}>
-        <Text style={styles.titulo2Bloqueado}>{item.title}</Text>
-        <Text style={styles.precioBloqueado}>USD ${item.price_usd}</Text>
-        <View style={styles.modalidadesContainerBloqueado}>
-          <View style={styles.modalidadTagBloqueado}>
-            <Text style={styles.modalidadTextBloqueado}>{etiquetaVersion('estandar')}</Text>
-          </View>
-          <View style={styles.modalidadTagBloqueado}>
-            <Text style={styles.modalidadTextBloqueado}>{etiquetaVersion('extendida')}</Text>
-          </View>
-        </View>
-      </View>
-    </View>
+  if (detalleVisible && challengeSeleccionado) return (
+    <>
+      <DetalleScreen challenge={challengeSeleccionado} onVolver={() => setDetalleVisible(false)}
+        onInscribir={() => prepararTienda(challengeSeleccionado)} />
+      {modalCompra}
+    </>
   );
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
-      <Text style={styles.titulo}>Challenges</Text>
-      <Text style={styles.subtitulo}>Elegi tu proximo desafio 🏆</Text>
-
-      {cargando ? (
-        <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
-      ) : (
-        <>
-          {challenges.map((item, index) => renderCardActiva(item, index))}
-
-          {challengesBloqueados.length > 0 && (
-            <>
-              <View style={styles.proximamenteSeparador}>
-                <View style={styles.separadorLinea} />
-                <Text style={styles.separadorTexto}>
-                  {esAdmin ? '👁️ PREVIEW — PRÓXIMAMENTE' : 'PRÓXIMAMENTE'}
-                </Text>
-                <View style={styles.separadorLinea} />
-              </View>
-
-              {challengesBloqueados.map((item, index) =>
-                esAdmin
-                  ? renderCardBloqueadaAdmin(item, index)
-                  : renderCardBloqueada(item, index)
-              )}
-            </>
-          )}
-        </>
-      )}
-
-      <Modal visible={modalModalidad} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalEmojiConfirm}>🏅</Text>
-            <Text style={styles.modalTitulo}>{challengeSeleccionado?.title}</Text>
-            <View style={styles.modalidadInfoBox}>
-              <Text style={styles.modalidadInfoTexto}>🛒 Comprá el desafío en la tienda — una vez confirmado se activa automáticamente en la app.</Text>
-              <Text style={styles.modalidadInfoTexto}>🎯 Arrancás en la versión Estándar{distanciaDeVersion(challengeSeleccionado, 'estandar') ? ` (${distanciaDeVersion(challengeSeleccionado, 'estandar')} km)` : ''}. Si querés más desafío, después podés pasarte a la Extendida{distanciaDeVersion(challengeSeleccionado, 'extendida') ? ` (${distanciaDeVersion(challengeSeleccionado, 'extendida')} km)` : ''} desde el Perfil.</Text>
-              <Text style={styles.modalidadInfoTexto}>👟 Sumás km como quieras — caminando, corriendo o en bici. Todos cuentan igual.</Text>
-              <Text style={styles.modalidadInfoTexto}>📦 Al completar la distancia, procesamos el despacho de tu medalla con la dirección que cargaste en el Perfil.</Text>
-            </View>
-            <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#1E6FD9' }]} onPress={() => { setModalModalidad(false); elegirModalidad(ESTANDAR); }}>
-              <Text style={[styles.modalButtonTitulo, { color: '#FFFFFF', textAlign: 'center', width: '100%' }]}>Ir a la tienda →</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalModalidad(false)}>
-              <Text style={styles.modalCancelarText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
+    <SafeAreaView style={styles.screen} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.eyebrow}>TU PRÓXIMA AVENTURA</Text>
+        <Text style={styles.title}>Catálogo</Text>
+        <Text style={styles.subtitle}>Elegí una ruta. Completala a tu ritmo.</Text>
+        <View style={styles.purchaseNote}>
+          <Ionicons name="medal-outline" size={20} color={colors.brandOrangeSoft} />
+          <Text style={styles.noteText}>Desafíos con medalla física · compra necesaria</Text>
         </View>
-      </Modal>
-
-      <Modal visible={!!modalConfirmModalidad} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalEmojiConfirm}>🏅</Text>
-            <Text style={styles.modalTitulo}>{modalConfirmModalidad?.distancia_km} km</Text>
-            <Text style={styles.modalSubtitulo}>{challengeSeleccionado?.title}</Text>
-
-            <View style={styles.confirmInfoBox}>
-              <Text style={styles.confirmInfoTexto}>
-                🎯 Tu meta (versión {modalConfirmModalidad?.label}): completar {modalConfirmModalidad?.distancia_km} km como quieras — caminando, corriendo o en bici. Todos los km cuentan igual.
-              </Text>
-              <Text style={styles.confirmInfoTexto}>
-                📜 Tu certificado muestra la distancia de la versión que completes: <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>{modalConfirmModalidad?.distancia_km} km — {challengeSeleccionado?.title}</Text>.
-              </Text>
-              <Text style={styles.confirmInfoTexto}>
-                📦 Cuando termines, ingresá tu dirección en el Perfil y procesamos el envío automáticamente.
-              </Text>
-              {(() => {
-                const estandarKm = distanciaDeVersion(challengeSeleccionado, 'estandar');
-                if (modalConfirmModalidad?.version !== 'estandar' && estandarKm && estandarKm !== modalConfirmModalidad?.distancia_km) {
-                  return (
-                    <Text style={styles.confirmInfoTexto}>
-                      🏅 Tu medalla física dirá <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>{estandarKm}K</Text> — el diseño es el mismo para las dos versiones del desafío.
-                    </Text>
-                  );
-                }
-                return null;
-              })()}
-            </View>
-
-            <View style={styles.cantidadBox}>
-              <Text style={styles.cantidadLabel}>¿Para cuántas personas? (vos + invitados)</Text>
-              <View style={styles.cantidadRow}>
-                <TouchableOpacity
-                  style={styles.cantidadBtn}
-                  onPress={() => setCantidad(c => Math.max(1, c - 1))}
-                  disabled={cantidad <= 1}
-                >
-                  <Text style={styles.cantidadBtnText}>−</Text>
-                </TouchableOpacity>
-                <Text style={styles.cantidadNumero}>{cantidad}</Text>
-                <TouchableOpacity
-                  style={styles.cantidadBtn}
-                  onPress={() => setCantidad(c => Math.min(5, c + 1))}
-                  disabled={cantidad >= 5}
-                >
-                  <Text style={styles.cantidadBtnText}>+</Text>
-                </TouchableOpacity>
+        {cargando ? <ActivityIndicator color={colors.actionBlue} style={{ marginVertical: 32 }} /> : error ? (
+          <View style={styles.empty}><Text style={styles.noteText}>No pudimos cargar el catálogo.</Text><TouchableOpacity style={styles.detailButton} onPress={cargarChallenges}><Text style={styles.detailText}>Reintentar</Text></TouchableOpacity></View>
+        ) : challenges.length === 0 ? <Text style={styles.noteText}>No hay desafíos disponibles por el momento.</Text> : challenges.map((item) => {
+          const inscripcion = misDesafios.find((uc) => uc.challenge_id === item.id);
+          const precio = precioReferencia(item);
+          return (
+            <View key={item.id} style={styles.card}>
+              <TouchableOpacity onPress={() => abrirDetalle(item)} accessibilityRole="button" accessibilityLabel={`Explorar ${item.title}`}>
+                <View style={styles.imageWrapper}>
+                  {item.medal_image_url ? <Image source={{ uri: item.medal_image_url }} style={styles.image} resizeMode="contain" /> : <View style={styles.imagePlaceholder}><Ionicons name="medal-outline" size={52} color={colors.textMuted} /></View>}
+                  {inscripcion && <View style={styles.badge}><Ionicons name={inscripcion.status === 'pending' ? 'time-outline' : 'checkmark-circle-outline'} size={14} color={colors.brandOrangeSoft} /><Text style={styles.badgeText}>{inscripcion.status === 'pending' ? 'Compra pendiente' : 'En tus desafíos'}</Text></View>}
+                  {!inscripcion && item.oferta_texto && <View style={styles.badge}><Text style={styles.badgeText}>{item.oferta_texto}</Text></View>}
+                </View>
+              </TouchableOpacity>
+              <View style={styles.cardBody}>
+                <Text style={styles.cardTitle}>{item.title}</Text>
+                <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
+                <View style={styles.versions}>{distanciaDeVersion(item, ESTANDAR) > 0 && <Text style={styles.version}>{distanciaDeVersion(item, ESTANDAR)} km · A tu ritmo</Text>}</View>
+                <View style={styles.priceRow}><Text style={styles.price}>{precio ? `Referencia · ${precio}` : 'Consultar precio en la tienda'}</Text><Ionicons name="bag-outline" size={16} color={colors.textMuted} /></View>
+                <View style={styles.buttons}>
+                  <TouchableOpacity style={styles.detailButton} onPress={() => abrirDetalle(item)}><Text style={styles.detailText}>Explorar ruta</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.storeButton} onPress={() => prepararTienda(item)}><Text style={styles.storeText}>Ver en la tienda</Text><Ionicons name="open-outline" size={15} color={colors.text} /></TouchableOpacity>
+                </View>
               </View>
-              {cantidad > 1 && (
-                <Text style={styles.cantidadAyuda}>
-                  Vas a pagar {cantidad} medallas juntas, en un solo pago. Después de pagar, te van a llegar {cantidad - 1} link(s) por email para que se los pases a quien quieras — cada uno completa sus datos y le activamos su propia cuenta.
-                </Text>
-              )}
-              <Text style={styles.regaloAviso}>
-                🎁 ¿Es un regalo para otra persona? Cuando vayas a pagar, completá el email Y el nombre de esa persona en los datos de envío (no los tuyos) — así la cuenta y la medalla quedan a su nombre.
-              </Text>
             </View>
-
-            <View style={styles.multiDesafioAviso}>
-              <Text style={styles.multiDesafioAvisoTexto}>
-                🛒 En la tienda podés agregar más de un desafío al carrito y pagar todo junto en un solo pago.
-              </Text>
-            </View>
-
-            <TouchableOpacity style={styles.modalButton} onPress={() => { elegirModalidad(modalConfirmModalidad.version); setModalConfirmModalidad(null); }}>
-              <View style={{ flex: 1, alignItems: 'center' }}>
-                <Text style={styles.modalButtonTitulo}>Entendido, ir a la tienda</Text>
-              </View>
-              <Ionicons name="arrow-forward" size={18} color="#1E6FD9" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalConfirmModalidad(null)}>
-              <Text style={styles.modalCancelarText}>Volver</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-    </ScrollView>
+          );
+        })}
+        <Text style={styles.footer}>Precio final y moneda en la tienda. También podés registrar actividades gratis en Modo libre.</Text>
+      </ScrollView>
+      {modalCompra}
+    </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#0D1B2A' },
-  container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
-  titulo: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  subtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 24 },
-  card: { backgroundColor: '#1E3A5F', borderRadius: 20, marginBottom: 20, overflow: 'hidden' },
-  cardAdminPreview: { borderWidth: 1, borderColor: '#FC4C02', borderStyle: 'dashed' },
-  adminPreviewBadge: { position: 'absolute', top: 12, left: 12, backgroundColor: 'rgba(252,76,2,0.85)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  adminPreviewBadgeText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 11, letterSpacing: 1 },
-  imageWrapper: { position: 'relative' },
-  medallaImage: { width: '100%', height: 280, backgroundColor: '#f5f5f5' },
-  ofertaBadge: { position: 'absolute', top: 12, left: 12, backgroundColor: '#FC4C02', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  ofertaTexto: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
-  cardBody: { padding: 20 },
-  deporteRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  deporte: { fontSize: 11, fontWeight: 'bold', color: '#1E6FD9', letterSpacing: 1 },
-  precio: { fontSize: 18, fontWeight: 'bold', color: '#FC4C02' },
-  precioArs: { fontSize: 12, color: '#A8CFFF', textAlign: 'right', marginTop: 2 },
-  titulo2: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
-  descripcion: { fontSize: 13, color: '#A8CFFF', marginBottom: 16, lineHeight: 20 },
-  modalidadesContainer: { gap: 8, marginBottom: 16 },
-  modalidadTag: { backgroundColor: '#0D1B2A', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  modalidadEmoji: { fontSize: 14 },
-  modalidadText: { color: '#A8CFFF', fontSize: 13 },
-  botonesRow: { flexDirection: 'row', gap: 10 },
-  detalleBtn: { flex: 1, borderWidth: 1, borderColor: '#1E6FD9', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  detalleBtnText: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 14 },
-  button: { flex: 1, backgroundColor: '#1E6FD9', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
-  btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  proximamenteSeparador: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20, marginTop: 8 },
-  separadorLinea: { flex: 1, height: 1, backgroundColor: '#1E3A5F' },
-  separadorTexto: { fontSize: 11, fontWeight: 'bold', color: '#4a6a8a', letterSpacing: 2 },
-  cardBloqueada: { backgroundColor: '#1E3A5F', borderRadius: 20, marginBottom: 20, overflow: 'hidden', opacity: 0.85 },
-  imageWrapperBloqueado: { position: 'relative', height: 200 },
-  medallaImageBloqueada: { width: '100%', height: 200, backgroundColor: '#0D1B2A' },
-  blurOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(6, 13, 20, 0.72)' },
-  candadoWrapper: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
-  candadoEmoji: { fontSize: 36, marginBottom: 8 },
-  candadoTexto: { fontSize: 13, fontWeight: 'bold', color: '#4a6a8a', letterSpacing: 2 },
-  cardBodyBloqueado: { padding: 20 },
-  titulo2Bloqueado: { fontSize: 20, fontWeight: 'bold', color: '#4a6a8a', marginBottom: 6 },
-  precioBloqueado: { fontSize: 16, fontWeight: 'bold', color: '#4a6a8a', marginBottom: 12 },
-  modalidadesContainerBloqueado: { flexDirection: 'row', gap: 8 },
-  modalidadTagBloqueado: { backgroundColor: '#0D1B2A', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
-  modalidadTextBloqueado: { color: '#2a4a6a', fontSize: 12 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  modalCard: { backgroundColor: '#1E3A5F', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 32 },
-  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  modalSubtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 24 },
-  modalButton: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 18, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalButtonTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
-  modalButtonSub: { fontSize: 12, color: '#A8CFFF' },
-  modalCancelar: { marginTop: 8, alignItems: 'center', paddingVertical: 12 },
-  modalCancelarText: { color: '#A8CFFF', fontSize: 15 },
-  modalEmojiConfirm: { fontSize: 40, textAlign: 'center', marginBottom: 8 },
-  confirmInfoBox: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, marginBottom: 16, gap: 12 },
-  modalidadInfoBox: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, marginBottom: 16, gap: 10 },
-  modalidadInfoTexto: { fontSize: 13, color: '#A8CFFF', lineHeight: 19 },
-  confirmInfoTexto: { fontSize: 13, color: '#A8CFFF', lineHeight: 20 },
-  cantidadBox: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, marginBottom: 16 },
-  cantidadLabel: { fontSize: 13, color: '#A8CFFF', marginBottom: 12, textAlign: 'center' },
-  cantidadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24 },
-  cantidadBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1E3A5F', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2a4a6a' },
-  cantidadBtnText: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' },
-  cantidadNumero: { color: '#FFFFFF', fontSize: 22, fontWeight: 'bold', minWidth: 32, textAlign: 'center' },
-  cantidadAyuda: { fontSize: 12, color: '#A8CFFF', marginTop: 12, lineHeight: 18, textAlign: 'center' },
-  multiDesafioAviso: { backgroundColor: '#0D2A1A', borderRadius: 12, padding: 12, marginTop: 12, borderLeftWidth: 3, borderLeftColor: '#4CAF50' },
-  multiDesafioAvisoTexto: { fontSize: 13, color: '#A8CFFF', lineHeight: 18 },
-  regaloAviso: { fontSize: 12, color: '#FC4C02', marginTop: 12, lineHeight: 18, textAlign: 'center', fontWeight: 'bold' },
+  screen: { flex:1,backgroundColor:colors.background }, container:{padding:24,paddingTop:16,paddingBottom:40},
+  eyebrow:{color:colors.brandOrangeSoft,fontSize:9,letterSpacing:2,fontWeight:'800',marginBottom:8}, title:{color:colors.text,fontSize:28,fontWeight:'900'}, subtitle:{color:colors.textSoft,fontSize:13,lineHeight:20,marginTop:6,marginBottom:18},
+  purchaseNote:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:24}, noteText:{color:colors.textMuted,fontSize:12,lineHeight:19,flexShrink:1},
+  card:{backgroundColor:colors.surfaceSoft,borderWidth:1,borderColor:colors.borderSoft,borderRadius:24,overflow:'hidden',marginBottom:24}, imageWrapper:{position:'relative'},image:{height:220,width:'100%',backgroundColor:'#f5f5f5'},imagePlaceholder:{height:180,alignItems:'center',justifyContent:'center'},
+  badge:{position:'absolute',top:12,left:12,right:12,alignSelf:'flex-start',flexDirection:'row',gap:6,alignItems:'center',padding:8,borderRadius:12,backgroundColor:colors.backgroundDeep},badgeText:{color:colors.textSoft,fontSize:11,fontWeight:'700',flexShrink:1},
+  cardBody:{padding:18},cardTitle:{color:colors.text,fontSize:22,fontWeight:'800',marginBottom:6},description:{color:colors.textSoft,fontSize:12,lineHeight:19,marginBottom:14},versions:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:16},version:{backgroundColor:colors.backgroundDeep,paddingHorizontal:10,paddingVertical:8,borderRadius:10,color:colors.textSoft,fontSize:11},
+  priceRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:14},price:{color:colors.textMuted,fontSize:12,flexShrink:1},buttons:{flexDirection:'row',gap:8},detailButton:{flex:1,minHeight:48,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.borderStrong,borderRadius:14,padding:10},detailText:{color:colors.textSoft,fontSize:12,fontWeight:'700'},
+  storeButton:{flex:1,minHeight:48,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,backgroundColor:colors.brandOrange,borderRadius:14,padding:10},storeText:{color:colors.text,fontSize:12,fontWeight:'800',flexShrink:1,textAlign:'center'},
+  footer:{color:colors.textMuted,fontSize:11,lineHeight:18,textAlign:'center'},empty:{padding:20,alignItems:'center',gap:16},
+  modalOverlay:{flex:1,backgroundColor:'rgba(0,0,0,0.7)',justifyContent:'center',padding:24},modalCard:{backgroundColor:colors.surfaceSoft,borderRadius:24,padding:24},modalHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},close:{width:44,height:44,alignItems:'center',justifyContent:'center'},modalTitle:{color:colors.text,fontSize:22,fontWeight:'800',marginBottom:12},modalCopy:{color:colors.textSoft,fontSize:13,lineHeight:21,marginBottom:16},modalFootnote:{color:colors.textMuted,fontSize:11,lineHeight:18,marginTop:16},
 });

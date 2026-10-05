@@ -100,9 +100,9 @@ function HomeTabs({ esAdmin }) {
       }}
     >
       <Tab.Screen name="Mis Retos" component={HomeScreen} options={{ tabBarLabel: 'Inicio', tabBarIcon: ({ color, size }) => <Ionicons name="compass-outline" color={color} size={size} /> }} />
-      <Tab.Screen name="Catalogo" component={CatalogoScreen} options={{ tabBarLabel: 'Catálogo', tabBarIcon: ({ color, size }) => <Ionicons name="medal-outline" color={color} size={size} /> }} />
-      <Tab.Screen name="Ranking" component={RankingScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="trophy-outline" color={color} size={size} /> }} />
       <Tab.Screen name="Registrar" component={RegistroManualScreen} options={{ tabBarLabel: 'Registrar', tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" color={color} size={size} /> }} />
+      <Tab.Screen name="Catalogo" component={CatalogoScreen} options={{ tabBarLabel: 'Catálogo', tabBarIcon: ({ color, size }) => <Ionicons name="medal-outline" color={color} size={size} /> }} />
+      <Tab.Screen name="Ranking" component={RankingScreen} options={{ tabBarLabel: 'Comunidad', tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" color={color} size={size} /> }} />
       <Tab.Screen name="Perfil" component={PerfilScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" color={color} size={size} /> }} />
       {esAdmin && (
         <Tab.Screen name="Admin" component={AdminScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" color={color} size={size} /> }} />

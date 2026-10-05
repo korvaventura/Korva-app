@@ -1,3 +1,4 @@
+import KorvaGroups from '../components/KorvaGroups';
 import { nombreDeporteActividad, nombreFuenteActividad, iconoDeporteActividad } from '../utils/actividadPresentacion';
 import KorvaCompletedShare from '../components/KorvaCompletedShare';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Modal, Dimensions } from 'react-native';
@@ -39,13 +40,6 @@ export default function PerfilScreen() {
   const scrollRef = useRef(null);
   const direccionY = useRef(0);
   const actividadesY = useRef(0);
-  const [misGrupos, setMisGrupos] = useState([]);
-  const [modalGruposVisible, setModalGruposVisible] = useState(false);
-  const [modalCrearGrupo, setModalCrearGrupo] = useState(false);
-  const [modalUnirseGrupo, setModalUnirseGrupo] = useState(false);
-  const [nombreGrupo, setNombreGrupo] = useState('');
-  const [codigoGrupo, setCodigoGrupo] = useState('');
-  const [cargandoGrupo, setCargandoGrupo] = useState(false);
   const [editandoNombre, setEditandoNombre] = useState(false);
   const [nombreEditado, setNombreEditado] = useState('');
   const [nivel, setNivel] = useState(null);
@@ -82,10 +76,7 @@ export default function PerfilScreen() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.id) {
         setUserId(session.user.id);
-        fetch(`${BACKEND_URL}/grupos/mis-grupos/${session.user.id}`)
-          .then(r => r.json())
-          .then(data => setMisGrupos(Array.isArray(data) ? data : []))
-          .catch(() => {});
+
       }
     });
   }, []);
@@ -864,7 +855,7 @@ export default function PerfilScreen() {
                       <View style={[styles.retoProgressFill, { width: `${pct}%` }]} />
                     </View>
                     <View style={styles.retoResumen}>
-                      <Text style={styles.retoVersionResumen}>{etiquetaVersion(versionActual)} · {distanciaTotal} km</Text>
+                      <Text style={styles.retoVersionResumen}>A tu ritmo</Text>
                       {mFecha && (
                         <View style={styles.retoMetaResumen}>
                           <Ionicons name="calendar-outline" size={13} color={colors.textMuted} />
@@ -880,7 +871,7 @@ export default function PerfilScreen() {
                     </TouchableOpacity>
                     {detallesAbiertos && (
                       <View style={styles.retoSettings}>
-                    <Text style={styles.modalidadLabel}>VERSIÓN {etiquetaVersion(versionActual).toUpperCase()}</Text>
+                    <Text style={styles.modalidadLabel}>DISTANCIA DEL DESAFÍO</Text>
                     <View style={styles.modalidadBtns}>
                       {versiones.map((v) => (
                         <TouchableOpacity
@@ -1145,203 +1136,9 @@ export default function PerfilScreen() {
         </View>
       )}
 
-      {/* Grupos */}
       <View style={styles.seccion}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-          <Text style={[styles.seccionTitulo, { flex: 1 }]}>Mis grupos</Text>
-          <TouchableOpacity onPress={() => setModalGruposVisible(true)}>
-            <Text style={{ color: colors.brandOrange, fontSize: 13, fontWeight: 'bold' }}>+ Gestionar</Text>
-          </TouchableOpacity>
-        </View>
-        {misGrupos.length === 0 ? (
-          <TouchableOpacity
-            style={{ backgroundColor: colors.background, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: colors.surfaceStrong, borderStyle: 'dashed' }}
-            onPress={() => setModalGruposVisible(true)}
-          >
-            <Text style={{ color: colors.textMuted, fontSize: 13 }}>Creá o unite a un grupo</Text>
-          </TouchableOpacity>
-        ) : (
-          misGrupos.map((g, i) => (
-            <View key={i} style={{ backgroundColor: colors.background, borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: colors.surfaceStrong }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 14 }}>{g.nombre}</Text>
-                  <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>Código: <Text style={{ color: colors.brandOrange, fontWeight: 'bold', letterSpacing: 2 }}>{g.codigo}</Text></Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => Linking.openURL(`https://wa.me/?text=Unite a mi grupo en Korva Aventuras con el código: *${g.codigo}* 🏅 Descargá la app en korva.run`)}
-                  style={{ backgroundColor: '#25D366', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginLeft: 8 }}
-                >
-                  <Text style={{ color: colors.text, fontSize: 12, fontWeight: 'bold' }}>💬 Compartir</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity
-                style={{ marginTop: 10, alignItems: 'center' }}
-                onPress={() => Alert.alert(
-                  'Salir del grupo',
-                  `¿Estás seguro que querés salir de "${g.nombre}"?`,
-                  [
-                    { text: 'Cancelar', style: 'cancel' },
-                    { text: 'Salir', style: 'destructive', onPress: async () => {
-                      try {
-                        await fetch(`${BACKEND_URL}/grupos/salir`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ user_id: userId, group_id: g.id }),
-                        });
-                        setMisGrupos(prev => prev.filter(gr => gr.id !== g.id));
-                      } catch (e) {
-                        Alert.alert('Error', 'No se pudo salir del grupo.');
-                      }
-                    }}
-                  ]
-                )}
-              >
-                <Text style={{ color: colors.textMuted, fontSize: 11 }}>Salir del grupo</Text>
-              </TouchableOpacity>
-            </View>
-          ))
-        )}
+        <KorvaGroups navigation={navigation} />
       </View>
-
-      {/* Modal gestionar grupos */}
-      <Modal visible={modalGruposVisible} transparent animationType="slide" onRequestClose={() => setModalGruposVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitulo}>👥 Grupos</Text>
-            <Text style={{ color: colors.textSoft, fontSize: 13, textAlign: 'center', marginBottom: 16, lineHeight: 20 }}>
-              Creá un grupo con amigos o compañeros y vean su progreso juntos en el Ranking 🏆
-            </Text>
-            <View style={{ backgroundColor: colors.background, borderRadius: 12, padding: 14, marginBottom: 20 }}>
-              <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 22 }}>1️⃣ Creás el grupo y le ponés un nombre</Text>
-              <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 22 }}>2️⃣ Te genera un código único de 6 letras</Text>
-              <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 22 }}>3️⃣ Lo compartís con tus amigos por WhatsApp</Text>
-              <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 22 }}>4️⃣ Ellos ingresan el código en su Perfil</Text>
-              <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 22 }}>5️⃣ Se ven entre todos en el Ranking - Mi grupo</Text>
-              <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 10 }}>Podés estar en hasta 3 grupos · Máximo 50 miembros por grupo</Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.modalBtn, { marginBottom: 12 }]}
-              onPress={() => { setModalGruposVisible(false); setModalCrearGrupo(true); }}
-            >
-              <Text style={styles.modalBtnText}>➕ Crear nuevo grupo</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalBtn, { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.actionBlueStrong, marginBottom: 16 }]}
-              onPress={() => { setModalGruposVisible(false); setModalUnirseGrupo(true); }}
-            >
-              <Text style={[styles.modalBtnText, { color: colors.actionBlueStrong }]}>🔗 Unirme con código</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setModalGruposVisible(false)}>
-              <Text style={{ color: colors.textMuted, textAlign: 'center', fontSize: 13 }}>Cerrar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal crear grupo */}
-      <Modal visible={modalCrearGrupo} transparent animationType="slide" onRequestClose={() => setModalCrearGrupo(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitulo}>➕ Crear grupo</Text>
-            <Text style={{ color: colors.textSoft, fontSize: 13, marginBottom: 12 }}>¿Cómo se llama tu grupo?</Text>
-            <TextInput
-              style={[styles.input, { marginBottom: 16 }]}
-              value={nombreGrupo}
-              onChangeText={setNombreGrupo}
-              placeholder="Ej: Runners del Parque, Equipo Korva..."
-              placeholderTextColor="#4a6a8a"
-            />
-            <TouchableOpacity
-              style={styles.modalBtn}
-              disabled={cargandoGrupo}
-              onPress={async () => {
-                if (!nombreGrupo.trim()) return Alert.alert('Falta el nombre', 'Escribí un nombre para tu grupo.');
-                setCargandoGrupo(true);
-                try {
-                  const res = await fetch(`${BACKEND_URL}/grupos/crear`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, nombre: nombreGrupo.trim() }),
-                  });
-                  const data = await res.json();
-                  if (data.grupo) {
-                    setMisGrupos(prev => [...prev, data.grupo]);
-                    setModalCrearGrupo(false);
-                    setNombreGrupo('');
-                    Alert.alert('¡Grupo creado!', `Tu código es: ${data.grupo.codigo}
-
-Compartilo con tu grupo para que se unan.`);
-                  }
-                } catch (e) {
-                  Alert.alert('Error', 'No se pudo crear el grupo.');
-                } finally {
-                  setCargandoGrupo(false);
-                }
-              }}
-            >
-              <Text style={styles.modalBtnText}>{cargandoGrupo ? 'Creando...' : 'Crear grupo'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={{ marginTop: 12 }} onPress={() => setModalCrearGrupo(false)}>
-              <Text style={{ color: colors.textMuted, textAlign: 'center', fontSize: 13 }}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal unirse a grupo */}
-      <Modal visible={modalUnirseGrupo} transparent animationType="slide" onRequestClose={() => setModalUnirseGrupo(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitulo}>🔗 Unirme a un grupo</Text>
-            <Text style={{ color: colors.textSoft, fontSize: 13, marginBottom: 12 }}>Ingresá el código que te compartieron:</Text>
-            <TextInput
-              style={[styles.input, { marginBottom: 16, letterSpacing: 4, textAlign: 'center', fontSize: 18, fontWeight: 'bold' }]}
-              value={codigoGrupo}
-              onChangeText={v => setCodigoGrupo(v.toUpperCase())}
-              placeholder="KORVA7"
-              placeholderTextColor="#4a6a8a"
-              autoCapitalize="characters"
-              maxLength={6}
-            />
-            <TouchableOpacity
-              style={styles.modalBtn}
-              disabled={cargandoGrupo}
-              onPress={async () => {
-                if (!codigoGrupo.trim()) return Alert.alert('Falta el código', 'Ingresá el código del grupo.');
-                setCargandoGrupo(true);
-                try {
-                  const res = await fetch(`${BACKEND_URL}/grupos/unirse`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, codigo: codigoGrupo.trim() }),
-                  });
-                  const data = await res.json();
-                  if (data.error) return Alert.alert('Error', data.error);
-                  if (data.grupo) {
-                    setMisGrupos(prev => {
-                      const yaEsta = prev.find(g => g.id === data.grupo.id);
-                      return yaEsta ? prev : [...prev, data.grupo];
-                    });
-                    setModalUnirseGrupo(false);
-                    setCodigoGrupo('');
-                    Alert.alert('¡Te uniste!', `Ahora sos parte de "${data.grupo.nombre}"`);
-                  }
-                } catch (e) {
-                  Alert.alert('Error', 'No se pudo unir al grupo.');
-                } finally {
-                  setCargandoGrupo(false);
-                }
-              }}
-            >
-              <Text style={styles.modalBtnText}>{cargandoGrupo ? 'Buscando...' : 'Unirme'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={{ marginTop: 12 }} onPress={() => setModalUnirseGrupo(false)}>
-              <Text style={{ color: colors.textMuted, textAlign: 'center', fontSize: 13 }}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* Dirección */}
       <View style={styles.seccion} onLayout={e => { direccionY.current = e.nativeEvent.layout.y; }}>

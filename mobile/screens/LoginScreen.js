@@ -1,4 +1,6 @@
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Animated } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '../theme/korvaTheme';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Animated, ScrollView } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -25,6 +27,7 @@ export default function LoginScreen({ onLogin }) {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+  const passwordRef = useRef(null);
 
   useEffect(() => {
     Animated.parallel([
@@ -45,10 +48,11 @@ export default function LoginScreen({ onLogin }) {
   }, []);
 
   const handleLogin = async () => {
-    if (!email || !password) { setMensaje('Completá todos los campos'); return; }
+    if (cargando) return;
+    if (!email.trim() || !password) { setMensaje('Completá todos los campos'); return; }
     setCargando(true); setMensaje('');
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
       if (error) throw error;
       await AsyncStorage.setItem('ultimo_email', email);
       await AsyncStorage.setItem('saved_password', password);
@@ -61,7 +65,8 @@ export default function LoginScreen({ onLogin }) {
   };
 
   const handleRegistro = async () => {
-    if (!email || !password || !nombre) { setMensaje('Completá todos los campos'); return; }
+    if (cargando) return;
+    if (!email.trim() || !password || !nombre.trim()) { setMensaje('Completá todos los campos'); return; }
     if (password.length < 8) { setMensaje('La contraseña debe tener al menos 8 caracteres'); return; }
     if (!/[A-Z]/.test(password)) { setMensaje('La contraseña debe tener al menos una mayúscula'); return; }
     if (!/[0-9]/.test(password)) { setMensaje('La contraseña debe tener al menos un número'); return; }
@@ -69,7 +74,7 @@ export default function LoginScreen({ onLogin }) {
     setCargando(true); setMensaje('');
     try {
       const { data, error } = await supabase.auth.signUp({
-        email, password, options: { data: { name: nombre } }
+        email: email.trim().toLowerCase(), password, options: { data: { name: nombre } }
       });
       if (error) throw error;
       const perfilRes = await fetch(`${BACKEND_URL}/usuarios/perfil`, {
@@ -101,7 +106,7 @@ export default function LoginScreen({ onLogin }) {
     if (!email) { setMensaje('Ingresá tu email primero'); return; }
     setCargando(true); setMensaje('');
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
         redirectTo: 'https://korva-app-production.up.railway.app/auth/reset',
       });
       if (error) throw error;
@@ -114,7 +119,7 @@ export default function LoginScreen({ onLogin }) {
   const loginConBiometria = async () => {
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Usá tu huella para entrar a Korva',
+        promptMessage: 'Confirmá tu identidad para entrar a Korva',
         cancelLabel: 'Cancelar',
         fallbackLabel: 'Usar contraseña',
       });
@@ -183,11 +188,14 @@ export default function LoginScreen({ onLogin }) {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+    <SafeAreaView style={styles.screen}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+    <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
 
       <Animated.View style={[styles.hero, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-        <Text style={styles.medallaEmoji}>🏅</Text>
+        <Ionicons name="compass-outline" size={36} color={colors.brandOrangeSoft} style={{ marginBottom: 12 }} />
         <Text style={styles.logo}>KORVA</Text>
+        <Text style={styles.adventure}>AVENTURAS</Text>
         <Text style={styles.tagline}>Desafíos virtuales.</Text>
         <Text style={styles.taglineBold}>Medallas reales.</Text>
       </Animated.View>
@@ -199,6 +207,7 @@ export default function LoginScreen({ onLogin }) {
             <View style={styles.modoRow}>
               <TouchableOpacity
                 style={[styles.modoBtn, modo === 'login' && styles.modoBtnActivo]}
+                disabled={cargando}
                 onPress={() => cambiarModo('login')}
               >
                 <Text style={[styles.modoBtnText, modo === 'login' && styles.modoBtnTextActivo]}>
@@ -207,6 +216,7 @@ export default function LoginScreen({ onLogin }) {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modoBtn, modo === 'registro' && styles.modoBtnActivo]}
+                disabled={cargando}
                 onPress={() => cambiarModo('registro')}
               >
                 <Text style={[styles.modoBtnText, modo === 'registro' && styles.modoBtnTextActivo]}>
@@ -223,7 +233,7 @@ export default function LoginScreen({ onLogin }) {
                   value={nombre}
                   onChangeText={setNombre}
                   placeholder="Tu nombre"
-                  placeholderTextColor="#4a6a8a"
+                  placeholderTextColor={colors.textMuted}
                   autoCapitalize="words"
                 />
               </View>
@@ -236,9 +246,14 @@ export default function LoginScreen({ onLogin }) {
                 value={email}
                 onChangeText={setEmail}
                 placeholder="tu@email.com"
-                placeholderTextColor="#4a6a8a"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
+                textContentType="emailAddress"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
               />
             </View>
 
@@ -247,14 +262,21 @@ export default function LoginScreen({ onLogin }) {
               <View style={styles.inputRow}>
                 <TextInput
                   style={[styles.input, { flex: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0 }]}
+                  ref={passwordRef}
                   value={password}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete={modo === 'login' ? 'current-password' : 'new-password'}
+                  textContentType={modo === 'login' ? 'password' : 'newPassword'}
+                  returnKeyType={modo === 'login' ? 'go' : 'next'}
+                  onSubmitEditing={() => { if (modo === 'login' && !cargando) handleLogin(); }}
                   onChangeText={setPassword}
                   placeholder="••••••••"
-                  placeholderTextColor="#4a6a8a"
+                  placeholderTextColor={colors.textMuted}
                   secureTextEntry={!verPassword}
                 />
-                <TouchableOpacity style={styles.ojito} onPress={() => setVerPassword(!verPassword)}>
-                  <Text style={{ fontSize: 18 }}>{verPassword ? '🙈' : '👁️'}</Text>
+                <TouchableOpacity style={styles.ojito} accessibilityRole="button" accessibilityLabel={verPassword ? "Ocultar contraseña" : "Mostrar contraseña"} onPress={() => setVerPassword(!verPassword)}>
+                  <Ionicons name={verPassword ? "eye-off-outline" : "eye-outline"} size={22} color={colors.textSoft} />
                 </TouchableOpacity>
               </View>
               {modo === 'registro' && password.length > 0 && (
@@ -279,13 +301,16 @@ export default function LoginScreen({ onLogin }) {
                   <TextInput
                     style={[styles.input, { flex: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0 }]}
                     value={passwordConfirm}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType="newPassword"
                     onChangeText={setPasswordConfirm}
                     placeholder="••••••••"
-                    placeholderTextColor="#4a6a8a"
+                    placeholderTextColor={colors.textMuted}
                     secureTextEntry={!verPasswordConfirm}
                   />
                   <TouchableOpacity style={styles.ojito} onPress={() => setVerPasswordConfirm(!verPasswordConfirm)}>
-                    <Text style={{ fontSize: 18 }}>{verPasswordConfirm ? '🙈' : '👁️'}</Text>
+                    <Ionicons name={verPasswordConfirm ? "eye-off-outline" : "eye-outline"} size={22} color={colors.textSoft} />
                   </TouchableOpacity>
                 </View>
                 {passwordConfirm.length > 0 && (
@@ -320,8 +345,8 @@ export default function LoginScreen({ onLogin }) {
             </TouchableOpacity>
 
             {modo === 'login' && biometriaDisponible && (
-              <TouchableOpacity style={styles.biometriaBtn} onPress={loginConBiometria}>
-                <Text style={styles.biometriaBtnText}>🔑 Entrar con huella / Face ID</Text>
+              <TouchableOpacity style={styles.biometriaBtn} disabled={cargando} onPress={loginConBiometria}>
+                <View style={styles.btnRow}><Ionicons name="finger-print-outline" size={20} color={colors.textSoft} /><Text style={styles.biometriaBtnText}>Usar Face ID o huella</Text></View>
               </TouchableOpacity>
             )}
 
@@ -331,14 +356,7 @@ export default function LoginScreen({ onLogin }) {
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity onPress={() => cambiarModo(modo === 'login' ? 'registro' : 'login')}>
-              <Text style={styles.switchText}>
-                {modo === 'login'
-                  ? <>¿No tenés cuenta? <Text style={styles.switchLink}>Registrate</Text></>
-                  : <>¿Ya tenés cuenta? <Text style={styles.switchLink}>Iniciá sesión</Text></>
-                }
-              </Text>
-            </TouchableOpacity>
+
           </>
         ) : (
           <>
@@ -352,9 +370,14 @@ export default function LoginScreen({ onLogin }) {
                 value={email}
                 onChangeText={setEmail}
                 placeholder="tu@email.com"
-                placeholderTextColor="#4a6a8a"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
+                textContentType="emailAddress"
+                returnKeyType="go"
+                onSubmitEditing={() => { if (!cargando) handleReset(); }}
               />
             </View>
 
@@ -388,49 +411,54 @@ export default function LoginScreen({ onLogin }) {
           </>
         )}
       </Animated.View>
+    </ScrollView>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0D1B2A', justifyContent: 'center', padding: 24 },
+  screen: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 24 },
+  container: { flex: 1, backgroundColor: colors.background, justifyContent: 'center', padding: 24 },
   hero: { alignItems: 'center', marginBottom: 32 },
   medallaEmoji: { fontSize: 64, marginBottom: 10 },
-  logo: { fontSize: 46, fontWeight: 'bold', color: '#FFFFFF', letterSpacing: 6, marginBottom: 10 },
-  tagline: { fontSize: 16, color: '#A8CFFF', marginBottom: 2 },
-  taglineBold: { fontSize: 18, fontWeight: 'bold', color: '#FC4C02' },
-  card: { backgroundColor: '#1E3A5F', borderRadius: 24, padding: 28 },
-  modoRow: { flexDirection: 'row', marginBottom: 24, backgroundColor: '#0D1B2A', borderRadius: 12, padding: 4 },
+  logo: { fontSize: 34, fontWeight: 'bold', color: colors.text, letterSpacing: 5, marginBottom: 10 },
+  adventure: { color: colors.brandOrangeSoft, fontSize: 13, fontWeight: '700', letterSpacing: 4, marginBottom: 18 },
+  tagline: { fontSize: 16, color: colors.textSoft, marginBottom: 2 },
+  taglineBold: { fontSize: 18, fontWeight: 'bold', color: colors.brandOrange },
+  card: { backgroundColor: colors.surfaceSoft, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: colors.borderSoft },
+  modoRow: { flexDirection: 'row', marginBottom: 24, backgroundColor: colors.background, borderRadius: 12, padding: 4 },
   modoBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10 },
-  modoBtnActivo: { backgroundColor: '#1E6FD9' },
-  modoBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 14 },
-  modoBtnTextActivo: { color: '#FFFFFF' },
+  modoBtnActivo: { backgroundColor: colors.surfaceRaised },
+  modoBtnText: { color: colors.textMuted, fontWeight: 'bold', fontSize: 14 },
+  modoBtnTextActivo: { color: colors.text },
   inputContainer: { marginBottom: 16 },
-  inputLabel: { fontSize: 10, fontWeight: 'bold', color: '#4a6a8a', letterSpacing: 2, marginBottom: 6 },
-  input: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, color: '#FFFFFF', fontSize: 15, borderWidth: 1, borderColor: '#2a4a6a' },
+  inputLabel: { fontSize: 12, fontWeight: '600', color: colors.textSoft, letterSpacing: 0.4, marginBottom: 6 },
+  input: { backgroundColor: colors.background, borderRadius: 12, padding: 14, color: colors.text, fontSize: 15, borderWidth: 1, borderColor: colors.border },
   inputRow: { flexDirection: 'row', alignItems: 'center' },
-  ojito: { backgroundColor: '#0D1B2A', padding: 14, borderTopRightRadius: 12, borderBottomRightRadius: 12, borderWidth: 1, borderColor: '#2a4a6a', borderLeftWidth: 0 },
+  ojito: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background, padding: 14, borderTopRightRadius: 12, borderBottomRightRadius: 12, borderWidth: 1, borderColor: colors.border, borderLeftWidth: 0 },
   mensajeBox: { backgroundColor: '#2a1a1a', borderRadius: 10, padding: 12, marginBottom: 12 },
-  mensaje: { color: '#FC4C02', fontSize: 13, textAlign: 'center' },
-  button: { backgroundColor: '#FC4C02', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 4, marginBottom: 16 },
+  mensaje: { color: colors.brandOrange, fontSize: 13, textAlign: 'center' },
+  button: { backgroundColor: colors.brandOrange, paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 4, marginBottom: 16 },
   buttonDisabled: { backgroundColor: '#2a3a4a' },
-  buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
+  buttonText: { color: colors.text, fontWeight: 'bold', fontSize: 16 },
   btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   btnRowBack: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  olvideBtnContainer: { alignItems: 'center', marginBottom: 12 },
-  olvideBtnText: { color: '#4a6a8a', fontSize: 13 },
-  switchText: { color: '#4a6a8a', fontSize: 13, textAlign: 'center' },
-  switchLink: { color: '#1E6FD9', fontWeight: 'bold' },
-  resetTituloForm: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
-  resetSubtitulo: { fontSize: 13, color: '#A8CFFF', lineHeight: 20, marginBottom: 20 },
-  resetCard: { backgroundColor: '#1E3A5F', borderRadius: 24, padding: 40, margin: 24, alignItems: 'center' },
+  olvideBtnContainer: { alignItems: 'center', justifyContent: 'center', minHeight: 44, marginBottom: 4 },
+  olvideBtnText: { color: colors.actionBlue, fontSize: 13 },
+  switchText: { color: colors.textMuted, fontSize: 13, textAlign: 'center' },
+  switchLink: { color: colors.actionBlue, fontWeight: 'bold' },
+  resetTituloForm: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginBottom: 8 },
+  resetSubtitulo: { fontSize: 13, color: colors.textSoft, lineHeight: 20, marginBottom: 20 },
+  resetCard: { backgroundColor: colors.surfaceSoft, borderRadius: 24, padding: 40, margin: 24, alignItems: 'center' },
   resetEmoji: { fontSize: 48, marginBottom: 16 },
-  resetTitulo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 12 },
-  resetTexto: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+  resetTitulo: { fontSize: 22, fontWeight: 'bold', color: colors.text, marginBottom: 12 },
+  resetTexto: { fontSize: 14, color: colors.textSoft, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   verificadorBox: { marginTop: 8, gap: 4 },
-  verificadorItem: { fontSize: 12, color: '#4a6a8a' },
+  verificadorItem: { fontSize: 12, color: colors.textMuted },
   verificadorOk: { color: '#4CAF50' },
-  verificadorError: { color: '#FC4C02' },
-  biometriaBtn: { backgroundColor: '#1E3A5F', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#1E6FD9' },
-  biometriaBtnText: { color: '#A8CFFF', fontWeight: 'bold', fontSize: 14 },
+  verificadorError: { color: colors.brandOrange },
+  biometriaBtn: { backgroundColor: colors.surfaceSoft, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: colors.actionBlue },
+  biometriaBtnText: { color: colors.textSoft, fontWeight: 'bold', fontSize: 14 },
 });

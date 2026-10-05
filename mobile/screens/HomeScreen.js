@@ -1,4 +1,4 @@
-import { PREGUNTAS_KORVA } from '../utils/ayudaKorva';
+import KorvaHelpSheet from '../components/KorvaHelpSheet';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking, TextInput, Alert, Modal, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -12,7 +12,7 @@ import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import MapaRecorrido from './MapaRecorrido';
 import { Ionicons } from '@expo/vector-icons';
-import { etiquetaDeInscripcion } from '../utils/versionDesafio';
+import { distanciaDeInscripcion } from '../utils/versionDesafio';
 import { listarMisActividades } from '../services/actividadesApi';
 import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
 import { colors } from '../theme/korvaTheme';
@@ -82,11 +82,11 @@ export default function HomeScreen({ navigation }) {
   const [bannerDireccionVisible, setBannerDireccionVisible] = useState(false);
   const [cargandoBib, setCargandoBib] = useState(false);
   const [modalAyudaVisible, setModalAyudaVisible] = useState(false);
-  const [faqAbierta, setFaqAbierta] = useState(null);
   const [retoActivoIndex, setRetoActivoIndex] = useState(0);
   const [modalModalidadVisible, setModalModalidadVisible] = useState(false);
   const [actividadReciente, setActividadReciente] = useState(null);
   const viewShotRefs = useRef([]);
+  const progresoLeido = useRef(false);
   const { estado: movimientoPersonal, actualizar: actualizarMovimiento } = useMovimientoPersonal(userId);
 
   useEffect(() => {
@@ -146,12 +146,14 @@ export default function HomeScreen({ navigation }) {
     } catch (e) {}
   };
 
-  const enriquecerEstados = async (lista) => {
+  const leerEstados = () => supabase
+    .from('user_challenges')
+    .select('challenge_id,status,completed_at,pausado,numero_bib')
+    .eq('user_id', userId);
+
+  const enriquecerEstados = async (lista, lectura = null) => {
     try {
-      const { data } = await supabase
-        .from('user_challenges')
-        .select('challenge_id,status,completed_at,pausado,numero_bib')
-        .eq('user_id', userId);
+      const { data } = await (lectura || leerEstados());
       const porChallenge = new Map((data || []).map((x) => [x.challenge_id, x]));
       return lista.map((item) => ({ ...item, ...(porChallenge.get(item.challenge_id) || {}) }));
     } catch {
@@ -162,16 +164,22 @@ export default function HomeScreen({ navigation }) {
   const cargarProgreso = async () => {
     if (!userId) return;
     try {
-      setCargando(true);
+      // Al volver a Inicio, conservar las tarjetas mientras se actualizan.
+      setCargando(!progresoLeido.current);
       setError(false);
+      const lecturaEstados = Promise.resolve(leerEstados()).catch(() => ({ data: null }));
       // La Home nunca espera a Strava para mostrar las cards.
       // Primero lee el progreso ya materializado por el motor; si Strava está conectado,
       // sincroniza después y refresca silenciosamente solo si llegaron datos nuevos.
       const res = await fetch(`${BACKEND_URL}/strava/progreso/${userId}`);
       const data = await res.json();
       const listaBase = Array.isArray(data) ? data : [];
-      const lista = await enriquecerEstados(listaBase);
+      if (!res.ok || !Array.isArray(data)) throw new Error('No se pudo leer el progreso');
+      const lista = await enriquecerEstados(listaBase, lecturaEstados);
       setChallenges(lista);
+      progresoLeido.current = true;
+      // Mostrar las tarjetas antes de consultar banners y dirección de envío.
+      setCargando(false);
 
       if (stravaConectado) {
         fetch(`${BACKEND_URL}/strava/actividades/${userId}`)
@@ -226,7 +234,8 @@ export default function HomeScreen({ navigation }) {
         } catch (e) {} // Si falla, no mostramos el banner para no confundir
       }
     } catch (err) {
-      setError(true);
+      // Un fallo al refrescar no oculta el último progreso disponible.
+      if (!progresoLeido.current) setError(true);
     } finally {
       setCargando(false);
     }
@@ -456,29 +465,7 @@ export default function HomeScreen({ navigation }) {
       )}
 
       {/* Modal FAQ / Ayuda */}
-      <Modal visible={modalAyudaVisible} transparent animationType="slide" onRequestClose={() => setModalAyudaVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { maxHeight: '85%' }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={styles.modalTitulo}>❓ Ayuda</Text>
-              <TouchableOpacity onPress={() => setModalAyudaVisible(false)}>
-                <Text style={{ color: '#4a6a8a', fontSize: 18, fontWeight: 'bold' }}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {PREGUNTAS_KORVA.map((item, i) => (
-                <TouchableOpacity key={i} style={styles.faqItem} onPress={() => setFaqAbierta(faqAbierta === i ? null : i)}>
-                  <View style={styles.faqHeader}>
-                    <Text style={styles.faqPregunta}>{item.q}</Text>
-                    <Text style={styles.faqChevron}>{faqAbierta === i ? '▲' : '▼'}</Text>
-                  </View>
-                  {faqAbierta === i && <Text style={styles.faqRespuesta}>{item.a}</Text>}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      <KorvaHelpSheet visible={modalAyudaVisible} onClose={() => setModalAyudaVisible(false)} />
 
       {/* Modal Próximamente Strava */}
       {/* Modal Compartir Progreso */}
@@ -665,10 +652,9 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
-      {userId && movimientoPrimero && (
+      {userId && (
         <View>
-          <MovimientoPersonalCard estado={movimientoPersonal} onActualizar={actualizarMovimiento} />
-          <GpsHomeAction navigation={navigation} />
+          <MovimientoPersonalCard compacto estado={movimientoPersonal} onActualizar={actualizarMovimiento} />
         </View>
       )}
 
@@ -722,7 +708,7 @@ export default function HomeScreen({ navigation }) {
                     <Text style={{ color: colors.brandOrange, fontWeight: 'bold', fontSize: 12 }}>✕</Text>
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.pendingModalidad}>Versión {etiquetaDeInscripcion(item)}</Text>
+                <Text style={styles.pendingModalidad}>{distanciaDeInscripcion(item)} km</Text>
                 <Text style={styles.pendingTexto}>Esperando confirmación de pago. Si ya pagaste, puede demorar unos minutos.</Text>
                 {item.link_shopify && (
                   <TouchableOpacity style={styles.pendingBtn} onPress={() => Linking.openURL(item.link_shopify)}>
@@ -800,7 +786,7 @@ export default function HomeScreen({ navigation }) {
 
       {userId && (
         <View style={styles.movimientoSection} onLayout={(e) => { movimientoInicioY.current = e.nativeEvent.layout.y; }}>
-          {!movimientoPrimero && <MovimientoPersonalCard estado={movimientoPersonal} onActualizar={actualizarMovimiento} />}
+          {movimientoPrimero && <GpsHomeAction navigation={navigation} />}
           <TouchableOpacity style={styles.scrollCue}
             accessibilityRole="button" accessibilityLabel="Ver actividades y desafíos completados"
             onPress={() => scrollRef.current?.scrollTo({ y: Math.max(0, movimientoInicioY.current + actividadesInicioY.current - 16), animated: true })}>
@@ -860,7 +846,7 @@ export default function HomeScreen({ navigation }) {
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.completadoChallenge}>{item.challenge || item.challenge_title || '—'}</Text>
-                  <Text style={styles.completadoKm}>{parseFloat(item.km_completados || 0).toFixed(1)} km · {etiquetaDeInscripcion(item)}</Text>
+                  <Text style={styles.completadoKm}>{parseFloat(item.km_completados || 0).toFixed(1)} km</Text>
                 </View>
                 <View style={styles.completedSeal}>
                   <Ionicons name="checkmark" size={18} color={colors.brandOrangeSoft} />
@@ -962,18 +948,16 @@ function GpsHomeAction({ navigation }) {
   return (
     <TouchableOpacity style={styles.gpsHeroAction} onPress={() => navigation.navigate('GpsTracker')} activeOpacity={0.88}>
       <View style={styles.gpsHeroTop}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.gpsHeroEyebrow}>KORVA GPS</Text>
-          <Text style={styles.gpsHeroTitulo}>Registrar actividad</Text>
+          <Text style={styles.gpsHeroTitulo}>Iniciar actividad</Text>
         </View>
         <View style={styles.gpsHeroStart}>
           <Ionicons name="play" size={14} color={colors.text} />
           <Text style={styles.gpsHeroStartText}>INICIAR</Text>
         </View>
       </View>
-      <Text style={styles.gpsHeroDesc}>Correr · caminar · bici</Text>
-      <View style={styles.gpsHeroDivider} />
-      <Text style={styles.gpsHeroHint}>Distancia y tiempo con el GPS del teléfono · confirmás al finalizar</Text>
+
     </TouchableOpacity>
   );
 }
@@ -989,8 +973,6 @@ function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, meta
   const mostrarCardMeta = metaVisibles[item.challenge_id];
   const metaFormateada = formatearFechaMeta(item.meta_fecha);
   const bordeCard = estaCompletado ? colors.brandOrange : colors.borderSoft;
-  // Versión del desafío (Estándar/Extendida), no deporte. Fallback a `modalidad` de respuestas viejas.
-  const modalidadLabel = `VERSIÓN ${etiquetaDeInscripcion(item).toUpperCase()}`;
   const tituloNormalizado = (item.challenge || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const tieneExpedicion = ['fuji', 'dubrovnik', 'san andres', 'fin del mundo'].some(nombre => tituloNormalizado.includes(nombre));
 
@@ -1004,9 +986,6 @@ function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, meta
           {/* FIX: header rediseñado — sin colores que parezcan botones */}
           <View style={styles.shareHeader}>
             <Text style={styles.shareKorvaLogo}>TU AVENTURA</Text>
-            <TouchableOpacity onPress={onModalidadPress}>
-              <Text style={styles.shareDeporte}>{modalidadLabel}</Text>
-            </TouchableOpacity>
           </View>
           <Text style={styles.shareChallengeName}>{item.challenge || '—'}</Text>
           <View style={styles.heroMetricRow}>
@@ -1222,12 +1201,12 @@ const styles = StyleSheet.create({
   heroTotal: { color: colors.textMuted, fontSize: 12, fontWeight: '700', marginTop: 1 },
   heroFooter: { minHeight: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   heroFooterMuted: { color: '#6888A7', fontSize: 11 },
-  gpsHeroAction: { marginTop: 20, minHeight: 142, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 18, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderStrong },
+  gpsHeroAction: { marginTop: 20, minHeight: 78, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 14, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderStrong },
   gpsHeroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
   gpsHeroStart: { height: 42, borderRadius: 21, backgroundColor: colors.brandOrange, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   gpsHeroStartText: { color: colors.text, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   gpsHeroEyebrow: { color: '#6E8BA7', fontSize: 9, fontWeight: '900', letterSpacing: 2.2, marginBottom: 5 },
-  gpsHeroTitulo: { color: colors.text, fontSize: 21, fontWeight: '900', lineHeight: 25 },
+  gpsHeroTitulo: { color: colors.text, fontSize: 18, fontWeight: '900', lineHeight: 25 },
   gpsHeroDesc: { color: colors.textSoft, fontSize: 11, marginTop: 10 },
   gpsHeroDivider: { height: 1, backgroundColor: '#203D57', marginVertical: 12 },
   gpsHeroHint: { color: colors.textDim, fontSize: 9, lineHeight: 13 },
