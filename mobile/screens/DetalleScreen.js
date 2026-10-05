@@ -88,26 +88,7 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
       )}
 
 
-      {/* La aventura es el producto: la ruta aparece antes que la explicación operativa. */}
-      <View style={styles.seccionRuta}>
-        <View style={styles.rutaHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.rutaEyebrow}>EXPLORÁ LA AVENTURA</Text>
-            <Text style={styles.rutaTitulo}>La ruta</Text>
-          </View>
-          <Ionicons name="map-outline" size={21} color={colors.brandOrangeSoft} />
-        </View>
-        <Text style={styles.mapaSubtitulo}>Descubrí los checkpoints y las historias que vas desbloqueando a medida que avanzás.</Text>
-        <MapaRecorrido
-          kmCompletados={0}
-          distanciaTotal={distanciaTotal}
-          porcentaje="0"
-          challengeId={challenge.id}
-          challengeTitle={challenge.title}
-          fullscreen={true}
-        />
-      </View>
-
+      {/* Primero la propuesta y la medalla; la ruta queda como contenido de exploración. */}
       <View style={styles.comoFuncionaBox}>
         <TouchableOpacity
           style={styles.comoFuncionaToggle}
@@ -137,6 +118,26 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
             ))}
           </View>
         )}
+      </View>
+
+      {/* La aventura es el producto: la ruta aparece antes que la explicación operativa. */}
+      <View style={styles.seccionRuta}>
+        <View style={styles.rutaHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rutaEyebrow}>EXPLORÁ LA AVENTURA</Text>
+            <Text style={styles.rutaTitulo}>La ruta</Text>
+          </View>
+          <Ionicons name="map-outline" size={21} color={colors.brandOrangeSoft} />
+        </View>
+        <Text style={styles.mapaSubtitulo}>Descubrí los checkpoints y las historias que vas desbloqueando a medida que avanzás.</Text>
+        <MapaRecorrido
+          kmCompletados={0}
+          distanciaTotal={distanciaTotal}
+          porcentaje="0"
+          challengeId={challenge.id}
+          challengeTitle={challenge.title}
+          fullscreen={true}
+        />
       </View>
 
       {galeria.length > 0 && (
