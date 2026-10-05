@@ -141,6 +141,7 @@ export default function MapaRecorrido3D({
   onSelect,
   kmUsuario,
   kmTotalUsuario,
+  actividades = [],
   altura = 400,
   escena = escenaFinDelMundo,
   horneado = horneadoFinDelMundo,
@@ -476,6 +477,29 @@ export default function MapaRecorrido3D({
   const totalTxt = Number(kmTotalUsuario) || escena.distanciaKm;
   const kmTxt = Math.min(Number(kmUsuario) || 0, totalTxt);
 
+  const actividadesJourney = useMemo(() => {
+    let acumulado = 0;
+    return [...actividades]
+      .filter((a) => Number(a?.distance_km) > 0)
+      .sort((a, b) => new Date(a.recorded_at || 0) - new Date(b.recorded_at || 0))
+      .map((a, i) => {
+        acumulado += Number(a.distance_km) || 0;
+        return {
+          ...a,
+          numero: i + 1,
+          acumulado,
+          kmMapa: Math.min(escena.distanciaKm, (acumulado / Math.max(0.1, totalTxt)) * escena.distanciaKm),
+        };
+      });
+  }, [actividades, escena.distanciaKm, totalTxt]);
+
+  const actividadesVisibles = useMemo(() => {
+    if (!reproduciendo || kmPlayback == null) return [];
+    return actividadesJourney
+      .filter((a) => a.kmMapa <= kmPlayback + 0.05)
+      .slice(-5);
+  }, [actividadesJourney, reproduciendo, kmPlayback]);
+
   return (
     <View
       {...panResponder.panHandlers}
@@ -541,6 +565,29 @@ export default function MapaRecorrido3D({
         </Animated.View>
       )}
 
+      {reproduciendo && actividadesVisibles.length > 0 && (
+        <View pointerEvents="none" style={styles.actividadesJourney}>
+          <Text style={styles.actividadesEyebrow}>TU RECORRIDO</Text>
+          {actividadesVisibles.map((act, i) => {
+            const actual = i === actividadesVisibles.length - 1;
+            const tipo = act.sport_type === 'ride' ? 'BICI'
+              : act.sport_type === 'swim' ? 'NADO'
+                : act.sport_type === 'walk' ? 'CAMINATA'
+                  : act.sport_type === 'run' ? 'CARRERA'
+                    : 'ACTIVIDAD';
+            return (
+              <View key={act.id || `${act.recorded_at || 'act'}-${act.numero}`} style={[styles.actividadFila, actual && styles.actividadFilaActual]}>
+                <Text style={[styles.actividadNumero, actual && styles.actividadNumeroActual]}>{String(act.numero).padStart(2, '0')}</Text>
+                <View style={styles.actividadTexto}>
+                  <Text style={[styles.actividadTipo, actual && styles.actividadTipoActual]}>{tipo}</Text>
+                  <Text style={styles.actividadKm}>{Number(act.distance_km).toFixed(1)} km</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
       <View pointerEvents="none" style={styles.hud}>
         <Text style={styles.hudEyebrow}>{escena.presentacion?.eyebrow || 'KORVA JOURNEY'}</Text>
         <Text style={styles.hudTitulo}>{escena.presentacion?.titulo || 'Tu recorrido'}</Text>
@@ -597,6 +644,16 @@ const styles = StyleSheet.create({
   cargando: { position: 'absolute', alignSelf: 'center', top: '48%', color: colors.textDim, fontSize: 11, letterSpacing: 0.6 },
 
   hud: { position: 'absolute', left: 14, top: 12 },
+  actividadesJourney: { position: 'absolute', left: 14, top: 96, width: 104, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 12, backgroundColor: 'rgba(9,23,37,0.72)', borderWidth: 1, borderColor: 'rgba(168,207,255,0.16)' },
+  actividadesEyebrow: { color: 'rgba(168,207,255,0.62)', fontSize: 7, fontWeight: '900', letterSpacing: 1.25, marginBottom: 5 },
+  actividadFila: { flexDirection: 'row', alignItems: 'center', minHeight: 25, opacity: 0.48 },
+  actividadFilaActual: { opacity: 1 },
+  actividadNumero: { width: 24, color: colors.textMuted, fontSize: 9, fontWeight: '900' },
+  actividadNumeroActual: { color: colors.brandOrangeSoft },
+  actividadTexto: { flex: 1 },
+  actividadTipo: { color: colors.textSoft, fontSize: 8, fontWeight: '800', letterSpacing: 0.35 },
+  actividadTipoActual: { color: '#FFFFFF' },
+  actividadKm: { color: colors.textMuted, fontSize: 8, marginTop: 1 },
   hudEyebrow: { color: colors.brandOrange, fontSize: 9, fontWeight: '900', letterSpacing: 1.8 },
   hudTitulo: { color: colors.text, fontSize: 14, fontWeight: '800', marginTop: 2, ...sombraTexto },
   chip: { position: 'absolute', right: 12, top: 12, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: 'rgba(9,23,37,0.72)', borderWidth: 1, borderColor: 'rgba(168,207,255,0.22)' },
