@@ -158,6 +158,8 @@ export default function MapaRecorrido3D({
     zoomInicial: 1,
     objetivoInicial: null,
     centroInicial: null,
+    anguloInicial: null,
+    azimutInicial: 0,
   });
   const playbackRef = useRef(null);
 
@@ -205,15 +207,21 @@ export default function MapaRecorrido3D({
       const objetivo = controlRef.current.objetivo || escena.camara.objetivo;
       gestoRef.current.objetivoInicial = [...objetivo];
       gestoRef.current.zoomInicial = controlRef.current.zoom;
+      gestoRef.current.azimutInicial = controlRef.current.azimut || 0;
       if (ts.length >= 2) {
         gestoRef.current.distancia = Math.hypot(ts[0].pageX - ts[1].pageX, ts[0].pageY - ts[1].pageY);
         gestoRef.current.centroInicial = {
           x: (ts[0].pageX + ts[1].pageX) / 2,
           y: (ts[0].pageY + ts[1].pageY) / 2,
         };
+        gestoRef.current.anguloInicial = Math.atan2(
+          ts[1].pageY - ts[0].pageY,
+          ts[1].pageX - ts[0].pageX,
+        );
       } else {
         gestoRef.current.distancia = null;
         gestoRef.current.centroInicial = null;
+        gestoRef.current.anguloInicial = null;
       }
     },
     onPanResponderMove: (e, g) => {
@@ -233,6 +241,22 @@ export default function MapaRecorrido3D({
         };
         const c0 = gestoRef.current.centroInicial || centro;
         moverObjetivo(centro.x - c0.x, centro.y - c0.y, base);
+
+        // Giro deliberado con dos dedos. Separado del pan de un dedo para que
+        // explorar el mapa no haga orbitar la cámara accidentalmente.
+        const angulo = Math.atan2(
+          ts[1].pageY - ts[0].pageY,
+          ts[1].pageX - ts[0].pageX,
+        );
+        const a0 = gestoRef.current.anguloInicial ?? angulo;
+        let deltaAngulo = angulo - a0;
+        if (deltaAngulo > Math.PI) deltaAngulo -= Math.PI * 2;
+        if (deltaAngulo < -Math.PI) deltaAngulo += Math.PI * 2;
+        controlRef.current.azimut = THREE.MathUtils.clamp(
+          gestoRef.current.azimutInicial + deltaAngulo * 0.72,
+          -1.15,
+          1.15,
+        );
       } else {
         // Un dedo desplaza el territorio como un mapa. No rota la cámara.
         moverObjetivo(g.dx, g.dy, base);
@@ -242,10 +266,12 @@ export default function MapaRecorrido3D({
     onPanResponderRelease: () => {
       gestoRef.current.distancia = null;
       gestoRef.current.centroInicial = null;
+      gestoRef.current.anguloInicial = null;
     },
     onPanResponderTerminate: () => {
       gestoRef.current.distancia = null;
       gestoRef.current.centroInicial = null;
+      gestoRef.current.anguloInicial = null;
     },
   }), [escena]);
 
@@ -491,7 +517,7 @@ export default function MapaRecorrido3D({
           <Text style={styles.proximoKm}>a {journey.kmHastaSiguiente.toFixed(journey.kmHastaSiguiente < 10 ? 1 : 0)} km</Text>
         </View>
       )}
-      <Text pointerEvents="none" style={styles.pista}>Deslizá para mover · pellizcá para zoom</Text>
+      <Text pointerEvents="none" style={styles.pista}>1 dedo mueve · 2 dedos zoom y rotación</Text>
       <View pointerEvents="none" style={styles.borde} />
     </View>
   );
