@@ -88,7 +88,33 @@ export default function HomeScreen({ navigation }) {
   const [actividadReciente, setActividadReciente] = useState(null);
   const viewShotRefs = useRef([]);
   const progresoLeido = useRef(false);
+  const completadosConocidos = useRef(null);
   const { estado: movimientoPersonal, actualizar: actualizarMovimiento } = useMovimientoPersonal(userId);
+
+  const detectarNuevaFinalizacion = (lista) => {
+    const terminales = new Set(['completed', 'shipped', 'cargado']);
+    const completadosAhora = new Set(
+      lista
+        .filter(c => !c.pending && (terminales.has(c.status) || parseFloat(c.porcentaje || 0) >= 100))
+        .map(c => c.challenge_id)
+        .filter(Boolean)
+    );
+
+    // La primera lectura solo establece el estado real del servidor. Así una
+    // reinstalación, un logout o un cambio de dispositivo no revive logros históricos.
+    if (completadosConocidos.current === null) {
+      completadosConocidos.current = completadosAhora;
+      return;
+    }
+
+    const nuevo = lista.find(c =>
+      c.challenge_id &&
+      completadosAhora.has(c.challenge_id) &&
+      !completadosConocidos.current.has(c.challenge_id)
+    );
+    completadosConocidos.current = completadosAhora;
+    if (nuevo) setCompletado(nuevo);
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -178,6 +204,7 @@ export default function HomeScreen({ navigation }) {
       if (!res.ok || !Array.isArray(data)) throw new Error('No se pudo leer el progreso');
       const lista = await enriquecerEstados(listaBase, lecturaEstados);
       setChallenges(lista);
+      detectarNuevaFinalizacion(lista);
       progresoLeido.current = true;
       // Mostrar las tarjetas antes de consultar banners y dirección de envío.
       setCargando(false);
@@ -191,7 +218,12 @@ export default function HomeScreen({ navigation }) {
               return fetch(`${BACKEND_URL}/strava/progreso/${userId}`)
                 .then(r => r.json())
                 .then(actualizado => {
-                  if (Array.isArray(actualizado)) return enriquecerEstados(actualizado).then(setChallenges);
+                  if (Array.isArray(actualizado)) {
+                    return enriquecerEstados(actualizado).then((listaActualizada) => {
+                      setChallenges(listaActualizada);
+                      detectarNuevaFinalizacion(listaActualizada);
+                    });
+                  }
                 });
             }
           })
@@ -202,16 +234,6 @@ export default function HomeScreen({ navigation }) {
       const sinKm = activos.some(c => parseFloat(c.km_completados || 0) === 0);
       // FIX: solo mostrar si no fue cerrado manualmente
       if (sinKm && !bannerCerrado) setBannerVisible(true);
-      const reto100 = lista.find(c => parseFloat(c.porcentaje || 0) >= 100 && !c.pending);
-      if (reto100) {
-        const visto = await AsyncStorage.getItem(`completado_visto_${reto100.challenge_id}`);
-        if (!visto) {
-          // Marcar como visto inmediatamente para evitar loops de crash
-          await AsyncStorage.setItem(`completado_visto_${reto100.challenge_id}`, 'true');
-          setCompletado(reto100.challenge || reto100.challenge_title || 'tu desafío');
-        }
-      }
-
       const visibles = {};
       for (const c of activos) {
         if (parseFloat(c.km_completados || 0) === 0 && !c.meta_fecha) {
@@ -407,11 +429,11 @@ export default function HomeScreen({ navigation }) {
     return (
       <CompletadoScreen
         challenge={completado}
-        userId={userId}
-        onVolver={async () => {
-          const reto100 = challenges.find(c => parseFloat(c.porcentaje || 0) >= 100 && !c.pending);
-          if (reto100) await AsyncStorage.setItem(`completado_visto_${reto100.challenge_id}`, 'true');
+        nombrePersona={nombreCompartir}
+        onVolver={() => setCompletado(null)}
+        onCargarDireccion={() => {
           setCompletado(null);
+          navigation.navigate('Perfil');
         }}
       />
     );
