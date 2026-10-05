@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { versionDeInscripcion, etiquetaDeInscripcion } from '../utils/versionDesafio';
@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius, spacing } from '../theme/korvaTheme';
 import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
 import KorvaCompletedShare from '../components/KorvaCompletedShare';
+import MapaRecorrido from './MapaRecorrido';
 
 const iconoDeporte = (tipo) => ({ ride: 'bicycle-outline', run: 'fitness-outline', swim: 'water-outline', walk: 'walk-outline' }[tipo] || 'pulse-outline');
 const deporteHistoria = (tipo) => tipo === 'manual' ? 'Actividad' : nombreDeporteActividad(tipo);
@@ -46,7 +47,9 @@ const getHitoActividad = (actividad, index, totalKmAcumulado, distanciaTotal) =>
 };
 
 export default function DetalleRetoScreen({ route, navigation }) {
-  const { item, userId, nombrePersona } = route.params;
+  const { item, userId, nombrePersona, abrirRuta = false } = route.params;
+  const scrollRef = useRef(null);
+  const rutaY = useRef(0);
   const [actividades, setActividades] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [metaFecha, setMetaFecha] = useState(item?.meta_fecha || '');
@@ -75,6 +78,14 @@ export default function DetalleRetoScreen({ route, navigation }) {
     cargarMeta();
     cargarDesgloseProgreso();
   }, []);
+
+  useEffect(() => {
+    if (!abrirRuta) return;
+    const timer = setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, rutaY.current - 12), animated: true });
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [abrirRuta]);
 
   const cargarDesgloseProgreso = async () => {
     try {
@@ -200,7 +211,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
   });
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
 
       <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Volver">
         <View style={styles.backBtnRow}>
@@ -250,6 +261,22 @@ export default function DetalleRetoScreen({ route, navigation }) {
         {item.started_at && (
           <Text style={styles.progresoFecha}>Comenzaste el {formatearFecha(item.started_at)}</Text>
         )}
+      </View>
+
+      <View onLayout={(e) => { rutaY.current = e.nativeEvent.layout.y; }} style={styles.rutaSection}>
+        <View style={styles.sectionTitleRow}>
+          <Ionicons name="map-outline" size={19} color={colors.actionBlue} />
+          <Text style={styles.rutaTitulo}>Tu ruta</Text>
+        </View>
+        <Text style={styles.rutaSubtitulo}>{estaCompletado ? 'Recorré nuevamente los checkpoints de tu conquista.' : 'Explorá los checkpoints de tu aventura.'}</Text>
+        <MapaRecorrido
+          kmCompletados={kmCompletados}
+          distanciaTotal={distanciaTotal}
+          porcentaje={pct}
+          challengeId={item.challenge_id}
+          challengeTitle={nombreReto}
+          fullscreen
+        />
       </View>
 
       {estaCompletado && (
@@ -392,6 +419,9 @@ export default function DetalleRetoScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  rutaSection: { marginBottom: spacing.xl },
+  rutaTitulo: { fontSize: 16, fontWeight: '800', color: colors.text },
+  rutaSubtitulo: { fontSize: 12, lineHeight: 18, color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.md },
   completedShareBtn: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderSoft, borderRadius: radius.pill, marginBottom: spacing.lg, paddingHorizontal: spacing.md },
   completedShareText: { fontSize: 13, fontWeight: '800', color: colors.brandOrangeSoft },
   safeArea: { flex: 1, backgroundColor: colors.background },
