@@ -27,6 +27,7 @@ export function crearConversor(escena) {
   const u = 1 / escena.kmPorUnidad;
   const v = (escena.exageracion / 1000) * u;
   return {
+    elevacionRutaUnidades: escena.elevacionRutaUnidades,
     pos: (x, h, z) => new THREE.Vector3(x * u, h * v, z * u),
     x: (x) => x * u,
     z: (z) => z * u,
@@ -210,7 +211,16 @@ export function actualizarAtmosfera(mundo, escena, camara) {
 }
 
 // ── Ruta ──────────────────────────────────────────────────────────────────
-const ALTURA_RUTA_M = 22; // separación visual sobre el terreno
+// La escena puede indicar separación en unidades; sin ella conserva los 22 m
+// del recorrido original, incluida su exageración vertical.
+const ALTURA_RUTA_M = 22;
+
+function sobreTerreno(conv, x, h, z) {
+  const elevacion = conv.elevacionRutaUnidades;
+  const v = conv.pos(x, h + (elevacion == null ? ALTURA_RUTA_M : 0), z);
+  if (elevacion != null) v.y += elevacion;
+  return v;
+}
 
 function puntosRuta(datos, conv, kmDesde, kmHasta) {
   const pts = [];
@@ -218,7 +228,7 @@ function puntosRuta(datos, conv, kmDesde, kmHasta) {
   pts.push(puntoEnKm(ruta, kmDesde));
   ruta.forEach((p) => { if (p.km > kmDesde && p.km < kmHasta) pts.push(p); });
   pts.push(puntoEnKm(ruta, kmHasta));
-  return pts.map((p) => conv.pos(p.x, p.h + ALTURA_RUTA_M, p.z));
+  return pts.map((p) => sobreTerreno(conv, p.x, p.h, p.z));
 }
 
 // Cinta tubular sobre el terreno entre dos km del desafío.
@@ -233,7 +243,7 @@ export function geometriaTramo(datos, conv, kmDesde, kmHasta, radio) {
 
 export function posicionEnKm(datos, conv, km, elevacionExtraM = 0) {
   const p = puntoEnKm(datos.ruta, km);
-  return conv.pos(p.x, p.h + ALTURA_RUTA_M + elevacionExtraM, p.z);
+  return sobreTerreno(conv, p.x, p.h + elevacionExtraM, p.z);
 }
 
 export function posicionGeo(datos, conv, lat, lon, alturaM) {

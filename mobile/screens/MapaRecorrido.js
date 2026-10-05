@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, Animated, Dimensions } from 'react-native';
 import Svg, { Path, Circle, Rect, Text as SvgText, Defs, LinearGradient, Stop, Mask, Ellipse, Polygon, G } from 'react-native-svg';
 import MapaRecorrido3D from '../components/MapaRecorrido3D';
+import { escenaParaConfig } from '../services/mapa3d/escenas';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const MAPA_WIDTH_VIRTUAL = 800;
@@ -728,7 +729,8 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
   }
 
   // ── MODO FULLSCREEN ──────────────────────────────────────────
-  const esFinDelMundo = config === CONFIGS.default;
+  const claveConfig = Object.keys(CONFIGS).find((k) => CONFIGS[k] === config);
+  const mapa3D = escenaParaConfig(claveConfig);
   const progreso3D = Math.max(0, Math.min(1, kmFisicos / Math.max(1, distanciaFisica)));
   const totalUsuario = Number(distanciaTotal) || distanciaFisica;
   const completado3D = Number(porcentaje) >= 100 || (Number(kmCompletados) || 0) >= totalUsuario;
@@ -736,9 +738,12 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
   return (
     <View style={styles.container}>
       <Text style={styles.titulo}>{titulo}</Text>
-      {esFinDelMundo ? (
+      {mapa3D ? (
         <View style={styles.mapa3DWrapper}>
           <MapaRecorrido3D
+            key={mapa3D.escena.id}
+            escena={mapa3D.escena}
+            horneado={mapa3D.horneado}
             checkpoints={checkpoints}
             progreso={progreso3D}
             completado={completado3D}
@@ -760,8 +765,8 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
         {!fullscreen && mostrarClima()}
       </View>
       )}
-      {!esFinDelMundo && <ScrollHintAnimado />}
-      {!esFinDelMundo && (
+      {!mapa3D && <ScrollHintAnimado />}
+      {!mapa3D && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
           {checkpoints.map((cp) => {
             const bloqueado = !desbloqueado(cp);
@@ -779,8 +784,8 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
         </ScrollView>
       )}
       {cpSeleccionado ? (
-        <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} compacto={esFinDelMundo} />
-      ) : !esFinDelMundo ? (
+        <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} compacto={!!mapa3D} />
+      ) : !mapa3D ? (
         <View style={styles.historiaPlaceholder}>
           <Text style={styles.historiaPlaceholderText}>Tocá un punto del mapa o un checkpoint para leer su historia</Text>
         </View>

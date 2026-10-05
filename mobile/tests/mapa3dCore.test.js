@@ -182,3 +182,70 @@ test('el agua es geografía: Fagnano y Beagle existen en el mundo y la ruta los 
   assert.ok(enAgua(-54.885, -69.25), 'el Beagle debe seguir hacia el oeste');
   assert.ok(!enAgua(-54.807, -68.305), 'Ushuaia no puede quedar bajo el agua');
 });
+
+// ── Invariantes del motor para cada escena registrada ─────────────────────
+const { escenaParaConfig, clavesConEscena } = require('../services/mapa3d/escenas');
+const CHECKPOINTS_POR_ESCENA = {
+  default: [0, 20, 45, 80, 103],
+  monte_fuji: [0, 18, 22, 40, 45, 54, 61, 68],
+};
+
+for (const clave of clavesConEscena()) {
+  const { escena: esc, horneado: horn } = escenaParaConfig(clave);
+  const deco = deserializarDiorama(esc, horn);
+
+  test(`[${esc.id}] horneado sincronizado con el generador`, () => {
+    const fresco = serializarDiorama(construirDatosDiorama(esc));
+    assert.equal(horn.alturas, fresco.alturas, 'regenerar con: node scripts/hornearMapa3D.js');
+    assert.equal(horn.colores, fresco.colores, 'regenerar con: node scripts/hornearMapa3D.js');
+  });
+
+  test(`[${esc.id}] ruta completa y checkpoints sobre sus anclas`, () => {
+    assert.equal(deco.ruta[0].km, 0);
+    assert.equal(deco.ruta.at(-1).km, esc.distanciaKm);
+    const { proy } = crearFuncionAltura(esc);
+    for (const km of CHECKPOINTS_POR_ESCENA[clave]) {
+      const ancla = esc.ruta.find((w) => w.km === km);
+      assert.ok(ancla, `checkpoint km ${km} sin ancla en la escena`);
+      const e = proy.aKm(ancla.lat, ancla.lon);
+      const p = puntoEnKm(deco.ruta, km);
+      assert.ok(Math.hypot(p.x - e.x, p.z - e.z) < 0.6, `km ${km} desplazado`);
+    }
+  });
+
+  test(`[${esc.id}] la ruta nunca queda bajo el agua`, () => {
+    for (const p of deco.ruta) {
+      const k = indiceCercano(deco.campo, p.x, p.z);
+      const nivel = deco.campo.agua[k];
+      assert.ok(!(nivel > -Infinity && p.h < nivel - 1), `km ${p.km.toFixed(1)} bajo el agua`);
+    }
+  });
+
+  test(`[${esc.id}] mundo continuo: >100 km de territorio alrededor de la ruta`, () => {
+    const c = deco.campo;
+    for (const p of deco.ruta) {
+      assert.ok(Math.min(p.x - c.minX, c.maxX - p.x, p.z - c.minZ, c.maxZ - p.z) > 100);
+    }
+    assert.ok(c.nx * c.nz < 200000, 'malla demasiado pesada para iPhone');
+  });
+}
+
+test('[monte_fuji] el Fuji es un volcán reconocible y la ruta lo sube de verdad', () => {
+  const { escena: fuji, horneado: horn } = escenaParaConfig('monte_fuji');
+  const d = deserializarDiorama(fuji, horn);
+  const h = (km) => puntoEnKm(d.ruta, km).h;
+  assert.ok(h(61) > 3400, `cima ${h(61)}`);
+  assert.ok(h(54) > 2100 && h(54) < 2600, `5ª estación ${h(54)}`);
+  assert.ok(h(68) > 1200 && h(68) < 1900, `Gotemba ${h(68)}`);
+  for (const km of [0, 18, 22, 40, 45]) assert.ok(h(km) > 700 && h(km) < 1150, `km ${km}: ${h(km)}`);
+  // La cima es el punto más alto de la ruta.
+  const maxRuta = Math.max(...d.ruta.map((p) => p.h));
+  assert.ok(Math.abs(maxRuta - h(61)) < 120);
+});
+
+test('registro: claves sin escena 3D devuelven null (siguen con el mapa 2D)', () => {
+  assert.equal(escenaParaConfig('dubrovnik'), null);
+  assert.equal(escenaParaConfig('san_andres'), null);
+  assert.equal(escenaParaConfig('toString'), null);
+  assert.equal(escenaParaConfig(undefined), null);
+});

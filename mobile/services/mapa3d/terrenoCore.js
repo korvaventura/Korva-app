@@ -241,20 +241,62 @@ function crearFuncionAltura(escena) {
     for (const p of picos) {
       const d = Math.hypot(x - p.x, (z - p.z) * (p.elongacion || 1));
       if (d > p.radioKm * 1.6) continue;
+      let forma;
+      if (p.perfil === 'volcan') {
+        // Estratovolcán: perfil cóncavo (empinado arriba, faldas largas),
+        // barrancos radiales y cráter. Genérico: Fuji, Osorno, Villarrica...
+        if (d > p.radioKm) continue;
+        const t = 1 - d / p.radioKm;
+        const ang = Math.atan2(z - p.z, x - p.x);
+        const surcos = Math.abs(ruido.perlin(ang * (p.surcos ?? 11) + p.x, d * 0.35 + p.z));
+        forma = Math.pow(t, p.agudeza || 1.9) * p.alturaM - surcos * (p.profundidadSurcosM ?? 90) * Math.sin(Math.PI * t);
+        if (p.crater && d < p.crater.radioKm * 1.4) {
+          const c = clamp(d / p.crater.radioKm, 0, 1.4);
+          forma -= p.crater.profundidadM * Math.max(0, 1 - c * c);
+          // borde levemente levantado del cráter
+          forma += p.crater.bordeM ? p.crater.bordeM * Math.exp(-((c - 1) ** 2) / 0.08) : 0;
+        }
+        h = -smin(-h, -forma, p.suavizadoBaseM ?? 200);
+        continue;
+      }
       const k = 1 - smoothstep(0, p.radioKm, d);
       const aristas = 0.75 + 0.25 * ruido.crestas(x * 0.6 + p.x, z * 0.6 - p.z, 3);
-      const forma = Math.pow(k, p.agudeza || 1.6) * p.alturaM * aristas;
+      forma = Math.pow(k, p.agudeza || 1.6) * p.alturaM * aristas;
       h = -smin(-h, -forma, 120); // máximo suave
     }
     return h;
   };
+
+  // perfilRuta: 'terreno' -> el piso de la ruta sigue el relieve (suavizado),
+  // en vez de una tabla escrita a mano. Útil en rutas que suben montañas.
+  let perfilSiguiendoTerreno = null;
+  if (perfil === 'terreno') {
+    const paso = 0.4;
+    const crudo = [];
+    for (let s = 0; s <= ruta.largo + 1e-6; s += paso) {
+      let i = 0;
+      while (i < ruta.acum.length - 2 && ruta.acum[i + 1] < s) i += 1;
+      const t = (s - ruta.acum[i]) / ((ruta.acum[i + 1] - ruta.acum[i]) || 1);
+      const a = ruta.pts[i];
+      const b = ruta.pts[i + 1];
+      crudo.push([s, montana(lerp(a.x, b.x, t), lerp(a.z, b.z, t))]);
+    }
+    const ventana = Math.max(1, Math.round((escena.corredor.suavizadoPerfilKm ?? 1.2) / paso));
+    perfilSiguiendoTerreno = crudo.map(([s], i) => {
+      let suma = 0; let n = 0;
+      for (let k = Math.max(0, i - ventana); k <= Math.min(crudo.length - 1, i + ventana); k += 1) { suma += crudo[k][1]; n += 1; }
+      return [s, suma / n];
+    });
+  }
 
   const altura = (x, z) => {
     let h = montana(x, z);
 
     // Corredor de la RN3: valle glaciar en U siguiendo la ruta.
     const cr = distanciaPolilinea(x, z, ruta.pts, ruta.acum);
-    const piso = interpolarTabla(perfil, ruta.kmDeS(cr.s));
+    const piso = perfilSiguiendoTerreno
+      ? interpolarTabla(perfilSiguiendoTerreno, cr.s)
+      : interpolarTabla(perfil, ruta.kmDeS(cr.s));
     const corredor = escena.corredor;
     const exceso = Math.max(0, cr.d - corredor.planoKm);
     const valle = piso + corredor.paredM * Math.pow(exceso, corredor.potencia);
@@ -271,13 +313,26 @@ function crearFuncionAltura(escena) {
         const fondo = agua.nivelM - agua.profundidadM * smoothstep(0, -agua.taludKm, d);
         h = Math.min(h, fondo);
         nivelAgua = Math.max(nivelAgua, agua.nivelM);
-      } else if (d < orilla) {
-        const t = smoothstep(0, orilla, d);
-        const costa = agua.nivelM + 4 + d * 18;
-        h = lerp(Math.min(h, costa), h, t * t);
-        h = Math.max(h, agua.nivelM + 2 + d * 6);
+      } else if (!agua.orillaSuave) {
+        if (d < orilla) {
+          const t = smoothstep(0, orilla, d);
+          const costa = agua.nivelM + 4 + d * 18;
+          h = lerp(Math.min(h, costa), h, t * t);
+          h = Math.max(h, agua.nivelM + 2 + d * 6);
+        } else {
+          h = Math.max(h, agua.nivelM + 2 + orilla * 6);
+        }
       } else {
-        h = Math.max(h, agua.nivelM + 2 + orilla * 6);
+        // Orilla: la costa sube desde el nivel del agua. Si el terreno natural
+        // es más bajo (lago colgado en una meseta) se forma un hombro que se
+        // disuelve suavemente; nunca una terraza con bordes rectos.
+        if (d < orilla) {
+          const t = smoothstep(0, orilla, d);
+          const costa = agua.nivelM + 4 + d * 18;
+          h = lerp(Math.min(h, costa), h, t * t);
+        }
+        const hombro = 1 - smoothstep(orilla, orilla * 3, d);
+        if (hombro > 0) h = Math.max(h, lerp(h, agua.nivelM + 2 + d * 6, hombro));
       }
     }
 
@@ -509,7 +564,7 @@ function colorearTerreno(campo, escena, luz) {
         const bosqueBase = mezclar(pal.bosque, pal.bosqueClaro, 0.5 + 0.5 * n2);
         const otono = smoothstep(lineaArboles - 260, lineaArboles - 30, h) * smoothstep(0.1, 0.45, ruido.fbm(x * 0.5 - 9, z * 0.5 + 9, 3));
         const bosque = mezclar(bosqueBase, pal.lengaOtono, otono * pisos.intensidadOtono);
-        // Al sur del Fagnano domina el bosque de lenga; al norte solo en lomas.
+        // Bosque: por altura y, si la escena lo define, al sur de `bosqueAlSurZ`.
         const tBosque = smoothstep(pisos.inicioBosqueM - 40, pisos.inicioBosqueM + 60, h) + smoothstep(pisos.bosqueAlSurZ - 3, pisos.bosqueAlSurZ + 1, z) * (0.75 + 0.25 * n2);
         c = mezclar(llano, bosque, clamp(tBosque, 0, 1));
         // Fondos de valle planos: vegas y turbales que abren claros en el bosque.

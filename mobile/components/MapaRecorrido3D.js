@@ -4,8 +4,6 @@ import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-nat
 import { Canvas, useThree } from '@react-three/fiber/native';
 import * as THREE from 'three';
 import { colors } from '../theme/korvaTheme';
-import escenaFinDelMundo from '../services/mapa3d/escenas/finDelMundo';
-import horneadoFinDelMundo from '../services/mapa3d/escenas/finDelMundo.horneado';
 import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
 import { estadoJourney } from '../services/mapa3d/journeyCore';
 import { ubicarEtiquetas } from '../services/mapa3d/etiquetasCore';
@@ -143,8 +141,8 @@ export default function MapaRecorrido3D({
   kmTotalUsuario,
   actividades = [],
   altura = 400,
-  escena = escenaFinDelMundo,
-  horneado = horneadoFinDelMundo,
+  escena,
+  horneado,
 }) {
   const [listo, setListo] = useState(cacheEscenas.has(escena.id));
   const [tam, setTam] = useState(null);
