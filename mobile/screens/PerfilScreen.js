@@ -827,9 +827,15 @@ export default function PerfilScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.korvaMundiPerfilTitle}>KorvaMundi</Text>
           <Text style={styles.korvaMundiPerfilMeta}>
-            {Number(stats?.medallas || 0) > 0
-              ? `${stats.medallas} conquista${Number(stats.medallas) === 1 ? '' : 's'} · Tu mundo`
-              : 'Tu mundo está esperando'}
+            {(() => {
+              const terminales = new Set(['completed', 'shipped', 'cargado']);
+              const conquistas = inscripcionesActivas.filter((i) => terminales.has(i.status)).length;
+              const enCurso = inscripcionesActivas.filter((i) => i.status === 'active' && !i.pausado).length;
+              if (conquistas === 0 && enCurso === 0) return 'Tu mundo está esperando';
+              if (conquistas === 0) return `${enCurso} aventura${enCurso === 1 ? '' : 's'} en curso`;
+              if (enCurso === 0) return `${conquistas} conquista${conquistas === 1 ? '' : 's'} · Tu mundo`;
+              return `${conquistas} conquista${conquistas === 1 ? '' : 's'} · ${enCurso} aventura${enCurso === 1 ? '' : 's'} en curso`;
+            })()}
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={16} color={colors.textDim} />
