@@ -57,18 +57,24 @@ function distanciaRutaVisual(datos, x, z) {
   return Math.min(mejor, Math.hypot(x - ultimo.x, z - ultimo.z));
 }
 
-function pesoMascara(datos, escena, x, z) {
+function mascaraTerreno(datos, escena, x, z) {
   const cfg = escena.terrenoVisual || {};
-  const corredor = cfg.corredorKm ?? 24;
-  const borde = cfg.bordeKm ?? 7;
-  const variacion = cfg.variacionKm ?? 4;
+  const corredor = cfg.corredorKm ?? 22;
+  const borde = cfg.bordeKm ?? 9;
+  const variacion = cfg.variacionKm ?? 5;
   const frecuencia = cfg.frecuencia ?? 0.09;
+  // Dos ondas no alineadas evitan una silueta paralela/perfecta a la ruta.
   const ondulacion =
     Math.sin(x * frecuencia + z * frecuencia * 0.63) * variacion * 0.55 +
     Math.sin(x * frecuencia * 0.47 - z * frecuencia * 1.31 + 1.7) * variacion * 0.45;
-  const limite = corredor + ondulacion;
   const d = distanciaRutaVisual(datos, x, z);
-  return THREE.MathUtils.smoothstep(limite + borde, limite - borde, d);
+  const nucleo = corredor + ondulacion;
+  const t = THREE.MathUtils.smoothstep(d, nucleo, nucleo + borde);
+  return {
+    peso: t,
+    // El último anillo cae por debajo de la niebla en vez de terminar como una mesa.
+    caidaM: Math.pow(1 - t, 1.65) * (cfg.caidaBordeM ?? 1450),
+  };
 }
 
 function geometriaTerreno(datos, conv, escena) {
@@ -83,12 +89,12 @@ function geometriaTerreno(datos, conv, escena) {
       const k = j * nx + i;
       const x = minX + i * dx;
       const z = minZ + j * dz;
-      const peso = pesoMascara(datos, escena, x, z);
-      pesos[k] = peso;
+      const m = mascaraTerreno(datos, escena, x, z);
+      pesos[k] = m.peso;
       pos[k * 3] = conv.x(x);
-      pos[k * 3 + 1] = conv.y(alturas[k]);
+      pos[k * 3 + 1] = conv.y(alturas[k] - m.caidaM);
       pos[k * 3 + 2] = conv.z(z);
-      const fade = THREE.MathUtils.smoothstep(peso, 0.12, 0.72);
+      const fade = THREE.MathUtils.smoothstep(m.peso, 0.18, 0.82);
       col[k * 3] = THREE.MathUtils.lerp(niebla.r, LUT_LINEAL[Math.round(colores[k * 3] * 255)], fade);
       col[k * 3 + 1] = THREE.MathUtils.lerp(niebla.g, LUT_LINEAL[Math.round(colores[k * 3 + 1] * 255)], fade);
       col[k * 3 + 2] = THREE.MathUtils.lerp(niebla.b, LUT_LINEAL[Math.round(colores[k * 3 + 2] * 255)], fade);
@@ -98,19 +104,28 @@ function geometriaTerreno(datos, conv, escena) {
   for (let j = 0; j < nz - 1; j += 1) {
     for (let i = 0; i < nx - 1; i += 1) {
       const a = j * nx + i; const b = a + 1; const c = a + nx; const d = c + 1;
-      if (Math.max(pesos[a], pesos[b], pesos[c], pesos[d]) < 0.08) continue;
+      const maxP = Math.max(pesos[a], pesos[b], pesos[c], pesos[d]);
+      const minP = Math.min(pesos[a], pesos[b], pesos[c], pesos[d]);
+      if (maxP < 0.035) continue;
+      // En el anillo final salteamos algunas celdas de forma determinística:
+      // rompe la línea de borde continua sin transparencias costosas.
+      if (maxP < 0.16) {
+        const hash = ((i * 73856093) ^ (j * 19349663)) >>> 0;
+        if ((hash % 100) > Math.round(maxP * 520)) continue;
+      }
+      // Evita triángulos largos cuando una celda cruza demasiado el borde.
+      if (maxP - minP > 0.72 && minP < 0.04) continue;
       indices.push(a, c, b, b, c, d);
     }
   }
   const IndexArray = nx * nz > 65535 ? Uint32Array : Uint16Array;
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  g.setIndex(new THREE.BufferAttribute(new IndexArray(indices), 1));
-  g.computeVertexNormals();
-  g.computeBoundingSphere();
-  g.userData.pesosMascara = pesos;
-  return g;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setIndex(new THREE.BufferAttribute(new IndexArray(indices), 1));
+  geo.computeVertexNormals();
+  geo.computeBoundingSphere();
+  return geo;
 }
 
 // Zócalo del diorama: paredes con estratos que cierran el bloque.
@@ -178,7 +193,7 @@ function crearAguas(datos, conv, escena) {
         const a = j * nx + i; const b = a + 1; const c = a + nx; const d = c + 1;
         const pertenece = (k) => Number.isFinite(agua[k]) && Math.abs(agua[k] - nivel) < 0.01;
         const x = minX + (i + 0.5) * dx; const z = minZ + (j + 0.5) * dz;
-        if (pesoMascara(datos, escena, x, z) < 0.1) continue;
+        if (mascaraTerreno(datos, escena, x, z).peso < 0.16) continue;
         if (!(pertenece(a) || pertenece(b) || pertenece(c) || pertenece(d))) continue;
         push(i, j); push(i, j + 1); push(i + 1, j);
         push(i + 1, j); push(i, j + 1); push(i + 1, j + 1);
