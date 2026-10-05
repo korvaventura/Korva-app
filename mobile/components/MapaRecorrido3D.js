@@ -146,10 +146,13 @@ export default function MapaRecorrido3D({
   const [listo, setListo] = useState(cacheEscenas.has(escena.id));
   const [tam, setTam] = useState(null);
   const [revisionCamara, setRevisionCamara] = useState(0);
+  const [reproduciendo, setReproduciendo] = useState(false);
+  const [kmPlayback, setKmPlayback] = useState(null);
   const aparicion = useRef(new Animated.Value(0)).current;
   const controlRef = useRef({ azimut: 0, elevacion: 0, zoom: 1 });
   const r3fRef = useRef(null);
   const gestoRef = useRef({ distancia: null, zoomInicial: 1 });
+  const playbackRef = useRef(null);
 
   const aplicarCamara = () => {
     const estado = r3fRef.current;
@@ -202,7 +205,8 @@ export default function MapaRecorrido3D({
   }, [listo, escena, horneado]);
 
   const diorama = listo ? obtenerDiorama(escena, horneado) : null;
-  const kmProgreso = kmDeProgreso(progreso, escena.distanciaKm, completado);
+  const kmProgresoReal = kmDeProgreso(progreso, escena.distanciaKm, completado);
+  const kmProgreso = kmPlayback == null ? kmProgresoReal : kmPlayback;
   const journey = useMemo(() => estadoJourney({
     checkpoints,
     kmProgreso,
@@ -264,6 +268,49 @@ export default function MapaRecorrido3D({
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = escena.exposicion ?? 1.15;
     Animated.timing(aparicion, { toValue: 1, duration: 450, delay: 120, useNativeDriver: true }).start();
+  };
+
+  useEffect(() => () => {
+    if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
+  }, []);
+
+  const iniciarJourney = () => {
+    if (!diorama || reproduciendo) return;
+    if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
+    const metaKm = Math.max(0.1, kmProgresoReal);
+    const duracion = THREE.MathUtils.clamp(5000 + metaKm * 55, 6000, 12000);
+    const inicio = Date.now();
+    setReproduciendo(true);
+    controlRef.current = { azimut: 0, elevacion: 0.08, zoom: 0.66 };
+
+    const tick = () => {
+      const t = THREE.MathUtils.clamp((Date.now() - inicio) / duracion, 0, 1);
+      const suave = t * t * (3 - 2 * t);
+      const km = metaKm * suave;
+      const p = posicionEnKm(diorama.datos, diorama.conv, km, 0);
+      controlRef.current.objetivo = [p.x, p.y, p.z];
+      setKmPlayback(km);
+      aplicarCamara();
+      if (t < 1) {
+        playbackRef.current = requestAnimationFrame(tick);
+      } else {
+        playbackRef.current = null;
+        setKmPlayback(null);
+        setReproduciendo(false);
+        const fin = posicionEnKm(diorama.datos, diorama.conv, kmProgresoReal, 0);
+        controlRef.current.objetivo = [fin.x, fin.y, fin.z];
+        aplicarCamara();
+      }
+    };
+    playbackRef.current = requestAnimationFrame(tick);
+  };
+
+  const detenerJourney = () => {
+    if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
+    playbackRef.current = null;
+    setKmPlayback(null);
+    setReproduciendo(false);
+    recenter();
   };
 
   const enfocarPosicion = () => {
@@ -359,6 +406,15 @@ export default function MapaRecorrido3D({
           {completado ? '✓ CONQUISTADO' : `${kmTxt.toFixed(kmTxt < 10 ? 1 : 0)} / ${Math.round(totalTxt)} km`}
         </Text>
       </View>
+      <TouchableOpacity
+        activeOpacity={0.86}
+        onPress={reproduciendo ? detenerJourney : iniciarJourney}
+        style={[styles.playJourney, reproduciendo && styles.playJourneyActivo]}
+      >
+        <Text style={styles.playJourneyTxt}>
+          {reproduciendo ? 'Ⅱ DETENER' : completado ? '▶ REVIVIR CONQUISTA' : '▶ VER MI VIAJE'}
+        </Text>
+      </TouchableOpacity>
       {!completado && overlay?.actual && (
         <TouchableOpacity activeOpacity={0.82} onPress={enfocarPosicion} style={styles.estoyAca}>
           <Text style={styles.estoyAcaTxt}>◎ ESTÁS ACÁ · {journey.kmActual.toFixed(journey.kmActual < 10 ? 1 : 0)} KM</Text>
@@ -396,7 +452,10 @@ const styles = StyleSheet.create({
   chipTxt: { color: colors.textSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
   chipTxtCompleto: { color: colors.brandOrangeSoft, letterSpacing: 1.2 },
   pista: { position: 'absolute', right: 14, bottom: 12, color: 'rgba(168,207,255,0.6)', fontSize: 10 },
-  estoyAca: { position: 'absolute', left: 14, top: 54, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 999, backgroundColor: 'rgba(9,23,37,0.82)', borderWidth: 1, borderColor: 'rgba(243,107,10,0.55)' },
+  playJourney: { position: 'absolute', left: 14, top: 54, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, backgroundColor: 'rgba(243,107,10,0.9)', shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 2 } },
+  playJourneyActivo: { backgroundColor: 'rgba(9,23,37,0.88)', borderWidth: 1, borderColor: 'rgba(255,176,120,0.65)' },
+  playJourneyTxt: { color: '#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  estoyAca: { position: 'absolute', left: 14, top: 88, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 999, backgroundColor: 'rgba(9,23,37,0.82)', borderWidth: 1, borderColor: 'rgba(243,107,10,0.55)' },
   estoyAcaTxt: { color: colors.brandOrangeSoft, fontSize: 9, fontWeight: '900', letterSpacing: 0.7 },
   recentrar: { position: 'absolute', right: 12, bottom: 42, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(9,23,37,0.82)', borderWidth: 1, borderColor: 'rgba(168,207,255,0.28)' },
   recentrarTxt: { color: colors.text, fontSize: 18, fontWeight: '700' },
