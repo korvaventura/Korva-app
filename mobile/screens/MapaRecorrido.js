@@ -565,11 +565,17 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
   const pathCompletado = getCompletedPathString(segmentos, kmFisicos);
 
   useEffect(() => {
-    Animated.loop(Animated.sequence([
+    if (fullscreen) {
+      pulseAnim.setValue(0);
+      return undefined;
+    }
+    const loop = Animated.loop(Animated.sequence([
       Animated.timing(pulseAnim, { toValue: 1, duration: 1500, useNativeDriver: false }),
       Animated.timing(pulseAnim, { toValue: 0, duration: 0, useNativeDriver: false }),
-    ])).start();
-  }, []);
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [fullscreen, pulseAnim]);
 
   useEffect(() => { setCpSeleccionado(null); }, [challengeId]);
 
@@ -751,7 +757,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
           onMomentumScrollEnd={() => onScrollEnd && onScrollEnd()}>
           <MapaSVG config={config} kmFisicos={kmFisicos} pinPos={pinPos} rutaBasePath={rutaBasePath} pathCompletado={pathCompletado} pulseAnim={pulseAnim} onCheckpointPress={handleCheckpointPress} />
         </ScrollView>
-        {mostrarClima()}
+        {!fullscreen && mostrarClima()}
       </View>
       )}
       {!esFinDelMundo && <ScrollHintAnimado />}
