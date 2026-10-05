@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, InteractionManager, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Easing, InteractionManager, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { Canvas, useThree } from '@react-three/fiber/native';
 import * as THREE from 'three';
@@ -37,15 +37,15 @@ function obtenerDiorama(escena, horneado) {
   return cacheEscenas.get(escena.id);
 }
 
-function Montaje({ diorama, escena }) {
+function Montaje({ diorama, escena, controlRef }) {
   const { camera, size, scene, invalidate } = useThree();
   useLayoutEffect(() => {
-    configurarCamara(camera, escena, size.width / Math.max(1, size.height));
+    configurarCamara(camera, escena, size.width / Math.max(1, size.height), controlRef?.current);
     scene.fog = diorama.niebla;
     ajustarNiebla(diorama.niebla, escena, camera);
     invalidate();
     return () => { scene.fog = null; };
-  }, [camera, size.width, size.height, scene, diorama, escena, invalidate]);
+  }, [camera, size.width, size.height, scene, diorama, escena, invalidate, controlRef]);
   return (
     <>
       <primitive object={diorama.grupo} dispose={null} />
@@ -145,6 +145,48 @@ export default function MapaRecorrido3D({
   const [listo, setListo] = useState(cacheEscenas.has(escena.id));
   const [tam, setTam] = useState(null);
   const aparicion = useRef(new Animated.Value(0)).current;
+  const controlRef = useRef({ azimut: 0, elevacion: 0, zoom: 1 });
+  const r3fRef = useRef(null);
+  const gestoRef = useRef({ distancia: null, zoomInicial: 1 });
+
+  const aplicarCamara = () => {
+    const estado = r3fRef.current;
+    if (!estado) return;
+    configurarCamara(
+      estado.camera,
+      escena,
+      estado.size.width / Math.max(1, estado.size.height),
+      controlRef.current,
+    );
+    ajustarNiebla(estado.scene.fog, escena, estado.camera);
+    estado.invalidate();
+  };
+
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: (e) => e.nativeEvent.touches?.length >= 2,
+    onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) + Math.abs(g.dy) > 4,
+    onPanResponderGrant: (e) => {
+      const ts = e.nativeEvent.touches || [];
+      gestoRef.current.distancia = ts.length >= 2
+        ? Math.hypot(ts[0].pageX - ts[1].pageX, ts[0].pageY - ts[1].pageY)
+        : null;
+      gestoRef.current.zoomInicial = controlRef.current.zoom;
+    },
+    onPanResponderMove: (e, g) => {
+      const ts = e.nativeEvent.touches || [];
+      if (ts.length >= 2) {
+        const d = Math.hypot(ts[0].pageX - ts[1].pageX, ts[0].pageY - ts[1].pageY);
+        const d0 = gestoRef.current.distancia || d;
+        controlRef.current.zoom = THREE.MathUtils.clamp(gestoRef.current.zoomInicial * (d0 / Math.max(1, d)), 0.58, 1.7);
+      } else {
+        controlRef.current.azimut = THREE.MathUtils.clamp(controlRef.current.azimut + g.dx * 0.0035, -0.72, 0.72);
+        controlRef.current.elevacion = THREE.MathUtils.clamp(controlRef.current.elevacion - g.dy * 0.0026, -0.24, 0.28);
+      }
+      aplicarCamara();
+    },
+    onPanResponderRelease: () => { gestoRef.current.distancia = null; },
+    onPanResponderTerminate: () => { gestoRef.current.distancia = null; },
+  }), [escena]);
 
   // Decodificar el horneado fuera de la transición de navegación.
   useEffect(() => {
@@ -206,7 +248,8 @@ export default function MapaRecorrido3D({
     return { pines, aguas, actual, anguloNorte, etiquetas };
   }, [diorama, tam, checkpoints, escena, kmProgreso, seleccionadoId]);
 
-  const alCrear = ({ gl }) => {
+  const alCrear = ({ gl, camera, size, scene, invalidate }) => {
+    r3fRef.current = { camera, size, scene, invalidate };
     gl.setClearColor(0x000000, 0);
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = escena.exposicion ?? 1.15;
@@ -218,7 +261,8 @@ export default function MapaRecorrido3D({
 
   return (
     <View
-      style={[styles.wrap, { height: altura }]}
+      {...panResponder.panHandlers}
+      style={[styles.wrap, { height: Math.max(altura, 455) }]}
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
         if (!tam || Math.abs(tam.w - width) > 0.5 || Math.abs(tam.h - height) > 0.5) setTam({ w: width, h: height });
@@ -235,7 +279,7 @@ export default function MapaRecorrido3D({
             camera={{ fov: escena.camara.fov, near: 0.1, far: 120, position: [0, 6, -10] }}
             onCreated={alCrear}
           >
-            <Montaje diorama={diorama} escena={escena} />
+            <Montaje diorama={diorama} escena={escena} controlRef={controlRef} />
             <Ruta diorama={diorama} escena={escena} kmProgreso={kmProgreso} />
           </Canvas>
         </Animated.View>
@@ -289,7 +333,7 @@ export default function MapaRecorrido3D({
           {completado ? '✓ CONQUISTADO' : `${kmTxt.toFixed(kmTxt < 10 ? 1 : 0)} / ${Math.round(totalTxt)} km`}
         </Text>
       </View>
-      <Text pointerEvents="none" style={styles.pista}>Tocá un punto para leer su historia</Text>
+      <Text pointerEvents="none" style={styles.pista}>Arrastrá para explorar · pellizcá para zoom</Text>
       <View pointerEvents="none" style={styles.borde} />
     </View>
   );
