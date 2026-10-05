@@ -366,14 +366,26 @@ export default function MapaRecorrido3D({
       { x: tam.w - 120, y: 0, w: 120, h: 44 },
       { x: 0, y: tam.h - 48, w: 56, h: 48 },
     ];
-    const etiquetas = ubicarEtiquetas(
-      pinesVisibles.map((p) => ({ id: p.cp.id, x: p.cabeza.x, y: p.cabeza.y, texto: p.cp.nombre?.toUpperCase(), prioridad: p.cp.id === seleccionadoId ? 2 : 1 })),
-      tam.w,
-      tam.h,
-      { ocupados },
-    );
+    // Durante el playback la cámara se mueve cada frame. Recalcular el
+    // algoritmo de colisiones hace que una etiqueta salte entre dos posiciones
+    // y visualmente "titile". En replay usamos un anclaje determinista.
+    const etiquetas = reproduciendo
+      ? Object.fromEntries(pinesVisibles.map((p) => [
+          p.cp.id,
+          {
+            x: p.cabeza.x + 11,
+            y: p.cabeza.y - 15,
+            visible: true,
+          },
+        ]))
+      : ubicarEtiquetas(
+          pinesVisibles.map((p) => ({ id: p.cp.id, x: p.cabeza.x, y: p.cabeza.y, texto: p.cp.nombre?.toUpperCase(), prioridad: p.cp.id === seleccionadoId ? 2 : 1 })),
+          tam.w,
+          tam.h,
+          { ocupados },
+        );
     return { pines: pinesVisibles, aguas, actual, anguloNorte, etiquetas };
-  }, [mundo, tam, journey, escena, kmProgreso, seleccionadoId, revisionCamara]);
+  }, [mundo, tam, journey, escena, kmProgreso, seleccionadoId, revisionCamara, reproduciendo]);
 
   const alCrear = ({ gl, camera, size, scene, invalidate }) => {
     r3fRef.current = { camera, size, scene, invalidate };
