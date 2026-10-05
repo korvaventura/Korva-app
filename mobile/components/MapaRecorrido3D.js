@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { colors } from '../theme/korvaTheme';
 import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
 import { estadoJourney } from '../services/mapa3d/journeyCore';
-import { ubicarEtiquetas } from '../services/mapa3d/etiquetasCore';
+import { ubicarEtiquetas, seSuperponen } from '../services/mapa3d/etiquetasCore';
 import {
   actualizarAtmosfera,
   configurarCamara,
@@ -346,10 +346,22 @@ export default function MapaRecorrido3D({
       };
     });
     const pinesVisibles = pines.filter((p) => p.cabeza.visible && p.base.visible);
+    const zonasHud = [
+      { x: 0, y: 0, w: tam.w, h: 64 },
+      { x: 0, y: 64, w: 205, h: 72 },
+      { x: 0, y: tam.h - 124, w: 200, h: 124 },
+      { x: tam.w - 56, y: tam.h - 92, w: 56, h: 92 },
+      { x: 0, y: tam.h - 32, w: tam.w, h: 32 },
+      ...(reproduciendo && actividades.length ? [{ x: 0, y: 142, w: 132, h: 120 }] : []),
+    ];
     const aguas = (escena.etiquetas || []).map((e) => {
       const agua = escena.aguas.find((a) => a.id === e.id);
       return { ...e, ...aPx(posicionGeo(datos, conv, e.lat, e.lon, agua ? agua.nivelM : undefined)) };
-    }).filter((e) => e.visible && e.x > 40 && e.x < tam.w - 40);
+    }).filter((e) => {
+      const caja = { x: e.x - 80, y: e.y - 7, w: 160, h: 16 };
+      return e.visible && caja.x >= 6 && caja.x + caja.w <= tam.w - 6
+        && !zonasHud.some((z) => seSuperponen(caja, z));
+    });
     const actualPx = kmProgreso > 0.05 && kmProgreso < escena.distanciaKm - 0.05
       ? aPx(posicionEnKm(datos, conv, kmProgreso, 0))
       : null;
@@ -359,11 +371,9 @@ export default function MapaRecorrido3D({
     const b = aPx(new THREE.Vector3(0, 0, -1));
     const anguloNorte = Math.atan2(b.x - a.x, -(b.y - a.y));
     const ocupados = [
-      ...aguas.map((e) => ({ x: e.x - e.texto.length * 3.8, y: e.y - 7, w: e.texto.length * 7.6, h: 14 })),
+      ...aguas.map((e) => ({ x: e.x - 80, y: e.y - 7, w: 160, h: 16 })),
       ...(actual ? [{ x: actual.x - 12, y: actual.y - 12, w: 24, h: 24 }] : []),
-      { x: 0, y: 0, w: 190, h: 118 },
-      { x: tam.w - 120, y: 0, w: 120, h: 44 },
-      { x: 0, y: tam.h - 48, w: 56, h: 48 },
+      ...zonasHud,
     ];
     // Durante el playback la cámara se mueve cada frame. Recalcular el
     // algoritmo de colisiones hace que una etiqueta salte entre dos posiciones
@@ -379,17 +389,18 @@ export default function MapaRecorrido3D({
             // un nombre truncado como "USHUA...".
             w: Math.max(74, (p.cp.nombre?.length || 0) * 7.4 + 18),
             lado: 'derecha',
+            h: 26,
             visible: true,
           },
         ]))
       : ubicarEtiquetas(
-          pinesVisibles.map((p) => ({ id: p.cp.id, x: p.cabeza.x, y: p.cabeza.y, texto: p.cp.nombre?.toUpperCase(), prioridad: p.cp.id === seleccionadoId ? 2 : 1 })),
+          pinesVisibles.map((p) => ({ id: p.cp.id, x: p.cabeza.x, y: p.cabeza.y, texto: p.cp.nombre?.toUpperCase(), prioridad: p.cp.id === seleccionadoId ? 4 : p.estadoJourney === 'proximo' ? 3 : p.desbloqueado ? 2 : 1 })),
           tam.w,
           tam.h,
-          { ocupados },
+          { ocupados, ocultarSiNoCabe: true },
         );
-    return { pines: pinesVisibles, aguas, actual, anguloNorte, etiquetas };
-  }, [mundo, tam, journey, escena, kmProgreso, seleccionadoId, revisionCamara, reproduciendo]);
+    return { pines: pinesVisibles, aguas, actual, anguloNorte, etiquetas, zonasHud };
+  }, [mundo, tam, journey, escena, kmProgreso, seleccionadoId, revisionCamara, reproduciendo, actividades.length]);
 
   const alCrear = ({ gl, camera, size, scene, invalidate }) => {
     r3fRef.current = { camera, size, scene, invalidate };
@@ -548,7 +559,7 @@ export default function MapaRecorrido3D({
                 >
                   {sel && <View style={styles.pinNucleo} />}
                 </TouchableOpacity>
-                {caja && (!reproduciendo || (caja.x >= 4 && caja.x + caja.w <= (tam?.w || 0) - 4)) && (
+                {caja && !overlay.zonasHud.some((zona) => seSuperponen(caja, zona)) && (!reproduciendo || (caja.x >= 4 && caja.x + caja.w <= (tam?.w || 0) - 4)) && (
                   <TouchableOpacity activeOpacity={0.75} onPress={presionar} style={[styles.etiqueta, { left: caja.x, top: caja.y, width: caja.w }, caja.lado === 'izquierda' && styles.etiquetaIzq, (caja.lado === 'arriba' || caja.lado === 'abajo') && styles.etiquetaCentro]}>
                     <Text numberOfLines={1} style={[styles.etiquetaNombre, !desbloqueado && styles.etiquetaBloqueada, sel && styles.etiquetaSel]}>{cp.nombre?.toUpperCase()}</Text>
                     <Text numberOfLines={1} style={styles.etiquetaKm}>{desbloqueado ? `${Math.round(km)} km` : estadoJourney === 'proximo' ? `PRÓXIMO · ${Math.round(km)} km` : `🔒 ${Math.round(km)} km`}</Text>
@@ -587,8 +598,8 @@ export default function MapaRecorrido3D({
       )}
 
       <View pointerEvents="none" style={styles.hud}>
-        <Text style={styles.hudEyebrow}>{escena.presentacion?.eyebrow || 'KORVA JOURNEY'}</Text>
-        <Text style={styles.hudTitulo}>{escena.presentacion?.titulo || 'Tu recorrido'}</Text>
+        <Text numberOfLines={1} style={[styles.hudEyebrow, { maxWidth: Math.max(100, (tam?.w || 320) - 150) }]}>{escena.presentacion?.eyebrow || 'KORVA JOURNEY'}</Text>
+        <Text numberOfLines={1} style={styles.hudTitulo}>{escena.presentacion?.titulo || 'Tu recorrido'}</Text>
       </View>
       <View pointerEvents="none" style={[styles.chip, completado && styles.chipCompleto]}>
         <Text style={[styles.chipTxt, completado && styles.chipTxtCompleto]}>
@@ -641,8 +652,8 @@ const styles = StyleSheet.create({
   borde: { ...StyleSheet.absoluteFillObject, borderWidth: 1, borderColor: colors.borderSoft, borderRadius: 18 },
   cargando: { position: 'absolute', alignSelf: 'center', top: '48%', color: colors.textDim, fontSize: 11, letterSpacing: 0.6 },
 
-  hud: { position: 'absolute', left: 14, top: 12 },
-  actividadesJourney: { position: 'absolute', left: 14, top: 96, width: 104, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 12, backgroundColor: 'rgba(9,23,37,0.72)', borderWidth: 1, borderColor: 'rgba(168,207,255,0.16)' },
+  hud: { position: 'absolute', left: 14, right: 14, top: 12 },
+  actividadesJourney: { position: 'absolute', left: 14, top: 142, width: 104, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 12, backgroundColor: 'rgba(9,23,37,0.72)', borderWidth: 1, borderColor: 'rgba(168,207,255,0.16)' },
   actividadesEyebrow: { color: 'rgba(168,207,255,0.62)', fontSize: 7, fontWeight: '900', letterSpacing: 1.25, marginBottom: 5 },
   actividadFila: { flexDirection: 'row', alignItems: 'center', minHeight: 25, opacity: 0.48 },
   actividadFilaActual: { opacity: 1 },
@@ -653,7 +664,7 @@ const styles = StyleSheet.create({
   actividadTipoActual: { color: '#FFFFFF' },
   actividadKm: { color: colors.textMuted, fontSize: 8, marginTop: 1 },
   hudEyebrow: { color: colors.brandOrange, fontSize: 9, fontWeight: '900', letterSpacing: 1.8 },
-  hudTitulo: { color: colors.text, fontSize: 14, fontWeight: '800', marginTop: 2, ...sombraTexto },
+  hudTitulo: { color: colors.text, fontSize: 13, fontWeight: '800', marginTop: 14, ...sombraTexto },
   chip: { position: 'absolute', right: 12, top: 12, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: 'rgba(9,23,37,0.72)', borderWidth: 1, borderColor: 'rgba(168,207,255,0.22)' },
   chipCompleto: { backgroundColor: 'rgba(243,107,10,0.18)', borderColor: 'rgba(255,176,120,0.55)' },
   chipTxt: { color: colors.textSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
@@ -664,10 +675,10 @@ const styles = StyleSheet.create({
   cierreKm: { color: '#FFFFFF', fontSize: 34, fontWeight: '900', letterSpacing: 1.2, marginTop: 3, ...sombraTexto },
   cierreLinea: { width: 34, height: 2, borderRadius: 1, backgroundColor: colors.brandOrange, marginVertical: 7 },
   cierreTitulo: { color: colors.textSoft, fontSize: 12, fontWeight: '800', letterSpacing: 0.8, ...sombraTexto },
-  playJourney: { position: 'absolute', left: 14, top: 54, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, backgroundColor: 'rgba(243,107,10,0.9)', shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 2 } },
+  playJourney: { position: 'absolute', left: 14, top: 66, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 999, backgroundColor: 'rgba(243,107,10,0.9)', shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 5, shadowOffset: { width: 0, height: 2 } },
   playJourneyActivo: { backgroundColor: 'rgba(9,23,37,0.88)', borderWidth: 1, borderColor: 'rgba(255,176,120,0.65)' },
   playJourneyTxt: { color: '#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
-  estoyAca: { position: 'absolute', left: 14, top: 88, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 999, backgroundColor: 'rgba(9,23,37,0.82)', borderWidth: 1, borderColor: 'rgba(243,107,10,0.55)' },
+  estoyAca: { position: 'absolute', left: 14, top: 100, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 999, backgroundColor: 'rgba(9,23,37,0.82)', borderWidth: 1, borderColor: 'rgba(243,107,10,0.55)' },
   estoyAcaTxt: { color: colors.brandOrangeSoft, fontSize: 9, fontWeight: '900', letterSpacing: 0.7 },
   recentrar: { position: 'absolute', right: 12, bottom: 42, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(9,23,37,0.82)', borderWidth: 1, borderColor: 'rgba(168,207,255,0.28)' },
   recentrarTxt: { color: colors.text, fontSize: 18, fontWeight: '700' },

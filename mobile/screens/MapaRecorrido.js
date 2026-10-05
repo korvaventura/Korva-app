@@ -457,7 +457,7 @@ function HistoriaInline({ cp, factor, distanciaTotal, estaDesbloqueado, esInicio
           <Text style={styles.historiaNombre}>{cp.nombre}</Text>
           <Text style={styles.historiaKm}>{((cp.kmFisico || 0) * factor).toFixed(0)} km de {distanciaTotal} km</Text>
         </View>
-        <TouchableOpacity onPress={onCerrar} style={styles.historiaCerrarBtn} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
+        <TouchableOpacity onPress={onCerrar} style={styles.historiaCerrarBtn} accessibilityLabel="Cerrar historia" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.historiaCerrarText}>✕</Text>
         </TouchableOpacity>
       </View>
@@ -550,10 +550,12 @@ function MapaSVG({ config, kmFisicos, pinPos, rutaBasePath, pathCompletado, puls
   );
 }
 
-export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, actividades = [], onScrollBegin, onScrollEnd, fullscreen = false, integrado = false, ocultarTitulo = false }) {
+export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, actividades = [], onScrollBegin, onScrollEnd, fullscreen = false, integrado = false, ocultarTitulo = false, alturaMapa = 455, onHistoriaAbierta }) {
   const [cpSeleccionado, setCpSeleccionado] = useState(null);
   const [modalMapaVisible, setModalMapaVisible] = useState(false);
+  const [altoModal, setAltoModal] = useState(Dimensions.get('window').height - 140);
   const scrollViewRef = useRef(null);
+  const modalScrollRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
   const config = getConfig(challengeId, challengeTitle);
@@ -611,7 +613,9 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
   };
 
   const handleCheckpointPress = (cp) => {
-    setCpSeleccionado(prev => prev?.id === cp.id ? null : cp);
+    const abrir = cpSeleccionado?.id !== cp.id;
+    setCpSeleccionado(abrir ? cp : null);
+    if (abrir) onHistoriaAbierta?.();
   };
 
   // ── MODO PREVIEW LIVIANO ─────────────────────────────────────
@@ -692,10 +696,13 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
                   <Text style={styles.cerrarBtnText}>✕</Text>
                 </TouchableOpacity>
               </View>
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+              <View style={{ flex: 1 }} onLayout={(e) => setAltoModal(e.nativeEvent.layout.height)}>
+              <ScrollView ref={modalScrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 12, paddingBottom: 32 }}>
                 <MapaRecorrido
                   fullscreen
                   ocultarTitulo
+                  alturaMapa={Math.max(455, altoModal - 32)}
+                  onHistoriaAbierta={() => requestAnimationFrame(() => modalScrollRef.current?.scrollTo({ y: Math.max(0, altoModal - 180), animated: true }))}
                   kmCompletados={kmCompletados}
                   distanciaTotal={distanciaTotal}
                   porcentaje={porcentaje}
@@ -704,6 +711,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
                   actividades={actividades}
                 />
               </ScrollView>
+              </View>
             </View>
           </Modal>
         )}
@@ -725,6 +733,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
         <View style={styles.mapa3DWrapper}>
           <MapaRecorrido3D
             key={mapa3D.escena.id}
+            altura={alturaMapa}
             escena={mapa3D.escena}
             horneado={mapa3D.horneado}
             checkpoints={checkpoints}
@@ -846,8 +855,8 @@ const styles = StyleSheet.create({
   leyendaNombre: { fontSize: 11, color: '#64748B', fontWeight: 'bold' },
   leyendaNombreActivo: { color: '#F8FAFC' },
   leyendaKm: { fontSize: 10, color: '#94A3B8', marginTop: 2 },
-  historiaContainer: { backgroundColor: '#1E293B', borderRadius: 16, marginHorizontal: 16, marginTop: 4, marginBottom: 8, padding: 16, borderWidth: 1, borderColor: '#334155', maxHeight: 280 },
-  historiaContainerCompacto: { marginTop: 10, padding: 14, borderColor: '#29496B', backgroundColor: '#13283D' },
+  historiaContainer: { backgroundColor: '#1E293B', borderRadius: 16, marginHorizontal: 16, marginTop: 4, marginBottom: 8, padding: 16, borderWidth: 1, borderColor: '#334155' },
+  historiaContainerCompacto: { marginHorizontal: 0, marginTop: 12, padding: 14, borderColor: '#29496B', backgroundColor: '#13283D' },
   historiaHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   historiaEmoji: { fontSize: 28, marginRight: 12 },
   historiaTituloWrap: { flex: 1 },

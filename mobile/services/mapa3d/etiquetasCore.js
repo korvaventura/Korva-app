@@ -15,7 +15,7 @@ function seSuperponen(a, b) {
 
 // items: [{ id, x, y, texto, prioridad }] con (x, y) = centro del pin en px.
 // Devuelve { [id]: { lado, x, y, w, h } } con la caja de la etiqueta.
-function ubicarEtiquetas(items, ancho, alto, { radioPin = 9, ocupados = [] } = {}) {
+function ubicarEtiquetas(items, ancho, alto, { radioPin = 9, ocupados = [], ocultarSiNoCabe = false } = {}) {
   const cajas = [...ocupados];
   items.forEach((it) => cajas.push({ x: it.x - radioPin, y: it.y - radioPin, w: radioPin * 2, h: radioPin * 2 }));
   const orden = [...items].sort((a, b) => (b.prioridad || 0) - (a.prioridad || 0));
@@ -34,6 +34,7 @@ function ubicarEtiquetas(items, ancho, alto, { radioPin = 9, ocupados = [] } = {
     const dentro = (c) => c.x >= MARGEN && c.y >= MARGEN && c.x + w <= ancho - MARGEN && c.y + h <= alto - MARGEN;
     const libre = (c) => !cajas.some((o) => seSuperponen({ ...c, w, h }, o));
     let elegido = candidatos.find((c) => dentro(c) && libre(c));
+    if (!elegido && ocultarSiNoCabe) continue;
     if (!elegido) elegido = candidatos.find((c) => dentro(c)) || candidatos[0];
     const caja = { lado: elegido.lado, x: elegido.x, y: elegido.y, w, h };
     cajas.push(caja);
