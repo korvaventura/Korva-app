@@ -1,3 +1,4 @@
+﻿import './performance-polyfill';
 import './services/gps/gpsBackgroundTask';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -23,11 +24,12 @@ import SaludDiagnosticoScreen from './screens/SaludDiagnosticoScreen';
 import GpsTrackerScreen from './screens/GpsTrackerScreen';
 import MisActividadesScreen from './screens/MisActividadesScreen';
 import DetalleActividadScreen from './screens/DetalleActividadScreen';
+import KorvaMundiScreen from './screens/KorvaMundiScreen';
 import useHealthAutoSync from './services/health/useHealthAutoSync';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from './theme/korvaTheme';
 
-// ACÁ AGRUPAMOS TODO LO DE REACT NATIVE EN UNA SOLA LÍNEA Y AGREGAMOS 'View':
+// AC? AGRUPAMOS TODO LO DE REACT NATIVE EN UNA SOLA L?NEA Y AGREGAMOS 'View':
 import { View, Text, TextInput, Platform, ActivityIndicator } from 'react-native';
 
 // Deshabilitar font scaling globalmente
@@ -118,7 +120,7 @@ export default function App() {
   const [mostrarOnboarding, setMostrarOnboarding] = useState(false);
   const [mostrarReset, setMostrarReset] = useState(false);
 
-  // Sync automático de Apple Health: solo iOS y, por ahora, solo admins (con opt-in en el diagnóstico).
+  // Sync autom?tico de Apple Health: solo iOS y, por ahora, solo admins (con opt-in en el diagn?stico).
   // Va antes de cualquier return para no cambiar el orden de los hooks.
   useHealthAutoSync(usuario && ADMINS.includes(usuario.email?.toLowerCase()) ? usuario.id : null);
 
@@ -132,7 +134,7 @@ export default function App() {
           const token = parsed.searchParams.get('token') || parsed.searchParams.get('token_hash');
           const type = parsed.searchParams.get('type') || 'recovery';
           if (token) {
-            // Verificar el token con Supabase para establecer la sesión
+            // Verificar el token con Supabase para establecer la sesi?n
             await supabase.auth.verifyOtp({ token_hash: token, type });
           }
         } catch (e) {
@@ -183,9 +185,9 @@ export default function App() {
   if (cargando) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: 64, marginBottom: 16 }}>🏅</Text>
+        <Text style={{ fontSize: 64, marginBottom: 16 }}>??</Text>
         <Text style={{ fontSize: 36, fontWeight: 'bold', color: colors.text, letterSpacing: 6, marginBottom: 8 }}>KORVA</Text>
-        <Text style={{ fontSize: 14, color: colors.textSoft, marginBottom: 32 }}>Desafíos virtuales. Medallas reales.</Text>
+        <Text style={{ fontSize: 14, color: colors.textSoft, marginBottom: 32 }}>Desaf?os virtuales. Medallas reales.</Text>
         <ActivityIndicator color="#FC4C02" size="large" />
       </View>
     );
@@ -219,6 +221,7 @@ export default function App() {
         <Stack.Screen name="GpsTracker" component={GpsTrackerScreen} />
         <Stack.Screen name="MisActividades" component={MisActividadesScreen} />
         <Stack.Screen name="DetalleActividad" component={DetalleActividadScreen} />
+        <Stack.Screen name="KorvaMundi" component={KorvaMundiScreen} />
         {esAdmin && (
           <Stack.Screen name="SaludDiagnostico" component={SaludDiagnosticoScreen} />
         )}
@@ -226,3 +229,4 @@ export default function App() {
     </NavigationContainer>
   );
 }
+

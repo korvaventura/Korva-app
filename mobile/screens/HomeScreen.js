@@ -12,6 +12,7 @@ import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import MapaRecorrido from './MapaRecorrido';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { distanciaDeInscripcion } from '../utils/versionDesafio';
 import { listarMisActividades } from '../services/actividadesApi';
 import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
@@ -658,6 +659,12 @@ export default function HomeScreen({ navigation }) {
         </View>
       )}
 
+      <KorvaMundiTeaser
+        conquistados={challengesCompletados.length}
+        enCurso={challengesEnCurso.filter((c) => !c.pausado).length}
+        onPress={() => navigation.navigate('KorvaMundi')}
+      />
+
       {/* Banner pago — FIX: usa cerrarBanner() */}
       {bannerVisible && !cargando && (
         <View style={styles.bannerCard}>
@@ -944,6 +951,35 @@ export default function HomeScreen({ navigation }) {
 }
 
 // ─── Componente reto individual ──────────────────────────────────
+function KorvaMundiTeaser({ conquistados, enCurso, onPress }) {
+  const resumen = conquistados === 0 && enCurso === 0
+    ? 'El mundo te espera'
+    : `${conquistados} conquistado${conquistados === 1 ? '' : 's'} · ${enCurso} en curso`;
+  return (
+    <TouchableOpacity style={styles.korvaMundiCard} onPress={onPress} activeOpacity={0.9}>
+      <View style={styles.korvaMundiCopy}>
+        <Text style={styles.korvaMundiEyebrow}>KORVAMUNDI</Text>
+        <Text style={styles.korvaMundiTitle}>Tu mundo por conquistar</Text>
+        <Text style={styles.korvaMundiMeta}>{resumen}</Text>
+        <View style={styles.korvaMundiLink}>
+          <Text style={styles.korvaMundiLinkText}>Explorar mundo</Text>
+          <Ionicons name="arrow-forward" size={14} color={colors.brandOrangeSoft} />
+        </View>
+      </View>
+      <View style={styles.korvaMundiGlobe} pointerEvents="none">
+        <Svg width="158" height="158" viewBox="0 0 158 158">
+          <Circle cx="82" cy="79" r="61" fill="#091E30" stroke="#2C5B7E" strokeWidth="1.2" />
+          <Path d="M23 79 C48 58 112 58 141 79 M23 79 C49 101 112 101 141 79 M82 18 C57 43 57 116 82 140 M82 18 C108 44 108 115 82 140" fill="none" stroke="rgba(91,153,202,0.28)" strokeWidth="1" />
+          <Path d="M52 43 C60 35 70 35 75 43 C79 49 72 55 66 57 C60 59 60 67 54 68 C47 66 44 57 47 50 Z M92 71 C101 64 114 66 119 76 C123 86 116 96 108 101 C99 105 92 99 89 91 C86 84 86 76 92 71 Z" fill="rgba(76,139,187,0.20)" />
+          <Circle cx="111" cy="54" r="4" fill="#FC4C02" />
+          <Circle cx="111" cy="54" r="9" fill="none" stroke="rgba(252,76,2,0.22)" strokeWidth="3" />
+        </Svg>
+        <View style={styles.korvaMundiPlane}><Ionicons name="airplane" size={17} color={colors.textSoft} /></View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 function GpsHomeAction({ navigation }) {
   return (
     <TouchableOpacity style={styles.gpsHeroAction} onPress={() => navigation.navigate('GpsTracker')} activeOpacity={0.88}>
@@ -1080,6 +1116,15 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   saludo: { fontSize: 22, fontWeight: 'bold', color: colors.text, marginBottom: 2 },
   subtitulo: { fontSize: 12, color: colors.textMuted },
+  korvaMundiCard: { minHeight: 146, marginTop: 14, marginBottom: 20, borderRadius: 22, overflow: 'hidden', backgroundColor: '#0B2134', borderWidth: 1, borderColor: '#234766', flexDirection: 'row', alignItems: 'stretch' },
+  korvaMundiCopy: { flex: 1, zIndex: 2, paddingLeft: 18, paddingVertical: 18, paddingRight: 4, justifyContent: 'center' },
+  korvaMundiEyebrow: { color: colors.brandOrangeSoft, fontSize: 9, fontWeight: '900', letterSpacing: 2.3, marginBottom: 7 },
+  korvaMundiTitle: { color: colors.text, fontSize: 18, lineHeight: 23, fontWeight: '900', maxWidth: 180 },
+  korvaMundiMeta: { color: colors.textMuted, fontSize: 10, marginTop: 6 },
+  korvaMundiLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 13 },
+  korvaMundiLinkText: { color: colors.brandOrangeSoft, fontSize: 11, fontWeight: '800' },
+  korvaMundiGlobe: { position: 'absolute', width: 158, height: 158, right: -35, top: -7, opacity: 0.96 },
+  korvaMundiPlane: { position: 'absolute', left: 12, top: 23, transform: [{ rotate: '-18deg' }] },
   bannerStrava: {
     flexDirection: 'row',
     alignItems: 'flex-start',
