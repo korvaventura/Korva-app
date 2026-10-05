@@ -7,7 +7,7 @@ import { solicitarGrupo } from '../services/gruposCore';
 import { colors } from '../theme/korvaTheme';
 import KorvaSheet from './KorvaSheet';
 
-export default function KorvaGroups({ navigation }) {
+export default function KorvaGroups({ navigation, launcherOnly = false, onGroupsChanged }) {
   const [grupos, setGrupos] = useState([]);
   const [visible, setVisible] = useState(false);
   const [modo, setModo] = useState('inicio');
@@ -40,6 +40,7 @@ export default function KorvaGroups({ navigation }) {
       await solicitarGrupo({ session, accion, datos });
       setNombre(''); setCodigo(''); setModo('inicio');
       await cargar();
+      onGroupsChanged?.();
     } catch(e) { setError(e.message); }
     finally { lock.current = false; setOcupado(false); }
   };
@@ -47,21 +48,25 @@ export default function KorvaGroups({ navigation }) {
     <View style={styles.row}><Ionicons name="people-outline" size={22} color={colors.brandOrangeSoft}/><Text style={styles.name}>{g.nombre}</Text></View>
     <Text style={styles.label}>Código para invitar</Text><Text style={styles.code}>{g.codigo}</Text>
     <View style={styles.row}>
-      <TouchableOpacity style={styles.secondary} onPress={() => Share.share({ message: `Unite a ${g.nombre} en Korva con el código ${g.codigo}. En Perfil, abrí Mis grupos y elegí Unirme con código. https://korva.run` }).catch(() => setError('No pudimos abrir las opciones para compartir.'))}><Text style={styles.link}>Compartir código</Text></TouchableOpacity>
+      <TouchableOpacity style={styles.secondary} onPress={() => Share.share({ message: `Unite a ${g.nombre} en Korva con el código ${g.codigo}. En Comunidad, abrí Grupos y elegí Unirme con código. https://korva.run` }).catch(() => setError('No pudimos abrir las opciones para compartir.'))}><Text style={styles.link}>Compartir código</Text></TouchableOpacity>
       <TouchableOpacity style={styles.secondary} onPress={() => { setVisible(false); navigation.navigate('Ranking', { grupoId: g.id, tab: 'grupo' }); }}><Text style={styles.link}>Ver comunidad</Text></TouchableOpacity>
     </View>
     <TouchableOpacity style={styles.secondary} disabled={ocupado} onPress={() => Alert.alert('Salir del grupo', `¿Querés salir de ${g.nombre}?`, [{ text: 'Cancelar', style:'cancel' }, { text:'Salir',style:'destructive',onPress:()=>ejecutar('salir',{group_id:g.id}) }])}><Text style={styles.muted}>Salir del grupo</Text></TouchableOpacity>
   </View>);
   return <>
-    <View style={styles.row}><Text style={styles.heading}>Mis grupos</Text><TouchableOpacity style={styles.secondary} onPress={abrir}><Text style={styles.link}>Gestionar</Text></TouchableOpacity></View>
-    {cargando ? <ActivityIndicator color={colors.actionBlue}/> : error ? <TouchableOpacity style={styles.card} onPress={abrir}><Text style={styles.body}>{error}</Text><Text style={styles.link}>Ver opciones</Text></TouchableOpacity> : grupos.length ? tarjetas : <TouchableOpacity style={styles.card} onPress={abrir}><Text style={styles.name}>Compartí el camino</Text><Text style={styles.body}>Creá un grupo o unite con el código de tus amigos.</Text><Text style={styles.link}>Explorar grupos →</Text></TouchableOpacity>}
+    {launcherOnly ? (
+      <TouchableOpacity style={styles.launcher} onPress={abrir}><Ionicons name="add" size={18} color={colors.actionBlue}/><Text style={styles.link}>Grupo</Text></TouchableOpacity>
+    ) : <>
+      <View style={styles.row}><Text style={styles.heading}>Mis grupos</Text><TouchableOpacity style={styles.secondary} onPress={abrir}><Text style={styles.link}>Gestionar</Text></TouchableOpacity></View>
+      {cargando ? <ActivityIndicator color={colors.actionBlue}/> : error ? <TouchableOpacity style={styles.card} onPress={abrir}><Text style={styles.body}>{error}</Text><Text style={styles.link}>Ver opciones</Text></TouchableOpacity> : grupos.length ? tarjetas : <TouchableOpacity style={styles.card} onPress={abrir}><Text style={styles.name}>Compartí el camino</Text><Text style={styles.body}>Creá un grupo o unite con el código de tus amigos.</Text><Text style={styles.link}>Explorar grupos →</Text></TouchableOpacity>}
+    </>}
     <KorvaSheet visible={visible} title={modo==='crear'?'Crear grupo':modo==='unirse'?'Unirme a un grupo':'Mis grupos'} onClose={()=>setVisible(false)}>
       {modo==='inicio' ? <>
         <Text style={styles.body}>Cada persona sigue su aventura. En Comunidad pueden acompañarse y ver su progreso juntos.</Text>
         {cargando ? <ActivityIndicator color={colors.actionBlue}/> : tarjetas}
         <TouchableOpacity style={styles.primary} disabled={ocupado} onPress={()=>{setModo('crear');setError('');}}><Text style={styles.primaryText}>Crear grupo</Text></TouchableOpacity>
         <TouchableOpacity style={styles.secondary} disabled={ocupado} onPress={()=>{setModo('unirse');setError('');}}><Text style={styles.link}>Unirme con código</Text></TouchableOpacity>
-        <Text style={styles.muted}>Hasta 3 grupos por persona · 50 miembros por grupo. Compartís el código y tus amigos lo ingresan desde Perfil.</Text>
+        <Text style={styles.muted}>Hasta 3 grupos por persona · 50 miembros por grupo. Compartís el código y tus amigos lo ingresan desde Comunidad → Grupos.</Text>
       </> : <>
         <Text style={styles.body}>{modo==='crear'?'Elegí un nombre. Al crearlo vas a recibir un código para invitar a tus amigos.':'Ingresá el código que te compartieron.'}</Text>
         <Text style={styles.label}>{modo==='crear'?'Nombre del grupo':'Código de invitación'}</Text>
@@ -81,5 +86,6 @@ const styles=StyleSheet.create({
  secondary:{minHeight:44,justifyContent:'center',paddingVertical:10},link:{color:colors.actionBlue,fontWeight:'600',fontSize:13},muted:{color:colors.textMuted,fontSize:12,lineHeight:19},
  primary:{backgroundColor:colors.brandOrange,minHeight:50,borderRadius:14,alignItems:'center',justifyContent:'center',marginTop:12,marginBottom:12},primaryText:{color:colors.text,fontSize:15,fontWeight:'700'},
  input:{backgroundColor:colors.surfaceSoft,color:colors.text,borderRadius:14,borderWidth:1,borderColor:colors.border,padding:16,fontSize:16},
+ launcher:{minHeight:40,paddingHorizontal:12,borderRadius:12,borderWidth:1,borderColor:colors.borderSoft,flexDirection:'row',alignItems:'center',gap:6},
  error:{backgroundColor:colors.surfaceSoft,borderRadius:14,padding:16,marginTop:12},
 });

@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Image, Dimensions, TextInput, Modal, Linking } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Image, Dimensions, TextInput, Modal, Linking, Share } from 'react-native';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { solicitarGrupo } from '../services/gruposCore';
@@ -6,6 +6,7 @@ import { supabase } from '../supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../theme/korvaTheme';
+import KorvaGroups from '../components/KorvaGroups';
 import { ESTANDAR, versionDeInscripcion, versionesDelDesafio, iconoVersion } from '../utils/versionDesafio';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
@@ -42,6 +43,8 @@ export default function RankingScreen({ navigation, route }) {
   const [rankingGrupo, setRankingGrupo] = useState([]);
   const [resumenGrupo, setResumenGrupo] = useState([]);
   const [vistaGrupo, setVistaGrupo] = useState('desafios');
+  const [personaExpandida, setPersonaExpandida] = useState(null);
+  const [busquedaGrupo, setBusquedaGrupo] = useState('');
   const [rankingPaises, setRankingPaises] = useState([]);
   const [resumenPaises, setResumenPaises] = useState(null);
   const [busqueda, setBusqueda] = useState('');
@@ -92,6 +95,16 @@ export default function RankingScreen({ navigation, route }) {
     })();
     return () => { vigente = false; ++grupoPeticion.current; };
   }, [route?.params?.grupoId, route?.params?.tab, recargaGrupos]));
+
+  const refrescarGrupos = () => setRecargaGrupos(n => n + 1);
+  const participantesGrupo = [...resumenGrupo].sort((a, b) => {
+    if (a.user_id === miUserId) return -1;
+    if (b.user_id === miUserId) return 1;
+    return (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' });
+  });
+  const participantesGrupoVisibles = busquedaGrupo.trim()
+    ? participantesGrupo.filter(p => (p.nombre || '').toLowerCase().includes(busquedaGrupo.trim().toLowerCase()))
+    : participantesGrupo;
 
   useEffect(() => {
     if (tabVista === 'grupo' && grupoSeleccionado?.id) cargarResumenGrupo(grupoSeleccionado.id);
@@ -637,7 +650,7 @@ export default function RankingScreen({ navigation, route }) {
               <Ionicons name="people-outline" size={34} color={colors.brandOrangeSoft} />
               <Text style={styles.emptyText}>Tu aventura también puede ser compartida</Text>
               <Text style={styles.statusNote}>Creá un grupo o unite con un código para acompañar a amigos, familia o equipo. Cada persona mantiene sus propios desafíos y progreso.</Text>
-              <TouchableOpacity style={styles.verMasBtn} onPress={() => navigation.navigate('Perfil')}><Text style={styles.refreshText}>Crear o unirme a un grupo</Text></TouchableOpacity>
+              <View style={{ marginTop:14, alignItems:'center' }}><KorvaGroups navigation={navigation} launcherOnly onGroupsChanged={refrescarGrupos} /></View>
             </View>
           ) : <>
             {misGruposRanking.length > 1 && (
@@ -649,9 +662,17 @@ export default function RankingScreen({ navigation, route }) {
                 ))}
               </ScrollView>
             )}
-            <View style={{ backgroundColor: colors.surfaceSoft, borderRadius: 16, padding: 16, marginBottom: 14 }}>
-              <Text style={{ color: colors.text, fontSize: 19, fontWeight: '800' }}>{grupoSeleccionado.nombre}</Text>
-              <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 5 }}>{resumenGrupo.length} {resumenGrupo.length === 1 ? 'participante' : 'participantes'} · Código {grupoSeleccionado.codigo}</Text>
+            <View style={{ backgroundColor: colors.surfaceSoft, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 12 }}>
+              <View style={{ flexDirection:'row', alignItems:'center', gap:10 }}>
+                <View style={{ flex:1, minWidth:0 }}>
+                  <Text style={{ color: colors.text, fontSize: 17, fontWeight: '800' }} numberOfLines={1}>{grupoSeleccionado.nombre}</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: 3 }}>{resumenGrupo.length} {resumenGrupo.length === 1 ? 'participante' : 'participantes'} · Código {grupoSeleccionado.codigo}</Text>
+                </View>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Compartir invitación" style={{ width:40, height:40, alignItems:'center', justifyContent:'center', borderRadius:12, borderWidth:1, borderColor:colors.borderSoft }} onPress={() => Share.share({ message: `Unite a ${grupoSeleccionado.nombre} en Korva con el código ${grupoSeleccionado.codigo}. En Comunidad, abrí Grupos y elegí Unirme con código. https://korva.run` })}>
+                  <Ionicons name="share-outline" size={18} color={colors.actionBlue} />
+                </TouchableOpacity>
+                <KorvaGroups navigation={navigation} launcherOnly onGroupsChanged={refrescarGrupos} />
+              </View>
             </View>
             <View style={{ flexDirection:'row', backgroundColor:colors.background, borderRadius:12, padding:3, marginBottom:16 }}>
               <TouchableOpacity style={{ flex:1, minHeight:42, alignItems:'center', justifyContent:'center', borderRadius:10, backgroundColor:vistaGrupo==='desafios'?colors.surfaceRaised:'transparent' }} onPress={()=>setVistaGrupo('desafios')}><Text style={{ color:colors.text, fontWeight:'700', fontSize:13 }}>Desafíos</Text></TouchableOpacity>
@@ -668,21 +689,45 @@ export default function RankingScreen({ navigation, route }) {
               <TouchableOpacity style={styles.verMasBtn} onPress={() => cargarResumenGrupo(grupoSeleccionado.id)}><Text style={styles.refreshText}>No pudimos cargar el grupo · Reintentar</Text></TouchableOpacity>
             ) : resumenGrupo.length === 0 ? (
               <Text style={styles.statusNote}>Todavía no hay participantes para mostrar.</Text>
-            ) : resumenGrupo.map((persona) => (
-              <View key={persona.user_id} style={{ backgroundColor: persona.user_id === miUserId ? colors.surfaceSoft : colors.background, borderRadius:16, padding:16, marginBottom:10, borderWidth: persona.user_id === miUserId ? 1 : 0, borderColor:colors.brandOrangeSoft }}>
-                <View style={{ flexDirection:'row', alignItems:'center', marginBottom: persona.desafios.length ? 12 : 0 }}>
-                  <AvatarItem item={persona} size={40} />
-                  <View style={{ flex:1, marginLeft:12 }}><Text style={{ color:colors.text, fontWeight:'800', fontSize:15 }}>{persona.nombre}{persona.user_id === miUserId ? ' (vos)' : ''}</Text><Text style={{ color:colors.textMuted, fontSize:12, marginTop:3 }}>{persona.total_desafios} {persona.total_desafios === 1 ? 'desafío' : 'desafíos'} en curso o completados</Text></View>
+            ) : <>
+              {participantesGrupo.length > 10 && (
+                <View style={{ flexDirection:'row', alignItems:'center', backgroundColor:colors.surfaceSoft, borderRadius:12, paddingHorizontal:12, marginBottom:10, borderWidth:1, borderColor:colors.borderSoft }}>
+                  <Ionicons name="search-outline" size={17} color={colors.textMuted} />
+                  <TextInput value={busquedaGrupo} onChangeText={setBusquedaGrupo} placeholder="Buscar participante..." placeholderTextColor={colors.textMuted} autoCorrect={false} style={{ flex:1, minHeight:44, color:colors.text, fontSize:14, paddingHorizontal:9 }} />
                 </View>
-                {persona.desafios.length === 0 ? <Text style={styles.statusNote}>Sin desafíos activos o completados para mostrar.</Text> : persona.desafios.map((d) => (
-                  <View key={d.challenge_id} style={{ paddingTop:10, paddingBottom:8, borderTopWidth:1, borderTopColor:colors.borderSoft }}>
-                    <View style={{ flexDirection:'row', alignItems:'center' }}><Text style={{ color:colors.textSoft, fontSize:13, fontWeight:'700', flex:1 }}>{d.titulo}</Text><Text style={{ color:colors.brandOrangeSoft, fontSize:13, fontWeight:'800' }}>{d.porcentaje === null ? '—' : `${d.porcentaje}%`}</Text></View>
-                    <Text style={{ color:colors.textMuted, fontSize:12, marginTop:4 }}>{d.km_completados} / {d.distancia_total ?? '—'} km · {d.pausado ? 'Pausado' : ['completed','shipped','cargado'].includes(d.status) ? 'Completado' : 'En curso'}</Text>
+              )}
+              {participantesGrupoVisibles.length === 0 ? <Text style={styles.statusNote}>No encontramos participantes con ese nombre.</Text> : participantesGrupoVisibles.map((persona) => {
+              const expandida = personaExpandida === persona.user_id;
+              const completados = persona.desafios.filter(d => ['completed','shipped','cargado'].includes(d.status) || Number(d.porcentaje) >= 100).length;
+              const enCurso = persona.desafios.filter(d => !['completed','shipped','cargado'].includes(d.status) && Number(d.porcentaje) < 100);
+              const destacado = enCurso[0] || persona.desafios[0];
+              return (
+                <TouchableOpacity key={persona.user_id} activeOpacity={0.85} onPress={() => setPersonaExpandida(expandida ? null : persona.user_id)} style={{ backgroundColor: persona.user_id === miUserId ? colors.surfaceSoft : colors.background, borderRadius:16, padding:14, marginBottom:8, borderWidth: persona.user_id === miUserId ? 1 : 0, borderColor:colors.brandOrangeSoft }}>
+                  <View style={{ flexDirection:'row', alignItems:'center' }}>
+                    <AvatarItem item={persona} size={38} />
+                    <View style={{ flex:1, marginLeft:11 }}>
+                      <Text style={{ color:colors.text, fontWeight:'800', fontSize:14 }} numberOfLines={1}>{persona.nombre}{persona.user_id === miUserId ? ' (vos)' : ''}</Text>
+                      <Text style={{ color:colors.textMuted, fontSize:11, marginTop:3 }}>{persona.total_desafios} {persona.total_desafios === 1 ? 'desafío' : 'desafíos'} · {completados} completados{enCurso.length ? ` · ${enCurso.length} en curso` : ''}</Text>
+                    </View>
+                    <Ionicons name={expandida ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textMuted} />
                   </View>
-                ))}
-              </View>
-            ))}
-            <TouchableOpacity style={{ marginTop:12, alignItems:'center', minHeight:44, justifyContent:'center' }} onPress={() => navigation?.navigate('Perfil')}><Text style={{ color:colors.textMuted, fontSize:12 }}>Gestionar grupos en el Perfil →</Text></TouchableOpacity>
+                  {!expandida && destacado && (
+                    <View style={{ flexDirection:'row', alignItems:'center', marginTop:10, paddingTop:9, borderTopWidth:1, borderTopColor:colors.borderSoft }}>
+                      <Text style={{ color:colors.textSoft, fontSize:12, fontWeight:'700', flex:1 }} numberOfLines={1}>{destacado.titulo}</Text>
+                      <Text style={{ color:colors.brandOrangeSoft, fontSize:12, fontWeight:'800' }}>{destacado.porcentaje === null ? '—' : `${destacado.porcentaje}%`}</Text>
+                    </View>
+                  )}
+                  {expandida && (persona.desafios.length === 0 ? <Text style={[styles.statusNote,{marginTop:10}]}>Sin desafíos activos o completados para mostrar.</Text> : persona.desafios.map((d) => (
+                    <View key={d.challenge_id} style={{ paddingTop:10, paddingBottom:7, borderTopWidth:1, borderTopColor:colors.borderSoft, marginTop:8 }}>
+                      <View style={{ flexDirection:'row', alignItems:'center' }}><Text style={{ color:colors.textSoft, fontSize:12, fontWeight:'700', flex:1 }}>{d.titulo}</Text><Text style={{ color:colors.brandOrangeSoft, fontSize:12, fontWeight:'800' }}>{d.porcentaje === null ? '—' : `${d.porcentaje}%`}</Text></View>
+                      <Text style={{ color:colors.textMuted, fontSize:11, marginTop:4 }}>{d.km_completados} / {d.distancia_total ?? '—'} km · {(['completed','shipped','cargado'].includes(d.status) || Number(d.porcentaje) >= 100) ? 'Completado' : d.pausado ? 'Pausado' : 'En curso'}</Text>
+                    </View>
+                  )))}
+                </TouchableOpacity>
+              );
+            })}
+            </>}
+
           </>}
         </ScrollView>
       )}
