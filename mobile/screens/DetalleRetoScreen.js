@@ -387,44 +387,46 @@ export default function DetalleRetoScreen({ route, navigation }) {
         </View>
       )}
 
-      <View style={styles.historialSection}>
-        <View style={styles.historialHeader}>
-          <Text style={styles.historialTitulo}>Actividades registradas</Text>
-          {!cargando && <Text style={styles.historialCantidad}>{actividadesConHito.length}</Text>}
+      {!abrirRuta && (
+        <View style={styles.historialSection}>
+          <View style={styles.historialHeader}>
+            <Text style={styles.historialTitulo}>Actividades registradas</Text>
+            {!cargando && <Text style={styles.historialCantidad}>{actividadesConHito.length}</Text>}
+          </View>
+          {cargando ? (
+            <ActivityIndicator color={colors.brandOrange} />
+          ) : actividadesConHito.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Ionicons name="flag-outline" size={28} color={colors.brandOrangeSoft} style={styles.emptyIcon} />
+              <Text style={styles.emptyText}>Sin actividades todavía</Text>
+              <Text style={styles.emptySubtext}>Registrá tu primer km — correr, caminar, bici o nadar, todo suma.</Text>
+            </View>
+          ) : (
+            <View style={styles.timeline}>
+              {actividadesConHito.map((act, index) => (
+                <View key={index} style={styles.timelineItem}>
+                  <View style={styles.timelineLeft}>
+                    <View style={[styles.timelineDot, index === 0 && styles.timelineDotActivo]}>
+                      <Ionicons name={act.hito.icono} size={18} color={index === 0 ? colors.brandOrangeSoft : colors.textMuted} />
+                    </View>
+                    {index < actividadesConHito.length - 1 && <View style={styles.timelineLine} />}
+                  </View>
+                  <View style={styles.timelineContent}>
+                    <Text style={styles.timelineHito}>{act.hito.texto}</Text>
+                    <Text style={styles.timelineFecha}>{formatearFecha(act.recorded_at)}</Text>
+                    <View style={styles.timelineActRow}>
+                      <Text style={styles.timelineKm}>{parseFloat(act.distance_km).toFixed(2)} km</Text>
+                    </View>
+                    <Text style={styles.timelineTipo}>{deporteHistoria(act.sport_type)} · {nombreFuenteActividad(act.source)}</Text>
+                    <Text style={styles.timelineAcumulado}>Acumulado en actividades: {act.acumulado.toFixed(2)} km</Text>
+                    {act.source === 'korva_gps' && act.id && <RutaGpsActividad activityId={act.id} />}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
-        {cargando ? (
-          <ActivityIndicator color={colors.brandOrange} />
-        ) : actividadesConHito.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Ionicons name="flag-outline" size={28} color={colors.brandOrangeSoft} style={styles.emptyIcon} />
-            <Text style={styles.emptyText}>Sin actividades todavía</Text>
-            <Text style={styles.emptySubtext}>Registrá tu primer km — correr, caminar, bici o nadar, todo suma.</Text>
-          </View>
-        ) : (
-          <View style={styles.timeline}>
-            {actividadesConHito.map((act, index) => (
-              <View key={index} style={styles.timelineItem}>
-                <View style={styles.timelineLeft}>
-                  <View style={[styles.timelineDot, index === 0 && styles.timelineDotActivo]}>
-                    <Ionicons name={act.hito.icono} size={18} color={index === 0 ? colors.brandOrangeSoft : colors.textMuted} />
-                  </View>
-                  {index < actividadesConHito.length - 1 && <View style={styles.timelineLine} />}
-                </View>
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineHito}>{act.hito.texto}</Text>
-                  <Text style={styles.timelineFecha}>{formatearFecha(act.recorded_at)}</Text>
-                  <View style={styles.timelineActRow}>
-                    <Text style={styles.timelineKm}>{parseFloat(act.distance_km).toFixed(2)} km</Text>
-                  </View>
-                  <Text style={styles.timelineTipo}>{deporteHistoria(act.sport_type)} · {nombreFuenteActividad(act.source)}</Text>
-                  <Text style={styles.timelineAcumulado}>Acumulado en actividades: {act.acumulado.toFixed(2)} km</Text>
-                  {act.source === 'korva_gps' && act.id && <RutaGpsActividad activityId={act.id} />}
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
+      )}
 
     </ScrollView>
     <KorvaCompletedShare nombrePersona={nombrePersona} reto={compartirCompletado ? itemNormalizado : null} onClose={() => setCompartirCompletado(false)} />
