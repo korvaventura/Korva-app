@@ -187,6 +187,7 @@ test('el agua es geografía: Fagnano y Beagle existen en el mundo y la ruta los 
 const { escenaParaConfig, clavesConEscena } = require('../services/mapa3d/escenas');
 const CHECKPOINTS_POR_ESCENA = {
   san_andres: [0, 11, 21, 34, 44, 57],
+  dubrovnik: [0, 4, 8, 12, 16, 19.4],
   default: [0, 20, 45, 80, 103],
   monte_fuji: [0, 18, 22, 40, 45, 54, 61, 68],
 };
@@ -223,10 +224,10 @@ for (const clave of clavesConEscena()) {
     }
   });
 
-  test(`[${esc.id}] mundo continuo: >100 km de territorio alrededor de la ruta`, () => {
+  test(`[${esc.id}] mundo continuo: territorio alrededor de la ruta`, () => {
     const c = deco.campo;
     for (const p of deco.ruta) {
-      assert.ok(Math.min(p.x - c.minX, c.maxX - p.x, p.z - c.minZ, c.maxZ - p.z) > 100);
+      assert.ok(Math.min(p.x - c.minX, c.maxX - p.x, p.z - c.minZ, c.maxZ - p.z) > (esc.mundo.extensionKm - 2));
     }
     assert.ok(c.nx * c.nz < 200000, 'malla demasiado pesada para iPhone');
   });
@@ -246,7 +247,8 @@ test('[monte_fuji] el Fuji es un volcán reconocible y la ruta lo sube de verdad
 });
 
 test('registro: claves sin escena 3D devuelven null (siguen con el mapa 2D)', () => {
-  assert.equal(escenaParaConfig('dubrovnik'), null);
+  assert.ok(escenaParaConfig('dubrovnik'));
+  assert.equal(escenaParaConfig('camino_de_santiago'), null);
   assert.ok(escenaParaConfig('san_andres'));
   assert.equal(escenaParaConfig('toString'), null);
   assert.equal(escenaParaConfig(undefined), null);
@@ -323,7 +325,19 @@ test('horneados: agua finita y rutas válidas en formato anterior y marino', () 
     const d = deserializarDiorama(esc, horn);
     assert.ok(Array.from(d.campo.agua).every((n) => n === -Infinity || Number.isFinite(n)), clave);
     assert.ok(d.ruta.every((p) => [p.x, p.z, p.h, p.km].every(Number.isFinite)), clave);
-    if (esc.mar) assert.ok(d.ruta.some((p) => p.nautico));
-    else assert.equal(horn.niveles, undefined, 'conservar formato legacy');
+    if (esc.ruta.some((p) => p.agua)) assert.ok(d.ruta.some((p) => p.nautico));
+    if (!esc.mar) assert.equal(horn.niveles, undefined, 'conservar formato legacy');
   }
+});
+
+test('[dubrovnik] murallas, calle y circuito representativo respetan la escala local', () => {
+  const { escena: dbv, horneado: horn } = escenaParaConfig('dubrovnik');
+  const d = deserializarDiorama(dbv, horn);
+  assert.ok(d.largoKm > 1.6 && d.largoKm < 3, `largo ${d.largoKm}`);
+  const h = (km) => puntoEnKm(d.ruta, km).h;
+  assert.ok(h(8) < h(16) - 15, `Stradun ${h(8)} vs Minčeta ${h(16)}`);
+  assert.ok(h(16) > 45, `Minčeta ${h(16)}`);
+  for (const km of [0, 12]) assert.ok(h(km) > 15 && h(km) < 70, `km ${km}: ${h(km)}`);
+  assert.ok(h(19.4) > 0, "Ploče queda sobre tierra");
+  for (const p of d.ruta) assert.ok(p.h >= d.campo.muestrear(p.x, p.z) - 1, `ruta enterrada km ${p.km}`);
 });

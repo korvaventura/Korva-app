@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, InteractionManager, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop, Line } from 'react-native-svg';
 import { Canvas, useThree } from '@react-three/fiber/native';
@@ -26,6 +26,7 @@ import {
 
 const ALTURA_PIN_M = 380; // altura del pin sobre la ruta (m reales)
 const cacheEscenas = new Map();
+const textoKm = (n) => String(Math.round(Number(n) * 10) / 10).replace('.', ',');
 
 function obtenerMundo(escena, horneado) {
   if (!cacheEscenas.has(escena.id)) {
@@ -36,15 +37,19 @@ function obtenerMundo(escena, horneado) {
   return cacheEscenas.get(escena.id);
 }
 
-function Montaje({ mundo, escena, controlRef }) {
+function Montaje({ mundo, escena, controlRef, r3fRef }) {
   const { camera, size, scene, invalidate } = useThree();
   useLayoutEffect(() => {
+    r3fRef.current = { camera, size, scene, invalidate };
     configurarCamara(camera, escena, size.width / Math.max(1, size.height), controlRef?.current);
     scene.fog = mundo.niebla;
     actualizarAtmosfera(mundo, escena, camera);
     invalidate();
-    return () => { scene.fog = null; };
-  }, [camera, size.width, size.height, scene, mundo, escena, invalidate, controlRef]);
+    return () => {
+      scene.fog = null;
+      if (r3fRef.current?.camera === camera) r3fRef.current = null;
+    };
+  }, [camera, size.width, size.height, scene, mundo, escena, invalidate, controlRef, r3fRef]);
   return (
     <>
       <primitive object={mundo.cielo} dispose={null} />
@@ -82,7 +87,7 @@ function Ruta({ mundo, escena, kmProgreso }) {
 
 function Fondo() {
   return (
-    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
+    <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
       <Defs>
         <LinearGradient id="cielo" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor="#0D2032" />
@@ -142,6 +147,7 @@ export default function MapaRecorrido3D({
   altura = 400,
   escena,
   horneado,
+  onInteraccionMapa,
 }) {
   const [listo, setListo] = useState(cacheEscenas.has(escena.id));
   const [tam, setTam] = useState(null);
@@ -156,6 +162,8 @@ export default function MapaRecorrido3D({
   const r3fRef = useRef(null);
   const gestoRef = useRef(null);
   const playbackRef = useRef(null);
+  const camaraInicial = useMemo(() => ({ fov: escena.camara.fov, near: 0.05, far: 200, position: [0, 6, -10] }), [escena]);
+  const opcionesGL = useMemo(() => ({ alpha: true, antialias: true }), []);
 
   const aplicarCamara = () => {
     // Cámara, atmósfera y pines se actualizan juntos una vez por frame.
@@ -213,6 +221,7 @@ export default function MapaRecorrido3D({
       return ax > 7 && ax > ay * 0.72;
     },
     onPanResponderGrant: (e) => {
+      onInteraccionMapa?.(true);
       // Un gesto toma el control sin que el replay siga moviendo la cámara.
       if (playbackRef.current) {
         cancelAnimationFrame(playbackRef.current);
@@ -235,11 +244,11 @@ export default function MapaRecorrido3D({
       gestoRef.current = actual;
       aplicarCamara();
     },
-    onPanResponderRelease: () => { gestoRef.current = null; },
-    onPanResponderTerminate: () => { gestoRef.current = null; },
-    onPanResponderTerminationRequest: () => false,
+    onPanResponderRelease: () => { gestoRef.current = null; onInteraccionMapa?.(false); },
+    onPanResponderTerminate: () => { gestoRef.current = null; onInteraccionMapa?.(false); },
+    onPanResponderTerminationRequest: () => true,
 
-  }), [escena]);
+  }), [escena, onInteraccionMapa]);
 
   // Decodificar el horneado fuera de la transición de navegación.
   useEffect(() => {
@@ -295,7 +304,8 @@ export default function MapaRecorrido3D({
       { x: 0, y: tam.h - 124, w: 200, h: 124 },
       { x: tam.w - 56, y: tam.h - 92, w: 56, h: 92 },
       { x: 0, y: tam.h - 32, w: tam.w, h: 32 },
-      ...(reproduciendo && actividades.length ? [{ x: 0, y: 142, w: 132, h: 120 }] : []),
+      ...(escena.mostrarRelacionRecorrido ? [{ x: tam.w - 150, y: tam.h - 142, w: 150, h: 64 }] : []),
+      ...(reproduciendo && actividades.length ? [{ x: 0, y: 142, w: 110, h: 92 }] : []),
     ];
     const aguas = (escena.etiquetas || []).map((e) => {
       const agua = escena.aguas.find((a) => a.id === e.id);
@@ -353,18 +363,18 @@ export default function MapaRecorrido3D({
     return { pines: pinesVisibles, aguas: aguasVisibles, actual, anguloNorte, etiquetas, zonasHud };
   }, [mundo, tam, journey, escena, kmProgreso, seleccionadoId, revisionCamara, reproduciendo, actividades.length]);
 
-  const alCrear = ({ gl, camera, size, scene, invalidate }) => {
+  const alCrear = useCallback(({ gl, camera, size, scene, invalidate }) => {
     r3fRef.current = { camera, size, scene, invalidate };
     gl.setClearColor(0x000000, 0);
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = escena.exposicion ?? 1.15;
     Animated.timing(aparicion, { toValue: 1, duration: 450, delay: 120, useNativeDriver: true }).start();
-  };
+  }, [escena, aparicion]);
 
   useEffect(() => () => {
+    onInteraccionMapa?.(false);
     if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
     if (revisionPendienteRef.current != null) cancelAnimationFrame(revisionPendienteRef.current);
-    r3fRef.current = null;
   }, []);
 
   const iniciarJourney = () => {
@@ -372,13 +382,13 @@ export default function MapaRecorrido3D({
     if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
     const metaKm = Math.max(0.1, kmProgresoReal);
     // El replay debe sentirse como un viaje, no como una barra de progreso.
-    // Fin del Mundo completo (~103 km) queda cerca de 16 s.
-    const duracion = THREE.MathUtils.clamp(9000 + metaKm * 70, 10000, 18000);
+    // Fin del Mundo completo (~103 km) queda cerca de 34 s.
+    const duracion = THREE.MathUtils.clamp(18000 + metaKm * 160, 20000, 34000);
     const inicio = Date.now();
     setCierreVisible(false);
     cierreOpacity.setValue(0);
     setReproduciendo(true);
-    controlRef.current = { azimut: 0, elevacion: 0.08, zoom: 0.66 };
+    controlRef.current = { azimut: 0, elevacion: 0.08, zoom: 0.8 };
 
     const tick = () => {
       const t = THREE.MathUtils.clamp((Date.now() - inicio) / duracion, 0, 1);
@@ -412,6 +422,14 @@ export default function MapaRecorrido3D({
     playbackRef.current = requestAnimationFrame(tick);
   };
 
+  useEffect(() => {
+    if (seleccionadoId == null || !playbackRef.current) return;
+    cancelAnimationFrame(playbackRef.current);
+    playbackRef.current = null;
+    setKmPlayback(null);
+    setReproduciendo(false);
+  }, [seleccionadoId]);
+
   const detenerJourney = () => {
     if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
     playbackRef.current = null;
@@ -422,6 +440,10 @@ export default function MapaRecorrido3D({
 
   const enfocarPosicion = () => {
     if (!mundo) return;
+    if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
+    playbackRef.current = null;
+    setKmPlayback(null);
+    setReproduciendo(false);
     const p = posicionEnKm(mundo.datos, mundo.conv, journey.kmActual, 0);
     controlRef.current = {
       ...controlRef.current,
@@ -432,6 +454,12 @@ export default function MapaRecorrido3D({
   };
 
   const recenter = () => {
+    if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
+    playbackRef.current = null;
+    setKmPlayback(null);
+    setReproduciendo(false);
+    gestoRef.current = null;
+    onInteraccionMapa?.(false);
     controlRef.current = { azimut: 0, elevacion: 0, zoom: 1 };
     aplicarCamara();
   };
@@ -459,12 +487,11 @@ export default function MapaRecorrido3D({
     if (!reproduciendo || kmPlayback == null) return [];
     return actividadesJourney
       .filter((a) => a.kmMapa <= kmPlayback + 0.05)
-      .slice(-5);
+      .slice(-3);
   }, [actividadesJourney, reproduciendo, kmPlayback]);
 
   return (
     <View
-      {...panResponder.panHandlers}
       style={[styles.wrap, { height: Math.max(altura, 455) }]}
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
@@ -473,20 +500,22 @@ export default function MapaRecorrido3D({
     >
       <Fondo />
       {mundo && (
-        <Animated.View style={[StyleSheet.absoluteFill, { opacity: aparicion }]}>
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: aparicion }]}>
           <Canvas
             style={styles.canvas}
             frameloop="demand"
             dpr={2}
-            gl={{ alpha: true, antialias: true }}
-            camera={{ fov: escena.camara.fov, near: 0.05, far: 200, position: [0, 6, -10] }}
+            gl={opcionesGL}
+            camera={camaraInicial}
             onCreated={alCrear}
           >
-            <Montaje mundo={mundo} escena={escena} controlRef={controlRef} />
+            <Montaje mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} />
             <Ruta mundo={mundo} escena={escena} kmProgreso={kmProgreso} />
           </Canvas>
         </Animated.View>
       )}
+
+      <View style={StyleSheet.absoluteFill} {...panResponder.panHandlers} />
 
       {!mundo && <Text style={styles.cargando}>Modelando el relieve…</Text>}
 
@@ -499,7 +528,13 @@ export default function MapaRecorrido3D({
           {overlay.pines.map(({ cp, km, cabeza, base, desbloqueado, estadoJourney }) => {
             const sel = cp.id === seleccionadoId;
             const caja = overlay.etiquetas[cp.id];
-            const presionar = () => onSelect?.(cp);
+            const presionar = () => {
+              if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
+              playbackRef.current = null;
+              setKmPlayback(null);
+              setReproduciendo(false);
+              onSelect?.(cp);
+            };
             const extremo = caja ? {
               x: Math.max(caja.x, Math.min(caja.x + caja.w, cabeza.x)),
               y: Math.max(caja.y, Math.min(caja.y + caja.h, cabeza.y)),
@@ -516,6 +551,7 @@ export default function MapaRecorrido3D({
                 <TouchableOpacity
                   activeOpacity={0.75}
                   onPress={presionar}
+                  accessibilityRole="button" accessibilityLabel={`Checkpoint ${cp.nombre}`}
                   hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
                   style={[styles.pin, sel && styles.pinSel, desbloqueado ? styles.pinActivo : styles.pinBloqueado, estadoJourney === 'proximo' && styles.pinProximo, { left: cabeza.x - (sel ? 11 : 8), top: cabeza.y - (sel ? 11 : 8) }]}
                 >
@@ -524,7 +560,7 @@ export default function MapaRecorrido3D({
                 {caja && !overlay.zonasHud.some((zona) => seSuperponen(caja, zona)) && (!reproduciendo || (caja.x >= 4 && caja.x + caja.w <= (tam?.w || 0) - 4)) && (
                   <TouchableOpacity activeOpacity={0.75} onPress={presionar} style={[styles.etiqueta, { left: caja.x, top: caja.y, width: caja.w, height: caja.h }, caja.lado === 'izquierda' && styles.etiquetaIzq, (caja.lado === 'arriba' || caja.lado === 'abajo') && styles.etiquetaCentro]}>
                     <Text allowFontScaling={false} numberOfLines={2} style={[styles.etiquetaNombre, !desbloqueado && styles.etiquetaBloqueada, sel && styles.etiquetaSel]}>{cp.nombre?.toUpperCase()}</Text>
-                    <Text allowFontScaling={false} numberOfLines={1} style={styles.etiquetaKm}>{desbloqueado ? `${Math.round(km)} km` : estadoJourney === 'proximo' ? `PRÓXIMO · ${Math.round(km)} km` : `🔒 ${Math.round(km)} km`}</Text>
+                    <Text allowFontScaling={false} numberOfLines={1} style={styles.etiquetaKm}>{desbloqueado ? `${textoKm(km)} km` : estadoJourney === 'proximo' ? `PRÓXIMO · ${textoKm(km)} km` : `🔒 ${textoKm(km)} km`}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -538,19 +574,13 @@ export default function MapaRecorrido3D({
 
       {reproduciendo && actividadesVisibles.length > 0 && (
         <View pointerEvents="none" style={styles.actividadesJourney}>
-          <Text style={styles.actividadesEyebrow}>TU RECORRIDO</Text>
+          <Text style={styles.actividadesEyebrow}>ACTIVIDADES</Text>
           {actividadesVisibles.map((act, i) => {
             const actual = i === actividadesVisibles.length - 1;
-            const tipo = act.sport_type === 'ride' ? 'BICI'
-              : act.sport_type === 'swim' ? 'NADO'
-                : act.sport_type === 'walk' ? 'CAMINATA'
-                  : act.sport_type === 'run' ? 'CARRERA'
-                    : 'ACTIVIDAD';
             return (
               <View key={act.id || `${act.recorded_at || 'act'}-${act.numero}`} style={[styles.actividadFila, actual && styles.actividadFilaActual]}>
                 <Text style={[styles.actividadNumero, actual && styles.actividadNumeroActual]}>{String(act.numero).padStart(2, '0')}</Text>
                 <View style={styles.actividadTexto}>
-                  <Text style={[styles.actividadTipo, actual && styles.actividadTipoActual]}>{tipo}</Text>
                   <Text style={styles.actividadKm}>{Number(act.distance_km).toFixed(1)} km</Text>
                 </View>
               </View>
@@ -565,13 +595,20 @@ export default function MapaRecorrido3D({
       </View>
       <View pointerEvents="none" style={[styles.chip, completado && styles.chipCompleto]}>
         <Text style={[styles.chipTxt, completado && styles.chipTxtCompleto]}>
-          {completado ? '✓ CONQUISTADO' : `${kmTxt.toFixed(kmTxt < 10 ? 1 : 0)} / ${Math.round(totalTxt)} km`}
+          {completado ? '✓ CONQUISTADO' : `${kmTxt.toFixed(kmTxt < 10 ? 1 : 0)} / ${textoKm(totalTxt)} km`}
         </Text>
       </View>
+      {escena.mostrarRelacionRecorrido && mundo && (
+        <View pointerEvents="none" style={styles.relacionRecorrido}>
+          <Text style={styles.relacionTitulo}>CIRCUITO VIRTUAL</Text>
+          <Text style={styles.relacionDetalle}>{String(escena.distanciaKm).replace('.', ',')} km de desafío</Text>
+          <Text style={styles.relacionDetalle}>{mundo.datos.largoKm.toFixed(1).replace('.', ',')} km de trazado</Text>
+        </View>
+      )}
       {cierreVisible && (
         <Animated.View pointerEvents="none" style={[styles.cierreLogro, { opacity: cierreOpacity }]}>
           <Text style={styles.cierreEyebrow}>RECORRIDO COMPLETADO</Text>
-          <Text style={styles.cierreKm}>{Math.round(totalTxt)} KM</Text>
+          <Text style={styles.cierreKm}>{textoKm(totalTxt)} KM</Text>
           <View style={styles.cierreLinea} />
           <Text style={styles.cierreTitulo}>{escena.presentacion?.titulo || 'Tu conquista'}</Text>
         </Animated.View>
@@ -590,7 +627,7 @@ export default function MapaRecorrido3D({
           <Text style={styles.estoyAcaTxt}>◎ ESTÁS ACÁ · {journey.kmActual.toFixed(journey.kmActual < 10 ? 1 : 0)} KM</Text>
         </TouchableOpacity>
       )}
-      <TouchableOpacity activeOpacity={0.82} onPress={recenter} style={styles.recentrar}>
+      <TouchableOpacity activeOpacity={0.82} onPress={recenter} accessibilityRole="button" accessibilityLabel="Recentrar mapa" style={styles.recentrar}>
         <Text style={styles.recentrarTxt}>⌖</Text>
       </TouchableOpacity>
       {!completado && journey.siguiente && (
@@ -615,16 +652,17 @@ const styles = StyleSheet.create({
   cargando: { position: 'absolute', alignSelf: 'center', top: '48%', color: colors.textDim, fontSize: 11, letterSpacing: 0.6 },
 
   hud: { position: 'absolute', left: 14, right: 14, top: 12 },
-  actividadesJourney: { position: 'absolute', left: 14, top: 142, width: 104, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 12, backgroundColor: 'rgba(9,23,37,0.72)', borderWidth: 1, borderColor: 'rgba(168,207,255,0.16)' },
+  actividadesJourney: { position: 'absolute', left: 14, top: 142, width: 86, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 12, backgroundColor: 'rgba(9,23,37,0.72)', borderWidth: 1, borderColor: 'rgba(168,207,255,0.16)' },
   actividadesEyebrow: { color: 'rgba(168,207,255,0.62)', fontSize: 7, fontWeight: '900', letterSpacing: 1.25, marginBottom: 5 },
   actividadFila: { flexDirection: 'row', alignItems: 'center', minHeight: 25, opacity: 0.48 },
   actividadFilaActual: { opacity: 1 },
   actividadNumero: { width: 24, color: colors.textMuted, fontSize: 9, fontWeight: '900' },
   actividadNumeroActual: { color: colors.brandOrangeSoft },
   actividadTexto: { flex: 1 },
-  actividadTipo: { color: colors.textSoft, fontSize: 8, fontWeight: '800', letterSpacing: 0.35 },
-  actividadTipoActual: { color: '#FFFFFF' },
   actividadKm: { color: colors.textMuted, fontSize: 8, marginTop: 1 },
+  relacionRecorrido: { position: 'absolute', right: 12, bottom: 92, padding: 7, borderRadius: 8, backgroundColor: 'rgba(9,23,37,0.74)' },
+  relacionTitulo: { color: colors.textMuted, fontSize: 7, fontWeight: '800', letterSpacing: 0.7 },
+  relacionDetalle: { color: colors.textSoft, fontSize: 9, marginTop: 2 },
   hudEyebrow: { color: colors.brandOrange, fontSize: 9, fontWeight: '900', letterSpacing: 1.8 },
   hudTitulo: { color: colors.text, fontSize: 13, fontWeight: '800', marginTop: 14, ...sombraTexto },
   chip: { position: 'absolute', right: 12, top: 12, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: 'rgba(9,23,37,0.72)', borderWidth: 1, borderColor: 'rgba(168,207,255,0.22)' },

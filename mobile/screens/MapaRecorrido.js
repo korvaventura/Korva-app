@@ -589,15 +589,16 @@ function MapaSVG({ config, kmFisicos, pinPos, rutaBasePath, pathCompletado, puls
   );
 }
 
-export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, actividades = [], onScrollBegin, onScrollEnd, fullscreen = false, integrado = false, ocultarTitulo = false, alturaMapa = 455, onHistoriaAbierta }) {
+export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, actividades = [], onScrollBegin, onScrollEnd, fullscreen = false, integrado = false, ocultarTitulo = false, alturaMapa = 455, onHistoriaAbierta, onInteraccionMapa }) {
   const [cpSeleccionado, setCpSeleccionado] = useState(null);
   const [modalMapaVisible, setModalMapaVisible] = useState(false);
+  const [mapaInteractuando, setMapaInteractuando] = useState(false);
   const [altoModal, setAltoModal] = useState(Dimensions.get('window').height - 140);
   const scrollViewRef = useRef(null);
   const modalScrollRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
-  const altoMapaModal = Math.max(380, Math.min(560, altoModal * 0.72));
+  const altoMapaModal = Math.max(455, Math.min(560, altoModal * 0.72));
   const config = getConfig(challengeId, challengeTitle);
   const { titulo, distanciaFisica, clima, segmentos, checkpoints, decoraciones } = config;
 
@@ -737,11 +738,12 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
                 </TouchableOpacity>
               </View>
               <View style={{ flex: 1 }} onLayout={(e) => setAltoModal(e.nativeEvent.layout.height)}>
-              <ScrollView ref={modalScrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 12, paddingBottom: 32 }}>
+              <ScrollView scrollEnabled={!mapaInteractuando} ref={modalScrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 12, paddingBottom: 32 }}>
                 <MapaRecorrido
                   fullscreen
                   ocultarTitulo
                   alturaMapa={altoMapaModal}
+                  onInteraccionMapa={setMapaInteractuando}
                   onHistoriaAbierta={() => requestAnimationFrame(() => modalScrollRef.current?.scrollTo({ y: Math.max(0, altoMapaModal - 120), animated: true }))}
                   kmCompletados={kmCompletados}
                   distanciaTotal={distanciaTotal}
@@ -784,7 +786,17 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
             actividades={actividades}
             seleccionadoId={cpSeleccionado?.id}
             onSelect={handleCheckpointPress}
+            onInteraccionMapa={onInteraccionMapa}
           />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorCheckpoints}>
+            {checkpoints.map((cp) => (
+              <TouchableOpacity key={cp.id} onPress={() => handleCheckpointPress(cp)} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel={`Checkpoint ${cp.nombre}`}
+                style={[styles.selectorCheckpoint, cpSeleccionado?.id === cp.id && styles.selectorCheckpointActivo]}>
+                <Text numberOfLines={1} style={styles.selectorCheckpointNombre}>{cp.nombre}</Text>
+                <Text style={styles.selectorCheckpointKm}>{String(Math.round(cp.kmFisico * factor * 10) / 10).replace('.', ',')} km{desbloqueado(cp) ? ' · ✓' : ' · 🔒'}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
       ) : (
       <View style={styles.mapaFijoWrapper}>
@@ -827,6 +839,11 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
 }
 
 const styles = StyleSheet.create({
+  selectorCheckpoints: { paddingVertical: 10, gap: 8 },
+  selectorCheckpoint: { maxWidth: 200, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: '#142A3B', borderWidth: 1, borderColor: '#29445B' },
+  selectorCheckpointActivo: { borderColor: '#F36B0A', backgroundColor: '#25303A' },
+  selectorCheckpointNombre: { color: '#F1F5F9', fontSize: 12, fontWeight: '600' },
+  selectorCheckpointKm: { color: '#94A3B8', fontSize: 10, marginTop: 3 },
   container: { marginBottom: 16 },
   titulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 12 },
   containerIntegrado: { marginTop: 14 },

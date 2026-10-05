@@ -59,7 +59,7 @@ function serializarDiorama(datos) {
     agua[i] = campo.agua[i] > -Infinity ? niveles.indexOf(campo.agua[i]) + 1 : 0;
   }
   for (let i = 0; i < n * 3; i += 1) rgb[i] = Math.round(colores[i] * 255);
-  const r = (v, d = 3) => Number(v.toFixed(d));
+  const r = (v, d = 3) => { const n = Number(v.toFixed(d)); return n === 0 ? 0 : n; };
   return {
     version: VERSION,
     nx: campo.nx,
@@ -71,6 +71,7 @@ function serializarDiorama(datos) {
     colores: bytesABase64(rgb),
     ruta: ruta.map((p) => [...[r(p.x), r(p.z), r(p.h, 1), r(p.km, 3)], ...(nauticos ? [p.nautico ? 1 : 0] : [])]),
     ...(campo.geo.mar ? { niveles } : {}),
+    ...(campo.geo.mostrarRelacionRecorrido ? { largoKm: r(datos.largoKm, 3) } : {}),
     aguas,
   };
 }
@@ -110,7 +111,8 @@ function deserializarDiorama(escena, h) {
   };
   campo.muestrear = (x, z) => muestrearBilineal(campo, x, z);
   const ruta = h.ruta.map(([x, z, alt, km, nautico]) => ({ x, z, h: alt, km, ...(nautico == null ? {} : { nautico: nautico === 1 }) }));
-  return { campo, colores, ruta };
+  const largoKm = h.largoKm > 0 ? h.largoKm : ruta.slice(1).reduce((s, p, i) => s + Math.hypot(p.x - ruta[i].x, p.z - ruta[i].z), 0);
+  return { campo, colores, ruta, largoKm };
 }
 
 module.exports = { bytesABase64, base64ABytes, serializarDiorama, deserializarDiorama };

@@ -212,12 +212,14 @@ function crearFuncionAltura(escena) {
   const aguas = prepararCapsulas(escena.aguas, proy);
   const relieve = escena.relieve;
   // Masas de tierra (islas, penínsulas) que emergen de un fondo marino.
-  const masas = prepararCapsulas(relieve.masas, proy);
+  const masas = prepararCapsulas(relieve.masas, proy).map((m, indice) => ({ ...m, indice }));
   const mar = escena.mar || null;
   const picos = (relieve.picos || []).map((p) => ({ ...p, ...proy.aKm(p.lat, p.lon) }));
   const perfil = escena.perfilRuta; // [[km, metros], ...]
 
+  let zonaActual = 0;
   const montana = (x, z) => {
+    zonaActual = 0;
     // Distorsión de dominio: rompe la regularidad del ruido.
     const wx = x + 5.5 * ruido.fbm(x * 0.045 + 3.1, z * 0.045 - 1.7, 3);
     const wz = z + 3.5 * ruido.fbm(x * 0.045 - 8.2, z * 0.045 + 5.9, 3);
@@ -258,7 +260,10 @@ function crearFuncionAltura(escena) {
       } else {
         hm = m.costaM - (m.taludMporKm ?? 20) * d;
       }
-      h = Math.max(h, hm);
+      if (hm > h) {
+        h = hm;
+        zonaActual = m.color && d < (m.colorHastaKm ?? 0) ? m.indice + 1 : 0;
+      }
     }
 
     // Picos nombrados: masas reconocibles dentro del mismo campo continuo.
@@ -280,13 +285,18 @@ function crearFuncionAltura(escena) {
           // borde levemente levantado del cráter
           forma += p.crater.bordeM ? p.crater.bordeM * Math.exp(-((c - 1) ** 2) / 0.08) : 0;
         }
+        const previo = h;
         h = -smin(-h, -forma, p.suavizadoBaseM ?? 200);
+        if (h > previo + 0.5) zonaActual = 0;
         continue;
       }
       const k = 1 - smoothstep(0, p.radioKm, d);
+      if (mar && k <= 0 && h < 0) continue;
       const aristas = 0.75 + 0.25 * ruido.crestas(x * 0.6 + p.x, z * 0.6 - p.z, 3);
       forma = Math.pow(k, p.agudeza || 1.6) * p.alturaM * aristas;
-      h = -smin(-h, -forma, 120); // máximo suave
+      const previo = h;
+      h = -smin(-h, -forma, p.suavizadoM ?? 120); // máximo suave
+      if (h > previo + 0.5) zonaActual = 0;
     }
     return h;
   };
@@ -295,7 +305,7 @@ function crearFuncionAltura(escena) {
   // en vez de una tabla escrita a mano. Útil en rutas que suben montañas.
   let perfilSiguiendoTerreno = null;
   if (perfil === 'terreno') {
-    const paso = 0.4;
+    const paso = escena.pasoPerfilKm ?? 0.4;
     const crudo = [];
     for (let s = 0; s <= ruta.largo + 1e-6; s += paso) {
       let i = 0;
@@ -315,6 +325,7 @@ function crearFuncionAltura(escena) {
 
   const altura = (x, z) => {
     let h = montana(x, z);
+    let zona = zonaActual;
 
     // Corredor de la RN3: valle glaciar en U siguiendo la ruta.
     const cr = distanciaPolilinea(x, z, ruta.pts, ruta.acum);
@@ -369,10 +380,11 @@ function crearFuncionAltura(escena) {
       h = lerp(h, Math.max(h, piso), t);
     }
 
-    return { h, nivelAgua };
+    if (nivelAgua > -Infinity && h < nivelAgua) zona = 0;
+    return { h, nivelAgua, zona };
   };
 
-  return { altura, ruta, aguas, masas, mar, proy, ruido, picos };
+  return { altura, ruta, aguas, masas, mar, proy, ruido, picos, mostrarRelacionRecorrido: !!escena.mostrarRelacionRecorrido, suavizadoAlturaRutaKm: escena.suavizadoAlturaRutaKm || 0 };
 }
 
 // ── Mundo continuo: grilla graduada ───────────────────────────────────────
@@ -420,16 +432,18 @@ function generarCampo(escena) {
   const nz = zs.length;
   const alturas = new Float32Array(nx * nz);
   const agua = new Float32Array(nx * nz);
+  const zonas = new Uint8Array(nx * nz);
 
   for (let j = 0; j < nz; j += 1) {
     for (let i = 0; i < nx; i += 1) {
-      const { h, nivelAgua } = geo.altura(xs[i], zs[j]);
+      const { h, nivelAgua, zona } = geo.altura(xs[i], zs[j]);
       alturas[j * nx + i] = h;
       agua[j * nx + i] = nivelAgua;
+      zonas[j * nx + i] = zona;
     }
   }
 
-  const campo = { nx, nz, xs, zs, minX: xs[0], maxX: xs[nx - 1], minZ: zs[0], maxZ: zs[nz - 1], alturas, agua, geo };
+  const campo = { nx, nz, xs, zs, minX: xs[0], maxX: xs[nx - 1], minZ: zs[0], maxZ: zs[nz - 1], alturas, agua, zonas, geo };
   campo.muestrear = (x, z) => muestrearBilineal(campo, x, z);
   campo.ms = Date.now() - t0;
   return campo;
@@ -558,6 +572,7 @@ function colorearTerreno(campo, escena, luz) {
   const pisos = escena.pisos;
   const ruido = campo.geo.ruido;
   const colores = new Float32Array(nx * nz * 3);
+  const coloresMasa = (campo.geo.masas || []).map((m) => (m.color ? hexARgb(m.color) : null));
 
   for (let j = 0; j < nz; j += 1) {
     for (let i = 0; i < nx; i += 1) {
@@ -612,6 +627,13 @@ function colorearTerreno(campo, escena, luz) {
         // Costa/playa de canto rodado.
         const costa = campo.costa ? campo.costa[idx] : 0;
         c = mezclar(c, pal.costa, costa);
+        const zona = campo.zonas ? campo.zonas[idx] : 0;
+        if (zona > 0) {
+          const m = campo.geo.masas[zona - 1];
+          const base = coloresMasa[zona - 1];
+          const v = (m.variacionColor ?? 0.08) * ruido.fbm(x * (m.frecuenciaColor ?? 40), z * (m.frecuenciaColor ?? 40), 2);
+          c = base.map((c) => clamp(c * (1 + v), 0, 1));
+        }
       }
 
       const s = luz.sombra[idx];
@@ -737,6 +759,16 @@ function muestrearRuta(campo, pasoKm = 0.25) {
       p.h = alturaRuta(p.x, p.z, p.nautico);
     }
   }
+  const ventanaKm = campo.geo.suavizadoAlturaRutaKm || 0;
+  if (ventanaKm > 0) {
+    const w = Math.max(1, Math.round(ventanaKm / pasoKm));
+    const originales = salida.map((p) => p.h);
+    const maximos = originales.map((_, k) => Math.max(...originales.slice(Math.max(0, k - w), Math.min(salida.length, k + w + 1))));
+    salida.forEach((p, k) => {
+      const vecinos = maximos.slice(Math.max(0, k - w), Math.min(salida.length, k + w + 1));
+      p.h = Math.max(originales[k], vecinos.reduce((a, b) => a + b, 0) / vecinos.length);
+    });
+  }
   return salida;
 }
 
@@ -770,7 +802,7 @@ function construirDatosDiorama(escena) {
   const luz = hornearLuz(campo, escena);
   const colores = filtrarAnisotropia(campo, colorearTerreno(campo, escena, luz), 3, esAgua);
   const ruta = muestrearRuta(campo, escena.pasoRutaKm || 0.25);
-  return { campo, colores, ruta, luz };
+  return { campo, colores, ruta, luz, largoKm: campo.geo.ruta.largo };
 }
 
 module.exports = {
