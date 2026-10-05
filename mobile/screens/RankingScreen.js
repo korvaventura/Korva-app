@@ -671,7 +671,6 @@ export default function RankingScreen({ navigation, route }) {
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel="Compartir invitación" style={{ width:40, height:40, alignItems:'center', justifyContent:'center', borderRadius:12, borderWidth:1, borderColor:colors.borderSoft }} onPress={() => Share.share({ message: `Unite a ${grupoSeleccionado.nombre} en Korva con el código ${grupoSeleccionado.codigo}. En Comunidad, abrí Grupos y elegí Unirme con código. https://korva.run` })}>
                   <Ionicons name="share-outline" size={18} color={colors.actionBlue} />
                 </TouchableOpacity>
-                <KorvaGroups navigation={navigation} launcherOnly onGroupsChanged={refrescarGrupos} />
               </View>
             </View>
             <View style={{ flexDirection:'row', backgroundColor:colors.background, borderRadius:12, padding:3, marginBottom:16 }}>
@@ -734,19 +733,21 @@ export default function RankingScreen({ navigation, route }) {
 
       {tabVista === 'paises' && (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
-          <Text style={{ color: colors.textSoft, fontSize: 13, marginBottom: 16, textAlign: 'center' }}>
-            Todas las rutas de Korva
-          </Text>
           {resumenPaises && (
             <View style={styles.countrySummary}>
-              <Text style={styles.countryTotal}>{resumenPaises.total_completados.toLocaleString('es-AR')}</Text>
-              <Text style={styles.countrySummaryLabel}>desafíos completados</Text>
-              <Text style={styles.statusNote}>{rankingPaises.length} países</Text>
-              <Text style={styles.countryHint}>Cada persona puede haber completado varios desafíos. Cada país reúne las rutas completadas por su comunidad.</Text>
-              {resumenPaises.sin_pais > 0 && <Text style={styles.countryHint}>{resumenPaises.sin_pais} completados sin país informado no aparecen en la lista.</Text>}
+              <Text style={styles.countrySummaryTitle}>Comunidad global</Text>
+              <Text style={styles.countrySummaryLine}>
+                <Text style={styles.countrySummaryStrong}>{resumenPaises.total_completados.toLocaleString('es-AR')}</Text> desafíos completados · <Text style={styles.countrySummaryStrong}>{rankingPaises.length}</Text> países
+              </Text>
+              {resumenPaises.sin_pais > 0 && <Text style={styles.countryHint}>{resumenPaises.sin_pais} completados aún no tienen país informado.</Text>}
             </View>
           )}
-          <TouchableOpacity style={styles.refreshButton} disabled={estadoPaises === 'cargando'} onPress={cargarRankingPaises}><Text style={styles.refreshText}>Actualizar países</Text></TouchableOpacity>
+          <View style={styles.countryListHeader}>
+            <Text style={styles.countryListTitle}>Por país</Text>
+            <TouchableOpacity style={styles.countryRefreshButton} disabled={estadoPaises === 'cargando'} onPress={cargarRankingPaises} accessibilityRole="button" accessibilityLabel="Actualizar países">
+              <Text style={styles.refreshText}>{estadoPaises === 'cargando' ? 'Actualizando…' : 'Actualizar'}</Text>
+            </TouchableOpacity>
+          </View>
           {estadoPaises === 'no_disponible' ? <Text style={styles.statusNote}>El resumen general por país estará disponible próximamente.</Text> : estadoPaises === 'cargando' ? <ActivityIndicator color={colors.actionBlue} /> : estadoPaises === 'error' ? (
             <TouchableOpacity style={styles.verMasBtn} onPress={cargarRankingPaises}><Text style={styles.refreshText}>No pudimos cargar los países · Reintentar</Text></TouchableOpacity>
           ) : rankingPaises.length === 0 ? (
@@ -769,10 +770,14 @@ export default function RankingScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  countrySummary: { backgroundColor: colors.surfaceSoft, borderRadius: 24, borderWidth: 1, borderColor: colors.borderSoft, padding: 24, alignItems: 'center', marginBottom: 16 },
-  countryTotal: { color: colors.text, fontSize: 48, fontWeight: '900' },
-  countrySummaryLabel: { color: colors.textSoft, fontSize: 14, marginTop: 4 },
-  countryHint: { color: colors.textMuted, fontSize: 11, lineHeight: 18, textAlign: 'center', marginTop: 8 },
+  countrySummary: { backgroundColor: colors.surfaceSoft, borderRadius: 16, borderWidth: 1, borderColor: colors.borderSoft, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 14 },
+  countrySummaryTitle: { color: colors.text, fontSize: 15, fontWeight: '800' },
+  countrySummaryLine: { color: colors.textSoft, fontSize: 13, lineHeight: 20, marginTop: 5 },
+  countrySummaryStrong: { color: colors.text, fontWeight: '900' },
+  countryHint: { color: colors.textMuted, fontSize: 11, lineHeight: 17, marginTop: 5 },
+  countryListHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  countryListTitle: { color: colors.textSoft, fontSize: 13, fontWeight: '700' },
+  countryRefreshButton: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 6 },
   eyebrow: { color: colors.brandOrangeSoft, fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 6 },
   subtitle: { color: colors.textMuted, fontSize: 12, marginBottom: 16 },
   listHeading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
