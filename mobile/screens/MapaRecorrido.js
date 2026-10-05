@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, Animated, Dimensions } from 'react-native';
 import Svg, { Path, Circle, Rect, Text as SvgText, Defs, LinearGradient, Stop, Mask, Ellipse, Polygon, G } from 'react-native-svg';
+import MapaRecorrido3D from '../components/MapaRecorrido3D';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const MAPA_WIDTH_VIRTUAL = 800;
@@ -721,9 +722,26 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
   }
 
   // ── MODO FULLSCREEN ──────────────────────────────────────────
+  const esFinDelMundo = config === CONFIGS.default;
+  const progreso3D = Math.max(0, Math.min(1, kmFisicos / Math.max(1, distanciaFisica)));
+
   return (
     <View style={styles.container}>
       <Text style={styles.titulo}>{titulo}</Text>
+      {esFinDelMundo ? (
+        <View style={styles.mapa3DWrapper}>
+          <MapaRecorrido3D
+            checkpoints={checkpoints}
+            progreso={progreso3D}
+            seleccionadoId={cpSeleccionado?.id}
+            onSelect={handleCheckpointPress}
+          />
+          <View style={styles.mapa3DLabel} pointerEvents="none">
+            <Text style={styles.mapa3DLabelTop}>TIERRA DEL FUEGO</Text>
+            <Text style={styles.mapa3DLabelBottom}>Ruta 3D · tocá los puntos para explorar</Text>
+          </View>
+        </View>
+      ) : (
       <View style={styles.mapaFijoWrapper}>
         <ScrollView ref={scrollViewRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ width: MAPA_WIDTH_VIRTUAL }}
           onScrollBeginDrag={() => onScrollBegin && onScrollBegin()}
@@ -733,7 +751,8 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
         </ScrollView>
         {mostrarClima()}
       </View>
-      <ScrollHintAnimado />
+      )}
+      {!esFinDelMundo && <ScrollHintAnimado />}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
         {checkpoints.map((cp) => {
           const bloqueado = !desbloqueado(cp);
@@ -819,6 +838,10 @@ const styles = StyleSheet.create({
   cerrarBtn: { backgroundColor: '#1E293B', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   cerrarBtnText: { color: '#94A3B8', fontWeight: 'bold', fontSize: 16 },
   mapaFijoWrapper: { height: 260, position: 'relative', overflow: 'hidden', borderBottomWidth: 1, borderBottomColor: '#1E293B' },
+  mapa3DWrapper: { marginHorizontal: 16, position: 'relative' },
+  mapa3DLabel: { position: 'absolute', left: 14, right: 14, bottom: 12 },
+  mapa3DLabelTop: { color: '#F36B0A', fontSize: 9, fontWeight: '900', letterSpacing: 1.5 },
+  mapa3DLabelBottom: { color: '#A8CFFF', fontSize: 10, marginTop: 2 },
   leyendaScroll: { maxHeight: 72, paddingHorizontal: 16, marginBottom: 4 },
   leyendaItem: { flexDirection: 'row', backgroundColor: '#1E293B', borderRadius: 12, padding: 10, marginRight: 8, alignItems: 'center', borderWidth: 1, borderColor: '#334155', minWidth: 120, maxWidth: 160, height: 56 },
   leyendaItemActivo: { borderColor: '#3a5a7a', backgroundColor: '#0F172A' },
