@@ -293,48 +293,99 @@ function crearFuncionAltura(escena) {
   return { altura, ruta, aguas, proy, ruido, picos };
 }
 
-// ── Heightfield en grilla + horneado de luz y color ───────────────────────
+// ── Mundo continuo: grilla graduada ───────────────────────────────────────
+// Fina (resolucionKm) dentro de `limitesKm`, donde vive la ruta; afuera las celdas
+// crecen geométricamente hasta `mundo.extensionKm`. Una sola malla sin costuras:
+// el territorio sigue más allá del encuadre y termina dentro de la atmósfera.
+function ejeGraduado(min, max, res, extension, crecimiento) {
+  const n = Math.max(2, Math.round((max - min) / res) + 1);
+  const paso = (max - min) / (n - 1);
+  const centro = [];
+  for (let i = 0; i < n; i += 1) centro.push(min + i * paso);
+  const hacia = (inicio, limite, signo) => {
+    const out = [];
+    let v = inicio;
+    let s = paso;
+    // La última celda puede pasarse del límite: truncarla crearía un salto de
+    // resolución. La extensión es un mínimo, no un valor exacto.
+    while (signo > 0 ? v < limite : v > limite) {
+      s *= crecimiento;
+      v += signo * s;
+      out.push(v);
+    }
+    return out;
+  };
+  const izq = hacia(min, min - extension, -1).reverse();
+  const der = hacia(max, max + extension, 1);
+  return Float64Array.from([...izq, ...centro, ...der]);
+}
+
+function crearGrilla(escena) {
+  const { minX, maxX, minZ, maxZ } = escena.limitesKm;
+  const mundo = escena.mundo || {};
+  const ext = mundo.extensionKm ?? 0;
+  const crec = mundo.crecimiento ?? 1.22;
+  const xs = ejeGraduado(minX, maxX, escena.resolucionKm, ext, crec);
+  const zs = ejeGraduado(minZ, maxZ, escena.resolucionKm, ext, crec);
+  return { xs, zs };
+}
+
 function generarCampo(escena) {
   const t0 = Date.now();
   const geo = crearFuncionAltura(escena);
-  const { minX, maxX, minZ, maxZ } = escena.limitesKm;
-  const res = escena.resolucionKm;
-  const nx = Math.round((maxX - minX) / res) + 1;
-  const nz = Math.round((maxZ - minZ) / res) + 1;
-  const dx = (maxX - minX) / (nx - 1);
-  const dz = (maxZ - minZ) / (nz - 1);
+  const { xs, zs } = crearGrilla(escena);
+  const nx = xs.length;
+  const nz = zs.length;
   const alturas = new Float32Array(nx * nz);
   const agua = new Float32Array(nx * nz);
 
   for (let j = 0; j < nz; j += 1) {
-    const z = minZ + j * dz;
     for (let i = 0; i < nx; i += 1) {
-      const x = minX + i * dx;
-      const { h, nivelAgua } = geo.altura(x, z);
+      const { h, nivelAgua } = geo.altura(xs[i], zs[j]);
       alturas[j * nx + i] = h;
       agua[j * nx + i] = nivelAgua;
     }
   }
 
-  const campo = { nx, nz, dx, dz, minX, maxX, minZ, maxZ, alturas, agua, geo };
+  const campo = { nx, nz, xs, zs, minX: xs[0], maxX: xs[nx - 1], minZ: zs[0], maxZ: zs[nz - 1], alturas, agua, geo };
   campo.muestrear = (x, z) => muestrearBilineal(campo, x, z);
   campo.ms = Date.now() - t0;
   return campo;
 }
 
+// Índice de celda en un eje ordenado (búsqueda binaria).
+function celda(eje, v) {
+  if (v <= eje[0]) return 0;
+  const n = eje.length;
+  if (v >= eje[n - 1]) return n - 2;
+  let lo = 0;
+  let hi = n - 1;
+  while (hi - lo > 1) {
+    const m = (lo + hi) >> 1;
+    if (eje[m] <= v) lo = m; else hi = m;
+  }
+  return lo;
+}
+
+function indiceCercano(campo, x, z) {
+  const i = celda(campo.xs, x);
+  const j = celda(campo.zs, z);
+  const ii = Math.abs(campo.xs[i + 1] - x) < Math.abs(campo.xs[i] - x) ? i + 1 : i;
+  const jj = Math.abs(campo.zs[j + 1] - z) < Math.abs(campo.zs[j] - z) ? j + 1 : j;
+  return jj * campo.nx + ii;
+}
+
 function muestrearBilineal(campo, x, z) {
-  const { nx, nz, dx, dz, minX, minZ, alturas } = campo;
-  const fx = clamp((x - minX) / dx, 0, nx - 1.0001);
-  const fz = clamp((z - minZ) / dz, 0, nz - 1.0001);
-  const i = Math.floor(fx);
-  const j = Math.floor(fz);
-  const tx = fx - i;
-  const tz = fz - j;
+  const { nx, xs, zs, alturas } = campo;
+  const i = celda(xs, x);
+  const j = celda(zs, z);
+  const tx = clamp((x - xs[i]) / (xs[i + 1] - xs[i]), 0, 1);
+  const tz = clamp((z - zs[j]) / (zs[j + 1] - zs[j]), 0, 1);
   const a = alturas[j * nx + i];
   const b = alturas[j * nx + i + 1];
   const c = alturas[(j + 1) * nx + i];
   const d = alturas[(j + 1) * nx + i + 1];
-  // Igual que la triangulación de PlaneGeometry (diagonal a-d no; usa b-c).
+  // Misma triangulación que la malla: diagonal (i+1,j)-(i,j+1).
   if (tx + tz <= 1) return a + (b - a) * tx + (c - a) * tz;
   return d + (c - d) * (1 - tx) + (b - d) * (1 - tz);
 }
@@ -342,12 +393,12 @@ function muestrearBilineal(campo, x, z) {
 // Sombras proyectadas por el sol (ray march sobre la grilla) + oclusión ambiental
 // por concavidad. Se hornea una sola vez: en el teléfono no hay shadow maps.
 function hornearLuz(campo, escena) {
-  const { nx, nz, dx, alturas } = campo;
+  const { nx, nz, xs, zs, alturas } = campo;
   const exag = escena.exageracion;
   const sol = escena.luz.solDir; // vector hacia el sol (x este, y arriba, z sur)
   const horiz = Math.hypot(sol[0], sol[2]) || 1;
   const pendienteSol = sol[1] / horiz; // subida en km por km horizontal
-  const paso = dx * 0.9;
+  const paso = escena.resolucionKm * 0.9;
   const sx = (sol[0] / horiz) * paso;
   const sz = (sol[2] / horiz) * paso;
   const sombra = new Float32Array(nx * nz);
@@ -356,17 +407,20 @@ function hornearLuz(campo, escena) {
   for (let j = 0; j < nz; j += 1) {
     for (let i = 0; i < nx; i += 1) {
       const idx = j * nx + i;
-      const x0 = campo.minX + i * campo.dx;
-      const z0 = campo.minZ + j * campo.dz;
+      const x0 = xs[i];
+      const z0 = zs[j];
       const h0 = alturas[idx] * exag + 6;
       let luz = 1;
+      // Lejos de la zona fina el paso crece con la celda local.
+      const escalaPaso = Math.max(1, Math.min(xs[Math.min(i + 1, nx - 1)] - xs[Math.max(i - 1, 0)], zs[Math.min(j + 1, nz - 1)] - zs[Math.max(j - 1, 0)]) / (2 * escena.resolucionKm));
       for (let k = 1; k <= pasos; k += 1) {
-        const x = x0 + sx * k;
-        const z = z0 + sz * k;
+        const dist = paso * k * escalaPaso;
+        const x = x0 + sx * k * escalaPaso;
+        const z = z0 + sz * k * escalaPaso;
         if (x < campo.minX || x > campo.maxX || z < campo.minZ || z > campo.maxZ) break;
-        const rayo = h0 + pendienteSol * paso * k * 1000;
+        const rayo = h0 + pendienteSol * dist * 1000;
         const terreno = muestrearBilineal(campo, x, z) * exag;
-        const margen = (rayo - terreno) / (paso * k * 1000 * 0.06); // penumbra
+        const margen = (rayo - terreno) / (dist * 1000 * 0.06); // penumbra
         if (margen < 1) {
           luz = Math.min(luz, Math.max(0, margen));
           if (luz <= 0) break;
@@ -377,7 +431,7 @@ function hornearLuz(campo, escena) {
   }
 
   // Oclusión: altura promedio vecina vs altura propia (box blur separable).
-  const r = Math.max(2, Math.round(escena.luz.radioOclusionKm / dx));
+  const r = Math.max(2, Math.round(escena.luz.radioOclusionKm / escena.resolucionKm));
   const tmp = new Float32Array(nx * nz);
   const prom = new Float32Array(nx * nz);
   for (let j = 0; j < nz; j += 1) {
@@ -416,7 +470,7 @@ const mezclar = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2
 
 // Colores por vértice (sRGB 0..1): bosque de lenga, turba, roca, nieve, costa.
 function colorearTerreno(campo, escena, luz) {
-  const { nx, nz, dx, dz, alturas, agua } = campo;
+  const { nx, nz, xs, zs, alturas, agua } = campo;
   const pal = {};
   Object.entries(escena.paleta).forEach(([k, v]) => { pal[k] = hexARgb(v); });
   const pisos = escena.pisos;
@@ -427,18 +481,20 @@ function colorearTerreno(campo, escena, luz) {
     for (let i = 0; i < nx; i += 1) {
       const idx = j * nx + i;
       const h = alturas[idx];
-      const x = campo.minX + i * dx;
-      const z = campo.minZ + j * dz;
-      const hl = alturas[j * nx + Math.max(0, i - 1)];
-      const hr = alturas[j * nx + Math.min(nx - 1, i + 1)];
-      const hu = alturas[Math.max(0, j - 1) * nx + i];
-      const hd = alturas[Math.min(nz - 1, j + 1) * nx + i];
-      const pendiente = Math.hypot((hr - hl) / (2 * dx * 1000), (hd - hu) / (2 * dz * 1000)); // m/m real
+      const x = xs[i];
+      const z = zs[j];
+      const il = Math.max(0, i - 1); const ir = Math.min(nx - 1, i + 1);
+      const ju = Math.max(0, j - 1); const jd = Math.min(nz - 1, j + 1);
+      const hl = alturas[j * nx + il];
+      const hr = alturas[j * nx + ir];
+      const hu = alturas[ju * nx + i];
+      const hd = alturas[jd * nx + i];
+      const pendiente = Math.hypot((hr - hl) / ((xs[ir] - xs[il]) * 1000 || 1), (hd - hu) / ((zs[jd] - zs[ju]) * 1000 || 1)); // m/m real
 
       const n1 = ruido.fbm(x * 0.35, z * 0.35, 3);
       const n2 = ruido.fbm(x * 1.3 + 40, z * 1.3 - 40, 2);
       const lineaArboles = pisos.lineaArbolesM + n1 * 110;
-      const lineaNieve = pisos.lineaNieveM + n1 * 140 + (z - campo.minZ) * pisos.nieveBajaHaciaSurM;
+      const lineaNieve = pisos.lineaNieveM + n1 * 140 + clamp(z - escena.limitesKm.minZ, -80, 120) * pisos.nieveBajaHaciaSurM;
 
       let c;
       const bajoAgua = agua[idx] > -Infinity && h < agua[idx];
@@ -448,7 +504,7 @@ function colorearTerreno(campo, escena, luz) {
       } else {
         // Llanura norte: turba y coirón en tonos oliva/ocre.
         const turba = smoothstep(0.05, 0.35, ruido.fbm(x * 0.18 + 7, z * 0.18 + 3, 3));
-        const llano = mezclar(pal.estepa, pal.turba, turba * 0.75);
+        const llano = mezclar(pal.estepa, pal.turba, turba * 0.5);
         // Bosque de lenga con manchas otoñales cerca del límite superior.
         const bosqueBase = mezclar(pal.bosque, pal.bosqueClaro, 0.5 + 0.5 * n2);
         const otono = smoothstep(lineaArboles - 260, lineaArboles - 30, h) * smoothstep(0.1, 0.45, ruido.fbm(x * 0.5 - 9, z * 0.5 + 9, 3));
@@ -472,9 +528,6 @@ function colorearTerreno(campo, escena, luz) {
         const tNieve = smoothstep(lineaNieve - 60, lineaNieve + 120, h) * (1 - smoothstep(0.55, 1.05, pendiente) * 0.85);
         c = mezclar(c, pal.nieve, clamp(tNieve, 0, 1));
         // Costa/playa de canto rodado.
-        if (agua[idx] === -Infinity) {
-          // nada
-        }
         const costa = campo.costa ? campo.costa[idx] : 0;
         c = mezclar(c, pal.costa, costa);
       }
@@ -489,6 +542,62 @@ function colorearTerreno(campo, escena, luz) {
     }
   }
   return colores;
+}
+
+// Pasabajos anisotrópico: en la grilla graduada una celda puede medir 0.4 km en
+// un eje y 20 km en el otro; sin filtrar, el detalle fino se aliasa en vetas.
+// Cada vértice se promedia a lo largo de su eje fino hasta igualar la escala de
+// su eje grueso. En la zona fina (celdas cuadradas) no cambia nada.
+function filtrarAnisotropia(campo, valores, canales, esAgua) {
+  const { nx, nz, xs, zs } = campo;
+  const paso = (eje, i) => {
+    const n = eje.length;
+    return (eje[Math.min(i + 1, n - 1)] - eje[Math.max(i - 1, 0)]) / (i > 0 && i < n - 1 ? 2 : 1);
+  };
+  const sx = Float64Array.from({ length: nx }, (_, i) => paso(xs, i));
+  const sz = Float64Array.from({ length: nz }, (_, j) => paso(zs, j));
+  const salida = new Float32Array(valores);
+  const tmp = new Float32Array(valores);
+  // Pasada en x (promedia dentro de cada fila según el paso z local).
+  for (let j = 0; j < nz; j += 1) {
+    for (let i = 0; i < nx; i += 1) {
+      const radioKm = (sz[j] - sx[i]) / 2;
+      if (radioKm <= sx[i] * 0.6) continue;
+      const k0 = j * nx + i;
+      if (esAgua && esAgua(k0)) continue;
+      for (let c = 0; c < canales; c += 1) {
+        let suma = 0; let n = 0;
+        for (let ii = i; ii >= 0 && xs[i] - xs[ii] <= radioKm; ii -= 1) {
+          const k = j * nx + ii; if (esAgua && esAgua(k)) continue; suma += valores[k * canales + c]; n += 1;
+        }
+        for (let ii = i + 1; ii < nx && xs[ii] - xs[i] <= radioKm; ii += 1) {
+          const k = j * nx + ii; if (esAgua && esAgua(k)) continue; suma += valores[k * canales + c]; n += 1;
+        }
+        tmp[k0 * canales + c] = suma / n;
+      }
+    }
+  }
+  salida.set(tmp);
+  // Pasada en z.
+  for (let j = 0; j < nz; j += 1) {
+    for (let i = 0; i < nx; i += 1) {
+      const radioKm = (sx[i] - sz[j]) / 2;
+      if (radioKm <= sz[j] * 0.6) continue;
+      const k0 = j * nx + i;
+      if (esAgua && esAgua(k0)) continue;
+      for (let c = 0; c < canales; c += 1) {
+        let suma = 0; let n = 0;
+        for (let jj = j; jj >= 0 && zs[j] - zs[jj] <= radioKm; jj -= 1) {
+          const k = jj * nx + i; if (esAgua && esAgua(k)) continue; suma += tmp[k * canales + c]; n += 1;
+        }
+        for (let jj = j + 1; jj < nz && zs[jj] - zs[j] <= radioKm; jj += 1) {
+          const k = jj * nx + i; if (esAgua && esAgua(k)) continue; suma += tmp[k * canales + c]; n += 1;
+        }
+        salida[k0 * canales + c] = suma / n;
+      }
+    }
+  }
+  return salida;
 }
 
 // Franja costera: celdas de tierra pegadas al agua.
@@ -565,9 +674,11 @@ function kmDeProgreso(progreso, distanciaKm, completado = false) {
 
 function construirDatosDiorama(escena) {
   const campo = generarCampo(escena);
+  const esAgua = (k) => campo.agua[k] > -Infinity && campo.alturas[k] < campo.agua[k];
+  campo.alturas = filtrarAnisotropia(campo, campo.alturas, 1, esAgua);
   marcarCosta(campo);
   const luz = hornearLuz(campo, escena);
-  const colores = colorearTerreno(campo, escena, luz);
+  const colores = filtrarAnisotropia(campo, colorearTerreno(campo, escena, luz), 3, esAgua);
   const ruta = muestrearRuta(campo, escena.pasoRutaKm || 0.25);
   return { campo, colores, ruta, luz };
 }
@@ -582,6 +693,8 @@ module.exports = {
   interpolarTabla,
   crearFuncionAltura,
   generarCampo,
+  crearGrilla,
+  indiceCercano,
   muestrearBilineal,
   hornearLuz,
   colorearTerreno,

@@ -10,53 +10,55 @@ import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
 import { estadoJourney } from '../services/mapa3d/journeyCore';
 import { ubicarEtiquetas } from '../services/mapa3d/etiquetasCore';
 import {
-  ajustarNiebla,
+  actualizarAtmosfera,
   configurarCamara,
-  construirDiorama,
+  construirMundo,
   crearLuces,
-  crearNiebla,
   geometriaTramo,
   materialesRuta,
   posicionEnKm,
   posicionGeo,
-} from './mapa3d/construirDiorama';
+} from './mapa3d/construirMundo';
 
-// Diorama 3D del desafío. Terreno continuo horneado (heightfield + sombras),
-// agua tallada, ruta apoyada en el valle y pines nativos proyectados desde 3D.
-// La escena es estática: se renderiza bajo demanda (frameloop="demand").
+// Mapa 3D del desafío: ventana sobre un territorio continuo (no un diorama).
+// El terreno horneado se extiende cientos de km más allá del encuadre y se
+// funde con el horizonte por atmósfera; la ruta se apoya en el valle y los
+// pines son vistas nativas proyectadas desde 3D. Render bajo demanda.
 
 const ALTURA_PIN_M = 380; // altura del pin sobre la ruta (m reales)
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 1.35;
 const cacheEscenas = new Map();
 
-function obtenerDiorama(escena, horneado) {
+function obtenerMundo(escena, horneado) {
   if (!cacheEscenas.has(escena.id)) {
-    const diorama = construirDiorama(escena, horneado);
-    diorama.luces = crearLuces(escena);
-    diorama.niebla = crearNiebla(escena);
-    cacheEscenas.set(escena.id, diorama);
+    const mundo = construirMundo(escena, horneado);
+    mundo.luces = crearLuces(escena);
+    cacheEscenas.set(escena.id, mundo);
   }
   return cacheEscenas.get(escena.id);
 }
 
-function Montaje({ diorama, escena, controlRef }) {
+function Montaje({ mundo, escena, controlRef }) {
   const { camera, size, scene, invalidate } = useThree();
   useLayoutEffect(() => {
     configurarCamara(camera, escena, size.width / Math.max(1, size.height), controlRef?.current);
-    scene.fog = diorama.niebla;
-    ajustarNiebla(diorama.niebla, escena, camera);
+    scene.fog = mundo.niebla;
+    actualizarAtmosfera(mundo, escena, camera);
     invalidate();
     return () => { scene.fog = null; };
-  }, [camera, size.width, size.height, scene, diorama, escena, invalidate, controlRef]);
+  }, [camera, size.width, size.height, scene, mundo, escena, invalidate, controlRef]);
   return (
     <>
-      <primitive object={diorama.grupo} dispose={null} />
-      {diorama.luces.map((luz) => <primitive key={luz.uuid} object={luz} dispose={null} />)}
+      <primitive object={mundo.cielo} dispose={null} />
+      <primitive object={mundo.grupo} dispose={null} />
+      {mundo.luces.map((luz) => <primitive key={luz.uuid} object={luz} dispose={null} />)}
     </>
   );
 }
 
-function Ruta({ diorama, escena, kmProgreso }) {
-  const { datos, conv } = diorama;
+function Ruta({ mundo, escena, kmProgreso }) {
+  const { datos, conv } = mundo;
   const total = escena.distanciaKm;
   const mats = useMemo(() => ({
     pendiente: materialesRuta.pendiente(),
@@ -64,7 +66,7 @@ function Ruta({ diorama, escena, kmProgreso }) {
     brillo: materialesRuta.brillo(colors.brandOrange),
   }), []);
   const geos = useMemo(() => ({
-    pendiente: geometriaTramo(datos, conv, kmProgreso, total, 0.010),
+    pendiente: geometriaTramo(datos, conv, kmProgreso, total, 0.013),
     brillo: geometriaTramo(datos, conv, 0, kmProgreso, 0.044),
     hecho: geometriaTramo(datos, conv, 0, kmProgreso, 0.019),
   }), [datos, conv, kmProgreso, total]);
@@ -163,7 +165,8 @@ export default function MapaRecorrido3D({
       estado.size.width / Math.max(1, estado.size.height),
       controlRef.current,
     );
-    ajustarNiebla(estado.scene.fog, escena, estado.camera);
+    const mundoActual = cacheEscenas.get(escena.id);
+    if (mundoActual) actualizarAtmosfera(mundoActual, escena, estado.camera);
     estado.invalidate();
     setRevisionCamara((v) => v + 1);
   };
@@ -183,7 +186,7 @@ export default function MapaRecorrido3D({
       if (ts.length >= 2) {
         const d = Math.hypot(ts[0].pageX - ts[1].pageX, ts[0].pageY - ts[1].pageY);
         const d0 = gestoRef.current.distancia || d;
-        controlRef.current.zoom = THREE.MathUtils.clamp(gestoRef.current.zoomInicial * (d0 / Math.max(1, d)), 0.58, 1.7);
+        controlRef.current.zoom = THREE.MathUtils.clamp(gestoRef.current.zoomInicial * (d0 / Math.max(1, d)), ZOOM_MIN, ZOOM_MAX);
       } else {
         controlRef.current.azimut = THREE.MathUtils.clamp(controlRef.current.azimut + g.dx * 0.0035, -0.72, 0.72);
         controlRef.current.elevacion = THREE.MathUtils.clamp(controlRef.current.elevacion - g.dy * 0.0026, -0.24, 0.28);
@@ -198,13 +201,13 @@ export default function MapaRecorrido3D({
   useEffect(() => {
     if (listo) return undefined;
     const tarea = InteractionManager.runAfterInteractions(() => {
-      obtenerDiorama(escena, horneado);
+      obtenerMundo(escena, horneado);
       setListo(true);
     });
     return () => tarea.cancel?.();
   }, [listo, escena, horneado]);
 
-  const diorama = listo ? obtenerDiorama(escena, horneado) : null;
+  const mundo = listo ? obtenerMundo(escena, horneado) : null;
   const kmProgresoReal = kmDeProgreso(progreso, escena.distanciaKm, completado);
   const kmProgreso = kmPlayback == null ? kmProgresoReal : kmPlayback;
   const journey = useMemo(() => estadoJourney({
@@ -216,13 +219,17 @@ export default function MapaRecorrido3D({
 
   // Proyección de pines y etiquetas con la misma cámara que usa el Canvas.
   const overlay = useMemo(() => {
-    if (!diorama || !tam) return null;
-    const { datos, conv } = diorama;
+    if (!mundo || !tam) return null;
+    const { datos, conv } = mundo;
     const cam = new THREE.PerspectiveCamera();
     configurarCamara(cam, escena, tam.w / tam.h, controlRef.current);
     const aPx = (v) => {
       const p = v.clone().project(cam);
-      return { x: ((p.x + 1) / 2) * tam.w, y: ((1 - p.y) / 2) * tam.h };
+      const x = ((p.x + 1) / 2) * tam.w;
+      const y = ((1 - p.y) / 2) * tam.h;
+      // Detrás de cámara o fuera del cuadro: no se dibuja.
+      const visible = p.z > -1 && p.z < 1 && x > -20 && x < tam.w + 20 && y > -20 && y < tam.h + 20;
+      return { x, y, visible };
     };
     const pines = journey.checkpoints.map((cp, i) => {
       const km = cp.kmJourney;
@@ -235,13 +242,15 @@ export default function MapaRecorrido3D({
         estadoJourney: cp.estadoJourney,
       };
     });
+    const pinesVisibles = pines.filter((p) => p.cabeza.visible && p.base.visible);
     const aguas = (escena.etiquetas || []).map((e) => {
       const agua = escena.aguas.find((a) => a.id === e.id);
       return { ...e, ...aPx(posicionGeo(datos, conv, e.lat, e.lon, agua ? agua.nivelM : undefined)) };
-    });
-    const actual = kmProgreso > 0.05 && kmProgreso < escena.distanciaKm - 0.05
+    }).filter((e) => e.visible && e.x > 40 && e.x < tam.w - 40);
+    const actualPx = kmProgreso > 0.05 && kmProgreso < escena.distanciaKm - 0.05
       ? aPx(posicionEnKm(datos, conv, kmProgreso, 0))
       : null;
+    const actual = actualPx?.visible ? actualPx : null;
     // Norte en pantalla: proyectar un tramo hacia -z.
     const a = aPx(new THREE.Vector3(0, 0, 0));
     const b = aPx(new THREE.Vector3(0, 0, -1));
@@ -249,18 +258,18 @@ export default function MapaRecorrido3D({
     const ocupados = [
       ...aguas.map((e) => ({ x: e.x - e.texto.length * 3.8, y: e.y - 7, w: e.texto.length * 7.6, h: 14 })),
       ...(actual ? [{ x: actual.x - 12, y: actual.y - 12, w: 24, h: 24 }] : []),
-      { x: 0, y: 0, w: 190, h: 56 },
+      { x: 0, y: 0, w: 190, h: 118 },
       { x: tam.w - 120, y: 0, w: 120, h: 44 },
       { x: 0, y: tam.h - 48, w: 56, h: 48 },
     ];
     const etiquetas = ubicarEtiquetas(
-      pines.map((p) => ({ id: p.cp.id, x: p.cabeza.x, y: p.cabeza.y, texto: p.cp.nombre?.toUpperCase(), prioridad: p.cp.id === seleccionadoId ? 2 : 1 })),
+      pinesVisibles.map((p) => ({ id: p.cp.id, x: p.cabeza.x, y: p.cabeza.y, texto: p.cp.nombre?.toUpperCase(), prioridad: p.cp.id === seleccionadoId ? 2 : 1 })),
       tam.w,
       tam.h,
       { ocupados },
     );
-    return { pines, aguas, actual, anguloNorte, etiquetas };
-  }, [diorama, tam, journey, escena, kmProgreso, seleccionadoId, revisionCamara]);
+    return { pines: pinesVisibles, aguas, actual, anguloNorte, etiquetas };
+  }, [mundo, tam, journey, escena, kmProgreso, seleccionadoId, revisionCamara]);
 
   const alCrear = ({ gl, camera, size, scene, invalidate }) => {
     r3fRef.current = { camera, size, scene, invalidate };
@@ -275,7 +284,7 @@ export default function MapaRecorrido3D({
   }, []);
 
   const iniciarJourney = () => {
-    if (!diorama || reproduciendo) return;
+    if (!mundo || reproduciendo) return;
     if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
     const metaKm = Math.max(0.1, kmProgresoReal);
     const duracion = THREE.MathUtils.clamp(5000 + metaKm * 55, 6000, 12000);
@@ -287,7 +296,7 @@ export default function MapaRecorrido3D({
       const t = THREE.MathUtils.clamp((Date.now() - inicio) / duracion, 0, 1);
       const suave = t * t * (3 - 2 * t);
       const km = metaKm * suave;
-      const p = posicionEnKm(diorama.datos, diorama.conv, km, 0);
+      const p = posicionEnKm(mundo.datos, mundo.conv, km, 0);
       controlRef.current.objetivo = [p.x, p.y, p.z];
       setKmPlayback(km);
       aplicarCamara();
@@ -297,7 +306,7 @@ export default function MapaRecorrido3D({
         playbackRef.current = null;
         setKmPlayback(null);
         setReproduciendo(false);
-        const fin = posicionEnKm(diorama.datos, diorama.conv, kmProgresoReal, 0);
+        const fin = posicionEnKm(mundo.datos, mundo.conv, kmProgresoReal, 0);
         controlRef.current.objetivo = [fin.x, fin.y, fin.z];
         aplicarCamara();
       }
@@ -314,8 +323,8 @@ export default function MapaRecorrido3D({
   };
 
   const enfocarPosicion = () => {
-    if (!diorama) return;
-    const p = posicionEnKm(diorama.datos, diorama.conv, journey.kmActual, 0);
+    if (!mundo) return;
+    const p = posicionEnKm(mundo.datos, mundo.conv, journey.kmActual, 0);
     controlRef.current = {
       ...controlRef.current,
       objetivo: [p.x, p.y, p.z],
@@ -342,23 +351,23 @@ export default function MapaRecorrido3D({
       }}
     >
       <Fondo />
-      {diorama && (
+      {mundo && (
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: aparicion }]}>
           <Canvas
             style={styles.canvas}
             frameloop="demand"
             dpr={2}
             gl={{ alpha: true, antialias: true }}
-            camera={{ fov: escena.camara.fov, near: 0.1, far: 120, position: [0, 6, -10] }}
+            camera={{ fov: escena.camara.fov, near: 0.05, far: 200, position: [0, 6, -10] }}
             onCreated={alCrear}
           >
-            <Montaje diorama={diorama} escena={escena} controlRef={controlRef} />
-            <Ruta diorama={diorama} escena={escena} kmProgreso={kmProgreso} />
+            <Montaje mundo={mundo} escena={escena} controlRef={controlRef} />
+            <Ruta mundo={mundo} escena={escena} kmProgreso={kmProgreso} />
           </Canvas>
         </Animated.View>
       )}
 
-      {!diorama && <Text style={styles.cargando}>Modelando el relieve…</Text>}
+      {!mundo && <Text style={styles.cargando}>Modelando el relieve…</Text>}
 
       {overlay && (
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: aparicion }]} pointerEvents="box-none">

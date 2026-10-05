@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const escena = require('../services/mapa3d/escenas/finDelMundo');
 const horneado = require('../services/mapa3d/escenas/finDelMundo.horneado');
 const {
-  construirDatosDiorama, crearFuncionAltura, puntoEnKm, kmDeProgreso,
+  construirDatosDiorama, crearFuncionAltura, puntoEnKm, kmDeProgreso, crearGrilla, indiceCercano,
 } = require('../services/mapa3d/terrenoCore');
 const {
   bytesABase64, base64ABytes, serializarDiorama, deserializarDiorama,
@@ -32,9 +32,7 @@ test('cada checkpoint cae sobre su ancla geográfica', () => {
 test('la ruta nunca queda bajo el agua y el paso es el punto alto del corredor', () => {
   const { campo } = datos;
   for (const p of datos.ruta) {
-    const i = Math.round((p.x - campo.minX) / campo.dx);
-    const j = Math.round((p.z - campo.minZ) / campo.dz);
-    const nivel = campo.agua[j * campo.nx + i];
+    const nivel = campo.agua[indiceCercano(campo, p.x, p.z)];
     assert.ok(!(nivel > -Infinity && p.h < nivel - 1), `km ${p.km.toFixed(1)} bajo el agua`);
   }
   const garibaldi = puntoEnKm(datos.ruta, 45).h;
@@ -43,15 +41,22 @@ test('la ruta nunca queda bajo el agua y el paso es el punto alto del corredor',
 });
 
 test('el terreno tiene cordillera real, lagos y canal', () => {
-  const { alturas, agua } = datos.campo;
+  const { alturas, agua, xs, zs, nx } = datos.campo;
+  const { minX, maxX, minZ, maxZ } = escena.limitesKm;
   let max = -Infinity;
+  let celdas = 0;
   let celdasAgua = 0;
-  for (let i = 0; i < alturas.length; i += 1) {
-    max = Math.max(max, alturas[i]);
-    if (agua[i] > -Infinity && alturas[i] < agua[i]) celdasAgua += 1;
+  for (let j = 0; j < zs.length; j += 1) {
+    for (let i = 0; i < xs.length; i += 1) {
+      if (xs[i] < minX || xs[i] > maxX || zs[j] < minZ || zs[j] > maxZ) continue;
+      const k = j * nx + i;
+      celdas += 1;
+      max = Math.max(max, alturas[k]);
+      if (agua[k] > -Infinity && alturas[k] < agua[k]) celdasAgua += 1;
+    }
   }
   assert.ok(max > 1100, `cumbre máxima ${max}`);
-  assert.ok(celdasAgua / alturas.length > 0.12, 'faltan Fagnano/Beagle');
+  assert.ok(celdasAgua / celdas > 0.08, 'faltan Fagnano/Beagle en el área de la ruta');
 });
 
 test('progreso: completado muestra 100% y activos solo lo alcanzado', () => {
@@ -129,4 +134,51 @@ test('Journey Engine completa cualquier escena usando su distancia', () => {
   assert.equal(estado.porcentaje, 1);
   assert.equal(estado.siguiente, null);
   assert.equal(estado.checkpoints[1].estadoJourney, 'conquistado');
+});
+
+test('mundo continuo: el territorio se extiende mucho más allá de la ruta', () => {
+  const { campo } = datos;
+  for (const p of datos.ruta) {
+    const margen = Math.min(p.x - campo.minX, campo.maxX - p.x, p.z - campo.minZ, campo.maxZ - p.z);
+    assert.ok(margen > 250, `la ruta queda a ${margen.toFixed(0)} km del borde del mundo`);
+  }
+});
+
+test('grilla graduada: fina sobre la ruta, creciente hacia afuera y sin saltos bruscos', () => {
+  const { xs, zs } = crearGrilla(escena);
+  for (const eje of [xs, zs]) {
+    for (let i = 1; i < eje.length; i += 1) assert.ok(eje[i] > eje[i - 1], 'eje no monótono');
+    for (let i = 2; i < eje.length; i += 1) {
+      const a = eje[i - 1] - eje[i - 2];
+      const b = eje[i] - eje[i - 1];
+      assert.ok(b / a < 1.25 && a / b < 1.25, 'salto de resolución visible');
+    }
+  }
+  const { minX, maxX } = escena.limitesKm;
+  const dentro = Array.from(xs).filter((x) => x > minX && x < maxX);
+  for (let i = 1; i < dentro.length; i += 1) assert.ok(dentro[i] - dentro[i - 1] <= escena.resolucionKm * 1.02);
+});
+
+test('el filtro anisotrópico no altera la geografía de la ruta', () => {
+  const geo = crearFuncionAltura(escena);
+  for (const km of [0, 20, 45, 80, 103]) {
+    const p = puntoEnKm(datos.ruta, km);
+    const { h } = geo.altura(p.x, p.z);
+    assert.ok(Math.abs(datos.campo.muestrear(p.x, p.z) - h) < 60, `km ${km}: relieve alterado`);
+  }
+});
+
+test('el agua es geografía: Fagnano y Beagle existen en el mundo y la ruta los bordea', () => {
+  const { campo } = datos;
+  const { proy } = crearFuncionAltura(escena);
+  const enAgua = (lat, lon) => {
+    const { x, z } = proy.aKm(lat, lon);
+    const k = indiceCercano(campo, x, z);
+    return campo.agua[k] > -Infinity && campo.alturas[k] < campo.agua[k];
+  };
+  assert.ok(enAgua(-54.565, -67.75), 'falta el Lago Fagnano');
+  assert.ok(enAgua(-54.590, -68.70), 'el Fagnano debe seguir hacia Chile');
+  assert.ok(enAgua(-54.870, -67.80), 'falta el Canal Beagle');
+  assert.ok(enAgua(-54.885, -69.25), 'el Beagle debe seguir hacia el oeste');
+  assert.ok(!enAgua(-54.807, -68.305), 'Ushuaia no puede quedar bajo el agua');
 });

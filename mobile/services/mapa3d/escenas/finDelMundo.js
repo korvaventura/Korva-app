@@ -1,7 +1,11 @@
 // Escena "Fin del Mundo" — RN3 Tolhuin -> Ushuaia, Tierra del Fuego.
-// Geografía estilizada pero anclada en coordenadas reales (lat/lon WGS84):
-// Lago Fagnano al norte, cordillera fueguina en el medio, Canal Beagle al sur.
-// Las alturas están exageradas para lectura en pantalla de teléfono.
+// Geografía estilizada pero anclada en coordenadas reales (lat/lon WGS84).
+// El motor no sabe nada de Tierra del Fuego: todo lo específico vive acá.
+//
+// Territorio: la ruta y sus lagos se modelan en detalle dentro de `limitesKm`;
+// `mundo` extiende el mismo territorio ~300 km para que la cámara nunca vea un
+// borde: el Fagnano sigue hacia Chile, el Beagle hacia el Pacífico y la
+// Cordillera Darwin cierra el horizonte oeste.
 
 const finDelMundo = {
   id: 'fin_del_mundo',
@@ -12,17 +16,12 @@ const finDelMundo = {
   },
   semilla: 2026,
   centro: { lat: -54.70, lon: -67.75 },
-  limitesKm: { minX: -43, maxX: 40, minZ: -26, maxZ: 27 },
-  resolucionKm: 0.36,
+  limitesKm: { minX: -46, maxX: 62, minZ: -46, maxZ: 30 },
+  resolucionKm: 0.42,
   kmPorUnidad: 10,
   exageracion: 4.6,
   pasoRutaKm: 0.25,
-  terrenoVisual: {
-    corredorKm: 22,
-    bordeKm: 7,
-    variacionKm: 4.5,
-    frecuencia: 0.095,
-  },
+  mundo: { extensionKm: 300, crecimiento: 1.18 },
 
   // Trazado conceptual de la RN3. `km` = ancla del desafío (coincide con checkpoints).
   ruta: [
@@ -69,6 +68,7 @@ const finDelMundo = {
         [-54.522, -67.240, 0.5], [-54.533, -67.300, 1.45], [-54.548, -67.400, 2.4],
         [-54.556, -67.550, 3.0], [-54.565, -67.750, 3.3], [-54.575, -68.000, 3.5],
         [-54.585, -68.300, 3.4], [-54.590, -68.550, 3.2],
+        [-54.594, -68.720, 2.6], [-54.598, -68.850, 1.2], // sector chileno
       ],
     },
     {
@@ -78,9 +78,12 @@ const finDelMundo = {
     {
       id: 'beagle', nombre: 'CANAL BEAGLE', nivelM: 0, profundidadM: 220, taludKm: 2.5, orillaKm: 2.0, irregularidadKm: 0.9,
       eje: [
-        [-54.858, -68.600, 3.2], [-54.852, -68.300, 3.0], [-54.858, -68.050, 3.2],
-        [-54.870, -67.800, 3.6], [-54.880, -67.500, 3.8], [-54.890, -67.200, 4.0],
-        [-54.898, -66.900, 4.2],
+        // oeste -> este: Brazo Noroeste, Hoste, Lapataia, Ushuaia, Navarro, boca atlántica
+        [-54.820, -70.500, 1.8], [-54.860, -70.000, 1.8], [-54.890, -69.600, 2.0],
+        [-54.885, -69.250, 2.2], [-54.870, -68.900, 2.6], [-54.858, -68.600, 3.2],
+        [-54.852, -68.300, 3.0], [-54.858, -68.050, 3.2], [-54.870, -67.800, 3.6],
+        [-54.880, -67.500, 3.8], [-54.890, -67.200, 4.0], [-54.898, -66.900, 4.2],
+        [-54.915, -66.550, 5.5], [-54.940, -66.150, 8.0],
       ],
     },
     {
@@ -102,10 +105,15 @@ const finDelMundo = {
         centroZ: -23, semiAncho: 3.5, borde: 4, escalaX: 0.09, escalaZ: 0.2, base: 0.25, desfase: 11.2,
         amplitudPorX: [[-44, 520], [0, 420], [25, 260], [44, 160]],
       },
-      // Isla Navarro (Chile), al sur del Beagle: cierra el canal.
+      // Islas Navarro y Hoste (Chile), al sur del Beagle: cierran el canal.
       {
-        centroZ: 28, semiAncho: 5.5, borde: 3.5, escalaX: 0.08, escalaZ: 0.18, base: 0.2, desfase: 21.4,
-        amplitudPorX: [[-44, 950], [0, 800], [44, 600]],
+        centroZ: 34, semiAncho: 12, borde: 5, escalaX: 0.08, escalaZ: 0.16, base: 0.2, desfase: 21.4,
+        amplitudPorX: [[-120, 1100], [-44, 950], [0, 800], [44, 600], [120, 400]],
+      },
+      // Cordillera Darwin (Chile): el macizo glaciario más alto, horizonte oeste.
+      {
+        centroZ: -8, semiAncho: 17, borde: 7, escalaX: 0.06, escalaZ: 0.14, base: 0.18, desfase: 31.9,
+        amplitudPorX: [[-400, 2300], [-140, 2300], [-95, 1750], [-66, 700], [-52, 0]],
       },
     ],
     // Masas reconocibles integradas al mismo campo de alturas (no son objetos).
@@ -130,7 +138,7 @@ const finDelMundo = {
   // sRGB. Paleta de atardecer patagónico, coherente con el navy de Korva.
   paleta: {
     estepa: '#7C7A4E',
-    turba: '#6A5638',
+    turba: '#716346',
     bosque: '#22402C',
     bosqueClaro: '#34573A',
     lengaOtono: '#8E4A22',
@@ -152,15 +160,26 @@ const finDelMundo = {
     sombraMin: 0.42,
   },
 
-  // Cámara desde el norte mirando al sur: Tolhuin cerca, Ushuaia y el Beagle al fondo.
-  camara: { objetivo: [-0.35, 0.0, -0.5], elevacionGrados: 31, azimutGrados: 47, distancia: 12.0, fov: 30, aspectoReferencia: 0.9 },
-  niebla: { color: '#456080', cerca: 0.95, lejos: 2.0 },
-  cielo: { horizonte: '#6F86A0', resplandor: '#D9A57A', medio: '#1C3A5A', cenit: '#081523' },
+  // Overview desde el este-noreste: la RN3 nace en primer plano en Tolhuin,
+  // bordea el Fagnano, trepa al Garibaldi y baja a Ushuaia; detrás el Beagle,
+  // Navarro y los glaciares de la Cordillera Darwin cierran el horizonte.
+  camara: { objetivo: [-1.42, 0.0, 0.05], elevacionGrados: 33, azimutGrados: 66, distancia: 12.9, fov: 40, aspectoReferencia: 0.82 },
+  // Atmósfera: la niebla tiene el color del horizonte, así el terreno lejano se
+  // funde con el cielo (perspectiva aérea) y nunca se ve el fin de la malla.
+  atmosfera: {
+    horizonte: '#9DB0C2',
+    resplandor: '#EDB98A',
+    medio: '#5378A0',
+    cenit: '#16304E',
+    cerca: 1.25,
+    lejos: 3.2,
+  },
 
   etiquetas: [
     { id: 'fagnano', texto: 'LAGO FAGNANO', lat: -54.565, lon: -67.80, tipo: 'agua' },
     { id: 'beagle', texto: 'CANAL BEAGLE', lat: -54.866, lon: -67.95, tipo: 'agua' },
-    { id: 'chile', texto: 'ISLA NAVARRO · CHILE', lat: -54.935, lon: -68.15, tipo: 'region' },
+    { id: 'chile', texto: 'ISLA NAVARRO · CHILE', lat: -54.975, lon: -68.15, tipo: 'region' },
+    { id: 'darwin', texto: 'CORDILLERA DARWIN', lat: -54.62, lon: -69.35, tipo: 'region' },
   ],
 };
 
