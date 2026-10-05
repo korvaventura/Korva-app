@@ -675,18 +675,6 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
-      {userId && (
-        <View>
-          <MovimientoPersonalCard compacto estado={movimientoPersonal} onActualizar={actualizarMovimiento} />
-        </View>
-      )}
-
-      <KorvaMundiTeaser
-        conquistados={challengesCompletados.length}
-        enCurso={challengesEnCurso.filter((c) => !c.pausado).length}
-        onPress={() => navigation.navigate('KorvaMundi')}
-      />
-
       {/* Banner pago — FIX: usa cerrarBanner() */}
       {bannerVisible && !cargando && (
         <View style={styles.bannerCard}>
@@ -811,6 +799,20 @@ export default function HomeScreen({ navigation }) {
             </>
           )}
         </>
+      )}
+
+      {!cargando && !error && (
+        <KorvaMundiTeaser
+          conquistados={challengesCompletados.length}
+          enCurso={challengesEnCurso.filter((c) => !c.pausado).length}
+          onPress={() => navigation.navigate('KorvaMundi')}
+        />
+      )}
+
+      {userId && (
+        <View style={styles.movimientoResumen}>
+          <MovimientoPersonalCard compacto estado={movimientoPersonal} onActualizar={actualizarMovimiento} />
+        </View>
       )}
 
       {userId && (
@@ -1330,6 +1332,7 @@ const styles = StyleSheet.create({
   storyFooter: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', borderTopWidth: 1, borderTopColor: colors.surfaceStrong, paddingTop: 12 },
   storyNombre: { fontSize: 13, color: colors.text, fontWeight: 'bold' },
   storyUrl: { fontSize: 13, color: colors.brandOrange },
+  movimientoResumen: { marginTop: 2 },
   movimientoSection: { marginHorizontal: 0, marginTop: 14, marginBottom: 6 },
   movimientoTitulo: { color: colors.textSoft, fontSize: 11, fontWeight: '800', letterSpacing: 1.4, marginBottom: 10 },
   actividadRecienteCard: { backgroundColor: '#13283D', borderRadius: 16, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: colors.surfaceStrong },
