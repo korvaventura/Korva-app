@@ -7,7 +7,7 @@ import KorvaCompletedShare from '../components/KorvaCompletedShare';
 
 const { datosDesafioCompletado } = require('../services/desafioShareCore');
 
-export default function CompletadoScreen({ challenge, nombrePersona, onVolver, onCargarDireccion }) {
+export default function CompletadoScreen({ challenge, nombrePersona, onVolver, onCargarDireccion, onVerKorvaMundi }) {
   const [tieneDireccion, setTieneDireccion] = useState(null);
   const [compartirVisible, setCompartirVisible] = useState(false);
   const datos = datosDesafioCompletado(challenge);
@@ -44,8 +44,8 @@ export default function CompletadoScreen({ challenge, nombrePersona, onVolver, o
         </View>
 
         <Text style={styles.eyebrow}>DESAFÍO COMPLETADO</Text>
-        <Text style={styles.title}>Lo conquistaste.</Text>
-        <Text style={styles.challenge}>{nombreReto}</Text>
+        <Text style={styles.title}>¡Felicitaciones!</Text>
+        <Text style={styles.challenge}>Completaste {nombreReto}</Text>
 
         <View style={styles.rule} />
 
@@ -86,14 +86,14 @@ export default function CompletadoScreen({ challenge, nombrePersona, onVolver, o
           <View style={styles.shippingCopy}>
             <Text style={styles.shippingEyebrow}>TU MEDALLA</Text>
             <Text style={styles.shippingTitle}>
-              {tieneDireccion === null ? 'Verificando dirección…' : tieneDireccion ? 'Dirección lista' : 'Falta tu dirección de envío'}
+              {tieneDireccion === null ? 'Verificando dirección…' : tieneDireccion ? 'Prepararemos tu despacho' : 'Necesitamos tu dirección de envío'}
             </Text>
             <Text style={styles.shippingText}>
               {tieneDireccion === null
                 ? 'Estamos revisando los datos de envío.'
                 : tieneDireccion
-                  ? 'Tenemos tus datos. El seguimiento se enviará por email cuando el despacho esté preparado.'
-                  : 'Cargala desde tu Perfil para que podamos preparar el envío de tu medalla.'}
+                  ? 'Nuestro equipo comenzará a preparar y gestionar el despacho de tu medalla. Cuando la información de seguimiento esté disponible, recibirás el enlace de rastreo por correo electrónico. No necesitás realizar ninguna acción por el momento.'
+                  : 'Cargá tu dirección para que podamos gestionar correctamente el despacho de tu medalla.'}
             </Text>
           </View>
         </View>
@@ -102,6 +102,14 @@ export default function CompletadoScreen({ challenge, nombrePersona, onVolver, o
           <TouchableOpacity style={styles.secondary} onPress={onCargarDireccion} accessibilityRole="button">
             <Text style={styles.secondaryText}>CARGAR DIRECCIÓN</Text>
             <Ionicons name="arrow-forward" size={16} color={colors.actionBlue} />
+          </TouchableOpacity>
+        ) : null}
+
+        {onVerKorvaMundi ? (
+          <TouchableOpacity style={styles.worldLink} onPress={onVerKorvaMundi} accessibilityRole="button">
+            <Ionicons name="globe-outline" size={17} color={colors.textSoft} />
+            <Text style={styles.worldLinkText}>Ver mi conquista en KorvaMundi</Text>
+            <Ionicons name="arrow-forward" size={15} color={colors.textMuted} />
           </TouchableOpacity>
         ) : null}
 
@@ -147,6 +155,8 @@ const styles = StyleSheet.create({
   shippingText: { color: colors.textSoft, fontSize: 11, lineHeight: 17 },
   secondary: { width: '100%', maxWidth: 360, minHeight: 46, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 10 },
   secondaryText: { color: colors.actionBlue, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  back: { paddingVertical: 18, paddingHorizontal: 24, marginTop: 8 },
+  worldLink: { width: '100%', maxWidth: 360, minHeight: 46, marginTop: 12, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  worldLinkText: { color: colors.textSoft, fontSize: 11, fontWeight: '800', flexShrink: 1 },
+  back: { paddingVertical: 18, paddingHorizontal: 24, marginTop: 2 },
   backText: { color: colors.textMuted, fontSize: 13, fontWeight: '700' },
 });
