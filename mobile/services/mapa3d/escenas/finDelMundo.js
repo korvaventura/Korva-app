@@ -17,6 +17,12 @@ const finDelMundo = {
   kmPorUnidad: 10,
   exageracion: 4.6,
   pasoRutaKm: 0.25,
+  terrenoVisual: {
+    corredorKm: 22,
+    bordeKm: 7,
+    variacionKm: 4.5,
+    frecuencia: 0.095,
+  },
 
   // Trazado conceptual de la RN3. `km` = ancla del desafío (coincide con checkpoints).
   ruta: [
