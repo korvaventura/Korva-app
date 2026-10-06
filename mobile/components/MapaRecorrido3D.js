@@ -9,6 +9,7 @@ import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
 import { muestraGesto, avanzarGesto, seleccionarPin } from '../services/mapa3d/gestosCore';
 import { estadoJourney } from '../services/mapa3d/journeyCore';
 import { crearCorteRuta } from '../services/mapa3d/rutaPlaybackCore';
+import { duracionReplay, controlInicialReplay, seguirReplay } from '../services/mapa3d/replayCamaraCore';
 import { ubicarEtiquetas, seSuperponen } from '../services/mapa3d/etiquetasCore';
 import {
   actualizarAtmosfera,
@@ -239,6 +240,7 @@ export default function MapaRecorrido3D({
   const ultimaPublicacionRef = useRef(0);
   const ultimaSeleccionRef = useRef({id:null,tiempo:0});
   const etiquetasPreviasRef = useRef({});
+  const camaraManualHastaRef = useRef(0);
   const liberarGesto = useCallback(() => {
     if(arrastrandoRef.current)ultimoArrastreRef.current=Date.now();
     inicioToqueRef.current=null;gestoRef.current=null;arrastrandoRef.current=false;
@@ -250,8 +252,6 @@ export default function MapaRecorrido3D({
     liberarGesto();
     if(ahora-ultimaSeleccionRef.current.tiempo<350)return;
     ultimaSeleccionRef.current={id:cp.id,tiempo:ahora};
-    if(playbackRef.current)cancelAnimationFrame(playbackRef.current);
-    playbackRef.current=null;setKmPlayback(null);setReproduciendo(false);
     onSelect?.(cp);
   },[liberarGesto,onSelect]);
 
@@ -335,13 +335,8 @@ export default function MapaRecorrido3D({
       return !!actual && (actual.n >= 2 || !!inicio && Math.hypot(actual.x - inicio.x, actual.y - inicio.y) >= 10);
     },
     onResponderGrant: (e) => {
-      // Un gesto toma el control sin que el replay siga moviendo la cámara.
-      if (playbackRef.current) {
-        cancelAnimationFrame(playbackRef.current);
-        playbackRef.current = null;
-        setKmPlayback(null);
-        setReproduciendo(false);
-      }
+      // Manual camera control pauses only following, never route playback.
+      camaraManualHastaRef.current=Date.now()+1200;
       // Raw touch events own movement; responder negotiation only cancels child presses.
     },
     onTouchMove: (e) => {
@@ -352,8 +347,8 @@ export default function MapaRecorrido3D({
       if (!arrastrandoRef.current) {
         arrastrandoRef.current = true;
         onInteraccionMapa?.(true);
-        if (playbackRef.current) { cancelAnimationFrame(playbackRef.current); playbackRef.current = null; setKmPlayback(null); setReproduciendo(false); }
       }
+      camaraManualHastaRef.current=Date.now()+1200;
       ultimoArrastreRef.current = Date.now();
       const estado = r3fRef.current;
       if (!estado) return;
@@ -517,14 +512,19 @@ export default function MapaRecorrido3D({
     const metaKm = Math.max(0.1, kmProgresoReal);
     // El replay debe sentirse como un viaje, no como una barra de progreso.
     // Tiempo de lectura y cámara amortiguada en curvas cerradas.
-    const duracion = THREE.MathUtils.clamp(52000 + metaKm * 140, 55000, 80000);
+    const duracion = duracionReplay(metaKm);
     let anterior = Date.now(); let transcurrido = 0; let ultimaFicha = -Infinity;
-    const seguimiento = new THREE.Vector3(...(controlRef.current.objetivo || escena.camara.objetivo));
+    liberarGesto();
+    camaraManualHastaRef.current=0;
+    etiquetasPreviasRef.current={};
+    controlRef.current=controlInicialReplay(escena.camara.objetivo);
+    progresoRef.current={km:0,animando:true};
+    setKmPlayback(0);
+    ultimaPublicacionRef.current=0;
+    aplicarCamara();
     setCierreVisible(false);
     cierreOpacity.setValue(0);
     setReproduciendo(true);
-    controlRef.current = { ...controlRef.current, objetivo: seguimiento.toArray() };
-    const zoomInicial = controlRef.current.zoom || 1;
 
     const tick = () => {
       const ahora = Date.now();
@@ -535,9 +535,8 @@ export default function MapaRecorrido3D({
       const suave = t * t * (3 - 2 * t);
       const km = metaKm * suave;
       const p = posicionEnKm(mundo.datos, mundo.conv, km, 0);
-      seguimiento.lerp(p, 1 - Math.exp(-dt / 380));
-      controlRef.current.objetivo = seguimiento.toArray();
-      controlRef.current.zoom = THREE.MathUtils.lerp(zoomInicial, 0.88, Math.min(1, transcurrido / 1800));
+      controlRef.current=seguirReplay(controlRef.current,p.toArray(),escena.camara.objetivo,dt,
+        !arrastrandoRef.current && ahora>=camaraManualHastaRef.current);
       progresoRef.current = { km, animando: true };
       if (ahora - ultimaFicha >= 100 || t === 1) { setKmPlayback(km); ultimaFicha = ahora; }
       aplicarCamara();
@@ -557,21 +556,11 @@ export default function MapaRecorrido3D({
             if (finished) setCierreVisible(false);
           });
         }
-        const fin = posicionEnKm(mundo.datos, mundo.conv, kmProgresoReal, 0);
-        controlRef.current.objetivo = [fin.x, fin.y, fin.z];
         aplicarCamara();
       }
     };
     playbackRef.current = requestAnimationFrame(tick);
   };
-
-  useEffect(() => {
-    if (seleccionadoId == null || !playbackRef.current) return;
-    cancelAnimationFrame(playbackRef.current);
-    playbackRef.current = null;
-    setKmPlayback(null);
-    setReproduciendo(false);
-  }, [seleccionadoId]);
 
   const detenerJourney = () => {
     if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
@@ -583,10 +572,7 @@ export default function MapaRecorrido3D({
 
   const enfocarPosicion = () => {
     if (!mundo) return;
-    if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
-    playbackRef.current = null;
-    setKmPlayback(null);
-    setReproduciendo(false);
+    camaraManualHastaRef.current=Date.now()+1200;
     const p = posicionEnKm(mundo.datos, mundo.conv, journey.kmActual, 0);
     controlRef.current = {
       ...controlRef.current,
@@ -597,13 +583,10 @@ export default function MapaRecorrido3D({
   };
 
   const recenter = () => {
-    if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
-    playbackRef.current = null;
-    setKmPlayback(null);
-    setReproduciendo(false);
-    gestoRef.current = null;
-    onInteraccionMapa?.(false);
-    controlRef.current = { azimut: 0, elevacion: 0, zoom: 1 };
+    liberarGesto();
+    camaraManualHastaRef.current=Date.now()+1200;
+    controlRef.current = controlInicialReplay(escena.camara.objetivo);
+    ultimaPublicacionRef.current=0;
     aplicarCamara();
   };
 

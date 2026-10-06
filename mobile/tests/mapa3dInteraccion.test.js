@@ -32,9 +32,11 @@ test('handlers reales: tap no bloquea scroll; arrastre, release y cancel liberan
   const releases=source.slice(source.indexOf('  const liberarGesto ='),source.indexOf('  const seleccionarCheckpoint ='));
   const handlers=source.slice(source.indexOf('  const touchHandlers ='),source.indexOf('  // Decodificar el horneado'));
   const locks=[];
-  const refs=Object.fromEntries(['inicioToqueRef','gestoRef','arrastrandoRef','ultimoArrastreRef','playbackRef','r3fRef','wrapRef','overlayRef','ultimaPublicacionRef'].map(k=>[k,{current:k==='ultimoArrastreRef'?0:null}]));
+  const refs=Object.fromEntries(['inicioToqueRef','gestoRef','arrastrandoRef','ultimoArrastreRef','playbackRef','r3fRef','wrapRef','overlayRef','ultimaPublicacionRef','camaraManualHastaRef'].map(k=>[k,{current:k==='ultimoArrastreRef'?0:null}]));
   const context=vm.createContext({...refs,...gestos,useCallback:f=>f,useMemo:f=>f(),onInteraccionMapa:v=>locks.push(v),aplicarCamara:()=>{},seleccionarCheckpoint:()=>{},escena:{},cancelAnimationFrame:()=>{},setKmPlayback:()=>{},setReproduciendo:()=>{}});
   const h=vm.runInContext(releases+handlers+'\ntouchHandlers',context);
+  refs.playbackRef.current=71;
+  context.cancelAnimationFrame=()=>{throw Error('A gesture must not stop replay');};
   const event=(x,y)=>({nativeEvent:{touches:[{identifier:1,pageX:x,pageY:y}]}});
   h.onTouchStart(event(100,100));assert.equal(h.onStartShouldSetResponder(),false);
   h.onResponderGrant(event(100,100));h.onTouchMove(event(104,103));assert(!locks.includes(true));
@@ -42,4 +44,21 @@ test('handlers reales: tap no bloquea scroll; arrastre, release y cancel liberan
   h.onResponderTerminate();assert.equal(locks.at(-1),false);assert.equal(refs.arrastrandoRef.current,false);assert.equal(refs.gestoRef.current,null);
   h.onTouchStart(event(100,100));h.onTouchMove(event(125,100));h.onTouchCancel();assert.equal(locks.at(-1),false);
   h.onTouchStart(event(100,100));h.onTouchMove(event(125,100));h.onResponderRelease();assert.equal(locks.at(-1),false);
+  assert.equal(refs.playbackRef.current,71);
+});
+
+test('revivir: arranca centrado, acelera moderadamente y el seguimiento respeta el control manual',()=>{
+  const {duracionReplay,controlInicialReplay,seguirReplay}=require('../services/mapa3d/replayCamaraCore');
+  assert(duracionReplay(19.4)>42000 && duracionReplay(19.4)<50000);
+  const base=[0,.22,.65],control=controlInicialReplay(base);
+  assert.equal(control.azimut,0);assert.equal(control.elevacion,0);assert.equal(control.zoom,1);
+  assert.deepEqual(control.objetivo,base);assert.notEqual(control.objetivo,base);
+  const manual={azimut:2.8,elevacion:.1,zoom:.62,objetivo:[2,.3,3]};
+  assert.equal(seguirReplay(manual,[0,.2,1],base,16,false),manual);
+  const retomado=seguirReplay(manual,[0,.2,1],base,16,true);
+  assert.equal(retomado.azimut,manual.azimut);assert.equal(retomado.zoom,manual.zoom);
+  assert(Math.hypot(...retomado.objetivo.map((v,i)=>v-manual.objetivo[i]))<.1);
+  let seguido=control;
+  for(let i=0;i<200;i++)seguido=seguirReplay(seguido,[1,.3,1.5],base,16,true);
+  assert(seguido.objetivo[0]>.4 && seguido.objetivo[0]<.46); // gentle framing, not a chase camera
 });
