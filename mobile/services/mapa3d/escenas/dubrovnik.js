@@ -176,7 +176,7 @@ const dubrovnik = {
   },
 
   // Desde el mar: ciudad en primer plano y monte Srđ al fondo.
-  camara: { objetivo: [-0.5, 0.16, -0.15], elevacionGrados: 48, azimutGrados: 195, distancia: 3.8, fov: 42, aspectoReferencia: 0.82 },
+  camara: { objetivo: [-0.55, 0.16, -0.8], elevacionGrados: 48, azimutGrados: 180, distancia: 5.8, fov: 42, aspectoReferencia: 0.82 },
   atmosfera: {
     horizonte: '#C6D8E6',
     resplandor: '#F6C89A',
@@ -315,3 +315,4 @@ dubrovnik.arquitectura.edificios.push(
   {lat:42.64176,lon:18.10682,monumento:true,anchoM:8,largoM:28,alturaM:12,alturaTejadoM:1.6,tono:2},
 );
 module.exports = dubrovnik;
+

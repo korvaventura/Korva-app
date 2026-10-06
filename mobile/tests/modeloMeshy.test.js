@@ -90,5 +90,17 @@ test('ruta visual: conserva anclas de kilómetros y elimina picos verticales sin
     const h=sample(min[0]+(max[0]-min[0])*x/79,min[1]+(max[1]-min[1])*z/79);
     assert(Number.isFinite(h)); peak=Math.max(peak,h);
   }
-  assert(peak>.5 && peak<1);
+  assert(peak>.85 && peak<1); // Original mountain, preserved without synthetic lift.
+  assert(meta.min[1] > -.02); // Clipped base below the water datum.
+  const { crearRutaVisualModelo } = require('../services/mapa3d/modeloMeshyCore');
+  const conv = { aKm: x => x * .3, y: h => h * .004 };
+  const route = crearRutaVisualModelo(meta.visualRoute, (x,z) => sample(x/.3,z/.3)/.004, conv);
+  assert.deepEqual(meta.visualRoute.filter(p => Number.isFinite(p[2])).map(p => p[2]), [0,4,8,12,16,19.4]);
+  assert.equal(route.at(-1).km,19.4);
+  for (let i=0;i<route.length;i++) {
+    const p=route[i]; assert(Number.isFinite(p.h));
+    assert(p.h*.004 + 1e-7 >= sample(p.x/.3,p.z/.3));
+    if(i)assert(p.km>route[i-1].km);
+  }
  });
+

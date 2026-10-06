@@ -564,8 +564,8 @@ export function construirMundo(escena, horneado) {
   if (escena.modeloMeshy) {
     const modelo = construirModeloMeshy(datos, conv);
     // One cohesive landscape: no overlapping old town / mainland join.
-    // Visual route follows generated ramparts with excursions to Stradun and Lovrijenac.
-    modelo.datos.ruta = crearRutaVisualModelo([[-0.50909, -0.72545, 0], [-0.57455, -1.03818], [-0.92364, -1.21273], [-1.24364, -1.38727, 4], [-0.92364, -1.21273], [-0.57455, -1.03818], [-0.50909, -0.72545], [-0.52727, -0.51091], [-0.64, -0.30364], [-0.81091, -0.16909, 8], [-0.64, -0.30364], [-0.52727, -0.51091], [-0.50909, -0.72545], [-0.27636, -0.76909], [0.04, -0.40909], [0.23273, -0.02, 12], [0.04, -0.40909], [-0.27636, -0.76909], [-0.50909, -0.72545], [-0.75273, -0.71455], [-1.00727, -0.67091, 16], [-1.28364, -0.35818], [-1.46545, 0.08545], [-1.25818, 0.50364], [-0.93818, 0.41636, 19.4]], modelo.datos.campo.muestrear, conv);
+    // Presentation anchors are calibrated for this asset, never copied from another model.
+    modelo.datos.ruta = crearRutaVisualModelo(modelo.modeloMeshy.meta.visualRoute, modelo.datos.campo.muestrear, conv);
     modelo.datos.visualModeloMeshy = true;
     modelo.datos.largoKm = modelo.datos.ruta.slice(1).reduce((sum, p, i) => sum + Math.hypot(p.x - modelo.datos.ruta[i].x, p.z - modelo.datos.ruta[i].z), 0);
     return { ...modelo, conv, cielo: crearCielo(escena), niebla: new THREE.Fog(escena.atmosfera.horizonte, 5, 30) };
@@ -723,3 +723,4 @@ export function crearLuces(escena) {
   relleno.position.set(6, 5, -8);
   return [sol, hemi, relleno];
 }
+

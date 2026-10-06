@@ -72,9 +72,10 @@ export function cargarTexturasMeshy(mundo, invalidate) {
     // A small texture-colored fill retains facade detail in shaded mobile views.
     modelo.material.emissive.set('#FFFFFF'); modelo.material.emissiveMap = color; modelo.material.emissiveIntensity = 0.12;
     modelo.material.normalScale.set(0.65, 0.65);
-    modelo.material.roughnessMap = surface; modelo.material.metalnessMap = surface; modelo.material.metalness = 1;
+    modelo.material.roughnessMap = surface; modelo.material.metalnessMap = surface; modelo.material.metalness = 0; modelo.material.roughness = 0.88;
     modelo.material.needsUpdate = true; modelo.texturasListas = true;
     invalidate();
   }).catch(error => { modelo.carga = null; throw error; });
   return modelo.carga;
 }
+
