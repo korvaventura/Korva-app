@@ -10,6 +10,7 @@
 
 import * as THREE from 'three';
 import { construirModeloMeshy } from './modeloMeshy';
+import { crearRutaVisualModelo } from '../../services/mapa3d/modeloMeshyCore';
 import { construirDatosDiorama, puntoEnKm, indiceCercano } from '../../services/mapa3d/terrenoCore';
 import { deserializarDiorama } from '../../services/mapa3d/horneadoCore';
 
@@ -581,7 +582,18 @@ export function construirMundo(escena, horneado) {
       if (distancia === 0) return alturaInterior(x, z);
       return Math.max(0, datos.campo.muestrear(x, z)) * THREE.MathUtils.smoothstep(distancia, 0, 0.2);
     };
-    modelo.datos.ruta = datos.ruta.map(p => ({ ...p, h: modelo.datos.campo.muestrear(p.x, p.z) }));
+    // Trace the generated interpretation instead of projecting the old geography
+    // through its roofs. Explicit kilometer anchors preserve challenge progress.
+    modelo.datos.ruta = crearRutaVisualModelo([
+      [-0.62,-0.30,0],[-0.85,-0.32],[-1.181,-0.343,4],
+      [-0.85,-0.32],[-0.62,-0.30],[-0.30,-0.31],[-0.02,-0.34,8],
+      [0.35,-0.36],[0.78,-0.40],[1.15,-0.23],[1.28,-0.12],
+      [1.05,0.08],[0.50,0.20],[0,0.16],[-0.55,0.09],[-0.70,-0.02,12],
+      [-0.68,-0.26],[-0.70,-0.56],[-0.64,-0.79,16],
+      [-0.15,-0.87],[0.40,-0.96],[0.75,-0.93],[0.99,-0.86,19.4],
+    ], modelo.datos.campo.muestrear, conv);
+    modelo.datos.visualModeloMeshy = true;
+    modelo.datos.largoKm = modelo.datos.ruta.slice(1).reduce((sum, p, i) => sum + Math.hypot(p.x - modelo.datos.ruta[i].x, p.z - modelo.datos.ruta[i].z), 0);
     const exterior = { ...escena.arquitectura,
       suelo: undefined, puerto: undefined, murallas: [],
       edificios: escena.arquitectura.edificios.filter(e => e.exterior && distanciaGeo(e.lat, e.lon) > 0.2),
@@ -666,7 +678,21 @@ export function geometriaTramo(datos, conv, kmDesde, kmHasta, radio) {
   if (kmHasta - kmDesde < 0.05) return null;
   const pts = puntosRuta(datos, conv, kmDesde, kmHasta);
   if (pts.length < 2) return null;
-  const curva = new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
+  const curva = datos.visualModeloMeshy ? new THREE.Curve() : new THREE.CatmullRomCurve3(pts, false, 'centripetal', 0.5);
+  if (datos.visualModeloMeshy) {
+    // Arc-length polyline with binary lookup: no Catmull overshoot at roofs,
+    // and no linear scan of hundreds of segments on every playback frame.
+    const largos = [0];
+    for (let i = 1; i < pts.length; i += 1) largos.push(largos[i - 1] + pts[i].distanceTo(pts[i - 1]));
+    curva.getPoint = (t, target = new THREE.Vector3()) => {
+      const distancia = THREE.MathUtils.clamp(t, 0, 1) * largos[largos.length - 1];
+      let lo = 1; let hi = largos.length - 1;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (largos[mid] < distancia) lo = mid + 1; else hi = mid; }
+      const f = (distancia - largos[lo - 1]) / Math.max(1e-9, largos[lo] - largos[lo - 1]);
+      return target.copy(pts[lo - 1]).lerp(pts[lo], f);
+    };
+    curva.getPointAt = curva.getPoint;
+  }
   const segmentos = Math.min(700, Math.max(8, Math.round(pts.length * 1.2)));
   return new THREE.TubeGeometry(curva, segmentos, radio, 6, false);
 }

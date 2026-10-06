@@ -34,3 +34,20 @@ test('Dubrovnik móvil: superficie finita para ruta y cámara, mar fuera del mod
   }
   assert(highest > 0.1);
 });
+
+test('ruta visual: conserva anclas de kilómetros y elimina picos verticales sin enterrar la línea', () => {
+  const { crearRutaVisualModelo } = require('../services/mapa3d/modeloMeshyCore');
+  const conv = { aKm: x => x * 0.3, y: h => h * 0.004 };
+  const sample = (x) => x > 0.12 && x < 0.15 ? 60 : 5;
+  const route = crearRutaVisualModelo([[0,0,0],[0.5,0],[1,0,4],[1,1,19.4]], sample, conv);
+  assert.equal(route[0].km, 0); assert.equal(route.at(-1).km, 19.4);
+  const anchor = route.find(p => p.km === 4);
+  assert.equal(anchor.x, 0.3); assert.equal(anchor.z, 0);
+  for (let i = 0; i < route.length; i += 1) {
+    const p = route[i]; assert(p.h >= sample(p.x) - 1e-8);
+    if (!i) continue;
+    const a = route[i - 1]; assert(p.km > a.km);
+    const d = Math.hypot(p.x - a.x, p.z - a.z) / 0.3;
+    assert(Math.abs(conv.y(p.h - a.h)) <= 0.35 * d + 1e-8);
+  }
+});

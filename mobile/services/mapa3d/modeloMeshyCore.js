@@ -39,4 +39,31 @@ function crearMuestreadorModelo(meta) {
     return h;
   };
 }
-module.exports = { decodificarModelo, crearMuestreadorModelo };
+// Presentation route only: never changes stored geographic anchors or progress.
+// Densify in scene space, then take a conservative slope-limited height envelope.
+function crearRutaVisualModelo(nodos, muestrear, conv) {
+  const knots = nodos.map(([x, z, km]) => ({ x, z, km }));
+  const distance = [0];
+  for (let i = 1; i < knots.length; i += 1) distance.push(distance[i - 1] + Math.hypot(knots[i].x - knots[i - 1].x, knots[i].z - knots[i - 1].z));
+  let from = 0;
+  for (let to = 1; to < knots.length; to += 1) {
+    if (!Number.isFinite(knots[to].km)) continue;
+    for (let j = from + 1; j < to; j += 1) knots[j].km = knots[from].km + (knots[to].km - knots[from].km) * (distance[j] - distance[from]) / (distance[to] - distance[from]);
+    from = to;
+  }
+  const points = [{ ...knots[0] }];
+  for (let i = 1; i < knots.length; i += 1) {
+    const a = knots[i - 1]; const b = knots[i];
+    const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.012));
+    for (let j = 1; j <= steps; j += 1) {
+      const t = j / steps;
+      points.push({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, km: a.km + (b.km - a.km) * t });
+    }
+  }
+  const height = points.map(p => conv.y(muestrear(conv.aKm(p.x), conv.aKm(p.z))));
+  const slope = 0.35;
+  for (let i = 1; i < points.length; i += 1) height[i] = Math.max(height[i], height[i - 1] - slope * Math.hypot(points[i].x - points[i - 1].x, points[i].z - points[i - 1].z));
+  for (let i = points.length - 2; i >= 0; i -= 1) height[i] = Math.max(height[i], height[i + 1] - slope * Math.hypot(points[i].x - points[i + 1].x, points[i].z - points[i + 1].z));
+  return points.map((p, i) => ({ x: conv.aKm(p.x), z: conv.aKm(p.z), km: p.km, h: height[i] / conv.y(1) }));
+}
+module.exports = { decodificarModelo, crearMuestreadorModelo, crearRutaVisualModelo };

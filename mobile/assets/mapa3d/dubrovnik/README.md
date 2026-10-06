@@ -24,6 +24,6 @@ are linear. All GLTF UVs use flipY=false. Keep the normal and surface maps.
 
 The wider terrain, exterior neighborhoods, and Lovrijenac remain procedural.
 Background terrain is lowered only under the asset with a feathered join.
-Route x/z, challenge kilometer anchors, users' progress and backend are unchanged.
+The renderer uses an illustrative trace fitted to the generated city, with a slope-limited height envelope and linear interpolation. Stored geographic anchors, challenge kilometer anchors, users' progress and backend are unchanged. Landmark placement is approximate because the source city is generated.
 Disable modeloMeshy on the Dubrovnik scene to restore the procedural architecture.
 Actual frame rate, GPU texture upload and landmark alignment need device testing.

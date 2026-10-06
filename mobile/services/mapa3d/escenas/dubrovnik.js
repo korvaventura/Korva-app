@@ -42,7 +42,7 @@ const dubrovnik = {
   pasoPerfilKm: 0.006,
   elevacionRutaUnidades: 0.021, // ruta y pines en unidades: constantes en pantalla
   alturaPinUnidades: 0.17,
-  grosorRuta: 0.75, // deja ver calles y murallas bajo el recorrido
+  grosorRuta: 0.48, // deja ver calles y murallas bajo el recorrido
   suavizadoAlturaRutaKm: 0.012, // la ruta corre sobre muros: evita el serrucho en los bordes
 
   ruta: [
@@ -176,7 +176,7 @@ const dubrovnik = {
   },
 
   // Desde el mar: ciudad en primer plano y monte Srđ al fondo.
-  camara: { objetivo: [0.45, 0.11, -0.35], elevacionGrados: 48, azimutGrados: 145, distancia: 4.6, fov: 42, aspectoReferencia: 0.82 },
+  camara: { objetivo: [0.45, 0.11, -0.35], elevacionGrados: 48, azimutGrados: 145, distancia: 3.9, fov: 42, aspectoReferencia: 0.82 },
   atmosfera: {
     horizonte: '#C6D8E6',
     resplandor: '#F6C89A',

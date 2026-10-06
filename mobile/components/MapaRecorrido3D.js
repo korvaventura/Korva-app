@@ -93,7 +93,7 @@ function Ruta({ mundo, escena, progresoRef }) {
     if (animando && clock.elapsedTime - ultimo.tiempo < 0.12) return;
     const siguientes = {
       pendiente: geometriaTramo(datos, conv, km, total, 0.013 * grosor),
-      brillo: geometriaTramo(datos, conv, 0, km, 0.044 * grosor),
+      brillo: datos.visualModeloMeshy ? null : geometriaTramo(datos, conv, 0, km, 0.044 * grosor),
       hecho: geometriaTramo(datos, conv, 0, km, 0.019 * grosor),
     };
     for (const id of Object.keys(siguientes)) {
