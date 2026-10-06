@@ -221,8 +221,8 @@ for (let fila = 0; fila < 18; fila += 1) {
 dubrovnik.arquitectura.calles = [];
 dubrovnik.arquitectura.arboles = [];
 for (let fila = 0; fila < 18; fila += 1) {
-  const lat = 42.64305 + fila * 0.00024;
-  const curva = (lon) => lat + Math.sin((lon - 18.102) * 550 + fila * 0.23) * 0.000045;
+  const lat = 42.64305 + fila * 0.00024 + Math.sin(fila * 0.8) * 0.000035;
+  const curva = (lon) => lat + Math.sin((lon - 18.102) * 720 + fila * 0.16) * 0.00014;
   // Contorno irregular y densidad decreciente hacia Srđ: ningún borde
   // rectangular común para todas las calles y parcelas.
   const inicio = -3 + Math.floor(Math.sin(fila * 0.72) * 3) + Math.max(0, fila - 9);
@@ -245,12 +245,12 @@ for (let fila = 0; fila < 18; fila += 1) {
       if (azar < densidad + 0.18) dubrovnik.arquitectura.arboles.push({ lat: curva(lon) + Math.sin(clave) * 0.000065, lon: lon + Math.cos(clave * 3) * 0.00007, alturaM: 6 + Math.abs(clave % 4) });
       continue;
     }
-    dubrovnik.arquitectura.edificios.push({ lat: curva(lon), lon, exterior: true, parcela: true, anchoM: 15 + clave % 4, largoM: 15 + clave % 5, alturaM: 7 + clave % 10, alturaTejadoM: 1.7, orientacion: 0.04 * Math.cos((lon - 18.102) * 550 + fila * 0.23), tono: clave % 5, chimenea: clave % 6 === 0 });
+    dubrovnik.arquitectura.edificios.push({ lat: curva(lon), lon, exterior: true, parcela: true, anchoM: 15 + clave % 4, largoM: 15 + clave % 5, alturaM: 7 + clave % 10, alturaTejadoM: 1.7, orientacion: -Math.atan(0.14 * Math.cos((lon - 18.102) * 720 + fila * 0.16)), tono: clave % 5, chimenea: clave % 6 === 0 });
   }
 }
 for (let col = 0; col <= 40; col += 10) {
   const lon = 18.102 + col * 0.00024;
-  dubrovnik.arquitectura.calles.push({ anchoM: 6, eje: Array.from({ length: 42 + col % 7 }, (_, i) => [42.6428 + i * 0.000088, lon + Math.sin(i * 0.13 + col) * 0.000065]) });
+  dubrovnik.arquitectura.calles.push({ anchoM: 6, eje: Array.from({ length: 42 + col % 7 }, (_, i) => [42.6428 + i * 0.000088, lon + Math.sin(i * 0.15 + col) * 0.00012]) });
 }
 // Continuidad urbana costera a ambos lados del casco. Detalle reducido
 // en los barrios lejanos para mantener el costo del mapa al girar.
@@ -259,11 +259,11 @@ for (const lado of [-1, 1]) {
     const eje = [];
     for (let col = 0; col < 34; col += 1) {
       const lon = lado < 0 ? 18.1018 - col * 0.00025 : 18.1120 + col * 0.00025;
-      const lat = 42.6431 + fila * 0.00025 + Math.sin(col * 0.13 + fila * 0.19) * 0.00013;
+      const lat = 42.6431 + fila * 0.00025 + Math.sin(col * 0.22 + fila * 0.12) * 0.00024;
       eje.push([lat - 0.00011, lon]);
       const clave = fila * 41 + col * 17;
       if (col % 9 === 0 || (fila > 5 && clave % 3 === 0)) continue;
-      dubrovnik.arquitectura.edificios.push({ lat, lon, exterior: true, parcela: col < 10, lejano: col > 10, anchoM: 15 + clave % 5, largoM: 16 + clave % 4, alturaM: 7 + clave % 9, alturaTejadoM: 1.7, tono: clave % 5 });
+      dubrovnik.arquitectura.edificios.push({ lat, lon, exterior: true, parcela: col < 10, lejano: col > 10, anchoM: 15 + clave % 5, largoM: 16 + clave % 4, alturaM: 7 + clave % 9, alturaTejadoM: 1.7, orientacion: (lado < 0 ? 1 : -1) * Math.atan(0.28 * Math.cos(col * 0.22 + fila * 0.12)), tono: clave % 5 });
     }
     dubrovnik.arquitectura.calles.push({ anchoM: 4.5, eje });
   }
@@ -303,5 +303,14 @@ dubrovnik.arquitectura.edificios.push(
   {lat:42.64135,lon:18.11130,monumento:true,anchoM:20,largoM:53,alturaM:15,alturaTejadoM:2.2,orientacion:Math.PI/2,tipo:'arsenal',tono:2},
   {lat:42.64089,lon:18.11137,monumento:true,anchoM:15,largoM:24,alturaM:13,alturaTejadoM:2,tono:1},
   {lat:42.64042,lon:18.11117,monumento:true,anchoM:15,largoM:27,alturaM:16,alturaTejadoM:1.8,tono:3},
+);
+// Conjunto con patio interior al noroeste: rompe la trama de casas idénticas.
+// Silueta de claustro aproximada, sin ocupar el Stradun ni el paseo de ronda.
+dubrovnik.arquitectura.edificios = dubrovnik.arquitectura.edificios.filter(e => e.exterior || e.monumento || !(e.lat > 42.64153 && e.lat < 42.64200 && e.lon > 18.10613 && e.lon < 18.10700));
+dubrovnik.arquitectura.edificios.push(
+  {lat:42.64189,lon:18.10660,monumento:true,anchoM:32,largoM:8,alturaM:13,alturaTejadoM:1.8,tono:2},
+  {lat:42.64163,lon:18.10660,monumento:true,anchoM:32,largoM:8,alturaM:11,alturaTejadoM:1.8,tono:3},
+  {lat:42.64176,lon:18.10638,monumento:true,anchoM:8,largoM:28,alturaM:13,alturaTejadoM:1.6,tono:1},
+  {lat:42.64176,lon:18.10682,monumento:true,anchoM:8,largoM:28,alturaM:12,alturaTejadoM:1.6,tono:2},
 );
 module.exports = dubrovnik;

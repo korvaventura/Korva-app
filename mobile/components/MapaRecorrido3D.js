@@ -197,6 +197,7 @@ export default function MapaRecorrido3D({
   const inicioToqueRef = useRef(null);
   const playbackRef = useRef(null);
   const progresoRef = useRef({ km: 0, animando: false });
+  const ultimaPublicacionRef = useRef(0);
 
   const aplicarCamara = useCallback(() => {
     // Cámara, atmósfera y pines se actualizan juntos una vez por frame.
@@ -209,7 +210,11 @@ export default function MapaRecorrido3D({
       configurarCamara(estado.camera, escena, estado.size.width / Math.max(1, estado.size.height), controlRef.current, mundoActual);
       if (mundoActual) actualizarAtmosfera(mundoActual, escena, estado.camera);
       estado.invalidate();
-      setRevisionCamara((v) => v + 1);
+      const ahora = Date.now();
+      if (!progresoRef.current.animando || ahora - ultimaPublicacionRef.current >= 33) {
+        ultimaPublicacionRef.current = ahora;
+        setRevisionCamara((v) => v + 1);
+      }
     });
   }, [escena]);
 
@@ -311,7 +316,7 @@ export default function MapaRecorrido3D({
   const mundo = listo ? obtenerMundo(escena, horneado) : null;
   const kmProgresoReal = kmDeProgreso(progreso, escena.distanciaKm, completado);
   const kmProgreso = kmPlayback == null ? kmProgresoReal : kmPlayback;
-  progresoRef.current = { km: kmProgreso, animando: reproduciendo };
+  if (!reproduciendo) progresoRef.current = { km: kmProgreso, animando: false };
   useEffect(() => {
     // También refresca una carga de actividad, sin esperar al siguiente gesto.
     r3fRef.current?.invalidate();
@@ -440,21 +445,30 @@ export default function MapaRecorrido3D({
     if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
     const metaKm = Math.max(0.1, kmProgresoReal);
     // El replay debe sentirse como un viaje, no como una barra de progreso.
-    // Fin del Mundo completo (~103 km) queda cerca de 34 s.
-    const duracion = THREE.MathUtils.clamp(18000 + metaKm * 160, 20000, 34000);
-    const inicio = Date.now();
+    // Tiempo de lectura y cámara amortiguada en curvas cerradas.
+    const duracion = THREE.MathUtils.clamp(52000 + metaKm * 140, 55000, 80000);
+    let anterior = Date.now(); let transcurrido = 0; let ultimaFicha = -Infinity;
+    const seguimiento = new THREE.Vector3(...(controlRef.current.objetivo || escena.camara.objetivo));
     setCierreVisible(false);
     cierreOpacity.setValue(0);
     setReproduciendo(true);
-    controlRef.current = { azimut: 0, elevacion: 0.08, zoom: 0.8 };
+    controlRef.current = { ...controlRef.current, objetivo: seguimiento.toArray() };
+    const zoomInicial = controlRef.current.zoom || 1;
 
     const tick = () => {
-      const t = THREE.MathUtils.clamp((Date.now() - inicio) / duracion, 0, 1);
+      const ahora = Date.now();
+      const dt = Math.max(0, Math.min(80, ahora - anterior)); anterior = ahora;
+      // Un frame tardío no produce un salto para recuperar tiempo perdido.
+      transcurrido += dt;
+      const t = THREE.MathUtils.clamp(transcurrido / duracion, 0, 1);
       const suave = t * t * (3 - 2 * t);
       const km = metaKm * suave;
       const p = posicionEnKm(mundo.datos, mundo.conv, km, 0);
-      controlRef.current.objetivo = [p.x, p.y, p.z];
-      setKmPlayback(km);
+      seguimiento.lerp(p, 1 - Math.exp(-dt / 380));
+      controlRef.current.objetivo = seguimiento.toArray();
+      controlRef.current.zoom = THREE.MathUtils.lerp(zoomInicial, 0.88, Math.min(1, transcurrido / 1800));
+      progresoRef.current = { km, animando: true };
+      if (ahora - ultimaFicha >= 100 || t === 1) { setKmPlayback(km); ultimaFicha = ahora; }
       aplicarCamara();
       if (t < 1) {
         playbackRef.current = requestAnimationFrame(tick);
