@@ -9,10 +9,6 @@
 
 const finDelMundo = {
   id: 'fin_del_mundo',
-  modeloMeshy: true,
-  elevacionRutaUnidades: .006,
-  alturaPinUnidades: .075,
-  grosorRuta: .65,
   distanciaKm: 103,
   presentacion: {
     eyebrow: 'TIERRA DEL FUEGO · RN3',
@@ -167,7 +163,7 @@ const finDelMundo = {
   // Overview desde el este-noreste: la RN3 nace en primer plano en Tolhuin,
   // bordea el Fagnano, trepa al Garibaldi y baja a Ushuaia; detrás el Beagle,
   // Navarro y los glaciares de la Cordillera Darwin cierran el horizonte.
-  camara: { objetivo: [0, .12, 0], elevacionGrados: 65, azimutGrados: 180, distancia: 9.6, fov: 42, aspectoReferencia: .82 },
+  camara: { objetivo: [-1.42, 0.0, 0.05], elevacionGrados: 33, azimutGrados: 66, distancia: 12.9, fov: 40, aspectoReferencia: 0.82 },
   // Atmósfera: la niebla tiene el color del horizonte, así el terreno lejano se
   // funde con el cielo (perspectiva aérea) y nunca se ve el fin de la malla.
   atmosfera: {
@@ -179,9 +175,12 @@ const finDelMundo = {
     lejos: 3.2,
   },
 
-  // El modelo es una interpretación visual. No proyectar etiquetas geográficas
-  // de la escena procedural sobre una textura sin georreferenciación validada.
-  etiquetas: [],
+  etiquetas: [
+    { id: 'fagnano', texto: 'LAGO FAGNANO', lat: -54.565, lon: -67.80, tipo: 'agua' },
+    { id: 'beagle', texto: 'CANAL BEAGLE', lat: -54.866, lon: -67.95, tipo: 'agua' },
+    { id: 'chile', texto: 'ISLA NAVARRO · CHILE', lat: -54.975, lon: -68.15, tipo: 'region' },
+    { id: 'darwin', texto: 'CORDILLERA DARWIN', lat: -54.62, lon: -69.35, tipo: 'region' },
+  ],
 };
 
 module.exports = finDelMundo;
