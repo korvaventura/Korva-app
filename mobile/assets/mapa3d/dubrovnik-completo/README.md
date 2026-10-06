@@ -1,9 +1,7 @@
-# Dubrovnik mobile landscape
+# Dubrovnik composition review
 
-Source: Meshy_AI_dubrovnik_complete_di_1006134817_image-to-3d-texture.glb. Original source preserved separately. Derived from Dubrovnik_mejorado_mobile.glb: thick base clipped, original mountain retained, no procedural height lift.
+Original Old Town model restored as foreground; separately generated surrounding model as background. 183,474 + 87,032 triangles. Color textures 2048 + 1024. Geometry uses the existing native packed codec, with no runtime GLB/Blob/WASM. Background normals are recomputed into Float32 after masking the city footprint. The combined conservative collision height grid is separate from the exact offline visual route.
 
-237,706 triangles; color 4096, normal and surface 1024. Offline quantized positions, normalized signed-byte normals, UVs and delta-varint indices. No runtime GLB/Blob/WASM loading. Rigid rotation and uniform scale 3 preserve model proportions. Water datum 0. Conservative 192×192 triangle height grid supports camera and route.
+This is a review composition, not a surveyed reconstruction. The recognizable perimeter and harbor are restored. Named checkpoint placement remains illustrative on generated geometry. Challenge distances, stored coordinates and user progress are unchanged.
 
-The generated geography is approximate. visualRoute calibrates presentation anchors to this model only; backend coordinates, challenge distances and progress are unchanged.
-
-Route update: ajustarRutaDubrovnik.cjs computes actual vertical intersections with decoded triangles offline. The route uses visualSurfaceRoute instead of the conservative camera envelope. These are approximate presentation locations on generated streets, not a faithful reconstruction of the Dubrovnik wall walk.
+Packing: node mobile/scripts/empacarRevisionDubrovnik.cjs preview-assets.json (prepared source asset data). Original uploads remain preserved.

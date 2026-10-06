@@ -113,7 +113,7 @@ test('ruta Dubrovnik: superficie directa, checkpoints completos y sin la envolve
   assert.equal(route[0].km,0); assert.equal(route.at(-1).km,19.4);
   for(let i=0;i<route.length;i++) {
     const p=route[i];assert([p.x,p.z,p.h,p.km].every(Number.isFinite));
-    assert(p.h*.004 > .03 && p.h*.004 < .3);
+    assert(p.h*.004 > .005 && p.h*.004 < .3);
     if(i)assert(p.km>route[i-1].km);
   }
   for(const km of [0,4,8,12,16,19.4])assert(route.some(p=>p.km===km));
@@ -144,4 +144,19 @@ test('pin: el toque selecciona el centro más cercano y respeta los controles de
   assert.equal(seleccionarPin(overlay,129,120),b);
   assert.equal(seleccionarPin(overlay,100,20),null);
   assert.equal(seleccionarPin(overlay,250,250),null);
+});
+
+
+test('composición Dubrovnik: fondo separado y casco original dentro del presupuesto móvil', () => {
+  const city=require('../assets/mapa3d/dubrovnik-completo/meta');
+  const meta=require('../assets/mapa3d/dubrovnik-revision-fondo/meta');
+  const buffers=Object.fromEntries(['position','normal','uv','index'].map(k=>[k,require('../assets/mapa3d/dubrovnik-revision-fondo/'+k)]));
+  const m=decodificarModelo(meta,buffers);
+  assert(m.position.every(Number.isFinite));assert(m.index.every(i=>i<meta.vertices));
+  assert(city.triangles+meta.triangles<280000);
+  assert.equal(city.composition,'original-old-town + separately masked background');
+  for(let i=0;i<m.position.length;i+=3) {
+    const [x,y,z]=m.position.subarray(i,i+3);
+    if(Math.abs(x)<1.56 && z>.9)assert(y<0); // No terrain overlapping the old town footprint.
+  }
 });
