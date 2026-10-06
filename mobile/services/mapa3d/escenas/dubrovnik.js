@@ -220,22 +220,29 @@ for (let fila = 0; fila < 14; fila += 1) {
 // Barrios construidos sobre calles continuas, con parcelas y patios compartidos.
 dubrovnik.arquitectura.calles = [];
 dubrovnik.arquitectura.arboles = [];
-for (let fila = 0; fila < 12; fila += 1) {
+for (let fila = 0; fila < 18; fila += 1) {
   const lat = 42.64305 + fila * 0.00024;
   const curva = (lon) => lat + Math.sin((lon - 18.102) * 550 + fila * 0.23) * 0.000045;
+  // Contorno irregular y densidad decreciente hacia Srđ: ningún borde
+  // rectangular común para todas las calles y parcelas.
+  const inicio = -3 + Math.floor(Math.sin(fila * 0.72) * 3) + Math.max(0, fila - 9);
+  const fin = 43 + Math.floor(Math.cos(fila * 0.61) * 3) - Math.max(0, fila - 8);
   const eje = [];
-  for (let col = 0; col <= 40; col += 1) {
+  for (let col = inicio; col <= fin; col += 1) {
     const lon = 18.102 + col * 0.00024;
-    eje.push([curva(lon) - 0.000105, lon]);
+    if (fila < 12 || col % 3 !== 0) eje.push([curva(lon) - 0.000105, lon]);
   }
-  dubrovnik.arquitectura.calles.push({ anchoM: fila % 4 === 0 ? 7 : 4.5, eje });
-  for (let col = 0; col < 40; col += 1) {
+  dubrovnik.arquitectura.calles.push({ anchoM: fila > 11 ? 2.5 : fila % 4 === 0 ? 7 : 4.5, eje });
+  for (let col = inicio; col < fin; col += 1) {
     const clave = fila * 37 + col * 13;
     const lon = 18.102 + col * 0.00024;
     // Calles transversales y jardines: las casas siempre dan a una calle.
     if (col % 10 === 0) continue;
-    if (clave % 11 === 0 || (fila > 8 && clave % 3 === 0)) {
-      dubrovnik.arquitectura.arboles.push({ lat: curva(lon), lon, alturaM: 6 + clave % 4 });
+    const azar = ((Math.sin(clave * 127.1 + fila * 311.7) * 43758.5453) % 1 + 1) % 1;
+    const borde = Math.min(col - inicio, fin - col);
+    const densidad = Math.max(0.08, Math.min(1, (18 - fila) / 9)) * Math.min(1, (borde + 1) / 4);
+    if (clave % 11 === 0 || azar > densidad) {
+      if (azar < densidad + 0.18) dubrovnik.arquitectura.arboles.push({ lat: curva(lon) + Math.sin(clave) * 0.000065, lon: lon + Math.cos(clave * 3) * 0.00007, alturaM: 6 + Math.abs(clave % 4) });
       continue;
     }
     dubrovnik.arquitectura.edificios.push({ lat: curva(lon), lon, exterior: true, parcela: true, anchoM: 15 + clave % 4, largoM: 15 + clave % 5, alturaM: 7 + clave % 10, alturaTejadoM: 1.7, orientacion: 0.04 * Math.cos((lon - 18.102) * 550 + fila * 0.23), tono: clave % 5, chimenea: clave % 6 === 0 });
@@ -243,7 +250,7 @@ for (let fila = 0; fila < 12; fila += 1) {
 }
 for (let col = 0; col <= 40; col += 10) {
   const lon = 18.102 + col * 0.00024;
-  dubrovnik.arquitectura.calles.push({ anchoM: 6, eje: Array.from({ length: 34 }, (_, i) => [42.6428 + i * 0.000088, lon]) });
+  dubrovnik.arquitectura.calles.push({ anchoM: 6, eje: Array.from({ length: 42 + col % 7 }, (_, i) => [42.6428 + i * 0.000088, lon + Math.sin(i * 0.13 + col) * 0.000065]) });
 }
 // Siluetas que permiten reconocer el casco: campanario, cúpula y palacios.
 dubrovnik.arquitectura.edificios.push(
