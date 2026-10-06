@@ -9,6 +9,7 @@ import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
 import { muestraGesto, avanzarGesto, seleccionarPin } from '../services/mapa3d/gestosCore';
 import { estadoJourney } from '../services/mapa3d/journeyCore';
 import { crearCorteRuta } from '../services/mapa3d/rutaPlaybackCore';
+import { AJUSTES_MAPA } from '../services/mapa3d/ajustesInteraccion';
 import { duracionReplay, controlInicialReplay, seguirReplay } from '../services/mapa3d/replayCamaraCore';
 import { ubicarEtiquetas, seSuperponen } from '../services/mapa3d/etiquetasCore';
 import {
@@ -111,7 +112,7 @@ function Ruta({ mundo, escena, progresoRef }) {
       ultimoRef.current={km,tiempo:clock.elapsedTime};
       return;
     }
-    if (animando && clock.elapsedTime - ultimo.tiempo < 0.12) return;
+    if (animando && clock.elapsedTime - ultimo.tiempo < AJUSTES_MAPA.rutaProceduralIntervaloMs / 1000) return;
     const siguientes = {
       pendiente: geometriaTramo(datos, conv, km, total, 0.013 * grosor),
       brillo: datos.visualModeloMeshy ? null : geometriaTramo(datos, conv, 0, km, 0.044 * grosor),
@@ -248,9 +249,9 @@ export default function MapaRecorrido3D({
   },[onInteraccionMapa]);
   const seleccionarCheckpoint = useCallback(cp => {
     const ahora=Date.now();
-    if(arrastrandoRef.current || ahora-ultimoArrastreRef.current<180)return;
+    if(arrastrandoRef.current || ahora-ultimoArrastreRef.current<AJUSTES_MAPA.seleccionTrasArrastreMs)return;
     liberarGesto();
-    if(ahora-ultimaSeleccionRef.current.tiempo<350)return;
+    if(ahora-ultimaSeleccionRef.current.tiempo<AJUSTES_MAPA.seleccionIntervaloMs)return;
     ultimaSeleccionRef.current={id:cp.id,tiempo:ahora};
     onSelect?.(cp);
   },[liberarGesto,onSelect]);
@@ -263,7 +264,7 @@ export default function MapaRecorrido3D({
       const estado = r3fRef.current;
       if (!estado) return;
       const ahora=Date.now();
-      if(ahora-ultimaPublicacionRef.current<33)return;
+      if(ahora-ultimaPublicacionRef.current<AJUSTES_MAPA.camaraIntervaloMs)return;
       const mundoActual = cacheEscenas.get(escena.id);
       configurarCamara(estado.camera, escena, estado.size.width / Math.max(1, estado.size.height), controlRef.current, mundoActual);
       if (mundoActual) actualizarAtmosfera(mundoActual, escena, estado.camera);
@@ -305,7 +306,7 @@ export default function MapaRecorrido3D({
     },
     onTouchEnd: (e) => {
       const terminado = e.nativeEvent.changedTouches?.[0];
-      const fueArrastre = arrastrandoRef.current || Date.now() - ultimoArrastreRef.current < 180;
+      const fueArrastre = arrastrandoRef.current || Date.now() - ultimoArrastreRef.current < AJUSTES_MAPA.seleccionTrasArrastreMs;
       if (!(e.nativeEvent.touches?.length) && !fueArrastre && terminado) {
         // Pin hit test takes precedence over a neighboring label's native hitSlop.
         const { pageX, pageY } = terminado;
@@ -332,23 +333,23 @@ export default function MapaRecorrido3D({
     onMoveShouldSetResponderCapture: (e) => {
       const actual = muestraGesto(e.nativeEvent.touches);
       const inicio = inicioToqueRef.current;
-      return !!actual && (actual.n >= 2 || !!inicio && Math.hypot(actual.x - inicio.x, actual.y - inicio.y) >= 10);
+      return !!actual && (actual.n >= 2 || !!inicio && Math.hypot(actual.x - inicio.x, actual.y - inicio.y) >= AJUSTES_MAPA.arrastreMinimoPx);
     },
     onResponderGrant: (e) => {
       // Manual camera control pauses only following, never route playback.
-      camaraManualHastaRef.current=Date.now()+1200;
+      camaraManualHastaRef.current=Date.now()+AJUSTES_MAPA.seguimientoEsperaManualMs;
       // Raw touch events own movement; responder negotiation only cancels child presses.
     },
     onTouchMove: (e) => {
       const actual = muestraGesto(e.nativeEvent.touches);
       const inicio = inicioToqueRef.current;
       if (!actual || !inicio) return;
-      if (!arrastrandoRef.current && actual.n < 2 && Math.hypot(actual.x-inicio.x, actual.y-inicio.y) < 10) return;
+      if (!arrastrandoRef.current && actual.n < 2 && Math.hypot(actual.x-inicio.x, actual.y-inicio.y) < AJUSTES_MAPA.arrastreMinimoPx) return;
       if (!arrastrandoRef.current) {
         arrastrandoRef.current = true;
         onInteraccionMapa?.(true);
       }
-      camaraManualHastaRef.current=Date.now()+1200;
+      camaraManualHastaRef.current=Date.now()+AJUSTES_MAPA.seguimientoEsperaManualMs;
       ultimoArrastreRef.current = Date.now();
       const estado = r3fRef.current;
       if (!estado) return;
@@ -528,7 +529,7 @@ export default function MapaRecorrido3D({
 
     const tick = () => {
       const ahora = Date.now();
-      const dt = Math.max(0, Math.min(80, ahora - anterior)); anterior = ahora;
+      const dt = Math.max(0, Math.min(AJUSTES_MAPA.frameMaximoMs, ahora - anterior)); anterior = ahora;
       // Un frame tardío no produce un salto para recuperar tiempo perdido.
       transcurrido += dt;
       const t = THREE.MathUtils.clamp(transcurrido / duracion, 0, 1);
@@ -538,7 +539,7 @@ export default function MapaRecorrido3D({
       controlRef.current=seguirReplay(controlRef.current,p.toArray(),escena.camara.objetivo,dt,
         !arrastrandoRef.current && ahora>=camaraManualHastaRef.current);
       progresoRef.current = { km, animando: true };
-      if (ahora - ultimaFicha >= 100 || t === 1) { setKmPlayback(km); ultimaFicha = ahora; }
+      if (ahora - ultimaFicha >= AJUSTES_MAPA.fichaIntervaloMs || t === 1) { setKmPlayback(km); ultimaFicha = ahora; }
       aplicarCamara();
       if (t < 1) {
         playbackRef.current = requestAnimationFrame(tick);
@@ -572,7 +573,7 @@ export default function MapaRecorrido3D({
 
   const enfocarPosicion = () => {
     if (!mundo) return;
-    camaraManualHastaRef.current=Date.now()+1200;
+    camaraManualHastaRef.current=Date.now()+AJUSTES_MAPA.seguimientoEsperaManualMs;
     const p = posicionEnKm(mundo.datos, mundo.conv, journey.kmActual, 0);
     controlRef.current = {
       ...controlRef.current,
@@ -584,7 +585,7 @@ export default function MapaRecorrido3D({
 
   const recenter = () => {
     liberarGesto();
-    camaraManualHastaRef.current=Date.now()+1200;
+    camaraManualHastaRef.current=Date.now()+AJUSTES_MAPA.seguimientoEsperaManualMs;
     controlRef.current = controlInicialReplay(escena.camara.objetivo);
     ultimaPublicacionRef.current=0;
     aplicarCamara();

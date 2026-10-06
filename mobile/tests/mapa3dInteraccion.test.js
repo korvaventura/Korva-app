@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const {crearCorteRuta}=require('../services/mapa3d/rutaPlaybackCore');
 const {ubicarEtiquetas,seSuperponen}=require('../services/mapa3d/etiquetasCore');
+const {AJUSTES_MAPA}=require('../services/mapa3d/ajustesInteraccion');
 const gestos=require('../services/mapa3d/gestosCore');
 
 test('replay estático: el corte usa distancia 3D, conserva cobertura y crece sin reconstruir',()=>{
@@ -33,7 +34,7 @@ test('handlers reales: tap no bloquea scroll; arrastre, release y cancel liberan
   const handlers=source.slice(source.indexOf('  const touchHandlers ='),source.indexOf('  // Decodificar el horneado'));
   const locks=[];
   const refs=Object.fromEntries(['inicioToqueRef','gestoRef','arrastrandoRef','ultimoArrastreRef','playbackRef','r3fRef','wrapRef','overlayRef','ultimaPublicacionRef','camaraManualHastaRef'].map(k=>[k,{current:k==='ultimoArrastreRef'?0:null}]));
-  const context=vm.createContext({...refs,...gestos,useCallback:f=>f,useMemo:f=>f(),onInteraccionMapa:v=>locks.push(v),aplicarCamara:()=>{},seleccionarCheckpoint:()=>{},escena:{},cancelAnimationFrame:()=>{},setKmPlayback:()=>{},setReproduciendo:()=>{}});
+  const context=vm.createContext({...refs,...gestos,AJUSTES_MAPA,useCallback:f=>f,useMemo:f=>f(),onInteraccionMapa:v=>locks.push(v),aplicarCamara:()=>{},seleccionarCheckpoint:()=>{},escena:{},cancelAnimationFrame:()=>{},setKmPlayback:()=>{},setReproduciendo:()=>{}});
   const h=vm.runInContext(releases+handlers+'\ntouchHandlers',context);
   refs.playbackRef.current=71;
   context.cancelAnimationFrame=()=>{throw Error('A gesture must not stop replay');};
@@ -61,4 +62,19 @@ test('revivir: arranca centrado, acelera moderadamente y el seguimiento respeta 
   let seguido=control;
   for(let i=0;i<200;i++)seguido=seguirReplay(seguido,[1,.3,1.5],base,16,true);
   assert(seguido.objetivo[0]>.4 && seguido.objetivo[0]<.46); // gentle framing, not a chase camera
+});
+
+
+test('mapas registrados: comparten replay de 25 s, centro propio y seguimiento manual independiente',()=>{
+  const {escenaParaConfig,clavesConEscena}=require('../services/mapa3d/escenas');
+  const {duracionReplay,controlInicialReplay,seguirReplay}=require('../services/mapa3d/replayCamaraCore');
+  assert.deepEqual(clavesConEscena().sort(),['default','dubrovnik','monte_fuji','san_andres']);
+  for(const clave of clavesConEscena()) {
+    const {escena}=escenaParaConfig(clave);
+    assert.equal(duracionReplay(escena.distanciaKm),25000);
+    const control=controlInicialReplay(escena.camara.objetivo);
+    assert.deepEqual(control.objetivo,escena.camara.objetivo);
+    assert.equal(control.azimut,0);assert.equal(control.elevacion,0);assert.equal(control.zoom,1);
+    assert.equal(seguirReplay(control,[1,2,3],escena.camara.objetivo,16,false),control);
+  }
 });
