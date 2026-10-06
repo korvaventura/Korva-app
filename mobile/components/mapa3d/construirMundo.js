@@ -49,7 +49,14 @@ const LUT_LINEAL = (() => {
 
 // Máscara local del puerto: idéntica para el recorte de tierra y su agua.
 function mascaraPuerto(datos, escena) {
-  const puntos = escena.arquitectura?.puerto?.contorno?.map(([lat, lon]) => datos.campo.geo.proy.aKm(lat, lon));
+  return mascaraPoligono(datos, escena.arquitectura?.puerto?.contorno);
+}
+function mascaraCiudad(datos, escena) {
+  const muros = escena.arquitectura?.murallas;
+  return mascaraPoligono(datos, muros?.flatMap(m => m.eje.map(([lat, lon]) => [lat, lon])));
+}
+function mascaraPoligono(datos, contorno) {
+  const puntos = contorno?.map(([lat, lon]) => datos.campo.geo.proy.aKm(lat, lon));
   if (!puntos) return () => false;
   return (x, z) => {
     let dentro = false;
@@ -67,6 +74,7 @@ function geometriaTerreno(datos, conv, escena) {
   const { nx, nz, xs, zs, alturas } = campo;
   const suelo = escena.arquitectura?.suelo;
   const puerto = mascaraPuerto(datos, escena);
+  const ciudad = mascaraCiudad(datos, escena);
   const a = suelo ? campo.geo.proy.aKm(suelo.latMin, suelo.lonMin) : null;
   const b = suelo ? campo.geo.proy.aKm(suelo.latMax, suelo.lonMax) : null;
   const fuertes = (escena.arquitectura?.torres || []).filter((t) => t.id === 'fuerte_lovrijenac').map((t) => campo.geo.proy.aKm(t.eje[0][0], t.eje[0][1]));
@@ -82,12 +90,20 @@ function geometriaTerreno(datos, conv, escena) {
       for (const t of fuertes) {
         if (Math.hypot(xs[i] - t.x, zs[j] - t.z) < 0.03) h = Math.min(h, 37);
       }
-      if (puerto(xs[i], zs[j])) h = -5;
+      if (ciudad(xs[i], zs[j])) h = Math.max(h, 2);
+      else if (puerto(xs[i], zs[j])) h = -5;
       pos[k * 3 + 1] = conv.y(h);
       pos[k * 3 + 2] = conv.z(zs[j]);
     }
   }
   for (let k = 0; k < nx * nz * 3; k += 1) col[k] = LUT_LINEAL[Math.round(colores[k] * 255)];
+  const piedraInterior = new THREE.Color('#A49E8C');
+  for (let j = 0; j < nz; j += 1) for (let i = 0; i < nx; i += 1) {
+    const k = j * nx + i;
+    if (alturas[k] < 2 && ciudad(xs[i], zs[j])) {
+      col[k*3] = piedraInterior.r; col[k*3+1] = piedraInterior.g; col[k*3+2] = piedraInterior.b;
+    }
+  }
 
   const Indices = nx * nz > 65535 ? Uint32Array : Uint16Array;
   const idx = new Indices((nx - 1) * (nz - 1) * 6);
@@ -120,6 +136,7 @@ function crearAguas(datos, conv, escena) {
   const { nx, nz, xs, zs, agua, alturas } = datos.campo;
   const estilo = escena.agua || {};
   const puerto = mascaraPuerto(datos, escena);
+  const ciudad = mascaraCiudad(datos, escena);
   const niveles = [...new Set([...(escena.aguas || []).map((a) => a.nivelM), ...(escena.mar ? [escena.mar.nivelM] : [])])];
   // Color por profundidad (opcional): laguna turquesa -> azul profundo.
   const porProfundidad = !!(estilo.somero && estilo.profundo);
@@ -136,7 +153,7 @@ function crearAguas(datos, conv, escena) {
     const col = [];
     const indices = [];
     const mapa = new Int32Array(nx * nz).fill(-1);
-    const pertenece = (k) => (agua[k] > -Infinity && Math.abs(agua[k] - nivel) < 0.01) || (nivel === 0 && puerto(xs[k % nx], zs[Math.floor(k / nx)]));
+    const pertenece = (k) => !ciudad(xs[k % nx], zs[Math.floor(k / nx)]) && ((agua[k] > -Infinity && Math.abs(agua[k] - nivel) < 0.01) || (nivel === 0 && puerto(xs[k % nx], zs[Math.floor(k / nx)])));
     const vert = (i, j) => {
       const k = j * nx + i;
       if (mapa[k] >= 0) return mapa[k];
@@ -415,6 +432,20 @@ function crearArquitectura(datos, conv, escena) {
       incluir(almena, piedra, conv.x(p.x) + (rectangular ? Math.cos(ang) / Math.max(Math.abs(Math.cos(ang)), Math.abs(Math.sin(ang))) * radio * 0.9 : Math.cos(ang) * radio * 0.92), conv.y(torre.alturaM + 1.5), conv.z(p.z) + (rectangular ? Math.sin(ang) / Math.max(Math.abs(Math.cos(ang)), Math.abs(Math.sin(ang))) * radio * 0.7 : Math.sin(ang) * radio * 0.92));
     }
   }
+  // Dos brazos de piedra y rompeolas rodean el puerto; queda una boca
+  // abierta al Adriático. Las juntas no agregan objetos al árbol de escena.
+  for (const borde of config.puerto?.bordes || []) {
+    for (let i = 1; i < borde.eje.length; i += 1) {
+      const a = proy.aKm(...borde.eje[i - 1]); const b = proy.aKm(...borde.eje[i]);
+      const dx = conv.x(b.x-a.x); const dz = conv.z(b.z-a.z); const ang = -Math.atan2(dz,dx);
+      const g = new THREE.BoxGeometry(Math.hypot(dx,dz), conv.y(borde.alturaM + 4), conv.x(borde.anchoM/1000));
+      g.rotateY(ang);
+      incluir(g, piedra, conv.x((a.x+b.x)/2), conv.y((borde.alturaM-4)/2), conv.z((a.z+b.z)/2));
+      const corona = new THREE.BoxGeometry(Math.hypot(dx,dz), conv.y(0.45), conv.x((borde.anchoM + 0.6)/1000));
+      corona.rotateY(ang);
+      incluir(corona, piedra.clone().multiplyScalar(1.06), conv.x((a.x+b.x)/2), conv.y(borde.alturaM+0.22), conv.z((a.z+b.z)/2));
+    }
+  }
   for (const muelle of config.puerto?.muelles || []) {
     const a = proy.aKm(...muelle.eje[0]); const b = proy.aKm(...muelle.eje[1]);
     const dx = conv.x(b.x - a.x); const dz = conv.z(b.z - a.z);
@@ -426,12 +457,30 @@ function crearArquitectura(datos, conv, escena) {
     const p = proy.aKm(bote.lat, bote.lon);
     if (!puerto(p.x, p.z)) continue;
     const w = conv.x(bote.anchoM / 1000); const d = conv.z(bote.largoM / 1000);
-    // Casco afinado en proa y cubierta blanca, a la cota del mar.
-    const casco = new THREE.CylinderGeometry(w / 2, w * 0.32, d, 6);
-    casco.rotateX(Math.PI / 2); casco.scale(1, 0.3, 1);
-    incluir(casco, new THREE.Color('#E6EAE4'), conv.x(p.x), conv.y(0.6), conv.z(p.z));
-    incluir(new THREE.BoxGeometry(w * 0.55, conv.y(0.6), d * 0.5), new THREE.Color('#537D8B'), conv.x(p.x), conv.y(1), conv.z(p.z));
-    if (bote.mastil) incluir(new THREE.CylinderGeometry(conv.x(0.00007), conv.x(0.00007), conv.y(7), 4), new THREE.Color('#C8CDCB'), conv.x(p.x), conv.y(4), conv.z(p.z));
+    const blanco = new THREE.Color('#F1F0E7'); const azul = new THREE.Color('#31596B');
+    const forma = new THREE.Shape();
+    forma.moveTo(-w * 0.40, -d * 0.48); forma.lineTo(w * 0.40, -d * 0.48);
+    forma.quadraticCurveTo(w * 0.58, d * 0.08, 0, d * 0.52);
+    forma.quadraticCurveTo(-w * 0.58, d * 0.08, -w * 0.40, -d * 0.48);
+    const casco = new THREE.ExtrudeGeometry(forma, {depth:conv.y(0.8), bevelEnabled:true, bevelSegments:2, steps:1, bevelSize:w*0.07, bevelThickness:conv.y(0.16), curveSegments:8});
+    casco.rotateX(Math.PI / 2);
+    incluir(casco, blanco, conv.x(p.x), conv.y(0.9), conv.z(p.z));
+    incluir(new THREE.BoxGeometry(w*0.62,conv.y(0.65),d*0.36), blanco, conv.x(p.x),conv.y(1.2),conv.z(p.z));
+    // Cristales sobre ambos costados de la cabina.
+    for (const lado of [-1,1]) incluir(new THREE.BoxGeometry(w*0.025,conv.y(0.25),d*0.27), azul,conv.x(p.x)+lado*w*0.32,conv.y(1.3),conv.z(p.z));
+    incluir(new THREE.BoxGeometry(w*0.47,conv.y(0.12),d*0.19), new THREE.Color('#B59164'),conv.x(p.x),conv.y(1.04),conv.z(p.z)-d*0.31);
+    if (bote.mastil) {
+      incluir(new THREE.CylinderGeometry(conv.x(0.000065),conv.x(0.00009),conv.y(8),8),new THREE.Color('#CFD4D1'),conv.x(p.x),conv.y(4.9),conv.z(p.z)+d*0.08);
+      const botavara = new THREE.BoxGeometry(conv.x(0.0001),conv.y(0.1),d*0.42);
+      incluir(botavara,blanco,conv.x(p.x),conv.y(2.1),conv.z(p.z)-d*0.10);
+      if (bote.vela) {
+        // Unos pocos barcos con vela izada; la mayoría queda amarrada.
+        const v=[0,conv.y(2),-d*0.32, 0,conv.y(8.5),d*0.08, 0,conv.y(2),d*0.08];
+        const vela=new THREE.BufferGeometry();
+        vela.setAttribute('position',new THREE.Float32BufferAttribute([...v,...v.slice(6),...v.slice(3,6),...v.slice(0,3)],3));
+        incluir(vela,blanco,conv.x(p.x),conv.y(0.9),conv.z(p.z));
+      }
+    }
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(posiciones, 3));

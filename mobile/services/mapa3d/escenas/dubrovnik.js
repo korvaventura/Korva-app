@@ -272,12 +272,17 @@ for (const lado of [-1, 1]) {
 // Se recorta solo el render del litoral; la ruta y sus kilómetros no cambian.
 dubrovnik.arquitectura.puerto = {
   contorno: [[42.64175,18.11175],[42.64195,18.1122],[42.6419,18.1137],[42.6404,18.1142],[42.6397,18.1130],[42.6401,18.11205],[42.6409,18.11185]],
+  bordes: [
+    { eje: [[42.64175,18.11175],[42.64195,18.1122],[42.6419,18.1137]], anchoM: 10, alturaM: 4 },
+    { eje: [[42.64175,18.11175],[42.6409,18.11185],[42.6401,18.11205],[42.6397,18.1130]], anchoM: 8, alturaM: 5 },
+    { eje: [[42.6419,18.1137],[42.6411,18.11385]], anchoM: 7, alturaM: 3 },
+  ],
   muelles: [
     { eje: [[42.64169,18.11199],[42.64166,18.11308]], anchoM: 7 },
     { eje: [[42.64025,18.11245],[42.64028,18.11322]], anchoM: 8 },
     { eje: [[42.64132,18.11200],[42.64130,18.11255]], anchoM: 3 },
   ],
-  botes: Array.from({length: 45}, (_, i) => ({lat:42.64066 + Math.floor(i / 15) * 0.00028, lon:18.11222 + i % 15 * 0.000085, largoM:5 + i % 4, anchoM:2.2, mastil:i % 5 === 0})),
+  botes: Array.from({length: 45}, (_, i) => ({lat:42.64066 + Math.floor(i / 15) * 0.00028, lon:18.11222 + i % 15 * 0.000085, largoM:5 + i % 4, anchoM:2.2, mastil:i % 3 !== 0, vela:i % 9 === 0})),
 };
 // Siluetas que permiten reconocer el casco: campanario, cúpula y palacios.
 dubrovnik.arquitectura.edificios.push(
