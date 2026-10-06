@@ -49,6 +49,21 @@ const getHitoActividad = (actividad, index, totalKmAcumulado, distanciaTotal) =>
 export default function DetalleRetoScreen({ route, navigation }) {
   const { item, userId, nombrePersona, abrirRuta = false } = route.params;
   const scrollRef = useRef(null);
+  const scrollYRef = useRef(0);
+  const mostrarHistoria = useCallback((historia) => {
+    if (!historia) return;
+    const scroll = scrollRef.current;
+    const nativo = scroll?.getNativeScrollRef?.() || scroll;
+    nativo?.setNativeProps?.({ scrollEnabled: true });
+    setMapaInteractuando(false);
+    // Coordenadas de ventana + offset real: funciona en catálogo y desafío,
+    // sin alturas estimadas ni timers que compitan con el gesto del mapa.
+    nativo?.measureInWindow?.((x, top) => {
+      historia.measureInWindow?.((hx, y) => {
+        scroll?.scrollTo({ y: Math.max(0, scrollYRef.current + y - top - 16), animated: true });
+      });
+    });
+  }, []);
   const [mapaInteractuando, setMapaInteractuando] = useState(false);
   const gestionarInteraccionMapa = useCallback((activa) => {
     // El mapa embebido comparte página con este scroll. Actualiza también el
@@ -220,7 +235,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
   });
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-    <ScrollView ref={scrollRef} scrollEnabled={!mapaInteractuando} canCancelContentTouches={false} style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={scrollRef} onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16} scrollEnabled={!mapaInteractuando} canCancelContentTouches={false} style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
 
       <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Volver">
         <View style={styles.backBtnRow}>
@@ -287,6 +302,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
             challengeTitle={nombreReto}
             actividades={actividades}
             onInteraccionMapa={gestionarInteraccionMapa}
+            onHistoriaAbierta={mostrarHistoria}
             fullscreen
           />
         ) : (

@@ -594,6 +594,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
   const [modalMapaVisible, setModalMapaVisible] = useState(false);
   const [altoModal, setAltoModal] = useState(Dimensions.get('window').height - 140);
   const scrollViewRef = useRef(null);
+  const historiaRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
   const altoMapaModal = Math.max(455, altoModal - 88);
@@ -651,10 +652,19 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
     return null;
   };
 
+  useEffect(() => {
+    if (!cpSeleccionado || pantallaFija) return;
+    const frame = requestAnimationFrame(() => onHistoriaAbierta?.(historiaRef.current));
+    return () => cancelAnimationFrame(frame);
+  }, [cpSeleccionado, onHistoriaAbierta, pantallaFija]);
+
   const handleCheckpointPress = (cp) => {
-    const abrir = cpSeleccionado?.id !== cp.id;
-    setCpSeleccionado(abrir ? cp : null);
-    if (abrir) onHistoriaAbierta?.();
+    // Volver a tocar el mismo punto lo mantiene abierto y lo trae a la vista.
+    // Solo el botón de cerrar descarta la ficha.
+    setCpSeleccionado(cp);
+    if (cpSeleccionado?.id === cp.id && !pantallaFija) {
+      requestAnimationFrame(() => onHistoriaAbierta?.(historiaRef.current));
+    }
   };
 
   // ── MODO PREVIEW LIVIANO ─────────────────────────────────────
@@ -833,7 +843,9 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
             </ScrollView>
           </View>
         ) : (
-          <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} compacto={!!mapa3D} />
+          <View ref={historiaRef} collapsable={false} onLayout={() => onHistoriaAbierta?.(historiaRef.current)}>
+            <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} compacto={!!mapa3D} />
+          </View>
         )
       ) : !mapa3D ? (
         <View style={styles.historiaPlaceholder}>
