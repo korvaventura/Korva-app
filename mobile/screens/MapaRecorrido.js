@@ -589,16 +589,14 @@ function MapaSVG({ config, kmFisicos, pinPos, rutaBasePath, pathCompletado, puls
   );
 }
 
-export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, actividades = [], onScrollBegin, onScrollEnd, fullscreen = false, integrado = false, ocultarTitulo = false, alturaMapa = 455, onHistoriaAbierta, onInteraccionMapa }) {
+export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, actividades = [], onScrollBegin, onScrollEnd, fullscreen = false, integrado = false, ocultarTitulo = false, alturaMapa = 455, onHistoriaAbierta, onInteraccionMapa, pantallaFija = false }) {
   const [cpSeleccionado, setCpSeleccionado] = useState(null);
   const [modalMapaVisible, setModalMapaVisible] = useState(false);
-  const [mapaInteractuando, setMapaInteractuando] = useState(false);
   const [altoModal, setAltoModal] = useState(Dimensions.get('window').height - 140);
   const scrollViewRef = useRef(null);
-  const modalScrollRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
-  const altoMapaModal = Math.max(455, Math.min(560, altoModal * 0.72));
+  const altoMapaModal = Math.max(455, altoModal - 88);
   const config = getConfig(challengeId, challengeTitle);
   const { titulo, distanciaFisica, clima, segmentos, checkpoints, decoraciones } = config;
 
@@ -614,8 +612,8 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
       return undefined;
     }
     const loop = Animated.loop(Animated.sequence([
-      Animated.timing(pulseAnim, { toValue: 1, duration: 1500, useNativeDriver: false }),
-      Animated.timing(pulseAnim, { toValue: 0, duration: 0, useNativeDriver: false }),
+      Animated.timing(pulseAnim, { toValue: 1, duration: 1500, isInteraction: false, useNativeDriver: false }),
+      Animated.timing(pulseAnim, { toValue: 0, duration: 0, isInteraction: false, useNativeDriver: false }),
     ]));
     loop.start();
     return () => loop.stop();
@@ -661,6 +659,9 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
 
   // ── MODO PREVIEW LIVIANO ─────────────────────────────────────
   if (!fullscreen) {
+    const modal3D = escenaParaConfig(Object.keys(CONFIGS).find((k) => CONFIGS[k] === config));
+    const ContenedorMapa = modal3D ? View : ScrollView;
+    const propsContenedor = modal3D ? {} : { showsVerticalScrollIndicator: false, contentContainerStyle: { padding: 12, paddingBottom: 32 } };
     const kmActual = Math.max(0, Number(kmCompletados) || 0);
     const total = Math.max(1, Number(distanciaTotal) || distanciaFisica);
     const pct = Math.max(0, Math.min(100, (kmActual / total) * 100));
@@ -737,14 +738,12 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
                   <Text style={styles.cerrarBtnText}>✕</Text>
                 </TouchableOpacity>
               </View>
-              <View style={{ flex: 1 }} onLayout={(e) => setAltoModal(e.nativeEvent.layout.height)}>
-              <ScrollView canCancelContentTouches={false} scrollEnabled={!mapaInteractuando} ref={modalScrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 12, paddingBottom: 32 }}>
+              <ContenedorMapa style={{ flex: 1 }} {...propsContenedor} onLayout={(e) => setAltoModal(e.nativeEvent.layout.height)}>
                 <MapaRecorrido
                   fullscreen
                   ocultarTitulo
+                  pantallaFija={!!modal3D}
                   alturaMapa={altoMapaModal}
-                  onInteraccionMapa={setMapaInteractuando}
-                  onHistoriaAbierta={() => requestAnimationFrame(() => modalScrollRef.current?.scrollTo({ y: Math.max(0, altoMapaModal - 120), animated: true }))}
                   kmCompletados={kmCompletados}
                   distanciaTotal={distanciaTotal}
                   porcentaje={porcentaje}
@@ -752,8 +751,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
                   challengeTitle={challengeTitle}
                   actividades={actividades}
                 />
-              </ScrollView>
-              </View>
+              </ContenedorMapa>
             </View>
           </Modal>
         )}
@@ -769,7 +767,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
   const completado3D = Number(porcentaje) >= 100 || (Number(kmCompletados) || 0) >= totalUsuario;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, pantallaFija && styles.pantallaMapa]}>
       {!ocultarTitulo && <Text style={styles.titulo}>{titulo}</Text>}
       {mapa3D ? (
         <View style={styles.mapa3DWrapper}>
@@ -828,7 +826,15 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
         </ScrollView>
       )}
       {cpSeleccionado ? (
-        <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} compacto={!!mapa3D} />
+        pantallaFija && mapa3D ? (
+          <View style={styles.historiaFlotante}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 12 }}>
+              <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} compacto />
+            </ScrollView>
+          </View>
+        ) : (
+          <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} compacto={!!mapa3D} />
+        )
       ) : !mapa3D ? (
         <View style={styles.historiaPlaceholder}>
           <Text style={styles.historiaPlaceholderText}>Tocá un punto del mapa o un checkpoint para leer su historia</Text>
@@ -845,6 +851,8 @@ const styles = StyleSheet.create({
   selectorCheckpointNombre: { color: '#F1F5F9', fontSize: 12, fontWeight: '600' },
   selectorCheckpointKm: { color: '#94A3B8', fontSize: 10, marginTop: 3 },
   container: { marginBottom: 16 },
+  pantallaMapa: { flex: 1, marginBottom: 0, paddingTop: 12 },
+  historiaFlotante: { position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '48%', zIndex: 30, elevation: 12, borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: '#0F172A' },
   titulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 12 },
   containerIntegrado: { marginTop: 14 },
   previewIntegrada: { borderTopWidth: 1, borderTopColor: '#35577A', paddingTop: 13 },

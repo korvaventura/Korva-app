@@ -227,9 +227,11 @@ function crearArquitectura(datos, conv, escena) {
     const w = conv.x(e.anchoM / 1000); const d = conv.z(e.largoM / 1000);
     const alto = conv.y(e.alturaM); const base = conv.y(Math.min(h, config.suelo?.alturaM ?? h));
     const px = conv.x(x); const pz = conv.z(z);
-    incluir(new THREE.BoxGeometry(w, alto, d), pared, px, base + alto / 2, pz);
+    const fachada = new THREE.BoxGeometry(w, alto, d);
+    fachada.rotateY(e.orientacion || 0);
+    incluir(fachada, pared, px, base + alto / 2, pz);
     const cubierta = new THREE.BufferGeometry();
-    const k = conv.y(3); const v = [
+    const k = conv.y(config.alturaTejadoM ?? 3); const v = [
       -w/2,0,-d/2, w/2,0,-d/2, 0,k,-d/2,
       -w/2,0,d/2, 0,k,d/2, w/2,0,d/2,
       -w/2,0,-d/2, 0,k,-d/2, 0,k,d/2, -w/2,0,-d/2, 0,k,d/2, -w/2,0,d/2,
@@ -240,7 +242,9 @@ function crearArquitectura(datos, conv, escena) {
       for (let j = 0; j < 3; j += 1) [v[i + 3 + j], v[i + 6 + j]] = [v[i + 6 + j], v[i + 3 + j]];
     }
     cubierta.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
-    incluir(cubierta, tejado, px, base + alto, pz);
+    cubierta.rotateY(e.orientacion || 0);
+    const colorCubierta = tejado.clone().multiplyScalar(0.86 + (e.tono ?? 2) * 0.07);
+    incluir(cubierta, colorCubierta, px, base + alto, pz);
   }
   const piedra = new THREE.Color(config.colorMuralla || config.colorPared);
   const baseM = config.suelo?.alturaM ?? 0;

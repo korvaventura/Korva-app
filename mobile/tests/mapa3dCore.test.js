@@ -341,3 +341,18 @@ test('[dubrovnik] murallas, calle y circuito representativo respetan la escala l
   assert.ok(h(19.4) > 0, "Ploče queda sobre tierra");
   for (const p of d.ruta) assert.ok(p.h >= d.campo.muestrear(p.x, p.z) - 1, `ruta enterrada km ${p.km}`);
 });
+
+
+test('gestos: coordenadas incompletas no contaminan la cámara y el siguiente toque vuelve a fijar la base', () => {
+  const viewport = { ancho: 360, alto: 500, elevacionBase: Math.PI / 4 };
+  const c = { azimut: 0, elevacion: 0, zoom: 1 };
+  const a = muestraGesto([{ pageX: 100, pageY: 100, identifier: 1 }]);
+  const invalido = muestraGesto([{ pageX: NaN, pageY: 120, identifier: 1 }]);
+  assert.equal(invalido, null);
+  assert.deepEqual(avanzarGesto(c, a, invalido, viewport).control, c);
+  const b = muestraGesto([{ pageX: 140, pageY: 100, identifier: 1 }]);
+  assert.deepEqual(avanzarGesto(c, invalido, b, viewport).control, c);
+  const d = muestraGesto([{ pageX: 170, pageY: 105, identifier: 1 }]);
+  const nuevo = avanzarGesto(c, b, d, viewport).control;
+  assert.ok(Number.isFinite(nuevo.azimut) && nuevo.azimut !== 0);
+});

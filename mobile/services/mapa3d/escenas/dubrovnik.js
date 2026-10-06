@@ -194,7 +194,7 @@ const dubrovnik = {
 // Edificios separados por calles: evita las dos masas continuas de tejados.
 dubrovnik.relieve.masas = dubrovnik.relieve.masas.filter((m) => !m.id.startsWith('tejados_'));
 dubrovnik.arquitectura = {
-  edificios: [], colorPared: '#D5C7A8', colorTejado: '#B75A37', colorMuralla: MURALLA,
+  alturaTejadoM: 1.2, edificios: [], colorPared: '#D5C7A8', colorTejado: '#B75A37', colorMuralla: MURALLA,
   // La altura de las fortificaciones sigue en el perfil del recorrido. En el
   // render se separa de la tierra para obtener paredes verticales, no colinas.
   suelo: { latMin: 42.63925, latMax: 42.6428, lonMin: 18.10525, lonMax: 18.11245, alturaM: 16 },
@@ -209,7 +209,7 @@ for (let fila = 0; fila < 14; fila += 1) {
     if (Math.abs(lat - 42.64139) < 0.00014) continue;
     if (fila < 3 && (col < 6 - fila || col > 16 + fila)) continue;
     if (fila > 11 && (col < fila - 9 || col > 21 - (fila - 11))) continue;
-    dubrovnik.arquitectura.edificios.push({ lat, lon, anchoM: 8 + col % 3, largoM: 10 + fila % 3, alturaM: 6 + (fila * 7 + col * 3) % 6 });
+    dubrovnik.arquitectura.edificios.push({ lat, lon, anchoM: 14 + col % 3, largoM: 13 + fila % 3, alturaM: 8 + (fila * 7 + col * 3) % 5, orientacion: fila > 8 ? 0.12 : -0.08, tono: (fila * 11 + col * 7) % 5 });
   }
 }
 module.exports = dubrovnik;

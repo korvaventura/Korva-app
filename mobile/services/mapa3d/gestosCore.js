@@ -1,7 +1,7 @@
 // Gestos incrementales: cambiar de cantidad de dedos vuelve a fijar la base.
 const limitar = (v, a, b) => Math.max(a, Math.min(b, v));
 function muestraGesto(touches) {
-  const ts = Array.from(touches || []).slice(0, 2).sort((a, b) => (a.identifier ?? 0) - (b.identifier ?? 0));
+  const ts = Array.from(touches || []).filter((t) => Number.isFinite(t.pageX) && Number.isFinite(t.pageY)).slice(0, 2).sort((a, b) => (a.identifier ?? 0) - (b.identifier ?? 0));
   if (!ts.length) return null;
   const [a, b] = ts;
   return { ids: ts.map((t) => t.identifier ?? 0).join(','), n: ts.length,

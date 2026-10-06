@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, InteractionManager, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop, Line } from 'react-native-svg';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import * as THREE from 'three';
@@ -142,7 +142,7 @@ function Fondo() {
 function PosicionActual({ x, y }) {
   const pulso = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    const anim = Animated.loop(Animated.timing(pulso, { toValue: 1, duration: 1800, easing: Easing.out(Easing.quad), useNativeDriver: true }));
+    const anim = Animated.loop(Animated.timing(pulso, { toValue: 1, duration: 1800, easing: Easing.out(Easing.quad), isInteraction: false, useNativeDriver: true }));
     anim.start();
     return () => anim.stop();
   }, [pulso]);
@@ -232,14 +232,14 @@ export default function MapaRecorrido3D({
     ];
   };
 
-  const panResponder = useMemo(() => PanResponder.create({
+  const touchHandlers = useMemo(() => ({
     // La superficie es hermana de los botones: captura desde el primer toque
     // sin disputar sus taps ni esperar a que el ScrollView tome el gesto.
-    onStartShouldSetPanResponder: () => true,
-    onStartShouldSetPanResponderCapture: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponderCapture: () => true,
-    onPanResponderGrant: (e) => {
+    onStartShouldSetResponder: () => true,
+    onStartShouldSetResponderCapture: () => true,
+    onMoveShouldSetResponder: () => true,
+    onMoveShouldSetResponderCapture: () => true,
+    onResponderGrant: (e) => {
       onInteraccionMapa?.(true);
       // Un gesto toma el control sin que el replay siga moviendo la cámara.
       if (playbackRef.current) {
@@ -250,7 +250,7 @@ export default function MapaRecorrido3D({
       }
       gestoRef.current = muestraGesto(e.nativeEvent.touches);
     },
-    onPanResponderMove: (e) => {
+    onResponderMove: (e) => {
       const actual = muestraGesto(e.nativeEvent.touches);
       const estado = r3fRef.current;
       if (!estado) return;
@@ -263,20 +263,26 @@ export default function MapaRecorrido3D({
       gestoRef.current = actual;
       aplicarCamara();
     },
-    onPanResponderRelease: () => { gestoRef.current = null; onInteraccionMapa?.(false); },
-    onPanResponderTerminate: () => { gestoRef.current = null; onInteraccionMapa?.(false); },
-    onPanResponderTerminationRequest: () => false,
+    onResponderRelease: () => { gestoRef.current = null; onInteraccionMapa?.(false); },
+    onResponderTerminate: () => { gestoRef.current = null; onInteraccionMapa?.(false); },
+    // Sin scroll padre: permite interrupciones nativas y libera el gesto.
+    onResponderTerminationRequest: () => true,
 
   }), [escena, onInteraccionMapa, aplicarCamara]);
 
   // Decodificar el horneado fuera de la transición de navegación.
   useEffect(() => {
     if (listo) return undefined;
-    const tarea = InteractionManager.runAfterInteractions(() => {
-      obtenerMundo(escena, horneado);
-      setListo(true);
+    // Las animaciones decorativas pueden durar indefinidamente. La carga no
+    // espera sus handles de InteractionManager: deja pintar el placeholder.
+    let tarea;
+    const frame = requestAnimationFrame(() => {
+      tarea = setTimeout(() => {
+        obtenerMundo(escena, horneado);
+        setListo(true);
+      }, 0);
     });
-    return () => tarea.cancel?.();
+    return () => { cancelAnimationFrame(frame); clearTimeout(tarea); };
   }, [listo, escena, horneado]);
 
   const mundo = listo ? obtenerMundo(escena, horneado) : null;
@@ -534,7 +540,7 @@ export default function MapaRecorrido3D({
         </Animated.View>
       )}
 
-      <View collapsable={false} style={StyleSheet.absoluteFill} {...panResponder.panHandlers} />
+      <View collapsable={false} style={StyleSheet.absoluteFill} {...touchHandlers} />
 
       {!mundo && <Text style={styles.cargando}>Modelando el relieve…</Text>}
 
