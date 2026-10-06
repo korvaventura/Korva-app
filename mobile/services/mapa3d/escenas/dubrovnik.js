@@ -202,17 +202,17 @@ dubrovnik.arquitectura = {
   murallas: dubrovnik.relieve.masas.filter((m) => m.id.startsWith('muralla_')),
   torres: dubrovnik.relieve.masas.filter((m) => ['minceta', 'bokar', 'san_juan', 'revelin', 'fuerte_lovrijenac'].includes(m.id)),
 };
-for (let fila = 0; fila < 14; fila += 1) {
+for (let fila = 0; fila < 18; fila += 1) {
   const lat = 42.64005 + fila * 0.00015;
   for (let col = 0; col < 24; col += 1) {
     const lon = 18.10615 + col * 0.00022;
     // El Stradun queda libre entre los dos barrios; recorte del promontorio.
     if (Math.abs(lat - 42.64139) < 0.00014) continue;
     if (fila < 3 && (col < 6 - fila || col > 16 + fila)) continue;
-    if (fila > 11 && (col < fila - 9 || col > 21 - (fila - 11))) continue;
+
     // Plazas y edificios singulares rompen la trama repetitiva.
     if (lat < 42.64135 && lon > 18.1099) continue;
-    if (lat > 42.64145 && lon > 18.1102) continue;
+    if (lat > 42.64145 && lat < 42.64185 && lon > 18.1102) continue;
     const clave = fila * 11 + col * 7;
     dubrovnik.arquitectura.edificios.push({ lat, lon, anchoM: 12 + clave % 5, largoM: 12 + fila % 4, alturaM: 7 + clave % 10, alturaTejadoM: 1.2 + clave % 3 * 0.35, orientacion: fila > 8 ? 0.12 : -0.08, tono: clave % 5, chimenea: clave % 4 === 0 });
   }

@@ -296,14 +296,25 @@ function crearArquitectura(datos, conv, escena) {
     incluir(copa, new THREE.Color('#385C43'), conv.x(p.x), conv.y(h + t.alturaM * 0.65), conv.z(p.z));
   }
   const puerto = mascaraPuerto(datos, escena);
+  const ciudad = mascaraCiudad(datos, escena);
+  const bordesCiudad = (config.murallas || []).flatMap(m => m.eje.slice(1).map((p,i)=>[proy.aKm(...m.eje[i]),proy.aKm(...p)]));
+  const despejado = (x,z,radio) => !bordesCiudad.some(([a,b])=> {
+    const dx=b.x-a.x,dz=b.z-a.z;const t=THREE.MathUtils.clamp(((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz || 1),0,1);
+    return Math.hypot(x-a.x-dx*t,z-a.z-dz*t)<radio;
+  }) && !(config.torres || []).some(t=>{const p=proy.aKm(...t.eje[0]);return Math.hypot(x-p.x,z-p.z)<t.eje[0][2]+radio;});
   for (const e of config.edificios) {
     const { x, z } = proy.aKm(e.lat, e.lon);
     const h = datos.campo.muestrear(x, z);
     // Las murallas y fortalezas conservan su silueta, sin casas encima.
     if (puerto(x, z)) continue;
-    if (!(h >= 2 && (e.exterior ? h < 330 : (e.monumento || h < 34)))) continue;
+    // El horneado incluye la altura de murallas y del relieve original.
+    // En el casco usamos su suelo visual, no ese umbral de 34 m que borraba
+    // manzanas completas al norte. Contorno y separación evitan invadir muros.
+    if (e.exterior) { if (!(h >= 2 && h < 330)) continue; }
+    else if (!e.monumento && (!ciudad(x,z) || !despejado(x,z,Math.max(e.anchoM,e.largoM)/2000+0.005))) continue;
+    else if (e.monumento && h < 2) continue;
     const w = conv.x(e.anchoM / 1000); const d = conv.z(e.largoM / 1000);
-    const alto = conv.y(e.alturaM); const base = conv.y(e.exterior ? h : e.monumento ? (config.suelo?.alturaM ?? h) : Math.min(h, config.suelo?.alturaM ?? h));
+    const alto = conv.y(e.alturaM); const base = conv.y(e.exterior ? h : e.monumento ? (config.suelo?.alturaM ?? h) : Math.max(2, Math.min(h, config.suelo?.alturaM ?? h)));
     const px = conv.x(x); const pz = conv.z(z);
     if (e.exterior) {
       // Zócalo hasta la cota más baja de las esquinas: evita casas suspendidas.
