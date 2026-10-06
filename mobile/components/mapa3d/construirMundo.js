@@ -562,7 +562,7 @@ export function construirMundo(escena, horneado) {
   const datos = datosDeEscena(escena, horneado);
   const conv = crearConversor(escena);
   if (escena.modeloMeshy) {
-    const modelo = construirModeloMeshy(datos, conv);
+    const modelo = construirModeloMeshy(datos, conv, escena);
     // Route and surface heights are calibrated to the active unified source.
     modelo.datos.ruta = modelo.modeloMeshy.meta.visualSurfaceRoute || crearRutaVisualModelo(modelo.modeloMeshy.meta.visualRoute, modelo.datos.campo.muestrear, conv);
     modelo.datos.visualModeloMeshy = true;

@@ -20,14 +20,21 @@ function malla(meta, buffers, nombre, recalcular = false) {
   return mesh;
 }
 
-export function construirModeloMeshy(datosOriginales, conv) {
-  const meta = require('../../assets/mapa3d/dubrovnik-unificado/meta');
-  const paisaje = malla(meta, {
+export function construirModeloMeshy(datosOriginales, conv, escena = {}) {
+  const fuego=escena.id==='fin_del_mundo';
+  const meta = fuego ? require('../../assets/mapa3d/fin-del-mundo-unificado/meta') : require('../../assets/mapa3d/dubrovnik-unificado/meta');
+  const buffers = fuego ? {
+    position: require('../../assets/mapa3d/fin-del-mundo-unificado/position'),
+    normal: require('../../assets/mapa3d/fin-del-mundo-unificado/normal'),
+    uv: require('../../assets/mapa3d/fin-del-mundo-unificado/uv'),
+    index: require('../../assets/mapa3d/fin-del-mundo-unificado/index'),
+  } : {
     position: require('../../assets/mapa3d/dubrovnik-unificado/position'),
     normal: require('../../assets/mapa3d/dubrovnik-unificado/normal'),
     uv: require('../../assets/mapa3d/dubrovnik-unificado/uv'),
     index: require('../../assets/mapa3d/dubrovnik-unificado/index'),
-  }, 'Dubrovnik — modelo unificado');
+  };
+  const paisaje = malla(meta,buffers,fuego ? 'Fin del Mundo — modelo unificado' : 'Dubrovnik — modelo unificado');
   // No rotations, reflections, masked terrain or joins: preserve the complete source.
   const alturaModelo = crearMuestreadorModelo(meta);
   const campo = { ...datosOriginales.campo, muestrear: (x, z) => alturaModelo(conv.x(x), conv.z(z)) / conv.y(1) };
@@ -39,7 +46,7 @@ export function construirModeloMeshy(datosOriginales, conv) {
   mar.rotation.x = -Math.PI / 2;
   mar.position.y = meta.min[1] - .002;
   grupo.add(mar, paisaje);
-  return {grupo,datos,modeloMeshy:{material:paisaje.material,materiales:[paisaje.material],meta,texturasListas:false},limites:{minX:-90,maxX:90,minZ:-90,maxZ:90}};
+  return {grupo,datos,modeloMeshy:{id:fuego ? 'fin_del_mundo' : 'dubrovnik',material:paisaje.material,materiales:[paisaje.material],meta,texturasListas:false},limites:{minX:-90,maxX:90,minZ:-90,maxZ:90}};
 }
 
 export function cargarTexturasMeshy(mundo,invalidate) {
@@ -47,7 +54,7 @@ export function cargarTexturasMeshy(mundo,invalidate) {
   if(!modelo||modelo.texturasListas)return Promise.resolve();
   if(modelo.carga)return modelo.carga;
   const loader=new THREE.TextureLoader(),loaded=[];
-  const ids=[require('../../assets/mapa3d/dubrovnik-unificado/color.jpg')];
+  const ids=[modelo.id==='fin_del_mundo' ? require('../../assets/mapa3d/fin-del-mundo-unificado/color.jpg') : require('../../assets/mapa3d/dubrovnik-unificado/color.jpg')];
   modelo.carga=Promise.allSettled(ids.map(id=>new Promise((resolve,reject)=>loader.load(id,t=>{t.flipY=false;t.generateMipmaps=true;t.minFilter=THREE.LinearMipmapLinearFilter;t.magFilter=THREE.LinearFilter;t.colorSpace=THREE.SRGBColorSpace;loaded.push(t);resolve(t);},undefined,reject)))).then(results=>{
     const failure=results.find(r=>r.status==='rejected');if(failure){loaded.forEach(t=>t.dispose());throw failure.reason;}
     results.forEach((r,i)=>{const material=modelo.materiales[i];material.color.set('#FFFFFF');material.map=r.value;material.emissive.set('#FFFFFF');material.emissiveMap=r.value;material.emissiveIntensity=.08;material.needsUpdate=true;});
