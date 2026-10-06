@@ -1,6 +1,18 @@
 const fs=require('node:fs'),path=require('node:path');const input=process.argv[2];if(!input)throw Error('Pass preview-assets.json');const assets=JSON.parse(fs.readFileSync(input,'utf8'));const root=path.resolve(__dirname,'../assets/mapa3d');const b64=a=>Buffer.from(a.buffer,a.byteOffset,a.byteLength).toString('base64');const decode=(s,T)=>{const b=Buffer.from(s,'base64');return new T(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength));};
 const meshes=assets.map(a=>({kind:a.kind,pos:decode(a.position,Float32Array),normal:decode(a.normal,Float32Array),uv:decode(a.uv,Float32Array),idx:decode(a.index,Uint32Array),texture:a.texture}));
-const bg=meshes.find(m=>m.kind==='background');for(let i=1;i<bg.pos.length;i+=3)bg.pos[i]*=.85;
+const bg=meshes.find(m=>m.kind==='background');
+const smooth=t=>t*t*(3-2*t);
+for(let i=0;i<bg.pos.length;i+=3){
+ const x=Math.abs(bg.pos[i]),z=bg.pos[i+2],original=bg.pos[i+1]*.85;
+ const ramp=smooth(Math.max(0,Math.min(1,(.85-z)/2.5)));
+ const cap=.03+.85*ramp;
+ const lateral=smooth(Math.max(0,Math.min(1,(3.3-x)/1.3)));
+ let y=original+(Math.min(original,cap)-original)*lateral;
+ const hole=smooth(Math.max(0,Math.min(1,(1.82-x)/.3)))*smooth(Math.max(0,Math.min(1,(z-.92)/.3)));
+ const front=smooth(Math.max(0,Math.min(1,(z-1.35)/.85)));
+ const mask=1-(1-hole)*(1-front);
+ bg.pos[i+1]=y*(1-mask)-.04*mask;
+}
 for(const m of meshes){const folder=m.kind==='city'?'dubrovnik-completo':'dubrovnik-revision-fondo';const out=path.join(root,folder);fs.mkdirSync(out,{recursive:true});let min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];for(let i=0;i<m.pos.length;i++) {const k=i%3;min[k]=Math.min(min[k],m.pos[i]);max[k]=Math.max(max[k],m.pos[i]);}const span=max.map((v,k)=>v-min[k]),p=new Uint16Array(m.pos.length),n=new Int8Array(m.normal.length),uv=new Uint16Array(m.uv.length);for(let i=0;i<p.length;i++)p[i]=Math.round((m.pos[i]-min[i%3])/span[i%3]*65535);for(let i=0;i<n.length;i+=3){const len=Math.hypot(...m.normal.subarray(i,i+3))||1;for(let k=0;k<3;k++)n[i+k]=Math.round(m.normal[i+k]/len*127);}for(let i=0;i<uv.length;i++)uv[i]=Math.round(Math.min(1,Math.max(0,m.uv[i]))*65535);let prev=0;const bytes=[];for(const v of m.idx){let delta=v-prev;prev=v;let q=delta<0?-delta*2-1:delta*2;while(q>=128){bytes.push(q%128|128);q=Math.floor(q/128);}bytes.push(q);}
 for(const [name,a]of [['position',p],['normal',n],['uv',uv],['index',Uint8Array.from(bytes)]])fs.writeFileSync(path.join(out,name+'.js'),'module.exports = '+JSON.stringify(b64(a))+';\n');fs.writeFileSync(path.join(out,'color.jpg'),Buffer.from(m.texture.split(',')[1],'base64'));m.meta={version:1,vertices:m.pos.length/3,triangles:m.idx.length/3,min,span};m.folder=folder;}
 // Rasterize both surfaces for collision clearance, separate from the exact route.

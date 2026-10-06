@@ -90,7 +90,7 @@ test('ruta visual: conserva anclas de kilómetros y elimina picos verticales sin
     const h=sample(min[0]+(max[0]-min[0])*x/79,min[1]+(max[1]-min[1])*z/79);
     assert(Number.isFinite(h)); peak=Math.max(peak,h);
   }
-  assert(peak>.85 && peak<1); // Original mountain, preserved without synthetic lift.
+  assert(peak>.5 && peak<1); // Background relief remains above the gradual mainland join.
   assert(meta.min[1] > -.02); // Clipped base below the water datum.
   const { crearRutaVisualModelo } = require('../services/mapa3d/modeloMeshyCore');
   const conv = { aKm: x => x * .3, y: h => h * .004 };
@@ -157,6 +157,17 @@ test('composición Dubrovnik: fondo separado y casco original dentro del presupu
   assert.equal(city.composition,'original-old-town + separately masked background');
   for(let i=0;i<m.position.length;i+=3) {
     const [x,y,z]=m.position.subarray(i,i+3);
-    if(Math.abs(x)<1.56 && z>.9)assert(y<0); // No terrain overlapping the old town footprint.
+    if(Math.abs(x)<1.50 && z>1.23)assert(y<0); // No terrain overlapping the old town footprint.
   }
+});
+
+
+test('unión con tierra firme: la ladera no forma el paredón del recorte rectangular', () => {
+ const meta=require('../assets/mapa3d/dubrovnik-revision-fondo/meta');
+ const buffers=Object.fromEntries(['position','normal','uv','index'].map(k=>[k,require('../assets/mapa3d/dubrovnik-revision-fondo/'+k)]));
+ const mesh=decodificarModelo(meta,buffers);let seam=0;
+ for(let i=0;i<mesh.position.length;i+=3){const [x,y,z]=mesh.position.subarray(i,i+3);
+   if(Math.abs(x)<1.9 && z>.5 && z<.95){assert(y<.078);seam++;}
+ }
+ assert(seam>100);
 });

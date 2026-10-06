@@ -52,7 +52,20 @@ export function construirModeloMeshy(datosOriginales, conv) {
   aguaGeometry.setAttribute('color',new THREE.BufferAttribute(colors,3));aguaGeometry.computeBoundingSphere();
   const mar=new THREE.Mesh(aguaGeometry,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.46,metalness:.02}));
   mar.rotation.x=-Math.PI/2;mar.position.y=-.004;
-  grupo.add(mar,fondo,ciudad);
+  // Low mainland join behind the northern wall: closes the water gap without a cliff.
+  const joinGeometry = new THREE.PlaneGeometry(3.2,.55,24,8);
+  joinGeometry.rotateX(-Math.PI/2); joinGeometry.translate(0,0,.775);
+  const joinPositions=joinGeometry.attributes.position;
+  const joinColors=new Float32Array(joinPositions.count*3);
+  const limestone=new THREE.Color('#A9A58C');
+  for(let i=0;i<joinPositions.count;i++) {
+    const z=joinPositions.getZ(i),t=THREE.MathUtils.clamp((1.05-z)/.55,0,1);
+    joinPositions.setY(i,.018+.045*t*t*(3-2*t));
+    limestone.clone().multiplyScalar(.98+.025*Math.sin(joinPositions.getX(i)*13+z*11)).toArray(joinColors,i*3);
+  }
+  joinGeometry.setAttribute('color',new THREE.BufferAttribute(joinColors,3));joinGeometry.computeVertexNormals();
+  const join=new THREE.Mesh(joinGeometry,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,metalness:0}));
+  grupo.add(mar,fondo,join,ciudad);
   return {grupo,datos,modeloMeshy:{material:ciudad.material,materiales:[ciudad.material,fondo.material],meta,texturasListas:false},limites:{minX:-90,maxX:90,minZ:-90,maxZ:90}};
 }
 
