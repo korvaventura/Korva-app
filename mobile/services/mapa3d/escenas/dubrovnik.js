@@ -41,6 +41,7 @@ const dubrovnik = {
   pasoPerfilKm: 0.006,
   elevacionRutaUnidades: 0.021, // ruta y pines en unidades: constantes en pantalla
   alturaPinUnidades: 0.17,
+  grosorRuta: 0.75, // deja ver calles y murallas bajo el recorrido
   suavizadoAlturaRutaKm: 0.012, // la ruta corre sobre muros: evita el serrucho en los bordes
 
   ruta: [

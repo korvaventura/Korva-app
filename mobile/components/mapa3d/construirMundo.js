@@ -9,7 +9,7 @@
 // Three Fiber solo la monta, y el banco de pruebas web usa exactamente lo mismo.
 
 import * as THREE from 'three';
-import { construirDatosDiorama, puntoEnKm } from '../../services/mapa3d/terrenoCore';
+import { construirDatosDiorama, puntoEnKm, indiceCercano } from '../../services/mapa3d/terrenoCore';
 import { deserializarDiorama } from '../../services/mapa3d/horneadoCore';
 
 const cacheDatos = new Map();
@@ -153,7 +153,7 @@ function crearAguas(datos, conv, escena) {
     const m = new THREE.MeshStandardMaterial({
       color: porProfundidad ? '#FFFFFF' : (estilo.color || '#2B6079'),
       vertexColors: porProfundidad,
-      roughness: estilo.rugosidad ?? 0.32,
+      roughness: Math.max(0.38, estilo.rugosidad ?? 0.32),
       metalness: 0,
       transparent: true,
       opacity: estilo.opacidad ?? 0.88,
@@ -209,12 +209,13 @@ function crearArquitectura(datos, conv, escena) {
   const posiciones = []; const colores = [];
   const pared = new THREE.Color(config.colorPared); const tejado = new THREE.Color(config.colorTejado);
   const proy = datos.campo.geo.proy;
-  const incluir = (geo, color, x, y, z) => {
+  const incluir = (geo, color, x, y, z, alturaSombra = 0) => {
     const plano = geo.index ? geo.toNonIndexed() : geo;
     const a = plano.attributes.position;
     for (let i = 0; i < a.count; i += 1) {
       posiciones.push(a.getX(i) + x, a.getY(i) + y, a.getZ(i) + z);
-      colores.push(color.r, color.g, color.b);
+      const sombra = alturaSombra ? 0.76 + 0.24 * THREE.MathUtils.clamp((a.getY(i) + alturaSombra / 2) / alturaSombra, 0, 1) : 1;
+      colores.push(color.r * sombra, color.g * sombra, color.b * sombra);
     }
     if (plano !== geo) plano.dispose();
     geo.dispose();
@@ -229,7 +230,24 @@ function crearArquitectura(datos, conv, escena) {
     const px = conv.x(x); const pz = conv.z(z);
     const fachada = new THREE.BoxGeometry(w, alto, d);
     fachada.rotateY(e.orientacion || 0);
-    incluir(fachada, pared, px, base + alto / 2, pz);
+    incluir(fachada, pared, px, base + alto / 2, pz, alto);
+    // Huecos de fachada: quads combinados en el mismo mesh, sin texturas
+    // ni nuevos materiales/draw calls. La orientación sigue al edificio.
+    const ventana = new THREE.Color('#52605B'); const puerta = new THREE.Color('#655044');
+    const angulo = e.orientacion || 0;
+    const abrirHueco = (ancho, altura, ox, oy, oz, atras, color) => {
+      const geo = new THREE.PlaneGeometry(ancho, altura);
+      if (atras) geo.rotateY(Math.PI);
+      geo.translate(ox, oy, oz);
+      geo.rotateY(angulo);
+      incluir(geo, color, px, base, pz);
+    };
+    for (const lado of [-1, 1]) {
+      for (const nivel of [0.38, 0.72]) {
+        for (const columna of [-0.25, 0.25]) abrirHueco(w * 0.12, alto * 0.15, w * columna, alto * nivel, lado * (d / 2 + 0.0008), lado < 0, ventana);
+      }
+    }
+    abrirHueco(w * 0.14, alto * 0.26, 0, alto * 0.13, d / 2 + 0.0008, false, puerta);
     const cubierta = new THREE.BufferGeometry();
     const k = conv.y(config.alturaTejadoM ?? 3); const v = [
       -w/2,0,-d/2, w/2,0,-d/2, 0,k,-d/2,
@@ -389,7 +407,7 @@ export const materialesRuta = {
 
 // Cámara orbital alrededor de un objetivo. `control` agrega órbita, zoom y foco
 // (gestos y playback del Journey) sobre la composición base de la escena.
-export function configurarCamara(camara, escena, aspecto, control = {}) {
+export function configurarCamara(camara, escena, aspecto, control = {}, mundo = null) {
   const c = escena.camara;
   const el = THREE.MathUtils.degToRad(c.elevacionGrados) + (control.elevacion || 0);
   const az = THREE.MathUtils.degToRad(c.azimutGrados) + (control.azimut || 0);
@@ -397,6 +415,19 @@ export function configurarCamara(camara, escena, aspecto, control = {}) {
   const d = c.distancia * ajuste * THREE.MathUtils.clamp(control.zoom || 1, 0.5, 1.7);
   const [tx, ty, tz] = control.objetivo || c.objetivo;
   camara.position.set(tx + Math.sin(az) * Math.cos(el) * d, ty + Math.sin(el) * d, tz - Math.cos(az) * Math.cos(el) * d);
+  if (mundo) {
+    const { campo } = mundo.datos; const { conv } = mundo;
+    let piso = -Infinity;
+    // Incluye el área del plano cercano: en una ladera no basta con probar
+    // sólo el centro de la cámara. También respeta la superficie del agua.
+    for (const [dx, dz] of [[0, 0], [-0.08, 0], [0.08, 0], [0, -0.08], [0, 0.08]]) {
+      const x = conv.aKm(camara.position.x + dx); const z = conv.aKm(camara.position.z + dz);
+      const h = campo.muestrear(x, z);
+      const agua = campo.agua[indiceCercano(campo, x, z)];
+      if (Number.isFinite(h)) piso = Math.max(piso, conv.y(Math.max(h, Number.isFinite(agua) ? agua : h)));
+    }
+    camara.position.y = Math.max(camara.position.y, piso + Math.max(0.15, conv.y(25)));
+  }
   camara.fov = c.fov;
   camara.near = 0.05;
   camara.far = 200;

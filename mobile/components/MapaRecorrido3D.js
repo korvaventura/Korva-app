@@ -41,7 +41,7 @@ function Montaje({ mundo, escena, controlRef, r3fRef }) {
   const { camera, size, scene, invalidate } = useThree();
   useLayoutEffect(() => {
     r3fRef.current = { camera, size, scene, invalidate };
-    configurarCamara(camera, escena, size.width / Math.max(1, size.height), controlRef?.current);
+    configurarCamara(camera, escena, size.width / Math.max(1, size.height), controlRef?.current, mundo);
     scene.fog = mundo.niebla;
     actualizarAtmosfera(mundo, escena, camera);
     invalidate();
@@ -62,6 +62,7 @@ function Montaje({ mundo, escena, controlRef, r3fRef }) {
 function Ruta({ mundo, escena, progresoRef }) {
   const { datos, conv } = mundo;
   const total = escena.distanciaKm;
+  const grosor = escena.grosorRuta ?? 1;
   const meshes = { pendiente: useRef(null), brillo: useRef(null), hecho: useRef(null) };
   const geosRef = useRef({});
   const ultimoRef = useRef({ km: null, tiempo: -Infinity });
@@ -77,9 +78,9 @@ function Ruta({ mundo, escena, progresoRef }) {
     if (km === ultimo.km) return;
     if (animando && clock.elapsedTime - ultimo.tiempo < 0.12) return;
     const siguientes = {
-      pendiente: geometriaTramo(datos, conv, km, total, 0.013),
-      brillo: geometriaTramo(datos, conv, 0, km, 0.044),
-      hecho: geometriaTramo(datos, conv, 0, km, 0.019),
+      pendiente: geometriaTramo(datos, conv, km, total, 0.013 * grosor),
+      brillo: geometriaTramo(datos, conv, 0, km, 0.044 * grosor),
+      hecho: geometriaTramo(datos, conv, 0, km, 0.019 * grosor),
     };
     for (const id of Object.keys(siguientes)) {
       const mesh = meshes[id].current;
@@ -204,8 +205,8 @@ export default function MapaRecorrido3D({
       revisionPendienteRef.current = null;
       const estado = r3fRef.current;
       if (!estado) return;
-      configurarCamara(estado.camera, escena, estado.size.width / Math.max(1, estado.size.height), controlRef.current);
       const mundoActual = cacheEscenas.get(escena.id);
+      configurarCamara(estado.camera, escena, estado.size.width / Math.max(1, estado.size.height), controlRef.current, mundoActual);
       if (mundoActual) actualizarAtmosfera(mundoActual, escena, estado.camera);
       estado.invalidate();
       setRevisionCamara((v) => v + 1);
@@ -327,7 +328,7 @@ export default function MapaRecorrido3D({
     if (!mundo || !tam) return null;
     const { datos, conv } = mundo;
     const cam = new THREE.PerspectiveCamera();
-    configurarCamara(cam, escena, tam.w / tam.h, controlRef.current);
+    configurarCamara(cam, escena, tam.w / tam.h, controlRef.current, mundo);
     const aPx = (v) => {
       const p = v.clone().project(cam);
       const x = ((p.x + 1) / 2) * tam.w;
