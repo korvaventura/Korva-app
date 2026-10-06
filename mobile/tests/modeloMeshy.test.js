@@ -69,3 +69,26 @@ test('ruta visual: conserva anclas de kilómetros y elimina picos verticales sin
   const sample = crearMuestreadorModelo(meta);
   assert.equal(sample(.5,-.4),0);
  });
+
+ test('Dubrovnik completo: un paisaje móvil íntegro con relieve y normales normalizadas', () => {
+  const meta = require('../assets/mapa3d/dubrovnik-completo/meta');
+  const buffers = Object.fromEntries(['position','normal','uv','index'].map(k => [k, require('../assets/mapa3d/dubrovnik-completo/' + k)]));
+  const mesh = decodificarModelo(meta, buffers);
+  assert(meta.triangles < 250000);
+  assert(mesh.index.every(i => i < meta.vertices));
+  assert(mesh.position.every(Number.isFinite));
+  let valid=0;
+  for(let i=0;i<meta.vertices;i++) {
+    const length=Math.hypot(...mesh.normal.subarray(i*3,i*3+3))/127;
+    if(length>.98 && length<1.02)valid++;
+  }
+  assert(valid/meta.vertices>.99);
+  const sample=crearMuestreadorModelo(meta);
+  let peak=0;
+  const [min,max]=meta.heightBounds;
+  for(let z=0;z<80;z++) for(let x=0;x<80;x++) {
+    const h=sample(min[0]+(max[0]-min[0])*x/79,min[1]+(max[1]-min[1])*z/79);
+    assert(Number.isFinite(h)); peak=Math.max(peak,h);
+  }
+  assert(peak>.5 && peak<1);
+ });

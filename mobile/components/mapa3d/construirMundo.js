@@ -563,46 +563,11 @@ export function construirMundo(escena, horneado) {
   const conv = crearConversor(escena);
   if (escena.modeloMeshy) {
     const modelo = construirModeloMeshy(datos, conv);
-    const [min, max] = modelo.modeloMeshy.entornoMeta.heightBounds;
-    const distanciaModelo = (x, z) => Math.hypot(Math.max(min[0] - x, 0, x - max[0]), Math.max(min[1] - z, 0, z - max[1]));
-    const distanciaGeo = (lat, lon) => { const p = datos.campo.geo.proy.aKm(lat, lon); return distanciaModelo(conv.x(p.x), conv.z(p.z)); };
-    // Keep the wider coastal landscape and neighborhoods. Lower only the
-    // generated asset footprint, feathering its join into the existing land.
-    const terreno = geometriaTerreno(datos, conv, escena);
-    const posiciones = terreno.attributes.position;
-    for (let i = 0; i < posiciones.count; i += 1) {
-      const mezcla = THREE.MathUtils.smoothstep(distanciaModelo(posiciones.getX(i), posiciones.getZ(i)), 0, 0.2);
-      posiciones.setY(i, -0.025 + (posiciones.getY(i) + 0.025) * mezcla);
-    }
-    terreno.computeVertexNormals(); terreno.computeBoundingSphere();
-    modelo.grupo.add(new THREE.Mesh(terreno, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0 })));
-    const alturaInterior = modelo.datos.campo.muestrear;
-    modelo.datos.campo.muestrear = (x, z) => {
-      const distancia = distanciaModelo(conv.x(x), conv.z(z));
-      if (distancia === 0) return Math.max(alturaInterior(x, z), modelo.modeloMeshy.alturaEntorno(conv.x(x), conv.z(z)) / conv.y(1));
-      return Math.max(0, datos.campo.muestrear(x, z)) * THREE.MathUtils.smoothstep(distancia, 0, 0.2);
-    };
-    // Trace the generated interpretation instead of projecting the old geography
-    // through its roofs. Explicit kilometer anchors preserve challenge progress.
-    modelo.datos.ruta = crearRutaVisualModelo([
-      [-0.62,-0.30,0],[-0.85,-0.32],[-1.181,-0.343,4],
-      [-0.85,-0.32],[-0.62,-0.30],[-0.68,-0.08],[-0.55,0.09],
-      [0,0.16],[0.50,0.20],[1.05,0.08],[1.28,-0.12],[1.15,-0.23],
-      [0.78,-0.40],[0.35,-0.36],[-0.02,-0.34,8],
-      [-0.30,-0.31],[-0.62,-0.30],[-0.68,-0.08],[-0.70,-0.02,12],
-      [-0.68,-0.26],[-0.70,-0.56],[-0.64,-0.79,16],
-      [-0.15,-0.87],[0.40,-0.96],[0.75,-0.93],[0.99,-0.86,19.4],
-    ], modelo.datos.campo.muestrear, conv);
+    // One cohesive landscape: no overlapping old town / mainland join.
+    // Visual route follows generated ramparts with excursions to Stradun and Lovrijenac.
+    modelo.datos.ruta = crearRutaVisualModelo([[-0.50909, -0.72545, 0], [-0.57455, -1.03818], [-0.92364, -1.21273], [-1.24364, -1.38727, 4], [-0.92364, -1.21273], [-0.57455, -1.03818], [-0.50909, -0.72545], [-0.52727, -0.51091], [-0.64, -0.30364], [-0.81091, -0.16909, 8], [-0.64, -0.30364], [-0.52727, -0.51091], [-0.50909, -0.72545], [-0.27636, -0.76909], [0.04, -0.40909], [0.23273, -0.02, 12], [0.04, -0.40909], [-0.27636, -0.76909], [-0.50909, -0.72545], [-0.75273, -0.71455], [-1.00727, -0.67091, 16], [-1.28364, -0.35818], [-1.46545, 0.08545], [-1.25818, 0.50364], [-0.93818, 0.41636, 19.4]], modelo.datos.campo.muestrear, conv);
     modelo.datos.visualModeloMeshy = true;
     modelo.datos.largoKm = modelo.datos.ruta.slice(1).reduce((sum, p, i) => sum + Math.hypot(p.x - modelo.datos.ruta[i].x, p.z - modelo.datos.ruta[i].z), 0);
-    const exterior = { ...escena.arquitectura,
-      suelo: undefined, puerto: undefined, murallas: [],
-      edificios: [],
-      calles: [],
-      torres: escena.arquitectura.torres.filter(t => t.id === 'fuerte_lovrijenac'),
-    };
-    const barrios = crearArquitectura(datos, conv, { ...escena, arquitectura: exterior });
-    if (barrios) modelo.grupo.add(barrios);
     return { ...modelo, conv, cielo: crearCielo(escena), niebla: new THREE.Fog(escena.atmosfera.horizonte, 5, 30) };
   }
   const grupo = new THREE.Group();
