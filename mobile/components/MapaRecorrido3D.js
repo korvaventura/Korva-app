@@ -8,7 +8,8 @@ import { colors } from '../theme/korvaTheme';
 import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
 import { muestraGesto, avanzarGesto, seleccionarPin } from '../services/mapa3d/gestosCore';
 import { estadoJourney } from '../services/mapa3d/journeyCore';
-import { ubicarEtiquetas, medidasEtiqueta, seSuperponen } from '../services/mapa3d/etiquetasCore';
+import { crearCorteRuta } from '../services/mapa3d/rutaPlaybackCore';
+import { ubicarEtiquetas, seSuperponen } from '../services/mapa3d/etiquetasCore';
 import {
   actualizarAtmosfera,
   configurarCamara,
@@ -86,10 +87,29 @@ function Ruta({ mundo, escena, progresoRef }) {
     hecho: materialesRuta.hecho(colors.brandOrange),
     brillo: materialesRuta.brillo(colors.brandOrange),
   }), []);
+  const estaticos = useMemo(() => {
+    if(!datos.visualModeloMeshy)return null;
+    const pendiente=geometriaTramo(datos,conv,0,total,.013*grosor);
+    const hecho=geometriaTramo(datos,conv,0,total,.019*grosor);
+    return {pendiente,hecho,brillo:null,cortar:crearCorteRuta(datos.ruta,conv,hecho.parameters.tubularSegments)};
+  },[datos,conv,total,grosor]);
   useFrame(({ clock }) => {
     const { km, animando } = progresoRef.current;
     const ultimo = ultimoRef.current;
     if (km === ultimo.km) return;
+    if(estaticos) {
+      const corte=estaticos.cortar(km),count=estaticos.hecho.index.count;
+      estaticos.hecho.setDrawRange(0,corte);
+      estaticos.pendiente.setDrawRange(corte,count-corte);
+      for(const id of ['pendiente','hecho']) {
+        const mesh=meshes[id].current;
+        if(mesh){mesh.geometry=estaticos[id];mesh.visible=estaticos[id].drawRange.count>0;}
+      }
+      if(meshes.brillo.current)meshes.brillo.current.visible=false;
+      geosRef.current=estaticos;
+      ultimoRef.current={km,tiempo:clock.elapsedTime};
+      return;
+    }
     if (animando && clock.elapsedTime - ultimo.tiempo < 0.12) return;
     const siguientes = {
       pendiente: geometriaTramo(datos, conv, km, total, 0.013 * grosor),
@@ -105,7 +125,7 @@ function Ruta({ mundo, escena, progresoRef }) {
     ultimoRef.current = { km, tiempo: clock.elapsedTime };
   });
   useEffect(() => () => {
-    Object.values(geosRef.current).forEach((g) => g?.dispose());
+    Object.values(geosRef.current).forEach((g) => g?.dispose?.());
     geosRef.current = {};
     ultimoRef.current = { km: null, tiempo: -Infinity };
     Object.values(mats).forEach((m) => m.dispose());
@@ -125,7 +145,7 @@ const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3f
   const camaraInicial = useMemo(() => ({ fov: escena.camara.fov, near: 0.05, far: 200, position: [0, 6, -10] }), [escena]);
   const opcionesGL = useMemo(() => ({ alpha: true, antialias: true }), []);
   return (
-    <Canvas style={styles.canvas} frameloop="demand" dpr={2} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
+    <Canvas style={styles.canvas} frameloop="demand" dpr={mundo.modeloMeshy ? 1.5 : 2} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
       <Montaje mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} onModeloEstado={onModeloEstado} />
       <Ruta mundo={mundo} escena={escena} progresoRef={progresoRef} />
     </Canvas>
@@ -217,6 +237,23 @@ export default function MapaRecorrido3D({
   const playbackRef = useRef(null);
   const progresoRef = useRef({ km: 0, animando: false });
   const ultimaPublicacionRef = useRef(0);
+  const ultimaSeleccionRef = useRef({id:null,tiempo:0});
+  const etiquetasPreviasRef = useRef({});
+  const liberarGesto = useCallback(() => {
+    if(arrastrandoRef.current)ultimoArrastreRef.current=Date.now();
+    inicioToqueRef.current=null;gestoRef.current=null;arrastrandoRef.current=false;
+    onInteraccionMapa?.(false);
+  },[onInteraccionMapa]);
+  const seleccionarCheckpoint = useCallback(cp => {
+    const ahora=Date.now();
+    if(arrastrandoRef.current || ahora-ultimoArrastreRef.current<180)return;
+    liberarGesto();
+    if(ahora-ultimaSeleccionRef.current.tiempo<350)return;
+    ultimaSeleccionRef.current={id:cp.id,tiempo:ahora};
+    if(playbackRef.current)cancelAnimationFrame(playbackRef.current);
+    playbackRef.current=null;setKmPlayback(null);setReproduciendo(false);
+    onSelect?.(cp);
+  },[liberarGesto,onSelect]);
 
   const aplicarCamara = useCallback(() => {
     // Cámara, atmósfera y pines se actualizan juntos una vez por frame.
@@ -225,15 +262,14 @@ export default function MapaRecorrido3D({
       revisionPendienteRef.current = null;
       const estado = r3fRef.current;
       if (!estado) return;
+      const ahora=Date.now();
+      if(ahora-ultimaPublicacionRef.current<33)return;
       const mundoActual = cacheEscenas.get(escena.id);
       configurarCamara(estado.camera, escena, estado.size.width / Math.max(1, estado.size.height), controlRef.current, mundoActual);
       if (mundoActual) actualizarAtmosfera(mundoActual, escena, estado.camera);
       estado.invalidate();
-      const ahora = Date.now();
-      if (ahora - ultimaPublicacionRef.current >= 50) {
-        ultimaPublicacionRef.current = ahora;
-        setRevisionCamara((v) => v + 1);
-      }
+      ultimaPublicacionRef.current=ahora;
+      setRevisionCamara((v) => v + 1);
     });
   }, [escena]);
 
@@ -276,7 +312,7 @@ export default function MapaRecorrido3D({
         wrapRef.current?.measureInWindow((left, top) => {
           const x=pageX-left, y=pageY-top;
           const cp = seleccionarPin(overlayRef.current, x, y);
-          if (cp) { onInteraccionMapa?.(false); onSelect?.(cp); }
+          if (cp) seleccionarCheckpoint(cp);
         });
       }
       const muestra = muestraGesto(e.nativeEvent.touches);
@@ -289,20 +325,16 @@ export default function MapaRecorrido3D({
         onInteraccionMapa?.(false);
       }
     },
-    onTouchCancel: () => {
-      inicioToqueRef.current = null; gestoRef.current = null; arrastrandoRef.current = false;
-      onInteraccionMapa?.(false);
-    },
-    onStartShouldSetResponder: () => true,
+    onTouchCancel: liberarGesto,
+    onStartShouldSetResponder: () => false,
     onStartShouldSetResponderCapture: (e) => (e.nativeEvent.touches?.length || 0) >= 2,
-    onMoveShouldSetResponder: () => true,
+    onMoveShouldSetResponder: () => false,
     onMoveShouldSetResponderCapture: (e) => {
       const actual = muestraGesto(e.nativeEvent.touches);
       const inicio = inicioToqueRef.current;
       return !!actual && (actual.n >= 2 || !!inicio && Math.hypot(actual.x - inicio.x, actual.y - inicio.y) >= 10);
     },
     onResponderGrant: (e) => {
-      onInteraccionMapa?.(true);
       // Un gesto toma el control sin que el replay siga moviendo la cámara.
       if (playbackRef.current) {
         cancelAnimationFrame(playbackRef.current);
@@ -334,13 +366,13 @@ export default function MapaRecorrido3D({
       gestoRef.current = actual;
       aplicarCamara();
     },
-    onResponderRelease: () => { inicioToqueRef.current = null; gestoRef.current = null; onInteraccionMapa?.(false); },
-    onResponderTerminate: () => { inicioToqueRef.current = null; gestoRef.current = null; onInteraccionMapa?.(false); },
+    onResponderRelease: liberarGesto,
+    onResponderTerminate: liberarGesto,
     // Un mapa embebido conserva el gesto mientras su página desactiva el
     // scroll. Las interrupciones del sistema siguen llegando a Terminate.
     onResponderTerminationRequest: () => true,
 
-  }), [escena, onInteraccionMapa, aplicarCamara, onSelect]);
+  }), [escena, onInteraccionMapa, aplicarCamara, seleccionarCheckpoint, liberarGesto]);
 
   // Decodificar el horneado fuera de la transición de navegación.
   useEffect(() => {
@@ -432,25 +464,18 @@ export default function MapaRecorrido3D({
     // Durante el playback la cámara se mueve cada frame. Recalcular el
     // algoritmo de colisiones hace que una etiqueta salte entre dos posiciones
     // y visualmente "titile". En replay usamos un anclaje determinista.
-    const etiquetas = reproduciendo
-      ? Object.fromEntries(pinesVisibles.map((p) => [
-          p.cp.id,
-          {
-            x: Math.max(6, Math.min(tam.w - 6 - medidasEtiqueta(p.cp.nombre?.toUpperCase(), tam.w).w, p.cabeza.x + 11)),
-            y: p.cabeza.y - 15,
-            // En replay reservamos ancho suficiente para el nombre completo.
-            // Dos líneas y caja acotada al ancho disponible.
-            ...medidasEtiqueta(p.cp.nombre?.toUpperCase(), tam.w),
-            lado: 'derecha',
-            visible: true,
-          },
-        ]))
-      : ubicarEtiquetas(
+    const etiquetas = ubicarEtiquetas(
           pinesVisibles.map((p) => ({ id: p.cp.id, x: p.cabeza.x, y: p.cabeza.y, texto: p.cp.nombre?.toUpperCase(), prioridad: p.cp.id === seleccionadoId ? 4 : p.estadoJourney === 'proximo' ? 3 : p.desbloqueado ? 2 : 1 })),
           tam.w,
           tam.h,
-          { ocupados, ocultarSiNoCabe: true },
+          { ocupados, ocultarSiNoCabe: true, preferidas:etiquetasPreviasRef.current },
         );
+    const preferidas={};
+    for(const p of pinesVisibles) {
+      const caja=etiquetas[p.cp.id];
+      if(caja)preferidas[p.cp.id]={lado:caja.lado,dx:caja.x-p.cabeza.x,dy:caja.y-p.cabeza.y};
+    }
+    etiquetasPreviasRef.current=preferidas;
     const tomadas = [
       ...Object.values(etiquetas),
       ...pinesVisibles.map((p) => ({ x: p.cabeza.x - 10, y: p.cabeza.y - 10, w: 20, h: 20 })),
@@ -640,30 +665,22 @@ export default function MapaRecorrido3D({
             <Text key={e.id} pointerEvents="none" style={[styles.etiquetaAgua, e.tipo === 'region' && styles.etiquetaRegion, { left: e.x - 80, top: e.y - 7 }]}>{e.texto}</Text>
           ))}
 
+          <Svg pointerEvents="none" width={tam.w} height={tam.h} style={StyleSheet.absoluteFill}>
+            {overlay.pines.flatMap(({cp,cabeza,base,desbloqueado}) => {
+              const caja=overlay.etiquetas[cp.id];
+              const extremo=caja ? {x:Math.max(caja.x,Math.min(caja.x+caja.w,cabeza.x)),y:Math.max(caja.y,Math.min(caja.y+caja.h,cabeza.y))} : null;
+              const lines=[<Line key={`stem-${cp.id}`} x1={cabeza.x} y1={cabeza.y} x2={base.x} y2={base.y} stroke={desbloqueado ? 'rgba(255,190,140,0.6)' : 'rgba(214,228,240,0.38)'} strokeWidth={1} />];
+              if(extremo && Math.hypot(extremo.x-cabeza.x,extremo.y-cabeza.y)>24)lines.push(<Line key={`label-${cp.id}`} x1={cabeza.x} y1={cabeza.y} x2={extremo.x} y2={extremo.y} stroke="rgba(214,228,240,0.4)" strokeWidth={.8} />);
+              return lines;
+            })}
+          </Svg>
+
           {overlay.pines.map(({ cp, km, cabeza, base, desbloqueado, estadoJourney }) => {
             const sel = cp.id === seleccionadoId;
             const caja = overlay.etiquetas[cp.id];
-            const presionar = () => {
-              if (arrastrandoRef.current || Date.now() - ultimoArrastreRef.current < 180) return;
-              onInteraccionMapa?.(false);
-              if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
-              playbackRef.current = null;
-              setKmPlayback(null);
-              setReproduciendo(false);
-              onSelect?.(cp);
-            };
-            const extremo = caja ? {
-              x: Math.max(caja.x, Math.min(caja.x + caja.w, cabeza.x)),
-              y: Math.max(caja.y, Math.min(caja.y + caja.h, cabeza.y)),
-            } : null;
+            const presionar = () => seleccionarCheckpoint(cp);
             return (
               <View key={cp.id} pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-                {extremo && Math.hypot(extremo.x - cabeza.x, extremo.y - cabeza.y) > 24 && (
-                  <Svg pointerEvents="none" width={tam.w} height={tam.h} style={StyleSheet.absoluteFill}>
-                    <Line x1={cabeza.x} y1={cabeza.y} x2={extremo.x} y2={extremo.y} stroke="rgba(214,228,240,0.4)" strokeWidth={0.8} />
-                  </Svg>
-                )}
-                <View pointerEvents="none" style={[styles.tallo, { left: cabeza.x - 0.5, top: cabeza.y, height: Math.max(0, base.y - cabeza.y) }, desbloqueado && styles.talloActivo]} />
                 <View pointerEvents="none" style={[styles.pie, { left: base.x - 2.5, top: base.y - 1.5 }, desbloqueado && styles.pieActivo]} />
                 <TouchableOpacity
                   activeOpacity={0.75}
@@ -836,4 +853,3 @@ const styles = StyleSheet.create({
   brujulaPunta: { marginTop: 2, width: 0, height: 0, borderLeftWidth: 4, borderRightWidth: 4, borderBottomWidth: 7, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: colors.brandOrange },
   brujulaN: { color: colors.text, fontSize: 10, fontWeight: '900' },
 });
-

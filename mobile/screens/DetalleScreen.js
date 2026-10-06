@@ -55,7 +55,11 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
-    <ScrollView ref={scrollRef} onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16} scrollEnabled={!mapaInteractuando} canCancelContentTouches={false} style={styles.scroll} contentContainerStyle={styles.container}>
+    <ScrollView ref={scrollRef} onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16} scrollEnabled={!mapaInteractuando} canCancelContentTouches={true}
+      onTouchStart={() => gestionarInteraccionMapa(false)}
+      onTouchEnd={() => gestionarInteraccionMapa(false)}
+      onTouchCancel={() => gestionarInteraccionMapa(false)}
+      onScrollBeginDrag={() => gestionarInteraccionMapa(false)} style={styles.scroll} contentContainerStyle={styles.container}>
 
       <View style={styles.heroWrapper}>
         {challenge.imagen_portada || challenge.medal_image_url ? (

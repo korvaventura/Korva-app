@@ -235,7 +235,11 @@ export default function DetalleRetoScreen({ route, navigation }) {
   });
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-    <ScrollView ref={scrollRef} onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16} scrollEnabled={!mapaInteractuando} canCancelContentTouches={false} style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={scrollRef} onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16} scrollEnabled={!mapaInteractuando} canCancelContentTouches={true}
+      onTouchStart={() => gestionarInteraccionMapa(false)}
+      onTouchEnd={() => gestionarInteraccionMapa(false)}
+      onTouchCancel={() => gestionarInteraccionMapa(false)}
+      onScrollBeginDrag={() => gestionarInteraccionMapa(false)} style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
 
       <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Volver">
         <View style={styles.backBtnRow}>

@@ -659,6 +659,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
   }, [cpSeleccionado, onHistoriaAbierta, pantallaFija]);
 
   const handleCheckpointPress = (cp) => {
+    onInteraccionMapa?.(false);
     // Volver a tocar el mismo punto lo mantiene abierto y lo trae a la vista.
     // Solo el botón de cerrar descarta la ficha.
     setCpSeleccionado(cp);
@@ -843,7 +844,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
             </ScrollView>
           </View>
         ) : (
-          <View ref={historiaRef} collapsable={false} onLayout={() => onHistoriaAbierta?.(historiaRef.current)}>
+          <View ref={historiaRef} collapsable={false}>
             <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} compacto={!!mapa3D} />
           </View>
         )

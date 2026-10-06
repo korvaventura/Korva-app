@@ -21,7 +21,7 @@ function seSuperponen(a, b) {
 
 // items: [{ id, x, y, texto, prioridad }] con (x, y) = centro del pin en px.
 // Devuelve { [id]: { lado, x, y, w, h } } con la caja de la etiqueta.
-function ubicarEtiquetas(items, ancho, alto, { radioPin = 9, ocupados = [], ocultarSiNoCabe = false } = {}) {
+function ubicarEtiquetas(items, ancho, alto, { radioPin = 9, ocupados = [], ocultarSiNoCabe = false, preferidas = {} } = {}) {
   const cajas = [...ocupados];
   items.forEach((it) => cajas.push({ x: it.x - radioPin, y: it.y - radioPin, w: radioPin * 2, h: radioPin * 2 }));
   const orden = [...items].sort((a, b) => (b.prioridad || 0) - (a.prioridad || 0));
@@ -36,6 +36,10 @@ function ubicarEtiquetas(items, ancho, alto, { radioPin = 9, ocupados = [], ocul
       { lado: 'derecha', x: it.x + radioPin + 5, y: it.y - h - 2 },
       { lado: 'derecha', x: it.x + radioPin + 5, y: it.y + 2 },
     ];
+    // Keep the previous offset while it still fits: names follow their pin
+    // instead of switching sides at every small camera movement.
+    const previa=preferidas[it.id];
+    if(previa) candidatos.unshift({lado:previa.lado,x:it.x+previa.dx,y:it.y+previa.dy});
     // Cerca del borde el nombre puede quedar arriba/abajo del pin sin salir
     // de pantalla. Las alternativas verticales permiten títulos de dos líneas.
     const centrado = Math.max(MARGEN, Math.min(ancho - MARGEN - w, it.x - w / 2));
