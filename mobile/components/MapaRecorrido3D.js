@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { cargarTexturasMeshy } from './mapa3d/modeloMeshy';
 import { colors } from '../theme/korvaTheme';
 import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
-import { muestraGesto, avanzarGesto } from '../services/mapa3d/gestosCore';
+import { muestraGesto, avanzarGesto, seleccionarPin } from '../services/mapa3d/gestosCore';
 import { estadoJourney } from '../services/mapa3d/journeyCore';
 import { ubicarEtiquetas, medidasEtiqueta, seSuperponen } from '../services/mapa3d/etiquetasCore';
 import {
@@ -209,7 +209,11 @@ export default function MapaRecorrido3D({
   const controlRef = useRef({ azimut: 0, elevacion: 0, zoom: 1 });
   const r3fRef = useRef(null);
   const gestoRef = useRef(null);
+  const wrapRef = useRef(null);
+  const overlayRef = useRef(null);
   const inicioToqueRef = useRef(null);
+  const arrastrandoRef = useRef(false);
+  const ultimoArrastreRef = useRef(0);
   const playbackRef = useRef(null);
   const progresoRef = useRef({ km: 0, animando: false });
   const ultimaPublicacionRef = useRef(0);
@@ -226,7 +230,7 @@ export default function MapaRecorrido3D({
       if (mundoActual) actualizarAtmosfera(mundoActual, escena, estado.camera);
       estado.invalidate();
       const ahora = Date.now();
-      if (!progresoRef.current.animando || ahora - ultimaPublicacionRef.current >= 33) {
+      if (ahora - ultimaPublicacionRef.current >= 50) {
         ultimaPublicacionRef.current = ahora;
         setRevisionCamara((v) => v + 1);
       }
@@ -261,16 +265,32 @@ export default function MapaRecorrido3D({
       const muestra = muestraGesto(e.nativeEvent.touches);
       inicioToqueRef.current = muestra;
       gestoRef.current = muestra;
-      onInteraccionMapa?.(true);
+      arrastrandoRef.current = false;
     },
     onTouchEnd: (e) => {
+      const terminado = e.nativeEvent.changedTouches?.[0];
+      const fueArrastre = arrastrandoRef.current || Date.now() - ultimoArrastreRef.current < 180;
+      if (!(e.nativeEvent.touches?.length) && !fueArrastre && terminado) {
+        // Pin hit test takes precedence over a neighboring label's native hitSlop.
+        const { pageX, pageY } = terminado;
+        wrapRef.current?.measureInWindow((left, top) => {
+          const x=pageX-left, y=pageY-top;
+          const cp = seleccionarPin(overlayRef.current, x, y);
+          if (cp) { onInteraccionMapa?.(false); onSelect?.(cp); }
+        });
+      }
       const muestra = muestraGesto(e.nativeEvent.touches);
       inicioToqueRef.current = muestra;
       gestoRef.current = muestra;
-      if (!muestra) onInteraccionMapa?.(false);
+      if (!muestra) {
+        if (arrastrandoRef.current) ultimoArrastreRef.current = Date.now();
+        arrastrandoRef.current = false;
+        ultimaPublicacionRef.current = 0; aplicarCamara();
+        onInteraccionMapa?.(false);
+      }
     },
     onTouchCancel: () => {
-      inicioToqueRef.current = null; gestoRef.current = null;
+      inicioToqueRef.current = null; gestoRef.current = null; arrastrandoRef.current = false;
       onInteraccionMapa?.(false);
     },
     onStartShouldSetResponder: () => true,
@@ -279,7 +299,7 @@ export default function MapaRecorrido3D({
     onMoveShouldSetResponderCapture: (e) => {
       const actual = muestraGesto(e.nativeEvent.touches);
       const inicio = inicioToqueRef.current;
-      return !!actual && (actual.n >= 2 || !!inicio && Math.hypot(actual.x - inicio.x, actual.y - inicio.y) >= 6);
+      return !!actual && (actual.n >= 2 || !!inicio && Math.hypot(actual.x - inicio.x, actual.y - inicio.y) >= 10);
     },
     onResponderGrant: (e) => {
       onInteraccionMapa?.(true);
@@ -290,10 +310,19 @@ export default function MapaRecorrido3D({
         setKmPlayback(null);
         setReproduciendo(false);
       }
-      if (!gestoRef.current) gestoRef.current = muestraGesto(e.nativeEvent.touches);
+      // Raw touch events own movement; responder negotiation only cancels child presses.
     },
-    onResponderMove: (e) => {
+    onTouchMove: (e) => {
       const actual = muestraGesto(e.nativeEvent.touches);
+      const inicio = inicioToqueRef.current;
+      if (!actual || !inicio) return;
+      if (!arrastrandoRef.current && actual.n < 2 && Math.hypot(actual.x-inicio.x, actual.y-inicio.y) < 10) return;
+      if (!arrastrandoRef.current) {
+        arrastrandoRef.current = true;
+        onInteraccionMapa?.(true);
+        if (playbackRef.current) { cancelAnimationFrame(playbackRef.current); playbackRef.current = null; setKmPlayback(null); setReproduciendo(false); }
+      }
+      ultimoArrastreRef.current = Date.now();
       const estado = r3fRef.current;
       if (!estado) return;
       const siguiente = avanzarGesto(controlRef.current, gestoRef.current, actual, {
@@ -309,9 +338,9 @@ export default function MapaRecorrido3D({
     onResponderTerminate: () => { inicioToqueRef.current = null; gestoRef.current = null; onInteraccionMapa?.(false); },
     // Un mapa embebido conserva el gesto mientras su página desactiva el
     // scroll. Las interrupciones del sistema siguen llegando a Terminate.
-    onResponderTerminationRequest: () => !onInteraccionMapa,
+    onResponderTerminationRequest: () => true,
 
-  }), [escena, onInteraccionMapa, aplicarCamara]);
+  }), [escena, onInteraccionMapa, aplicarCamara, onSelect]);
 
   // Decodificar el horneado fuera de la transición de navegación.
   useEffect(() => {
@@ -435,6 +464,8 @@ export default function MapaRecorrido3D({
     });
     return { pines: pinesVisibles, aguas: aguasVisibles, actual, anguloNorte, etiquetas, zonasHud };
   }, [mundo, tam, journey, escena, kmProgreso, seleccionadoId, revisionCamara, reproduciendo, actividades.length]);
+
+  overlayRef.current = overlay;
 
   const alCrear = useCallback(({ gl, camera, size, scene, invalidate }) => {
     r3fRef.current = { camera, size, scene, invalidate };
@@ -579,6 +610,7 @@ export default function MapaRecorrido3D({
 
   return (
     <View
+      ref={wrapRef}
       collapsable={false}
       {...touchHandlers}
       style={[styles.wrap, { height: Math.max(altura, 455) }]}
@@ -612,6 +644,8 @@ export default function MapaRecorrido3D({
             const sel = cp.id === seleccionadoId;
             const caja = overlay.etiquetas[cp.id];
             const presionar = () => {
+              if (arrastrandoRef.current || Date.now() - ultimoArrastreRef.current < 180) return;
+              onInteraccionMapa?.(false);
               if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
               playbackRef.current = null;
               setKmPlayback(null);
@@ -802,3 +836,4 @@ const styles = StyleSheet.create({
   brujulaPunta: { marginTop: 2, width: 0, height: 0, borderLeftWidth: 4, borderRightWidth: 4, borderBottomWidth: 7, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: colors.brandOrange },
   brujulaN: { color: colors.text, fontSize: 10, fontWeight: '900' },
 });
+

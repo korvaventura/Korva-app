@@ -14,14 +14,25 @@ function avanzarGesto(control, anterior, actual, { ancho, alto, elevacionBase })
   if (!anterior || !actual || anterior.ids !== actual.ids || anterior.n !== actual.n) return { control, pan: null };
   const dx = actual.x - anterior.x; const dy = actual.y - anterior.y;
   if (actual.n === 1) return { control: { ...control,
-    azimut: (control.azimut || 0) - dx * Math.PI / Math.max(1, ancho),
-    elevacion: limitar((control.elevacion || 0) + dy * 0.9 / Math.max(1, alto), 8 * Math.PI / 180 - elevacionBase, 75 * Math.PI / 180 - elevacionBase),
+    azimut: (control.azimut || 0) - dx * 0.65 * Math.PI / Math.max(1, ancho),
+    elevacion: limitar((control.elevacion || 0) + dy * 0.65 / Math.max(1, alto), 8 * Math.PI / 180 - elevacionBase, 75 * Math.PI / 180 - elevacionBase),
   }, pan: null };
   let giro = actual.angulo - anterior.angulo;
   giro = Math.atan2(Math.sin(giro), Math.cos(giro));
   return { control: { ...control,
     zoom: limitar((control.zoom || 1) * Math.max(1, anterior.distancia) / Math.max(1, actual.distancia), 0.5, 1.7),
-    azimut: (control.azimut || 0) + giro,
+    azimut: (control.azimut || 0) + giro * 0.65,
   }, pan: { dx, dy } };
 }
-module.exports = { muestraGesto, avanzarGesto };
+function seleccionarPin(overlay, x, y) {
+  if (!overlay || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+  if (overlay.zonasHud.some(z => x>=z.x && x<=z.x+z.w && y>=z.y && y<=z.y+z.h)) return null;
+  let closest=null, distance=26;
+  for (const pin of overlay.pines) {
+    const d=Math.hypot(x-pin.cabeza.x,y-pin.cabeza.y);
+    if (d<=distance) {closest=pin;distance=d;}
+  }
+  return closest?.cp || null;
+}
+module.exports = { muestraGesto, avanzarGesto, seleccionarPin };
+

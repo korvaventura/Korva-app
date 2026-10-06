@@ -104,3 +104,44 @@ test('ruta visual: conserva anclas de kilómetros y elimina picos verticales sin
   }
  });
 
+
+
+test('ruta Dubrovnik: superficie directa, checkpoints completos y sin la envolvente de cámara', () => {
+  const meta=require('../assets/mapa3d/dubrovnik-completo/meta');
+  const route=meta.visualSurfaceRoute;
+  assert(route.length > 500);
+  assert.equal(route[0].km,0); assert.equal(route.at(-1).km,19.4);
+  for(let i=0;i<route.length;i++) {
+    const p=route[i];assert([p.x,p.z,p.h,p.km].every(Number.isFinite));
+    assert(p.h*.004 > .03 && p.h*.004 < .3);
+    if(i)assert(p.km>route[i-1].km);
+  }
+  for(const km of [0,4,8,12,16,19.4])assert(route.some(p=>p.km===km));
+});
+
+test('gestos: arrastres repetidos y cambios de dedos conservan el control incremental', () => {
+  const {muestraGesto,avanzarGesto}=require('../services/mapa3d/gestosCore');
+  const options={ancho:350,alto:500,elevacionBase:Math.PI/4};
+  let control={azimut:0,elevacion:0,zoom:1};
+  for(let gesture=0;gesture<40;gesture++) {
+    let previous=muestraGesto([{identifier:gesture,pageX:100,pageY:100}]);
+    for(let step=1;step<=10;step++) {
+      const current=muestraGesto([{identifier:gesture,pageX:100+step*2,pageY:100}]);
+      const result=avanzarGesto(control,previous,current,options);
+      assert(result.control.azimut<control.azimut);control=result.control;previous=current;
+    }
+    assert.equal(muestraGesto([]),null);
+    const two=muestraGesto([{identifier:gesture,pageX:120,pageY:100},{identifier:90,pageX:180,pageY:100}]);
+    assert.equal(avanzarGesto(control,previous,two,options).control,control);
+  }
+});
+
+test('pin: el toque selecciona el centro más cercano y respeta los controles del mapa', () => {
+  const {seleccionarPin}=require('../services/mapa3d/gestosCore');
+  const a={id:'pile'},b={id:'stradun'};
+  const overlay={pines:[{cp:a,cabeza:{x:100,y:120}},{cp:b,cabeza:{x:130,y:120}}],zonasHud:[{x:0,y:0,w:200,h:40}]};
+  assert.equal(seleccionarPin(overlay,102,122),a);
+  assert.equal(seleccionarPin(overlay,129,120),b);
+  assert.equal(seleccionarPin(overlay,100,20),null);
+  assert.equal(seleccionarPin(overlay,250,250),null);
+});
