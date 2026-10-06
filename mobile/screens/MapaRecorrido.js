@@ -738,7 +738,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
                 </TouchableOpacity>
               </View>
               <View style={{ flex: 1 }} onLayout={(e) => setAltoModal(e.nativeEvent.layout.height)}>
-              <ScrollView scrollEnabled={!mapaInteractuando} ref={modalScrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 12, paddingBottom: 32 }}>
+              <ScrollView canCancelContentTouches={false} scrollEnabled={!mapaInteractuando} ref={modalScrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 12, paddingBottom: 32 }}>
                 <MapaRecorrido
                   fullscreen
                   ocultarTitulo

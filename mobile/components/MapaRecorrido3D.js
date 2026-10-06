@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, InteractionManager, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop, Line } from 'react-native-svg';
-import { Canvas, useThree } from '@react-three/fiber/native';
+import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import * as THREE from 'three';
 import { colors } from '../theme/korvaTheme';
 import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
@@ -59,31 +59,63 @@ function Montaje({ mundo, escena, controlRef, r3fRef }) {
   );
 }
 
-function Ruta({ mundo, escena, kmProgreso }) {
+function Ruta({ mundo, escena, progresoRef }) {
   const { datos, conv } = mundo;
   const total = escena.distanciaKm;
+  const meshes = { pendiente: useRef(null), brillo: useRef(null), hecho: useRef(null) };
+  const geosRef = useRef({});
+  const ultimoRef = useRef({ km: null, tiempo: -Infinity });
+  const vacia = useMemo(() => new THREE.BufferGeometry(), []);
   const mats = useMemo(() => ({
     pendiente: materialesRuta.pendiente(),
     hecho: materialesRuta.hecho(colors.brandOrange),
     brillo: materialesRuta.brillo(colors.brandOrange),
   }), []);
-  const geos = useMemo(() => ({
-    pendiente: geometriaTramo(datos, conv, kmProgreso, total, 0.013),
-    brillo: geometriaTramo(datos, conv, 0, kmProgreso, 0.044),
-    hecho: geometriaTramo(datos, conv, 0, kmProgreso, 0.019),
-  }), [datos, conv, kmProgreso, total]);
-
-  useEffect(() => () => Object.values(geos).forEach((g) => g?.dispose()), [geos]);
-  useEffect(() => () => Object.values(mats).forEach((m) => m.dispose()), [mats]);
-
+  useFrame(({ clock }) => {
+    const { km, animando } = progresoRef.current;
+    const ultimo = ultimoRef.current;
+    if (km === ultimo.km) return;
+    if (animando && clock.elapsedTime - ultimo.tiempo < 0.12) return;
+    const siguientes = {
+      pendiente: geometriaTramo(datos, conv, km, total, 0.013),
+      brillo: geometriaTramo(datos, conv, 0, km, 0.044),
+      hecho: geometriaTramo(datos, conv, 0, km, 0.019),
+    };
+    for (const id of Object.keys(siguientes)) {
+      const mesh = meshes[id].current;
+      if (mesh) { mesh.geometry = siguientes[id] || vacia; mesh.visible = !!siguientes[id]; }
+      geosRef.current[id]?.dispose();
+    }
+    geosRef.current = siguientes;
+    ultimoRef.current = { km, tiempo: clock.elapsedTime };
+  });
+  useEffect(() => () => {
+    Object.values(geosRef.current).forEach((g) => g?.dispose());
+    geosRef.current = {};
+    ultimoRef.current = { km: null, tiempo: -Infinity };
+    Object.values(mats).forEach((m) => m.dispose());
+    vacia.dispose();
+  }, [mats, vacia]);
   return (
     <>
-      {geos.pendiente && <mesh geometry={geos.pendiente} material={mats.pendiente} renderOrder={5} />}
-      {geos.brillo && <mesh geometry={geos.brillo} material={mats.brillo} renderOrder={6} />}
-      {geos.hecho && <mesh geometry={geos.hecho} material={mats.hecho} renderOrder={7} />}
+      <mesh ref={meshes.pendiente} geometry={vacia} material={mats.pendiente} renderOrder={5} />
+      <mesh ref={meshes.brillo} geometry={vacia} material={mats.brillo} renderOrder={6} />
+      <mesh ref={meshes.hecho} geometry={vacia} material={mats.hecho} renderOrder={7} />
     </>
   );
 }
+
+// El overlay nativo puede cambiar sin reconfigurar el contexto GL ni su árbol.
+const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3fRef, progresoRef, alCrear }) {
+  const camaraInicial = useMemo(() => ({ fov: escena.camara.fov, near: 0.05, far: 200, position: [0, 6, -10] }), [escena]);
+  const opcionesGL = useMemo(() => ({ alpha: true, antialias: true }), []);
+  return (
+    <Canvas style={styles.canvas} frameloop="demand" dpr={2} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
+      <Montaje mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} />
+      <Ruta mundo={mundo} escena={escena} progresoRef={progresoRef} />
+    </Canvas>
+  );
+});
 
 function Fondo() {
   return (
@@ -162,10 +194,9 @@ export default function MapaRecorrido3D({
   const r3fRef = useRef(null);
   const gestoRef = useRef(null);
   const playbackRef = useRef(null);
-  const camaraInicial = useMemo(() => ({ fov: escena.camara.fov, near: 0.05, far: 200, position: [0, 6, -10] }), [escena]);
-  const opcionesGL = useMemo(() => ({ alpha: true, antialias: true }), []);
+  const progresoRef = useRef({ km: 0, animando: false });
 
-  const aplicarCamara = () => {
+  const aplicarCamara = useCallback(() => {
     // Cámara, atmósfera y pines se actualizan juntos una vez por frame.
     if (revisionPendienteRef.current != null) return;
     revisionPendienteRef.current = requestAnimationFrame(() => {
@@ -178,7 +209,7 @@ export default function MapaRecorrido3D({
       estado.invalidate();
       setRevisionCamara((v) => v + 1);
     });
-  };
+  }, [escena]);
 
   const moverObjetivo = (dx, dy, baseObjetivo) => {
     const estado = r3fRef.current;
@@ -202,24 +233,12 @@ export default function MapaRecorrido3D({
   };
 
   const panResponder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: (e) => e.nativeEvent.touches?.length >= 2,
-    onStartShouldSetPanResponderCapture: (e) => e.nativeEvent.touches?.length >= 2,
-    onMoveShouldSetPanResponder: (e, g) => {
-      const dedos = e.nativeEvent.touches?.length || 0;
-      if (dedos >= 2) return true;
-      const ax = Math.abs(g.dx);
-      const ay = Math.abs(g.dy);
-      // Un dedo: el mapa sólo toma intención horizontal/diagonal clara.
-      // El gesto vertical queda libre para el ScrollView padre.
-      return ax > 7 && ax > ay * 0.72;
-    },
-    onMoveShouldSetPanResponderCapture: (e, g) => {
-      const dedos = e.nativeEvent.touches?.length || 0;
-      if (dedos >= 2) return true;
-      const ax = Math.abs(g.dx);
-      const ay = Math.abs(g.dy);
-      return ax > 7 && ax > ay * 0.72;
-    },
+    // La superficie es hermana de los botones: captura desde el primer toque
+    // sin disputar sus taps ni esperar a que el ScrollView tome el gesto.
+    onStartShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponderCapture: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponderCapture: () => true,
     onPanResponderGrant: (e) => {
       onInteraccionMapa?.(true);
       // Un gesto toma el control sin que el replay siga moviendo la cámara.
@@ -246,9 +265,9 @@ export default function MapaRecorrido3D({
     },
     onPanResponderRelease: () => { gestoRef.current = null; onInteraccionMapa?.(false); },
     onPanResponderTerminate: () => { gestoRef.current = null; onInteraccionMapa?.(false); },
-    onPanResponderTerminationRequest: () => true,
+    onPanResponderTerminationRequest: () => false,
 
-  }), [escena, onInteraccionMapa]);
+  }), [escena, onInteraccionMapa, aplicarCamara]);
 
   // Decodificar el horneado fuera de la transición de navegación.
   useEffect(() => {
@@ -263,6 +282,11 @@ export default function MapaRecorrido3D({
   const mundo = listo ? obtenerMundo(escena, horneado) : null;
   const kmProgresoReal = kmDeProgreso(progreso, escena.distanciaKm, completado);
   const kmProgreso = kmPlayback == null ? kmProgresoReal : kmPlayback;
+  progresoRef.current = { km: kmProgreso, animando: reproduciendo };
+  useEffect(() => {
+    // También refresca una carga de actividad, sin esperar al siguiente gesto.
+    r3fRef.current?.invalidate();
+  }, [kmProgreso, reproduciendo]);
   const journey = useMemo(() => estadoJourney({
     checkpoints,
     kmProgreso,
@@ -368,13 +392,18 @@ export default function MapaRecorrido3D({
     gl.setClearColor(0x000000, 0);
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = escena.exposicion ?? 1.15;
+    // La creación del Canvas es asíncrona respecto al layout nativo: publica
+    // la cámara lista para que aparezcan los checkpoints sin un primer gesto.
+    aplicarCamara();
     Animated.timing(aparicion, { toValue: 1, duration: 450, delay: 120, useNativeDriver: true }).start();
-  }, [escena, aparicion]);
+  }, [escena, aparicion, aplicarCamara]);
 
   useEffect(() => () => {
     onInteraccionMapa?.(false);
     if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
     if (revisionPendienteRef.current != null) cancelAnimationFrame(revisionPendienteRef.current);
+    revisionPendienteRef.current = null;
+    gestoRef.current = null;
   }, []);
 
   const iniciarJourney = () => {
@@ -501,21 +530,11 @@ export default function MapaRecorrido3D({
       <Fondo />
       {mundo && (
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: aparicion }]}>
-          <Canvas
-            style={styles.canvas}
-            frameloop="demand"
-            dpr={2}
-            gl={opcionesGL}
-            camera={camaraInicial}
-            onCreated={alCrear}
-          >
-            <Montaje mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} />
-            <Ruta mundo={mundo} escena={escena} kmProgreso={kmProgreso} />
-          </Canvas>
+          <EscenaCanvas mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} progresoRef={progresoRef} alCrear={alCrear} />
         </Animated.View>
       )}
 
-      <View style={StyleSheet.absoluteFill} {...panResponder.panHandlers} />
+      <View collapsable={false} style={StyleSheet.absoluteFill} {...panResponder.panHandlers} />
 
       {!mundo && <Text style={styles.cargando}>Modelando el relieve…</Text>}
 
@@ -637,7 +656,7 @@ export default function MapaRecorrido3D({
           <Text style={styles.proximoKm}>a {journey.kmHastaSiguiente.toFixed(journey.kmHastaSiguiente < 10 ? 1 : 0)} km</Text>
         </View>
       )}
-      <Text pointerEvents="none" style={styles.pista}>1 dedo gira · 2 dedos zoom y desplazar</Text>
+      <Text pointerEvents="none" style={styles.pista}>1 dedo gira e inclina · 2 dedos zoom y mover</Text>
       <View pointerEvents="none" style={styles.borde} />
     </View>
   );

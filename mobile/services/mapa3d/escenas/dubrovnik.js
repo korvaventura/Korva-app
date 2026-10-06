@@ -173,9 +173,8 @@ const dubrovnik = {
     sombraMin: 0.5,
   },
 
-  // La vista clásica: desde la ladera del Srđ sobre Ploče, mirando la ciudad
-  // amurallada con el Adriático y Lovrijenac detrás.
-  camara: { objetivo: [-0.05, 0.05, 0.1], elevacionGrados: 32, azimutGrados: 40, distancia: 4.3, fov: 40, aspectoReferencia: 0.82 },
+  // Desde el mar: ciudad en primer plano y monte Srđ al fondo.
+  camara: { objetivo: [-0.03, 0.08, -0.35], elevacionGrados: 43, azimutGrados: 145, distancia: 3.8, fov: 42, aspectoReferencia: 0.82 },
   atmosfera: {
     horizonte: '#C6D8E6',
     resplandor: '#F6C89A',
@@ -192,4 +191,25 @@ const dubrovnik = {
   ],
 };
 
+// Edificios separados por calles: evita las dos masas continuas de tejados.
+dubrovnik.relieve.masas = dubrovnik.relieve.masas.filter((m) => !m.id.startsWith('tejados_'));
+dubrovnik.arquitectura = {
+  edificios: [], colorPared: '#D5C7A8', colorTejado: '#B75A37', colorMuralla: MURALLA,
+  // La altura de las fortificaciones sigue en el perfil del recorrido. En el
+  // render se separa de la tierra para obtener paredes verticales, no colinas.
+  suelo: { latMin: 42.63925, latMax: 42.6428, lonMin: 18.10525, lonMax: 18.11245, alturaM: 16 },
+  murallas: dubrovnik.relieve.masas.filter((m) => m.id.startsWith('muralla_')),
+  torres: dubrovnik.relieve.masas.filter((m) => ['minceta', 'bokar', 'san_juan', 'revelin', 'fuerte_lovrijenac'].includes(m.id)),
+};
+for (let fila = 0; fila < 14; fila += 1) {
+  const lat = 42.64005 + fila * 0.00015;
+  for (let col = 0; col < 24; col += 1) {
+    const lon = 18.10615 + col * 0.00022;
+    // El Stradun queda libre entre los dos barrios; recorte del promontorio.
+    if (Math.abs(lat - 42.64139) < 0.00014) continue;
+    if (fila < 3 && (col < 6 - fila || col > 16 + fila)) continue;
+    if (fila > 11 && (col < fila - 9 || col > 21 - (fila - 11))) continue;
+    dubrovnik.arquitectura.edificios.push({ lat, lon, anchoM: 8 + col % 3, largoM: 10 + fila % 3, alturaM: 6 + (fila * 7 + col * 3) % 6 });
+  }
+}
 module.exports = dubrovnik;

@@ -48,16 +48,26 @@ const LUT_LINEAL = (() => {
 })();
 
 // ── Terreno: una sola malla continua sobre la grilla graduada ──────────────
-function geometriaTerreno(datos, conv) {
+function geometriaTerreno(datos, conv, escena) {
   const { campo, colores } = datos;
   const { nx, nz, xs, zs, alturas } = campo;
+  const suelo = escena.arquitectura?.suelo;
+  const a = suelo ? campo.geo.proy.aKm(suelo.latMin, suelo.lonMin) : null;
+  const b = suelo ? campo.geo.proy.aKm(suelo.latMax, suelo.lonMax) : null;
+  const fuertes = (escena.arquitectura?.torres || []).filter((t) => t.id === 'fuerte_lovrijenac').map((t) => campo.geo.proy.aKm(t.eje[0][0], t.eje[0][1]));
   const pos = new Float32Array(nx * nz * 3);
   const col = new Float32Array(nx * nz * 3);
   for (let j = 0; j < nz; j += 1) {
     for (let i = 0; i < nx; i += 1) {
       const k = j * nx + i;
       pos[k * 3] = conv.x(xs[i]);
-      pos[k * 3 + 1] = conv.y(alturas[k]);
+      let h = alturas[k];
+      if (suelo && xs[i] >= a.x && xs[i] <= b.x && zs[j] >= b.z && zs[j] <= a.z) h = Math.min(h, suelo.alturaM);
+      // El fuerte se monta sobre su roca, no sobre una torre de terreno.
+      for (const t of fuertes) {
+        if (Math.hypot(xs[i] - t.x, zs[j] - t.z) < 0.03) h = Math.min(h, 37);
+      }
+      pos[k * 3 + 1] = conv.y(h);
       pos[k * 3 + 2] = conv.z(zs[j]);
     }
   }
@@ -191,15 +201,100 @@ function crearCielo(escena) {
   return mesh;
 }
 
+// Arquitectura opcional: un único mesh de fachadas y cubiertas con color por
+// vértice. Los edificios usan el terreno horneado y no agregan cientos de draws.
+function crearArquitectura(datos, conv, escena) {
+  const config = escena.arquitectura;
+  if (!config) return null;
+  const posiciones = []; const colores = [];
+  const pared = new THREE.Color(config.colorPared); const tejado = new THREE.Color(config.colorTejado);
+  const proy = datos.campo.geo.proy;
+  const incluir = (geo, color, x, y, z) => {
+    const plano = geo.index ? geo.toNonIndexed() : geo;
+    const a = plano.attributes.position;
+    for (let i = 0; i < a.count; i += 1) {
+      posiciones.push(a.getX(i) + x, a.getY(i) + y, a.getZ(i) + z);
+      colores.push(color.r, color.g, color.b);
+    }
+    if (plano !== geo) plano.dispose();
+    geo.dispose();
+  };
+  for (const e of config.edificios) {
+    const { x, z } = proy.aKm(e.lat, e.lon);
+    const h = datos.campo.muestrear(x, z);
+    // Las murallas y fortalezas conservan su silueta, sin casas encima.
+    if (!(h >= 2 && h < 34)) continue;
+    const w = conv.x(e.anchoM / 1000); const d = conv.z(e.largoM / 1000);
+    const alto = conv.y(e.alturaM); const base = conv.y(Math.min(h, config.suelo?.alturaM ?? h));
+    const px = conv.x(x); const pz = conv.z(z);
+    incluir(new THREE.BoxGeometry(w, alto, d), pared, px, base + alto / 2, pz);
+    const cubierta = new THREE.BufferGeometry();
+    const k = conv.y(3); const v = [
+      -w/2,0,-d/2, w/2,0,-d/2, 0,k,-d/2,
+      -w/2,0,d/2, 0,k,d/2, w/2,0,d/2,
+      -w/2,0,-d/2, 0,k,-d/2, 0,k,d/2, -w/2,0,-d/2, 0,k,d/2, -w/2,0,d/2,
+      w/2,0,-d/2, w/2,0,d/2, 0,k,d/2, w/2,0,-d/2, 0,k,d/2, 0,k,-d/2,
+    ];
+    // Caras exteriores: la cubierta se ve desde arriba sin doble cara.
+    for (let i = 0; i < v.length; i += 9) {
+      for (let j = 0; j < 3; j += 1) [v[i + 3 + j], v[i + 6 + j]] = [v[i + 6 + j], v[i + 3 + j]];
+    }
+    cubierta.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+    incluir(cubierta, tejado, px, base + alto, pz);
+  }
+  const piedra = new THREE.Color(config.colorMuralla || config.colorPared);
+  const baseM = config.suelo?.alturaM ?? 0;
+  for (const muro of config.murallas || []) {
+    const puntos = muro.eje.map(([lat, lon]) => proy.aKm(lat, lon));
+    for (let i = 1; i < puntos.length; i += 1) {
+      const a = puntos[i - 1]; const b = puntos[i];
+      const dx = conv.x(b.x - a.x); const dz = conv.z(b.z - a.z);
+      const largo = Math.hypot(dx, dz); const alto = conv.y(muro.alturaM - baseM);
+      const angulo = -Math.atan2(dz, dx);
+      const px = conv.x((a.x + b.x) / 2); const pz = conv.z((a.z + b.z) / 2);
+      const pared = new THREE.BoxGeometry(largo, alto, conv.x(0.008));
+      pared.rotateY(angulo);
+      incluir(pared, piedra, px, conv.y(baseM) + alto / 2, pz);
+      // Almenas a lo largo del paseo de ronda, sin objetos/draws adicionales.
+      const n = Math.max(1, Math.floor(largo / conv.x(0.012)));
+      for (let j = 0; j <= n; j += 1) {
+        const t = j / n;
+        const almena = new THREE.BoxGeometry(conv.x(0.004), conv.y(2.5), conv.x(0.009));
+        almena.rotateY(angulo);
+        incluir(almena, piedra, conv.x(a.x) + dx * t, conv.y(muro.alturaM + 1.25), conv.z(a.z) + dz * t);
+      }
+    }
+  }
+  for (const torre of config.torres || []) {
+    const [lat, lon, radioKm] = torre.eje[0]; const p = proy.aKm(lat, lon);
+    const base = torre.id === 'fuerte_lovrijenac' ? 37 : baseM;
+    const radio = conv.x(radioKm); const alto = conv.y(torre.alturaM - base);
+    incluir(new THREE.CylinderGeometry(radio, radio, alto, 20), piedra, conv.x(p.x), conv.y(base) + alto / 2, conv.z(p.z));
+    for (let j = 0; j < 12; j += 1) {
+      const ang = j * Math.PI / 6;
+      const almena = new THREE.BoxGeometry(conv.x(0.004), conv.y(3), conv.x(0.005));
+      almena.rotateY(-ang);
+      incluir(almena, piedra, conv.x(p.x) + Math.cos(ang) * radio * 0.92, conv.y(torre.alturaM + 1.5), conv.z(p.z) + Math.sin(ang) * radio * 0.92);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(posiciones, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(colores, 3));
+  g.computeVertexNormals(); g.computeBoundingSphere();
+  return new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, flatShading: true }));
+}
+
 export function construirMundo(escena, horneado) {
   const datos = datosDeEscena(escena, horneado);
   const conv = crearConversor(escena);
   const grupo = new THREE.Group();
   grupo.add(new THREE.Mesh(
-    geometriaTerreno(datos, conv),
+    geometriaTerreno(datos, conv, escena),
     new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0 }),
   ));
   grupo.add(crearAguas(datos, conv, escena));
+  const arquitectura = crearArquitectura(datos, conv, escena);
+  if (arquitectura) grupo.add(arquitectura);
   const cielo = crearCielo(escena);
   const niebla = new THREE.Fog(escena.atmosfera.horizonte, 5, 30);
   const limites = {
