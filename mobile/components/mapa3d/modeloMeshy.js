@@ -40,6 +40,7 @@ export function construirModeloMeshy(datosOriginales, conv) {
   entornoGeometry.setAttribute('uv', new THREE.BufferAttribute(entornoAttrs.uv, 2, true));
   entornoGeometry.setIndex(new THREE.BufferAttribute(entornoAttrs.index, 1));
   // The joining terrace was reshaped offline; recompute its lighting normals.
+  entornoGeometry.deleteAttribute('normal');
   entornoGeometry.computeVertexNormals(); entornoGeometry.computeBoundingSphere();
   const entornoMaterial = new THREE.MeshStandardMaterial({ color: '#DDD5C5', roughness: 1, side: THREE.DoubleSide });
   const entorno = new THREE.Mesh(entornoGeometry, entornoMaterial);
