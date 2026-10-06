@@ -24,8 +24,6 @@ const muralla = (id, alturaM, eje) => ({
 
 const dubrovnik = {
   id: 'dubrovnik',
-  colorRecorrido: '#44F2DC',
-  zoomReplay: .86,
   modeloMeshy: true, // Visual trial; set false to restore the procedural world.
   distanciaKm: 19.4,
   mostrarRelacionRecorrido: true,
