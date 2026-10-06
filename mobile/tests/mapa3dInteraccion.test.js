@@ -49,7 +49,7 @@ test('handlers reales: tap no bloquea scroll; arrastre, release y cancel liberan
 
 test('revivir: arranca centrado, acelera moderadamente y el seguimiento respeta el control manual',()=>{
   const {duracionReplay,controlInicialReplay,seguirReplay}=require('../services/mapa3d/replayCamaraCore');
-  assert(duracionReplay(19.4)>42000 && duracionReplay(19.4)<50000);
+  assert(duracionReplay(19.4)>30000 && duracionReplay(19.4)<36000);
   const base=[0,.22,.65],control=controlInicialReplay(base);
   assert.equal(control.azimut,0);assert.equal(control.elevacion,0);assert.equal(control.zoom,1);
   assert.deepEqual(control.objetivo,base);assert.notEqual(control.objetivo,base);
