@@ -169,6 +169,7 @@ const dubrovnik = {
   agua: { elevacionM: 0.05, somero: '#4FC3C9', medio: '#1C8FB0', profundo: '#0D4775', profundidadColorM: 28, opacidad: 0.86, rugosidad: 0.2, espuma: '#F4FBFF', espumaHastaM: 0.6 },
 
   luz: {
+    intensidadSol: 1.6, intensidadHemi: 1.1,
     solDir: [-0.8, 0.45, 0.2], // tarde, sol desde el oeste sobre el Adriático
     alcanceSombraKm: 1.5,
     radioOclusionKm: 0.05,
@@ -176,7 +177,7 @@ const dubrovnik = {
   },
 
   // Desde el mar: ciudad en primer plano y monte Srđ al fondo.
-  camara: { objetivo: [0, 0.18, 2.1], elevacionGrados: 48, azimutGrados: 155, distancia: 5.2, fov: 42, aspectoReferencia: 0.82 },
+  camara: { objetivo: [0, 0.22, 0.65], elevacionGrados: 58, azimutGrados: 180, distancia: 8.6, fov: 42, aspectoReferencia: 0.82 },
   atmosfera: {
     horizonte: '#C6D8E6',
     resplandor: '#F6C89A',

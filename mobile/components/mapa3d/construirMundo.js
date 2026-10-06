@@ -563,11 +563,8 @@ export function construirMundo(escena, horneado) {
   const conv = crearConversor(escena);
   if (escena.modeloMeshy) {
     const modelo = construirModeloMeshy(datos, conv);
-    // One cohesive landscape: no overlapping old town / mainland join.
-    // Presentation anchors are calibrated for this asset, never copied from another model.
-    // Transform the cached surface route together with the town, including pins.
-    const rutaModelo = modelo.modeloMeshy.meta.visualSurfaceRoute || crearRutaVisualModelo(modelo.modeloMeshy.meta.visualRoute, modelo.muestrearOriginal, conv);
-    modelo.datos.ruta = modelo.transformarRuta(rutaModelo);
+    // Route and surface heights are calibrated to the active unified source.
+    modelo.datos.ruta = modelo.modeloMeshy.meta.visualSurfaceRoute || crearRutaVisualModelo(modelo.modeloMeshy.meta.visualRoute, modelo.datos.campo.muestrear, conv);
     modelo.datos.visualModeloMeshy = true;
     modelo.datos.largoKm = modelo.datos.ruta.slice(1).reduce((sum, p, i) => sum + Math.hypot(p.x - modelo.datos.ruta[i].x, p.z - modelo.datos.ruta[i].z), 0);
     return { ...modelo, conv, cielo: crearCielo(escena), niebla: new THREE.Fog(escena.atmosfera.horizonte, 5, 30) };
