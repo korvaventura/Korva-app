@@ -33,7 +33,7 @@ test('handlers reales: tap no bloquea scroll; arrastre, release y cancel liberan
   const handlers=source.slice(source.indexOf('  const touchHandlers ='),source.indexOf('  // Decodificar el horneado'));
   const locks=[];
   const refs=Object.fromEntries(['inicioToqueRef','gestoRef','arrastrandoRef','ultimoArrastreRef','playbackRef','r3fRef','wrapRef','overlayRef','ultimaPublicacionRef','camaraManualHastaRef'].map(k=>[k,{current:k==='ultimoArrastreRef'?0:null}]));
-  const context=vm.createContext({...refs,...gestos,useCallback:f=>f,useMemo:f=>f(),onInteraccionMapa:v=>locks.push(v),aplicarCamara:()=>{},seleccionarCheckpoint:()=>{},escena:{},cancelAnimationFrame:()=>{},setKmPlayback:()=>{},setReproduciendo:()=>{}});
+  const context=vm.createContext({...refs,...gestos,useCallback:f=>f,useMemo:f=>f(),onInteraccionMapa:v=>locks.push(v),setMoviendoMapa:()=>{},aplicarCamara:()=>{},seleccionarCheckpoint:()=>{},escena:{},cancelAnimationFrame:()=>{},setKmPlayback:()=>{},setReproduciendo:()=>{}});
   const h=vm.runInContext(releases+handlers+'\ntouchHandlers',context);
   refs.playbackRef.current=71;
   context.cancelAnimationFrame=()=>{throw Error('A gesture must not stop replay');};
@@ -49,7 +49,7 @@ test('handlers reales: tap no bloquea scroll; arrastre, release y cancel liberan
 
 test('revivir: arranca centrado, acelera moderadamente y el seguimiento respeta el control manual',()=>{
   const {duracionReplay,controlInicialReplay,seguirReplay}=require('../services/mapa3d/replayCamaraCore');
-  assert(duracionReplay(19.4)>42000 && duracionReplay(19.4)<50000);
+  assert(duracionReplay(19.4)>30000 && duracionReplay(19.4)<35000);
   const base=[0,.22,.65],control=controlInicialReplay(base);
   assert.equal(control.azimut,0);assert.equal(control.elevacion,0);assert.equal(control.zoom,1);
   assert.deepEqual(control.objetivo,base);assert.notEqual(control.objetivo,base);
@@ -60,22 +60,51 @@ test('revivir: arranca centrado, acelera moderadamente y el seguimiento respeta 
   assert(Math.hypot(...retomado.objetivo.map((v,i)=>v-manual.objetivo[i]))<.1);
   let seguido=control;
   for(let i=0;i<200;i++)seguido=seguirReplay(seguido,[1,.3,1.5],base,16,true);
-  assert(seguido.objetivo[0]>.4 && seguido.objetivo[0]<.46); // gentle framing, not a chase camera
+  assert(seguido.objetivo[0]>.64 && seguido.objetivo[0]<.66); // gentle framing, not a chase camera
 });
 
 
-test('cuadro publicado: cámara, línea y puntos conservan el mismo instante aunque avance el replay',()=>{
+test('etiquetas: el cuadro publicado conserva su cámara y progreso aunque avance el replay',()=>{
   const {crearCuadroReplay,controlInicialReplay}=require('../services/mapa3d/replayCamaraCore');
   const control=controlInicialReplay([0,.22,.65],.86),progreso={km:18,animando:true};
   assert.equal(control.zoom,.86);
   const cuadro=crearCuadroReplay(control,progreso);
   control.objetivo[0]=3;control.zoom=.6;progreso.km=19;
   assert.equal(cuadro.control.objetivo[0],0);assert.equal(cuadro.control.zoom,.86);assert.equal(cuadro.progreso.km,18);
+});
+
+test('pines GL: comparten posición de ruta y cámara sin commit nativo y conservan tamaño en zoom',()=>{
+  const THREE=require('three');
+  const source=fs.readFileSync(require.resolve('../components/mapa3d/pinesMesh'),'utf8').replace(/import[^;]+;/,'').replace('export function','function');
+  const crear=vm.runInNewContext(source+'\ncrearPinesMesh',{THREE});
+  const base=new THREE.Vector3(.2,.1,.6),cabeza=base.clone().add(new THREE.Vector3(0,.075,0));
+  const pines=crear([{id:'a',km:4,base,cabeza}],'#44F2DC');
+  const camera=new THREE.PerspectiveCamera(42,360/455,.05,200);
+  for(const [x,y,z] of [[0,4,8],[4,3,2],[-3,5,-4],[0,2,4]]) {
+    camera.position.set(x,y,z);camera.lookAt(base);camera.updateMatrixWorld(true);
+    pines.actualizar(camera,455,8,'a',base);
+    const [tallo,borde,centro]=pines.grupo.children;
+    assert.deepEqual(borde.position.toArray(),cabeza.toArray());
+    const posiciones=tallo.geometry.attributes.position;
+    assert(Math.abs(posiciones.getX(0)-base.x)<1e-6);assert(Math.abs(posiciones.getZ(0)-base.z)<1e-6);
+    assert.deepEqual(borde.quaternion.toArray(),camera.quaternion.toArray());
+    const derecha=new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion).multiplyScalar(borde.scale.x);
+    const a=borde.position.clone().project(camera),b=borde.position.clone().add(derecha).project(camera);
+    assert(Math.abs((b.x-a.x)*360/2-11)<1e-6);
+    assert.equal(centro.material.color.getHexString(),'44f2dc');
+    assert.deepEqual(pines.grupo.children[4].position.toArray(),base.toArray());
+  }
+  pines.dispose();
+});
+
+test('arrastre: invalida GL inmediatamente y no espera ni solicita un commit de etiquetas',()=>{
   const source=fs.readFileSync(require.resolve('../components/MapaRecorrido3D'),'utf8');
-  const inicio=source.indexOf('  useLayoutEffect(() => {',source.indexOf('  const overlay ='));
-  const efecto=source.slice(inicio,source.indexOf('  overlayRef.current =',inicio));
-  const calls=[],dibujado={current:null};
-  const context=vm.createContext({useLayoutEffect:fn=>fn(),r3fRef:{current:{camera:{},size:{width:360,height:455},invalidate:()=>calls.push('render')}},mundo:{},escena:{},revisionCamara:cuadro,controlRef:{current:control},progresoDibujadoRef:dibujado,reproduciendo:true,kmProgreso:17,tam:{},configurarCamara:(camera,escena,aspect,c)=>calls.push(c),actualizarAtmosfera:()=>{}});
-  vm.runInContext(efecto,context);
-  assert.equal(calls[0],cuadro.control);assert.equal(dibujado.current,cuadro.progreso);assert.equal(calls[1],'render');
+  const fn=source.slice(source.indexOf('  const aplicarCamara ='),source.indexOf('  const moverObjetivo ='));
+  let renders=0;const frames=[],cuadros=[];
+  const refs={r3fRef:{current:{invalidate:()=>renders++}},arrastrandoRef:{current:true},revisionPendienteRef:{current:null},ultimaPublicacionRef:{current:0},controlRef:{current:{zoom:.86}},progresoRef:{current:{km:8,animando:true}}};
+  const context=vm.createContext({...refs,useCallback:f=>f,requestAnimationFrame:fn=>{frames.push(fn);return 1;},setRevisionCamara:v=>cuadros.push(v),crearCuadroReplay:require('../services/mapa3d/replayCamaraCore').crearCuadroReplay});
+  const aplicar=vm.runInContext(fn+'\naplicarCamara',context);
+  aplicar();assert.equal(renders,1);assert.equal(frames.length,0);assert.equal(cuadros.length,0);
+  refs.arrastrandoRef.current=false;aplicar();assert.equal(renders,2);assert.equal(frames.length,1);
+  frames[0]();assert.equal(cuadros[0].progreso.km,8);
 });

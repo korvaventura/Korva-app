@@ -3,11 +3,12 @@ import { Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from 'reac
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop, Line } from 'react-native-svg';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import * as THREE from 'three';
+import { crearPinesMesh } from './mapa3d/pinesMesh';
 import { cargarTexturasMeshy } from './mapa3d/modeloMeshy';
 import { colors } from '../theme/korvaTheme';
 import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
 import { muestraGesto, avanzarGesto, seleccionarPin } from '../services/mapa3d/gestosCore';
-import { estadoJourney } from '../services/mapa3d/journeyCore';
+import { estadoJourney, normalizarCheckpoints } from '../services/mapa3d/journeyCore';
 import { crearCorteRuta } from '../services/mapa3d/rutaPlaybackCore';
 import { duracionReplay, controlInicialReplay, seguirReplay, crearCuadroReplay } from '../services/mapa3d/replayCamaraCore';
 import { ubicarEtiquetas, seSuperponen } from '../services/mapa3d/etiquetasCore';
@@ -66,6 +67,10 @@ function Montaje({ mundo, escena, controlRef, r3fRef, onModeloEstado }) {
       if (r3fRef.current?.camera === camera) r3fRef.current = null;
     };
   }, [camera, size.width, size.height, scene, mundo, escena, invalidate, controlRef, r3fRef]);
+  useFrame(() => {
+    configurarCamara(camera,escena,size.width/Math.max(1,size.height),controlRef.current,mundo);
+    actualizarAtmosfera(mundo,escena,camera);
+  },-2);
   return (
     <>
       <primitive object={mundo.cielo} dispose={null} />
@@ -141,14 +146,32 @@ function Ruta({ mundo, escena, progresoRef }) {
   );
 }
 
+function Pines3D({mundo,escena,checkpoints,seleccionadoId,progresoRef}) {
+  const pines=useMemo(()=>crearPinesMesh(normalizarCheckpoints(checkpoints,escena.distanciaKm).map(cp=>{
+    const base=posicionEnKm(mundo.datos,mundo.conv,cp.kmJourney,0);
+    const cabeza=escena.alturaPinUnidades==null
+      ? posicionEnKm(mundo.datos,mundo.conv,cp.kmJourney,ALTURA_PIN_M)
+      : base.clone().add(new THREE.Vector3(0,escena.alturaPinUnidades,0));
+    return {id:cp.id,km:cp.kmJourney,base,cabeza};
+  }),escena.colorRecorrido || colors.brandOrange),[mundo,escena,checkpoints]);
+  useFrame(({camera,size})=>{
+    const km=progresoRef.current.km;
+    const actual=km>.05 && km<escena.distanciaKm-.05 ? posicionEnKm(mundo.datos,mundo.conv,km,0) : null;
+    pines.actualizar(camera,size.height,km,seleccionadoId,actual);
+  },-1);
+  useEffect(()=>()=>pines.dispose(),[pines]);
+  return <primitive object={pines.grupo} dispose={null} />;
+}
+
 // El overlay nativo puede cambiar sin reconfigurar el contexto GL ni su árbol.
-const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3fRef, progresoRef, alCrear, onModeloEstado }) {
+const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3fRef, progresoRef, checkpoints, seleccionadoId, alCrear, onModeloEstado }) {
   const camaraInicial = useMemo(() => ({ fov: escena.camara.fov, near: 0.05, far: 200, position: [0, 6, -10] }), [escena]);
   const opcionesGL = useMemo(() => ({ alpha: true, antialias: true }), []);
   return (
-    <Canvas style={styles.canvas} frameloop="demand" dpr={mundo.modeloMeshy ? 1.5 : 2} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
+    <Canvas style={styles.canvas} frameloop="demand" dpr={mundo.modeloMeshy ? 1.25 : 2} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
       <Montaje mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} onModeloEstado={onModeloEstado} />
       <Ruta mundo={mundo} escena={escena} progresoRef={progresoRef} />
+      <Pines3D mundo={mundo} escena={escena} checkpoints={checkpoints} seleccionadoId={seleccionadoId} progresoRef={progresoRef} />
     </Canvas>
   );
 });
@@ -172,23 +195,6 @@ function Fondo() {
       <Rect x="0" y="0" width="100%" height="100%" fill="url(#cielo)" />
       <Rect x="0" y="0" width="100%" height="100%" fill="url(#halo)" />
     </Svg>
-  );
-}
-
-function PosicionActual({ x, y, color }) {
-  const pulso = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const anim = Animated.loop(Animated.timing(pulso, { toValue: 1, duration: 1800, easing: Easing.out(Easing.quad), isInteraction: false, useNativeDriver: true }));
-    anim.start();
-    return () => anim.stop();
-  }, [pulso]);
-  const escala = pulso.interpolate({ inputRange: [0, 1], outputRange: [1, 2.6] });
-  const opacidad = pulso.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0] });
-  return (
-    <View pointerEvents="none" style={[styles.actual, { left: x - 7, top: y - 7 }]}>
-      <Animated.View style={[styles.actualPulso, { backgroundColor: color, transform: [{ scale: escala }], opacity: opacidad }]} />
-      <View style={[styles.actualPunto, {borderColor:color}]} />
-    </View>
   );
 }
 
@@ -237,7 +243,7 @@ export default function MapaRecorrido3D({
   const ultimoArrastreRef = useRef(0);
   const playbackRef = useRef(null);
   const progresoRef = useRef({ km: 0, animando: false });
-  const progresoDibujadoRef = useRef({ km: 0, animando: false });
+  const [moviendoMapa,setMoviendoMapa]=useState(false);
   const colorRecorrido = escena.colorRecorrido || colors.brandOrange;
   const ultimaPublicacionRef = useRef(0);
   const ultimaSeleccionRef = useRef({id:null,tiempo:0});
@@ -246,6 +252,9 @@ export default function MapaRecorrido3D({
   const liberarGesto = useCallback(() => {
     if(arrastrandoRef.current)ultimoArrastreRef.current=Date.now();
     inicioToqueRef.current=null;gestoRef.current=null;arrastrandoRef.current=false;
+    setMoviendoMapa(false);
+    ultimaPublicacionRef.current=0;
+    if(r3fRef.current)setRevisionCamara(crearCuadroReplay(controlRef.current,progresoRef.current));
     onInteraccionMapa?.(false);
   },[onInteraccionMapa]);
   const seleccionarCheckpoint = useCallback(cp => {
@@ -258,18 +267,19 @@ export default function MapaRecorrido3D({
   },[liberarGesto,onSelect]);
 
   const aplicarCamara = useCallback(() => {
-    // Cámara, atmósfera y pines se actualizan juntos una vez por frame.
-    if (revisionPendienteRef.current != null) return;
-    revisionPendienteRef.current = requestAnimationFrame(() => {
-      revisionPendienteRef.current = null;
-      const estado = r3fRef.current;
-      if (!estado) return;
-      // Publicar primero el cuadro nativo; el layout effect aplica al GL
-      // exactamente esa cámara y ese progreso después del commit del overlay.
-      ultimaPublicacionRef.current=Date.now();
+    // El GL responde al gesto sin esperar render/commit de React.
+    r3fRef.current?.invalidate();
+    if(arrastrandoRef.current)return;
+    if(revisionPendienteRef.current!=null)return;
+    revisionPendienteRef.current=requestAnimationFrame(()=>{
+      revisionPendienteRef.current=null;
+      if(!r3fRef.current)return;
+      const ahora=Date.now();
+      if(ahora-ultimaPublicacionRef.current<50)return;
+      ultimaPublicacionRef.current=ahora;
       setRevisionCamara(crearCuadroReplay(controlRef.current,progresoRef.current));
     });
-  }, [escena]);
+  },[]);
 
   const moverObjetivo = (dx, dy, baseObjetivo) => {
     const estado = r3fRef.current;
@@ -319,6 +329,7 @@ export default function MapaRecorrido3D({
       if (!muestra) {
         if (arrastrandoRef.current) ultimoArrastreRef.current = Date.now();
         arrastrandoRef.current = false;
+        setMoviendoMapa(false);
         ultimaPublicacionRef.current = 0; aplicarCamara();
         onInteraccionMapa?.(false);
       }
@@ -344,6 +355,7 @@ export default function MapaRecorrido3D({
       if (!arrastrandoRef.current && actual.n < 2 && Math.hypot(actual.x-inicio.x, actual.y-inicio.y) < 10) return;
       if (!arrastrandoRef.current) {
         arrastrandoRef.current = true;
+        setMoviendoMapa(true);
         onInteraccionMapa?.(true);
       }
       camaraManualHastaRef.current=Date.now()+1200;
@@ -394,8 +406,8 @@ export default function MapaRecorrido3D({
     checkpoints,
     kmProgreso,
     distanciaKm: escena.distanciaKm,
-    completado,
-  }), [checkpoints, kmProgreso, escena.distanciaKm, completado]);
+    completado: completado && !reproduciendo,
+  }), [checkpoints, kmProgreso, escena.distanciaKm, completado, reproduciendo]);
 
   // Proyección de pines y etiquetas con la misma cámara que usa el Canvas.
   const overlay = useMemo(() => {
@@ -481,15 +493,6 @@ export default function MapaRecorrido3D({
     });
     return { pines: pinesVisibles, aguas: aguasVisibles, actual, anguloNorte, etiquetas, zonasHud };
   }, [mundo, tam, journey, escena, kmProgreso, seleccionadoId, revisionCamara, reproduciendo, actividades.length]);
-
-  useLayoutEffect(() => {
-    const estado=r3fRef.current;
-    if(!estado || !mundo)return;
-    configurarCamara(estado.camera,escena,estado.size.width/Math.max(1,estado.size.height),revisionCamara?.control || controlRef.current,mundo);
-    progresoDibujadoRef.current=reproduciendo && revisionCamara ? revisionCamara.progreso : {km:kmProgreso,animando:false};
-    actualizarAtmosfera(mundo,escena,estado.camera);
-    estado.invalidate();
-  },[revisionCamara,mundo,escena,reproduciendo,kmProgreso,tam]);
 
   overlayRef.current = overlay;
 
@@ -636,7 +639,7 @@ export default function MapaRecorrido3D({
       <Fondo />
       {mundo && (
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: aparicion }]}>
-          <EscenaCanvas mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} progresoRef={progresoDibujadoRef} alCrear={alCrear} onModeloEstado={setEstadoModelo} />
+          <EscenaCanvas mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} progresoRef={progresoRef} checkpoints={checkpoints} seleccionadoId={seleccionadoId} alCrear={alCrear} onModeloEstado={setEstadoModelo} />
         </Animated.View>
       )}
 
@@ -655,10 +658,10 @@ export default function MapaRecorrido3D({
           ))}
 
           <Svg pointerEvents="none" width={tam.w} height={tam.h} style={StyleSheet.absoluteFill}>
-            {overlay.pines.flatMap(({cp,cabeza,base,desbloqueado}) => {
+            {!moviendoMapa && overlay.pines.flatMap(({cp,cabeza,base,desbloqueado}) => {
               const caja=overlay.etiquetas[cp.id];
               const extremo=caja ? {x:Math.max(caja.x,Math.min(caja.x+caja.w,cabeza.x)),y:Math.max(caja.y,Math.min(caja.y+caja.h,cabeza.y))} : null;
-              const lines=[<Line key={`stem-${cp.id}`} x1={cabeza.x} y1={cabeza.y} x2={base.x} y2={base.y} stroke={desbloqueado ? colorRecorrido : 'rgba(214,228,240,0.38)'} strokeWidth={1} />];
+              const lines=[];
               if(extremo && Math.hypot(extremo.x-cabeza.x,extremo.y-cabeza.y)>24)lines.push(<Line key={`label-${cp.id}`} x1={cabeza.x} y1={cabeza.y} x2={extremo.x} y2={extremo.y} stroke="rgba(214,228,240,0.4)" strokeWidth={.8} />);
               return lines;
             })}
@@ -670,17 +673,15 @@ export default function MapaRecorrido3D({
             const presionar = () => seleccionarCheckpoint(cp);
             return (
               <View key={cp.id} pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-                <View pointerEvents="none" style={[styles.pie, { left: base.x - 2.5, top: base.y - 1.5 }, desbloqueado && [styles.pieActivo,{backgroundColor:colorRecorrido}]]} />
                 <TouchableOpacity
                   activeOpacity={0.75}
                   onPress={presionar}
                   accessibilityRole="button" accessibilityLabel={`Checkpoint ${cp.nombre}`}
                   hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-                  style={[styles.pin, sel && styles.pinSel, desbloqueado ? styles.pinActivo : styles.pinBloqueado, estadoJourney === 'proximo' && styles.pinProximo, { ...(desbloqueado ? {backgroundColor:colorRecorrido} : {}), ...(estadoJourney === 'proximo' ? {borderColor:colorRecorrido,shadowColor:colorRecorrido} : {}), left: cabeza.x - (sel ? 11 : 8), top: cabeza.y - (sel ? 11 : 8) }]}
+                  style={[styles.pin,{backgroundColor:'transparent',shadowOpacity:0,left:cabeza.x-8,top:cabeza.y-8}]}
                 >
-                  {sel && <View style={styles.pinNucleo} />}
                 </TouchableOpacity>
-                {caja && !overlay.zonasHud.some((zona) => seSuperponen(caja, zona)) && (!reproduciendo || (caja.x >= 4 && caja.x + caja.w <= (tam?.w || 0) - 4)) && (
+                {!moviendoMapa && caja && !overlay.zonasHud.some((zona) => seSuperponen(caja, zona)) && (!reproduciendo || (caja.x >= 4 && caja.x + caja.w <= (tam?.w || 0) - 4)) && (
                   <TouchableOpacity activeOpacity={0.75} onPress={presionar} style={[styles.etiqueta, { left: caja.x, top: caja.y, width: caja.w, height: caja.h }, caja.lado === 'izquierda' && styles.etiquetaIzq, (caja.lado === 'arriba' || caja.lado === 'abajo') && styles.etiquetaCentro]}>
                     <Text allowFontScaling={false} numberOfLines={2} style={[styles.etiquetaNombre, !desbloqueado && styles.etiquetaBloqueada, sel && [styles.etiquetaSel,{color:colorRecorrido}]]}>{cp.nombre?.toUpperCase()}</Text>
                     <Text allowFontScaling={false} numberOfLines={1} style={styles.etiquetaKm}>{desbloqueado ? `${textoKm(km)} km` : estadoJourney === 'proximo' ? `PRÓXIMO · ${textoKm(km)} km` : `🔒 ${textoKm(km)} km`}</Text>
@@ -690,7 +691,6 @@ export default function MapaRecorrido3D({
             );
           })}
 
-          {overlay.actual && !completado && <PosicionActual x={overlay.actual.x} y={overlay.actual.y} color={colorRecorrido} />}
           <Brujula angulo={overlay.anguloNorte} />
         </Animated.View>
       )}
