@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { versionDeInscripcion, etiquetaDeInscripcion } from '../utils/versionDesafio';
@@ -49,6 +49,14 @@ const getHitoActividad = (actividad, index, totalKmAcumulado, distanciaTotal) =>
 export default function DetalleRetoScreen({ route, navigation }) {
   const { item, userId, nombrePersona, abrirRuta = false } = route.params;
   const scrollRef = useRef(null);
+  const [mapaInteractuando, setMapaInteractuando] = useState(false);
+  const gestionarInteraccionMapa = useCallback((activa) => {
+    // El mapa embebido comparte página con este scroll. Actualiza también el
+    // host nativo en el grant: no espera al siguiente render de React.
+    const scroll = scrollRef.current?.getNativeScrollRef?.() || scrollRef.current;
+    scroll?.setNativeProps?.({ scrollEnabled: !activa });
+    setMapaInteractuando(activa);
+  }, []);
   const rutaY = useRef(0);
   const [actividades, setActividades] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -212,7 +220,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
   });
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-    <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={scrollRef} scrollEnabled={!mapaInteractuando} canCancelContentTouches={false} style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
 
       <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Volver">
         <View style={styles.backBtnRow}>
@@ -278,6 +286,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
             challengeId={item.challenge_id}
             challengeTitle={nombreReto}
             actividades={actividades}
+            onInteraccionMapa={gestionarInteraccionMapa}
             fullscreen
           />
         ) : (

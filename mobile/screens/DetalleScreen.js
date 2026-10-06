@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Modal } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../theme/korvaTheme';
 import { precioReferencia } from '../utils/precioCatalogo';
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import MapaRecorrido from './MapaRecorrido';
 import { versionesDelDesafio, distanciaDeVersion } from '../utils/versionDesafio';
@@ -17,6 +17,15 @@ const COMO_FUNCIONA = [
 
 
 export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
+  const scrollRef = useRef(null);
+  const [mapaInteractuando, setMapaInteractuando] = useState(false);
+  const gestionarInteraccionMapa = useCallback((activa) => {
+    // El mapa embebido comparte página con este scroll. Actualiza también el
+    // host nativo en el grant: no espera al siguiente render de React.
+    const scroll = scrollRef.current?.getNativeScrollRef?.() || scrollRef.current;
+    scroll?.setNativeProps?.({ scrollEnabled: !activa });
+    setMapaInteractuando(activa);
+  }, []);
   const [modalFaqVisible, setModalFaqVisible] = useState(false);
   const [distanciasAbiertas, setDistanciasAbiertas] = useState(false);
   const [comoFuncionaAbierto, setComoFuncionaAbierto] = useState(false);
@@ -31,7 +40,7 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+    <ScrollView ref={scrollRef} scrollEnabled={!mapaInteractuando} canCancelContentTouches={false} style={styles.scroll} contentContainerStyle={styles.container}>
 
       <View style={styles.heroWrapper}>
         {challenge.imagen_portada || challenge.medal_image_url ? (
@@ -136,6 +145,7 @@ export default function DetalleScreen({ challenge, onVolver, onInscribir }) {
           porcentaje="0"
           challengeId={challenge.id}
           challengeTitle={challenge.title}
+          onInteraccionMapa={gestionarInteraccionMapa}
           fullscreen={true}
         />
       </View>

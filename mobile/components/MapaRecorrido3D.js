@@ -265,8 +265,9 @@ export default function MapaRecorrido3D({
     },
     onResponderRelease: () => { gestoRef.current = null; onInteraccionMapa?.(false); },
     onResponderTerminate: () => { gestoRef.current = null; onInteraccionMapa?.(false); },
-    // Sin scroll padre: permite interrupciones nativas y libera el gesto.
-    onResponderTerminationRequest: () => true,
+    // Un mapa embebido conserva el gesto mientras su página desactiva el
+    // scroll. Las interrupciones del sistema siguen llegando a Terminate.
+    onResponderTerminationRequest: () => !onInteraccionMapa,
 
   }), [escena, onInteraccionMapa, aplicarCamara]);
 
