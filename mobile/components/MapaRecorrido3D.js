@@ -193,6 +193,7 @@ export default function MapaRecorrido3D({
   const controlRef = useRef({ azimut: 0, elevacion: 0, zoom: 1 });
   const r3fRef = useRef(null);
   const gestoRef = useRef(null);
+  const inicioToqueRef = useRef(null);
   const playbackRef = useRef(null);
   const progresoRef = useRef({ km: 0, animando: false });
 
@@ -233,12 +234,32 @@ export default function MapaRecorrido3D({
   };
 
   const touchHandlers = useMemo(() => ({
-    // La superficie es hermana de los botones: captura desde el primer toque
-    // sin disputar sus taps ni esperar a que el ScrollView tome el gesto.
+    // El mapa es ANCESTRO de los pines, textos y HUD. Un tap llega al botón;
+    // un arrastre iniciado encima de cualquiera de ellos pasa al mapa.
+    onTouchStart: (e) => {
+      const muestra = muestraGesto(e.nativeEvent.touches);
+      inicioToqueRef.current = muestra;
+      gestoRef.current = muestra;
+      onInteraccionMapa?.(true);
+    },
+    onTouchEnd: (e) => {
+      const muestra = muestraGesto(e.nativeEvent.touches);
+      inicioToqueRef.current = muestra;
+      gestoRef.current = muestra;
+      if (!muestra) onInteraccionMapa?.(false);
+    },
+    onTouchCancel: () => {
+      inicioToqueRef.current = null; gestoRef.current = null;
+      onInteraccionMapa?.(false);
+    },
     onStartShouldSetResponder: () => true,
-    onStartShouldSetResponderCapture: () => true,
+    onStartShouldSetResponderCapture: (e) => (e.nativeEvent.touches?.length || 0) >= 2,
     onMoveShouldSetResponder: () => true,
-    onMoveShouldSetResponderCapture: () => true,
+    onMoveShouldSetResponderCapture: (e) => {
+      const actual = muestraGesto(e.nativeEvent.touches);
+      const inicio = inicioToqueRef.current;
+      return !!actual && (actual.n >= 2 || !!inicio && Math.hypot(actual.x - inicio.x, actual.y - inicio.y) >= 6);
+    },
     onResponderGrant: (e) => {
       onInteraccionMapa?.(true);
       // Un gesto toma el control sin que el replay siga moviendo la cámara.
@@ -248,7 +269,7 @@ export default function MapaRecorrido3D({
         setKmPlayback(null);
         setReproduciendo(false);
       }
-      gestoRef.current = muestraGesto(e.nativeEvent.touches);
+      if (!gestoRef.current) gestoRef.current = muestraGesto(e.nativeEvent.touches);
     },
     onResponderMove: (e) => {
       const actual = muestraGesto(e.nativeEvent.touches);
@@ -263,8 +284,8 @@ export default function MapaRecorrido3D({
       gestoRef.current = actual;
       aplicarCamara();
     },
-    onResponderRelease: () => { gestoRef.current = null; onInteraccionMapa?.(false); },
-    onResponderTerminate: () => { gestoRef.current = null; onInteraccionMapa?.(false); },
+    onResponderRelease: () => { inicioToqueRef.current = null; gestoRef.current = null; onInteraccionMapa?.(false); },
+    onResponderTerminate: () => { inicioToqueRef.current = null; gestoRef.current = null; onInteraccionMapa?.(false); },
     // Un mapa embebido conserva el gesto mientras su página desactiva el
     // scroll. Las interrupciones del sistema siguen llegando a Terminate.
     onResponderTerminationRequest: () => !onInteraccionMapa,
@@ -528,6 +549,8 @@ export default function MapaRecorrido3D({
 
   return (
     <View
+      collapsable={false}
+      {...touchHandlers}
       style={[styles.wrap, { height: Math.max(altura, 455) }]}
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
@@ -541,7 +564,6 @@ export default function MapaRecorrido3D({
         </Animated.View>
       )}
 
-      <View collapsable={false} style={StyleSheet.absoluteFill} {...touchHandlers} />
 
       {!mundo && <Text style={styles.cargando}>Modelando el relieve…</Text>}
 
