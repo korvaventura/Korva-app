@@ -108,3 +108,16 @@ test('arrastre: invalida GL inmediatamente y no espera ni solicita un commit de 
   refs.arrastrandoRef.current=false;aplicar();assert.equal(renders,2);assert.equal(frames.length,1);
   frames[0]();assert.equal(cuadros[0].progreso.km,8);
 });
+
+
+test('render GL: usa la cámara actual del Canvas antes de proyectar los pines',()=>{
+  const source=fs.readFileSync(require.resolve('../components/MapaRecorrido3D'),'utf8');
+  const inicio=source.indexOf('  useFrame((estado) => {');
+  const frame=source.slice(inicio,source.indexOf('  return (',inicio));
+  let callback,prioridad;
+  const llamada=[],ref={current:null},control={zoom:.86};
+  const context=vm.createContext({useFrame:(fn,p)=>{callback=fn;prioridad=p;},configurarCamara:(cam,escena,aspect,c)=>llamada.push({cam,aspect,c}),actualizarAtmosfera:()=>{},r3fRef:ref,controlRef:{current:control},escena:{},mundo:{}});
+  vm.runInContext(frame,context);
+  const actual={camera:{id:'actual'},size:{width:360,height:455},scene:{},invalidate:()=>{}};
+  callback(actual);assert.equal(prioridad,-2);assert.equal(llamada[0].cam,actual.camera);assert.equal(llamada[0].c,control);assert.equal(ref.current.camera,actual.camera);
+});

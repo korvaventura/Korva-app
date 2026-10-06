@@ -67,9 +67,11 @@ function Montaje({ mundo, escena, controlRef, r3fRef, onModeloEstado }) {
       if (r3fRef.current?.camera === camera) r3fRef.current = null;
     };
   }, [camera, size.width, size.height, scene, mundo, escena, invalidate, controlRef, r3fRef]);
-  useFrame(() => {
-    configurarCamara(camera,escena,size.width/Math.max(1,size.height),controlRef.current,mundo);
-    actualizarAtmosfera(mundo,escena,camera);
+  useFrame((estado) => {
+    // Usar la cámara vigente del render, incluso si el Canvas la reemplazó.
+    configurarCamara(estado.camera,escena,estado.size.width/Math.max(1,estado.size.height),controlRef.current,mundo);
+    actualizarAtmosfera(mundo,escena,estado.camera);
+    r3fRef.current={camera:estado.camera,size:estado.size,scene:estado.scene,invalidate:estado.invalidate};
   },-2);
   return (
     <>
@@ -164,11 +166,11 @@ function Pines3D({mundo,escena,checkpoints,seleccionadoId,progresoRef}) {
 }
 
 // El overlay nativo puede cambiar sin reconfigurar el contexto GL ni su árbol.
-const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3fRef, progresoRef, checkpoints, seleccionadoId, alCrear, onModeloEstado }) {
+const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3fRef, progresoRef, checkpoints, seleccionadoId, activo, alCrear, onModeloEstado }) {
   const camaraInicial = useMemo(() => ({ fov: escena.camara.fov, near: 0.05, far: 200, position: [0, 6, -10] }), [escena]);
   const opcionesGL = useMemo(() => ({ alpha: true, antialias: true }), []);
   return (
-    <Canvas style={styles.canvas} frameloop="demand" dpr={mundo.modeloMeshy ? 1.25 : 2} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
+    <Canvas style={styles.canvas} frameloop={activo ? "always" : "demand"} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
       <Montaje mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} onModeloEstado={onModeloEstado} />
       <Ruta mundo={mundo} escena={escena} progresoRef={progresoRef} />
       <Pines3D mundo={mundo} escena={escena} checkpoints={checkpoints} seleccionadoId={seleccionadoId} progresoRef={progresoRef} />
@@ -639,7 +641,7 @@ export default function MapaRecorrido3D({
       <Fondo />
       {mundo && (
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: aparicion }]}>
-          <EscenaCanvas mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} progresoRef={progresoRef} checkpoints={checkpoints} seleccionadoId={seleccionadoId} alCrear={alCrear} onModeloEstado={setEstadoModelo} />
+          <EscenaCanvas mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} progresoRef={progresoRef} checkpoints={checkpoints} seleccionadoId={seleccionadoId} activo={reproduciendo || moviendoMapa} alCrear={alCrear} onModeloEstado={setEstadoModelo} />
         </Animated.View>
       )}
 
