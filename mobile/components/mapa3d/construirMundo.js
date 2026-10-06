@@ -9,6 +9,7 @@
 // Three Fiber solo la monta, y el banco de pruebas web usa exactamente lo mismo.
 
 import * as THREE from 'three';
+import { construirModeloMeshy } from './modeloMeshy';
 import { construirDatosDiorama, puntoEnKm, indiceCercano } from '../../services/mapa3d/terrenoCore';
 import { deserializarDiorama } from '../../services/mapa3d/horneadoCore';
 
@@ -559,6 +560,38 @@ function crearArquitectura(datos, conv, escena) {
 export function construirMundo(escena, horneado) {
   const datos = datosDeEscena(escena, horneado);
   const conv = crearConversor(escena);
+  if (escena.modeloMeshy) {
+    const modelo = construirModeloMeshy(datos, conv);
+    const [min, max] = modelo.modeloMeshy.meta.heightBounds;
+    const distanciaModelo = (x, z) => Math.hypot(Math.max(min[0] - x, 0, x - max[0]), Math.max(min[1] - z, 0, z - max[1]));
+    const distanciaGeo = (lat, lon) => { const p = datos.campo.geo.proy.aKm(lat, lon); return distanciaModelo(conv.x(p.x), conv.z(p.z)); };
+    // Keep the wider coastal landscape and neighborhoods. Lower only the
+    // generated asset footprint, feathering its join into the existing land.
+    const terreno = geometriaTerreno(datos, conv, escena);
+    const posiciones = terreno.attributes.position;
+    for (let i = 0; i < posiciones.count; i += 1) {
+      const mezcla = THREE.MathUtils.smoothstep(distanciaModelo(posiciones.getX(i), posiciones.getZ(i)), 0, 0.2);
+      posiciones.setY(i, -0.025 + (posiciones.getY(i) + 0.025) * mezcla);
+    }
+    terreno.computeVertexNormals(); terreno.computeBoundingSphere();
+    modelo.grupo.add(new THREE.Mesh(terreno, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0 })));
+    const alturaInterior = modelo.datos.campo.muestrear;
+    modelo.datos.campo.muestrear = (x, z) => {
+      const distancia = distanciaModelo(conv.x(x), conv.z(z));
+      if (distancia === 0) return alturaInterior(x, z);
+      return Math.max(0, datos.campo.muestrear(x, z)) * THREE.MathUtils.smoothstep(distancia, 0, 0.2);
+    };
+    modelo.datos.ruta = datos.ruta.map(p => ({ ...p, h: modelo.datos.campo.muestrear(p.x, p.z) }));
+    const exterior = { ...escena.arquitectura,
+      suelo: undefined, puerto: undefined, murallas: [],
+      edificios: escena.arquitectura.edificios.filter(e => e.exterior && distanciaGeo(e.lat, e.lon) > 0.2),
+      calles: (escena.arquitectura.calles || []).filter(c => c.eje.every(p => distanciaGeo(p[0], p[1]) > 0.2)),
+      torres: escena.arquitectura.torres.filter(t => t.id === 'fuerte_lovrijenac'),
+    };
+    const barrios = crearArquitectura(datos, conv, { ...escena, arquitectura: exterior });
+    if (barrios) modelo.grupo.add(barrios);
+    return { ...modelo, conv, cielo: crearCielo(escena), niebla: new THREE.Fog(escena.atmosfera.horizonte, 5, 30) };
+  }
   const grupo = new THREE.Group();
   grupo.add(new THREE.Mesh(
     geometriaTerreno(datos, conv, escena),

@@ -3,6 +3,7 @@ import { Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from 'reac
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop, Line } from 'react-native-svg';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import * as THREE from 'three';
+import { cargarTexturasMeshy } from './mapa3d/modeloMeshy';
 import { colors } from '../theme/korvaTheme';
 import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
 import { muestraGesto, avanzarGesto } from '../services/mapa3d/gestosCore';
@@ -37,8 +38,21 @@ function obtenerMundo(escena, horneado) {
   return cacheEscenas.get(escena.id);
 }
 
-function Montaje({ mundo, escena, controlRef, r3fRef }) {
+function Montaje({ mundo, escena, controlRef, r3fRef, onModeloEstado }) {
   const { camera, size, scene, invalidate } = useThree();
+  useEffect(() => {
+    if (!mundo.modeloMeshy) return undefined;
+    let activo = true;
+    const cargar = () => {
+      if (activo) onModeloEstado(mundo.modeloMeshy.texturasListas ? 'listo' : 'cargando');
+      return cargarTexturasMeshy(mundo, invalidate)
+        .then(() => { if (activo) onModeloEstado('listo'); })
+        .catch(() => { if (activo) onModeloEstado('error'); });
+    };
+    cargar();
+    const retry = setTimeout(() => { if (!mundo.modeloMeshy.texturasListas) cargar(); }, 3000);
+    return () => { activo = false; clearTimeout(retry); };
+  }, [mundo, invalidate, onModeloEstado]);
   useLayoutEffect(() => {
     r3fRef.current = { camera, size, scene, invalidate };
     configurarCamara(camera, escena, size.width / Math.max(1, size.height), controlRef?.current, mundo);
@@ -107,12 +121,12 @@ function Ruta({ mundo, escena, progresoRef }) {
 }
 
 // El overlay nativo puede cambiar sin reconfigurar el contexto GL ni su árbol.
-const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3fRef, progresoRef, alCrear }) {
+const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3fRef, progresoRef, alCrear, onModeloEstado }) {
   const camaraInicial = useMemo(() => ({ fov: escena.camara.fov, near: 0.05, far: 200, position: [0, 6, -10] }), [escena]);
   const opcionesGL = useMemo(() => ({ alpha: true, antialias: true }), []);
   return (
     <Canvas style={styles.canvas} frameloop="demand" dpr={2} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
-      <Montaje mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} />
+      <Montaje mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} onModeloEstado={onModeloEstado} />
       <Ruta mundo={mundo} escena={escena} progresoRef={progresoRef} />
     </Canvas>
   );
@@ -184,6 +198,7 @@ export default function MapaRecorrido3D({
 }) {
   const [listo, setListo] = useState(cacheEscenas.has(escena.id));
   const [tam, setTam] = useState(null);
+  const [estadoModelo, setEstadoModelo] = useState('cargando');
   const [revisionCamara, setRevisionCamara] = useState(0);
   const revisionPendienteRef = useRef(null);
   const [reproduciendo, setReproduciendo] = useState(false);
@@ -575,12 +590,17 @@ export default function MapaRecorrido3D({
       <Fondo />
       {mundo && (
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: aparicion }]}>
-          <EscenaCanvas mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} progresoRef={progresoRef} alCrear={alCrear} />
+          <EscenaCanvas mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} progresoRef={progresoRef} alCrear={alCrear} onModeloEstado={setEstadoModelo} />
         </Animated.View>
       )}
 
 
       {!mundo && <Text style={styles.cargando}>Modelando el relieve…</Text>}
+      {mundo?.modeloMeshy && estadoModelo !== 'listo' && (
+        <Text pointerEvents="none" style={styles.estadoModelo}>
+          {estadoModelo === 'error' ? 'No se cargaron las texturas. Volvé a abrir el mapa.' : 'Cargando detalles…'}
+        </Text>
+      )}
 
       {overlay && (
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: aparicion }]} pointerEvents="box-none">
@@ -712,6 +732,7 @@ const styles = StyleSheet.create({
   wrap: { width: '100%', overflow: 'hidden', borderRadius: 18, backgroundColor: colors.backgroundDeep },
   canvas: { flex: 1 },
   borde: { ...StyleSheet.absoluteFillObject, borderWidth: 1, borderColor: colors.borderSoft, borderRadius: 18 },
+  estadoModelo: { position: 'absolute', left: 14, right: 14, bottom: 48, color: '#FFFFFF', backgroundColor: '#102333CC', padding: 8, borderRadius: 8, fontSize: 11, textAlign: 'center' },
   cargando: { position: 'absolute', alignSelf: 'center', top: '48%', color: colors.textDim, fontSize: 11, letterSpacing: 0.6 },
 
   hud: { position: 'absolute', left: 14, right: 14, top: 12 },

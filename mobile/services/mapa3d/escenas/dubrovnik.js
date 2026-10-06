@@ -24,6 +24,7 @@ const muralla = (id, alturaM, eje) => ({
 
 const dubrovnik = {
   id: 'dubrovnik',
+  modeloMeshy: true, // Visual trial; set false to restore the procedural world.
   distanciaKm: 19.4,
   mostrarRelacionRecorrido: true,
   presentacion: {
@@ -175,7 +176,7 @@ const dubrovnik = {
   },
 
   // Desde el mar: ciudad en primer plano y monte Srđ al fondo.
-  camara: { objetivo: [-0.03, 0.08, -0.35], elevacionGrados: 43, azimutGrados: 145, distancia: 3.8, fov: 42, aspectoReferencia: 0.82 },
+  camara: { objetivo: [0.45, 0.11, -0.35], elevacionGrados: 48, azimutGrados: 145, distancia: 4.6, fov: 42, aspectoReferencia: 0.82 },
   atmosfera: {
     horizonte: '#C6D8E6',
     resplandor: '#F6C89A',
@@ -187,8 +188,8 @@ const dubrovnik = {
 
   etiquetas: [
     { id: 'adriatico', texto: 'MAR ADRIÁTICO', lat: 42.6345, lon: 18.0985, tipo: 'agua' },
-    { id: 'lokrum', texto: 'LOKRUM', lat: 42.6268, lon: 18.1222, tipo: 'region' },
-    { id: 'srd', texto: 'MONTE SRĐ', lat: 42.6495, lon: 18.1125, tipo: 'region' },
+    
+    
   ],
 };
 
