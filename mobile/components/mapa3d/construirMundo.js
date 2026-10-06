@@ -47,11 +47,26 @@ const LUT_LINEAL = (() => {
   return t;
 })();
 
+// Máscara local del puerto: idéntica para el recorte de tierra y su agua.
+function mascaraPuerto(datos, escena) {
+  const puntos = escena.arquitectura?.puerto?.contorno?.map(([lat, lon]) => datos.campo.geo.proy.aKm(lat, lon));
+  if (!puntos) return () => false;
+  return (x, z) => {
+    let dentro = false;
+    for (let i = 0, j = puntos.length - 1; i < puntos.length; j = i++) {
+      const a = puntos[i]; const b = puntos[j];
+      if ((a.z > z) !== (b.z > z) && x < (b.x - a.x) * (z - a.z) / (b.z - a.z) + a.x) dentro = !dentro;
+    }
+    return dentro;
+  };
+}
+
 // ── Terreno: una sola malla continua sobre la grilla graduada ──────────────
 function geometriaTerreno(datos, conv, escena) {
   const { campo, colores } = datos;
   const { nx, nz, xs, zs, alturas } = campo;
   const suelo = escena.arquitectura?.suelo;
+  const puerto = mascaraPuerto(datos, escena);
   const a = suelo ? campo.geo.proy.aKm(suelo.latMin, suelo.lonMin) : null;
   const b = suelo ? campo.geo.proy.aKm(suelo.latMax, suelo.lonMax) : null;
   const fuertes = (escena.arquitectura?.torres || []).filter((t) => t.id === 'fuerte_lovrijenac').map((t) => campo.geo.proy.aKm(t.eje[0][0], t.eje[0][1]));
@@ -67,6 +82,7 @@ function geometriaTerreno(datos, conv, escena) {
       for (const t of fuertes) {
         if (Math.hypot(xs[i] - t.x, zs[j] - t.z) < 0.03) h = Math.min(h, 37);
       }
+      if (puerto(xs[i], zs[j])) h = -5;
       pos[k * 3 + 1] = conv.y(h);
       pos[k * 3 + 2] = conv.z(zs[j]);
     }
@@ -103,6 +119,7 @@ function crearAguas(datos, conv, escena) {
   const grupo = new THREE.Group();
   const { nx, nz, xs, zs, agua, alturas } = datos.campo;
   const estilo = escena.agua || {};
+  const puerto = mascaraPuerto(datos, escena);
   const niveles = [...new Set([...(escena.aguas || []).map((a) => a.nivelM), ...(escena.mar ? [escena.mar.nivelM] : [])])];
   // Color por profundidad (opcional): laguna turquesa -> azul profundo.
   const porProfundidad = !!(estilo.somero && estilo.profundo);
@@ -119,14 +136,14 @@ function crearAguas(datos, conv, escena) {
     const col = [];
     const indices = [];
     const mapa = new Int32Array(nx * nz).fill(-1);
-    const pertenece = (k) => agua[k] > -Infinity && Math.abs(agua[k] - nivel) < 0.01;
+    const pertenece = (k) => (agua[k] > -Infinity && Math.abs(agua[k] - nivel) < 0.01) || (nivel === 0 && puerto(xs[k % nx], zs[Math.floor(k / nx)]));
     const vert = (i, j) => {
       const k = j * nx + i;
       if (mapa[k] >= 0) return mapa[k];
       mapa[k] = pos.length / 3;
       pos.push(conv.x(xs[i]), conv.y(nivel + (estilo.elevacionM ?? 1.5)), conv.z(zs[j]));
       if (porProfundidad) {
-        const prof = nivel - alturas[k];
+        const prof = puerto(xs[i], zs[j]) ? 5 : nivel - alturas[k];
         const t = Math.min(1, Math.max(0, prof / escalaM));
         if (t < 0.35) c.copy(somero).lerp(medio, t / 0.35);
         else c.copy(medio).lerp(profundo, (t - 0.35) / 0.65);
@@ -255,10 +272,12 @@ function crearArquitectura(datos, conv, escena) {
     copa.scale(1, 1.3, 1);
     incluir(copa, new THREE.Color('#385C43'), conv.x(p.x), conv.y(h + t.alturaM * 0.65), conv.z(p.z));
   }
+  const puerto = mascaraPuerto(datos, escena);
   for (const e of config.edificios) {
     const { x, z } = proy.aKm(e.lat, e.lon);
     const h = datos.campo.muestrear(x, z);
     // Las murallas y fortalezas conservan su silueta, sin casas encima.
+    if (puerto(x, z)) continue;
     if (!(h >= 2 && (e.exterior ? h < 330 : (e.monumento || h < 34)))) continue;
     const w = conv.x(e.anchoM / 1000); const d = conv.z(e.largoM / 1000);
     const alto = conv.y(e.alturaM); const base = conv.y(e.exterior ? h : e.monumento ? (config.suelo?.alturaM ?? h) : Math.min(h, config.suelo?.alturaM ?? h));
@@ -299,7 +318,7 @@ function crearArquitectura(datos, conv, escena) {
       geo.rotateY(angulo);
       incluir(geo, color, px, base, pz);
     };
-    for (const lado of [-1, 1]) {
+    if (!e.lejano) for (const lado of [-1, 1]) {
       for (const nivel of [0.38, 0.72]) {
         for (const columna of [-0.25, 0.25]) abrirHueco(w * 0.12, alto * 0.15, w * columna, alto * nivel, lado * (d / 2 + 0.0008), lado < 0, ventana);
       }
@@ -324,7 +343,7 @@ function crearArquitectura(datos, conv, escena) {
     // combinado. Desaparecen naturalmente a distancia sin texturas grandes.
     const juntas = []; const separacion = conv.z(0.0025); const espesor = conv.z(0.00018);
     const encima = conv.y(0.12);
-    for (let z = -d / 2 + separacion; z < d / 2; z += separacion) {
+    for (let z = e.lejano ? d : -d / 2 + separacion; z < d / 2; z += separacion) {
       for (const lado of [-1, 1]) {
         const x = lado * w / 2;
         if (lado < 0) juntas.push(x, encima, z, 0, k + encima, z, 0, k + encima, z + espesor, x, encima, z, 0, k + encima, z + espesor, x, encima, z + espesor);
@@ -395,6 +414,24 @@ function crearArquitectura(datos, conv, escena) {
       almena.rotateY(-ang);
       incluir(almena, piedra, conv.x(p.x) + (rectangular ? Math.cos(ang) / Math.max(Math.abs(Math.cos(ang)), Math.abs(Math.sin(ang))) * radio * 0.9 : Math.cos(ang) * radio * 0.92), conv.y(torre.alturaM + 1.5), conv.z(p.z) + (rectangular ? Math.sin(ang) / Math.max(Math.abs(Math.cos(ang)), Math.abs(Math.sin(ang))) * radio * 0.7 : Math.sin(ang) * radio * 0.92));
     }
+  }
+  for (const muelle of config.puerto?.muelles || []) {
+    const a = proy.aKm(...muelle.eje[0]); const b = proy.aKm(...muelle.eje[1]);
+    const dx = conv.x(b.x - a.x); const dz = conv.z(b.z - a.z);
+    const g = new THREE.BoxGeometry(Math.hypot(dx, dz), conv.y(2), conv.x(muelle.anchoM / 1000));
+    g.rotateY(-Math.atan2(dz, dx));
+    incluir(g, piedra, conv.x((a.x+b.x)/2), conv.y(0.8), conv.z((a.z+b.z)/2));
+  }
+  for (const bote of config.puerto?.botes || []) {
+    const p = proy.aKm(bote.lat, bote.lon);
+    if (!puerto(p.x, p.z)) continue;
+    const w = conv.x(bote.anchoM / 1000); const d = conv.z(bote.largoM / 1000);
+    // Casco afinado en proa y cubierta blanca, a la cota del mar.
+    const casco = new THREE.CylinderGeometry(w / 2, w * 0.32, d, 6);
+    casco.rotateX(Math.PI / 2); casco.scale(1, 0.3, 1);
+    incluir(casco, new THREE.Color('#E6EAE4'), conv.x(p.x), conv.y(0.6), conv.z(p.z));
+    incluir(new THREE.BoxGeometry(w * 0.55, conv.y(0.6), d * 0.5), new THREE.Color('#537D8B'), conv.x(p.x), conv.y(1), conv.z(p.z));
+    if (bote.mastil) incluir(new THREE.CylinderGeometry(conv.x(0.00007), conv.x(0.00007), conv.y(7), 4), new THREE.Color('#C8CDCB'), conv.x(p.x), conv.y(4), conv.z(p.z));
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(posiciones, 3));

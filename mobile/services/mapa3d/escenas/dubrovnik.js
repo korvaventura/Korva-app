@@ -252,6 +252,33 @@ for (let col = 0; col <= 40; col += 10) {
   const lon = 18.102 + col * 0.00024;
   dubrovnik.arquitectura.calles.push({ anchoM: 6, eje: Array.from({ length: 42 + col % 7 }, (_, i) => [42.6428 + i * 0.000088, lon + Math.sin(i * 0.13 + col) * 0.000065]) });
 }
+// Continuidad urbana costera a ambos lados del casco. Detalle reducido
+// en los barrios lejanos para mantener el costo del mapa al girar.
+for (const lado of [-1, 1]) {
+  for (let fila = 0; fila < 9; fila += 1) {
+    const eje = [];
+    for (let col = 0; col < 34; col += 1) {
+      const lon = lado < 0 ? 18.1018 - col * 0.00025 : 18.1120 + col * 0.00025;
+      const lat = 42.6431 + fila * 0.00025 + Math.sin(col * 0.13 + fila * 0.19) * 0.00013;
+      eje.push([lat - 0.00011, lon]);
+      const clave = fila * 41 + col * 17;
+      if (col % 9 === 0 || (fila > 5 && clave % 3 === 0)) continue;
+      dubrovnik.arquitectura.edificios.push({ lat, lon, exterior: true, parcela: col < 10, lejano: col > 10, anchoM: 15 + clave % 5, largoM: 16 + clave % 4, alturaM: 7 + clave % 9, alturaTejadoM: 1.7, tono: clave % 5 });
+    }
+    dubrovnik.arquitectura.calles.push({ anchoM: 4.5, eje });
+  }
+}
+// Puerto viejo: aproximación visual de la ensenada oriental y sus amarres.
+// Se recorta solo el render del litoral; la ruta y sus kilómetros no cambian.
+dubrovnik.arquitectura.puerto = {
+  contorno: [[42.64175,18.11175],[42.64195,18.1122],[42.6419,18.1137],[42.6404,18.1142],[42.6397,18.1130],[42.6401,18.11205],[42.6409,18.11185]],
+  muelles: [
+    { eje: [[42.64169,18.11199],[42.64166,18.11308]], anchoM: 7 },
+    { eje: [[42.64025,18.11245],[42.64028,18.11322]], anchoM: 8 },
+    { eje: [[42.64132,18.11200],[42.64130,18.11255]], anchoM: 3 },
+  ],
+  botes: Array.from({length: 45}, (_, i) => ({lat:42.64066 + Math.floor(i / 15) * 0.00028, lon:18.11222 + i % 15 * 0.000085, largoM:5 + i % 4, anchoM:2.2, mastil:i % 5 === 0})),
+};
 // Siluetas que permiten reconocer el casco: campanario, cúpula y palacios.
 dubrovnik.arquitectura.edificios.push(
   { monumento: true, lat: 42.64137, lon: 18.11073, anchoM: 7, largoM: 7, alturaM: 31, alturaTejadoM: 2.5, tipo: 'campanario', tono: 1 },
