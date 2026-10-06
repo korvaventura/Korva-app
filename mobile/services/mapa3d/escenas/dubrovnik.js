@@ -176,7 +176,7 @@ const dubrovnik = {
   },
 
   // Desde el mar: ciudad en primer plano y monte Srđ al fondo.
-  camara: { objetivo: [-0.3, 0.16, -0.65], elevacionGrados: 48, azimutGrados: 15, distancia: 5.2, fov: 42, aspectoReferencia: 0.82 },
+  camara: { objetivo: [-0.5, 0.16, -0.15], elevacionGrados: 48, azimutGrados: 195, distancia: 3.8, fov: 42, aspectoReferencia: 0.82 },
   atmosfera: {
     horizonte: '#C6D8E6',
     resplandor: '#F6C89A',

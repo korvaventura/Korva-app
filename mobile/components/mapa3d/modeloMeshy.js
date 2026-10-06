@@ -25,7 +25,26 @@ export function construirModeloMeshy(datosOriginales, conv) {
   const campo = { ...datosOriginales.campo, muestrear: (x, z) => alturaModelo(conv.x(x), conv.z(z)) / conv.y(1) };
   const datos = { ...datosOriginales, campo, ruta: datosOriginales.ruta.map(p => ({ ...p, h: campo.muestrear(p.x, p.z) })) };
   const grupo = new THREE.Group();
-  const mar = new THREE.Mesh(new THREE.PlaneGeometry(180, 180), new THREE.MeshStandardMaterial({ color: '#147C91', roughness: 0.6, metalness: 0.05 }));
+  // Graduated grid: detail near the coast, sparse geometry toward the horizon.
+  const aguaGeometry = new THREE.PlaneGeometry(180, 180, 96, 96);
+  const verticesAgua = aguaGeometry.attributes.position;
+  const coloresAgua = new Float32Array(verticesAgua.count * 3);
+  const profundo = new THREE.Color('#073A62');
+  const costa = new THREE.Color('#209CAB');
+  const [min, max] = meta.heightBounds;
+  for (let i = 0; i < verticesAgua.count; i += 1) {
+    const u = verticesAgua.getX(i) / 90; const v = verticesAgua.getY(i) / 90;
+    const x = Math.sign(u) * Math.abs(u) ** 3 * 90;
+    const z = -Math.sign(v) * Math.abs(v) ** 3 * 90;
+    verticesAgua.setXY(i, x, -z);
+    const distancia = Math.hypot(Math.max(min[0] - x, 0, x - max[0]), Math.max(min[1] - z, 0, z - max[1]));
+    const mezcla = Math.exp(-distancia * 1.8) * (0.78 + 0.08 * Math.sin(x * 2.1 + z * 1.7));
+    const color = profundo.clone().lerp(costa, mezcla);
+    color.toArray(coloresAgua, i * 3);
+  }
+  aguaGeometry.setAttribute('color', new THREE.BufferAttribute(coloresAgua, 3));
+  aguaGeometry.computeBoundingSphere();
+  const mar = new THREE.Mesh(aguaGeometry, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.38, metalness: 0.08 }));
   mar.rotation.x = -Math.PI / 2; mar.position.y = 0.012;
   grupo.add(mar, modelo);
   return { grupo, datos, modeloMeshy: { material, meta, texturasListas: false }, limites: { minX: -90, maxX: 90, minZ: -90, maxZ: 90 } };
