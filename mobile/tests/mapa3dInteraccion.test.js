@@ -62,3 +62,20 @@ test('revivir: arranca centrado, acelera moderadamente y el seguimiento respeta 
   for(let i=0;i<200;i++)seguido=seguirReplay(seguido,[1,.3,1.5],base,16,true);
   assert(seguido.objetivo[0]>.4 && seguido.objetivo[0]<.46); // gentle framing, not a chase camera
 });
+
+
+test('cuadro publicado: cámara, línea y puntos conservan el mismo instante aunque avance el replay',()=>{
+  const {crearCuadroReplay,controlInicialReplay}=require('../services/mapa3d/replayCamaraCore');
+  const control=controlInicialReplay([0,.22,.65],.86),progreso={km:18,animando:true};
+  assert.equal(control.zoom,.86);
+  const cuadro=crearCuadroReplay(control,progreso);
+  control.objetivo[0]=3;control.zoom=.6;progreso.km=19;
+  assert.equal(cuadro.control.objetivo[0],0);assert.equal(cuadro.control.zoom,.86);assert.equal(cuadro.progreso.km,18);
+  const source=fs.readFileSync(require.resolve('../components/MapaRecorrido3D'),'utf8');
+  const inicio=source.indexOf('  useLayoutEffect(() => {',source.indexOf('  const overlay ='));
+  const efecto=source.slice(inicio,source.indexOf('  overlayRef.current =',inicio));
+  const calls=[],dibujado={current:null};
+  const context=vm.createContext({useLayoutEffect:fn=>fn(),r3fRef:{current:{camera:{},size:{width:360,height:455},invalidate:()=>calls.push('render')}},mundo:{},escena:{},revisionCamara:cuadro,controlRef:{current:control},progresoDibujadoRef:dibujado,reproduciendo:true,kmProgreso:17,tam:{},configurarCamara:(camera,escena,aspect,c)=>calls.push(c),actualizarAtmosfera:()=>{}});
+  vm.runInContext(efecto,context);
+  assert.equal(calls[0],cuadro.control);assert.equal(dibujado.current,cuadro.progreso);assert.equal(calls[1],'render');
+});

@@ -639,7 +639,7 @@ function puntosRuta(datos, conv, kmDesde, kmHasta) {
 }
 
 // Cinta tubular sobre el terreno entre dos km del desafío.
-export function geometriaTramo(datos, conv, kmDesde, kmHasta, radio) {
+export function geometriaTramo(datos, conv, kmDesde, kmHasta, radio, segmentosFijos) {
   if (kmHasta - kmDesde < 0.05) return null;
   const pts = puntosRuta(datos, conv, kmDesde, kmHasta);
   if (pts.length < 2) return null;
@@ -658,7 +658,7 @@ export function geometriaTramo(datos, conv, kmDesde, kmHasta, radio) {
     };
     curva.getPointAt = curva.getPoint;
   }
-  const segmentos = Math.min(700, Math.max(8, Math.round(pts.length * 1.2)));
+  const segmentos = segmentosFijos ?? Math.min(700, Math.max(8, Math.round(pts.length * 1.2)));
   return new THREE.TubeGeometry(curva, segmentos, radio, 6, false);
 }
 
