@@ -51,3 +51,21 @@ test('ruta visual: conserva anclas de kilómetros y elimina picos verticales sin
     assert(Math.abs(conv.y(p.h - a.h)) <= 0.35 * d + 1e-8);
   }
 });
+
+ test('entorno Dubrovnik: presupuesto móvil, geometría íntegra y plataforma libre para ciudad y puerto', () => {
+  const meta = require('../assets/mapa3d/dubrovnik-entorno/meta');
+  const buffers = Object.fromEntries(['position','normal','uv','index'].map(k => [k, require('../assets/mapa3d/dubrovnik-entorno/' + k)]));
+  const mesh = decodificarModelo(meta, buffers);
+  assert(meta.triangles < 150000);
+  assert(mesh.index.every(i => i < meta.vertices));
+  assert(mesh.position.every(Number.isFinite));
+  let reserved = 0, mountain = 0;
+  for (let i = 0; i < mesh.position.length; i += 3) {
+    const [x,y,z] = mesh.position.subarray(i,i+3);
+    if (x > -.95 && x < 2.05 && z > -1.14 && z < .37) { assert(y < -.027); reserved++; }
+    mountain = Math.max(mountain,y);
+  }
+  assert(reserved > 100); assert(mountain > .5);
+  const sample = crearMuestreadorModelo(meta);
+  assert.equal(sample(.5,-.4),0);
+ });

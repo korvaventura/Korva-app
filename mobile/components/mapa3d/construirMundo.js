@@ -563,7 +563,7 @@ export function construirMundo(escena, horneado) {
   const conv = crearConversor(escena);
   if (escena.modeloMeshy) {
     const modelo = construirModeloMeshy(datos, conv);
-    const [min, max] = modelo.modeloMeshy.meta.heightBounds;
+    const [min, max] = modelo.modeloMeshy.entornoMeta.heightBounds;
     const distanciaModelo = (x, z) => Math.hypot(Math.max(min[0] - x, 0, x - max[0]), Math.max(min[1] - z, 0, z - max[1]));
     const distanciaGeo = (lat, lon) => { const p = datos.campo.geo.proy.aKm(lat, lon); return distanciaModelo(conv.x(p.x), conv.z(p.z)); };
     // Keep the wider coastal landscape and neighborhoods. Lower only the
@@ -579,16 +579,17 @@ export function construirMundo(escena, horneado) {
     const alturaInterior = modelo.datos.campo.muestrear;
     modelo.datos.campo.muestrear = (x, z) => {
       const distancia = distanciaModelo(conv.x(x), conv.z(z));
-      if (distancia === 0) return alturaInterior(x, z);
+      if (distancia === 0) return Math.max(alturaInterior(x, z), modelo.modeloMeshy.alturaEntorno(conv.x(x), conv.z(z)) / conv.y(1));
       return Math.max(0, datos.campo.muestrear(x, z)) * THREE.MathUtils.smoothstep(distancia, 0, 0.2);
     };
     // Trace the generated interpretation instead of projecting the old geography
     // through its roofs. Explicit kilometer anchors preserve challenge progress.
     modelo.datos.ruta = crearRutaVisualModelo([
       [-0.62,-0.30,0],[-0.85,-0.32],[-1.181,-0.343,4],
-      [-0.85,-0.32],[-0.62,-0.30],[-0.30,-0.31],[-0.02,-0.34,8],
-      [0.35,-0.36],[0.78,-0.40],[1.15,-0.23],[1.28,-0.12],
-      [1.05,0.08],[0.50,0.20],[0,0.16],[-0.55,0.09],[-0.70,-0.02,12],
+      [-0.85,-0.32],[-0.62,-0.30],[-0.68,-0.08],[-0.55,0.09],
+      [0,0.16],[0.50,0.20],[1.05,0.08],[1.28,-0.12],[1.15,-0.23],
+      [0.78,-0.40],[0.35,-0.36],[-0.02,-0.34,8],
+      [-0.30,-0.31],[-0.62,-0.30],[-0.68,-0.08],[-0.70,-0.02,12],
       [-0.68,-0.26],[-0.70,-0.56],[-0.64,-0.79,16],
       [-0.15,-0.87],[0.40,-0.96],[0.75,-0.93],[0.99,-0.86,19.4],
     ], modelo.datos.campo.muestrear, conv);
@@ -596,8 +597,8 @@ export function construirMundo(escena, horneado) {
     modelo.datos.largoKm = modelo.datos.ruta.slice(1).reduce((sum, p, i) => sum + Math.hypot(p.x - modelo.datos.ruta[i].x, p.z - modelo.datos.ruta[i].z), 0);
     const exterior = { ...escena.arquitectura,
       suelo: undefined, puerto: undefined, murallas: [],
-      edificios: escena.arquitectura.edificios.filter(e => e.exterior && distanciaGeo(e.lat, e.lon) > 0.2),
-      calles: (escena.arquitectura.calles || []).filter(c => c.eje.every(p => distanciaGeo(p[0], p[1]) > 0.2)),
+      edificios: [],
+      calles: [],
       torres: escena.arquitectura.torres.filter(t => t.id === 'fuerte_lovrijenac'),
     };
     const barrios = crearArquitectura(datos, conv, { ...escena, arquitectura: exterior });
