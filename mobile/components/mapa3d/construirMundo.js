@@ -77,6 +77,11 @@ function geometriaTerreno(datos, conv, escena) {
   const ciudad = mascaraCiudad(datos, escena);
   const a = suelo ? campo.geo.proy.aKm(suelo.latMin, suelo.lonMin) : null;
   const b = suelo ? campo.geo.proy.aKm(suelo.latMax, suelo.lonMax) : null;
+  const tramos = (escena.arquitectura?.murallas || []).flatMap(m => m.eje.slice(1).map((p,i) => [campo.geo.proy.aKm(...m.eje[i]),campo.geo.proy.aKm(...p)]));
+  const cercaMuralla = (x,z) => tramos.some(([a,b]) => {
+    const dx=b.x-a.x,dz=b.z-a.z;const t=THREE.MathUtils.clamp(((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz || 1),0,1);
+    return Math.hypot(x-a.x-dx*t,z-a.z-dz*t)<0.026;
+  });
   const fuertes = (escena.arquitectura?.torres || []).filter((t) => t.id === 'fuerte_lovrijenac').map((t) => campo.geo.proy.aKm(t.eje[0][0], t.eje[0][1]));
   const pos = new Float32Array(nx * nz * 3);
   const col = new Float32Array(nx * nz * 3);
@@ -90,7 +95,8 @@ function geometriaTerreno(datos, conv, escena) {
       for (const t of fuertes) {
         if (Math.hypot(xs[i] - t.x, zs[j] - t.z) < 0.03) h = Math.min(h, 37);
       }
-      if (ciudad(xs[i], zs[j])) h = Math.max(h, 2);
+      if (cercaMuralla(xs[i],zs[j]) && h > 16) h = 16;
+      if (ciudad(xs[i], zs[j])) h = Math.max(2, Math.min(h, suelo?.alturaM ?? h));
       else if (puerto(xs[i], zs[j])) h = -5;
       pos[k * 3 + 1] = conv.y(h);
       pos[k * 3 + 2] = conv.z(zs[j]);
@@ -100,7 +106,7 @@ function geometriaTerreno(datos, conv, escena) {
   const piedraInterior = new THREE.Color('#A49E8C');
   for (let j = 0; j < nz; j += 1) for (let i = 0; i < nx; i += 1) {
     const k = j * nx + i;
-    if (alturas[k] < 2 && ciudad(xs[i], zs[j])) {
+    if (ciudad(xs[i], zs[j]) || cercaMuralla(xs[i],zs[j])) {
       col[k*3] = piedraInterior.r; col[k*3+1] = piedraInterior.g; col[k*3+2] = piedraInterior.b;
     }
   }
@@ -378,11 +384,44 @@ function crearArquitectura(datos, conv, escena) {
       const chimenea = new THREE.BoxGeometry(conv.x(0.0015), conv.y(2.2), conv.z(0.0015));
       incluir(chimenea, pared, px + w * 0.2, base + alto + k * 0.6 + conv.y(1.1), pz);
     }
+    if (e.monumento) {
+      // Orden de fachada: zócalo, cornisa y pilastras. Misma orientación
+      // que la cubierta y los huecos; todos se combinan en la malla.
+      for (const altura of [alto*0.06, alto*0.96]) {
+        const cornisa = new THREE.BoxGeometry(w*1.06,conv.y(0.5),d*1.06);
+        cornisa.rotateY(angulo);
+        incluir(cornisa,pared.clone().multiplyScalar(1.08),px,base+altura,pz);
+      }
+      for (const lado of [-1,1]) for (const columna of [-0.44,-0.15,0.15,0.44]) {
+        const pilastra=new THREE.BoxGeometry(w*0.035,alto*0.88,conv.z(0.0007));
+        pilastra.translate(w*columna,alto*0.48,lado*d*0.51);pilastra.rotateY(angulo);
+        incluir(pilastra,pared.clone().multiplyScalar(1.05),px,base,pz);
+      }
+    }
+    if (e.tipo === 'arsenal') {
+      // Lonja portuaria: arcadas profundas y tejado longitudinal.
+      for (const columna of [-0.35,0,0.35]) {
+        const radio=w*0.10; const arco=new THREE.Shape();
+        arco.moveTo(-radio,0);arco.lineTo(radio,0);arco.lineTo(radio,conv.y(3));
+        arco.absarc(0,conv.y(3),radio,0,Math.PI,false);arco.lineTo(-radio,0);
+        const hueco=new THREE.ShapeGeometry(arco,12);
+        hueco.translate(w*columna,conv.y(0.7),d/2+0.001);hueco.rotateY(angulo);
+        incluir(hueco,new THREE.Color('#4D524D'),px,base,pz);
+      }
+    }
     if (e.tipo === 'cupula') {
       const radio = Math.min(w, d) * 0.32;
       incluir(new THREE.CylinderGeometry(radio, radio, conv.y(4), 12), pared, px, base + alto + conv.y(2), pz);
       const cupula = new THREE.SphereGeometry(radio, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
       incluir(cupula, new THREE.Color('#87998A'), px, base + alto + conv.y(4), pz);
+      // Costillas de la cúpula y linterna superior.
+      for(let j=0;j<8;j++) {
+        const puntos=[];
+        for(let i=0;i<=8;i++) {const t=i*Math.PI/16;const a=j*Math.PI/4;puntos.push(new THREE.Vector3(Math.cos(a)*radio*Math.cos(t),radio*Math.sin(t),Math.sin(a)*radio*Math.cos(t)))}
+        incluir(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(puntos),8,conv.x(0.00022),4,false),pared,px,base+alto+conv.y(4),pz);
+      }
+      incluir(new THREE.CylinderGeometry(radio*0.13,radio*0.13,conv.y(2.5),12),pared,px,base+alto+conv.y(4)+radio+conv.y(1.25),pz);
+      incluir(new THREE.SphereGeometry(radio*0.17,12,6,0,Math.PI*2,0,Math.PI/2),new THREE.Color('#647F75'),px,base+alto+conv.y(6.5)+radio,pz);
     }
     if (e.tipo === 'campanario') {
       const reloj = new THREE.CircleGeometry(w * 0.27, 12);
@@ -405,6 +444,14 @@ function crearArquitectura(datos, conv, escena) {
       const pared = new THREE.BoxGeometry(largo, alto, conv.x(0.008));
       pared.rotateY(angulo);
       incluir(pared, piedra, px, conv.y(baseM) + alto / 2, pz);
+      // Juntas de hiladas visibles al acercarse, en ambas caras del muro.
+      const junta = piedra.clone().multiplyScalar(0.85);
+      for (const lado of [-1,1]) for(let nivel=4;nivel<muro.alturaM-baseM;nivel+=4) {
+        const hilada=new THREE.PlaneGeometry(largo,conv.y(0.10));
+        if(lado<0) hilada.rotateY(Math.PI);
+        hilada.translate(0,conv.y(baseM+nivel),lado*conv.x(0.0041));hilada.rotateY(angulo);
+        incluir(hilada,junta,px,0,pz);
+      }
       // Almenas a lo largo del paseo de ronda, sin objetos/draws adicionales.
       const n = Math.max(1, Math.floor(largo / conv.x(0.012)));
       for (let j = 0; j <= n; j += 1) {
@@ -452,6 +499,15 @@ function crearArquitectura(datos, conv, escena) {
     const g = new THREE.BoxGeometry(Math.hypot(dx, dz), conv.y(2), conv.x(muelle.anchoM / 1000));
     g.rotateY(-Math.atan2(dz, dx));
     incluir(g, piedra, conv.x((a.x+b.x)/2), conv.y(0.8), conv.z((a.z+b.z)/2));
+  }
+  // Bolardos del paseo portuario, a escala de los barcos.
+  for (const muelle of config.puerto?.muelles || []) {
+    const a=proy.aKm(...muelle.eje[0]);const b=proy.aKm(...muelle.eje[1]);
+    const n=Math.max(2,Math.floor(Math.hypot(b.x-a.x,b.z-a.z)/0.015));
+    for(let i=0;i<=n;i++) {
+      const t=i/n;
+      incluir(new THREE.CylinderGeometry(conv.x(0.00018),conv.x(0.00023),conv.y(0.65),8),new THREE.Color('#656A67'),conv.x(a.x+(b.x-a.x)*t),conv.y(2.13),conv.z(a.z+(b.z-a.z)*t));
+    }
   }
   for (const bote of config.puerto?.botes || []) {
     const p = proy.aKm(bote.lat, bote.lon);

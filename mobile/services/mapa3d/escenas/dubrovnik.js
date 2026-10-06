@@ -291,4 +291,17 @@ dubrovnik.arquitectura.edificios.push(
   { monumento: true, lat: 42.64104, lon: 18.11075, anchoM: 24, largoM: 28, alturaM: 15, alturaTejadoM: 2, tono: 1 },
   { monumento: true, lat: 42.64162, lon: 18.11064, anchoM: 24, largoM: 31, alturaM: 16, alturaTejadoM: 2, tono: 3 },
 );
+// Frente urbano oriental: manzanas alrededor de la catedral y del puerto.
+for (let fila = 0; fila < 7; fila += 1) {
+  for (let col = 0; col < 5; col += 1) {
+    const lat = 42.6400 + fila * 0.00016; const lon = 18.11005 + col * 0.00022;
+    if ((lat > 42.64040 && lat < 42.64093 && lon < 18.11070) || (lat > 42.64085 && lon > 18.11048)) continue;
+    dubrovnik.arquitectura.edificios.push({lat,lon,monumento:true,anchoM:13 + col % 3,largoM:14,alturaM:10 + (fila * 3 + col * 7) % 9,alturaTejadoM:1.8,tono:(fila+col)%5,chimenea:col%3===0});
+  }
+}
+dubrovnik.arquitectura.edificios.push(
+  {lat:42.64135,lon:18.11130,monumento:true,anchoM:20,largoM:53,alturaM:15,alturaTejadoM:2.2,orientacion:Math.PI/2,tipo:'arsenal',tono:2},
+  {lat:42.64089,lon:18.11137,monumento:true,anchoM:15,largoM:24,alturaM:13,alturaTejadoM:2,tono:1},
+  {lat:42.64042,lon:18.11117,monumento:true,anchoM:15,largoM:27,alturaM:16,alturaTejadoM:1.8,tono:3},
+);
 module.exports = dubrovnik;
