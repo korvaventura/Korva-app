@@ -220,6 +220,41 @@ function crearArquitectura(datos, conv, escena) {
     if (plano !== geo) plano.dispose();
     geo.dispose();
   };
+  // Superficies urbanas pegadas al relieve, con subdivisiones cortas para no
+  // atravesar la ladera. Se combinan con los edificios en el mismo draw.
+  const superficie = (puntos, color, elevarM = 0.45) => {
+    const v = [];
+    for (const [x, z] of puntos) v.push(conv.x(x), conv.y(datos.campo.muestrear(x, z) + elevarM), conv.z(z));
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+    // Los puntos tienen orden horario visto desde arriba.
+    incluir(g, color, 0, 0, 0);
+  };
+  const asfalto = new THREE.Color('#777D78');
+  for (const calle of config.calles || []) {
+    const eje = calle.eje.map(([lat, lon]) => proy.aKm(lat, lon));
+    for (let j = 1; j < eje.length; j += 1) {
+      const a = eje[j - 1]; const b = eje[j];
+      const dx = b.x - a.x; const dz = b.z - a.z; const largo = Math.hypot(dx, dz);
+      if (!largo) continue;
+      const ox = -dz / largo * calle.anchoM / 2000; const oz = dx / largo * calle.anchoM / 2000;
+      const n = Math.max(1, Math.ceil(largo / 0.003));
+      for (let k = 0; k < n; k += 1) {
+        const p = { x: a.x + dx * k / n, z: a.z + dz * k / n };
+        const q = { x: a.x + dx * (k + 1) / n, z: a.z + dz * (k + 1) / n };
+        if (datos.campo.muestrear(p.x, p.z) < 2 || datos.campo.muestrear(q.x, q.z) < 2) continue;
+        superficie([[p.x + ox, p.z + oz], [q.x + ox, q.z + oz], [q.x - ox, q.z - oz], [p.x + ox, p.z + oz], [q.x - ox, q.z - oz], [p.x - ox, p.z - oz]], asfalto);
+      }
+    }
+  }
+  for (const t of config.arboles || []) {
+    const p = proy.aKm(t.lat, t.lon); const h = datos.campo.muestrear(p.x, p.z);
+    if (h < 2 || h > 330) continue;
+    incluir(new THREE.CylinderGeometry(conv.x(0.0004), conv.x(0.0006), conv.y(t.alturaM * 0.55), 5), new THREE.Color('#665D45'), conv.x(p.x), conv.y(h + t.alturaM * 0.275), conv.z(p.z));
+    const copa = new THREE.SphereGeometry(conv.x(0.003), 7, 5);
+    copa.scale(1, 1.3, 1);
+    incluir(copa, new THREE.Color('#385C43'), conv.x(p.x), conv.y(h + t.alturaM * 0.65), conv.z(p.z));
+  }
   for (const e of config.edificios) {
     const { x, z } = proy.aKm(e.lat, e.lon);
     const h = datos.campo.muestrear(x, z);
@@ -240,6 +275,15 @@ function crearArquitectura(datos, conv, escena) {
       const zocalo = new THREE.BoxGeometry(w, cimentacion, d);
       zocalo.rotateY(ang);
       incluir(zocalo, pared.clone().multiplyScalar(0.82), px, base - cimentacion / 2, pz);
+    }
+    if (e.parcela) {
+      // Patio mineral, extendido hasta la calle, en lugar de pasto bajo cada casa.
+      const ancho = e.anchoM / 2000 + 0.002; const fondo = e.largoM / 2000 + 0.003;
+      const paso = 0.006;
+      for (let u = -ancho; u < ancho; u += paso) for (let v = -fondo; v < fondo; v += paso) {
+        const r = Math.min(u + paso, ancho); const t = Math.min(v + paso, fondo);
+        superficie([[x + u, z + v], [x + u, z + t], [x + r, z + t], [x + u, z + v], [x + r, z + t], [x + r, z + v]], new THREE.Color('#A9A492'), 0.25);
+      }
     }
     const fachada = new THREE.BoxGeometry(w, alto, d);
     fachada.rotateY(e.orientacion || 0);
@@ -276,6 +320,24 @@ function crearArquitectura(datos, conv, escena) {
     cubierta.rotateY(e.orientacion || 0);
     const colorCubierta = tejado.clone().multiplyScalar(0.86 + (e.tono ?? 2) * 0.07);
     incluir(cubierta, colorCubierta, px, base + alto, pz);
+    // Juntas sobre las dos pendientes: detalle real de cubierta, también
+    // combinado. Desaparecen naturalmente a distancia sin texturas grandes.
+    const juntas = []; const separacion = conv.z(0.0025); const espesor = conv.z(0.00018);
+    const encima = conv.y(0.12);
+    for (let z = -d / 2 + separacion; z < d / 2; z += separacion) {
+      for (const lado of [-1, 1]) {
+        const x = lado * w / 2;
+        if (lado < 0) juntas.push(x, encima, z, 0, k + encima, z, 0, k + encima, z + espesor, x, encima, z, 0, k + encima, z + espesor, x, encima, z + espesor);
+        else juntas.push(0, k + encima, z, x, encima, z, x, encima, z + espesor, 0, k + encima, z, x, encima, z + espesor, 0, k + encima, z + espesor);
+      }
+    }
+    for (let i = 0; i < juntas.length; i += 9) {
+      for (let j = 0; j < 3; j += 1) [juntas[i + 3 + j], juntas[i + 6 + j]] = [juntas[i + 6 + j], juntas[i + 3 + j]];
+    }
+    const lineasTeja = new THREE.BufferGeometry();
+    lineasTeja.setAttribute('position', new THREE.Float32BufferAttribute(juntas, 3));
+    lineasTeja.rotateY(angulo);
+    incluir(lineasTeja, colorCubierta.clone().multiplyScalar(0.72), px, base + alto, pz);
     if (e.chimenea) {
       const chimenea = new THREE.BoxGeometry(conv.x(0.0015), conv.y(2.2), conv.z(0.0015));
       incluir(chimenea, pared, px + w * 0.2, base + alto + k * 0.6 + conv.y(1.1), pz);
