@@ -192,7 +192,7 @@ const dubrovnik = {
   ],
 };
 
-// Edificios separados por calles: evita las dos masas continuas de tejados.
+// Interpretación visual procedural: barrios y monumentos, no levantamiento catastral.
 dubrovnik.relieve.masas = dubrovnik.relieve.masas.filter((m) => !m.id.startsWith('tejados_'));
 dubrovnik.arquitectura = {
   alturaTejadoM: 1.2, edificios: [], colorPared: '#D5C7A8', colorTejado: '#B75A37', colorMuralla: MURALLA,
@@ -210,7 +210,29 @@ for (let fila = 0; fila < 14; fila += 1) {
     if (Math.abs(lat - 42.64139) < 0.00014) continue;
     if (fila < 3 && (col < 6 - fila || col > 16 + fila)) continue;
     if (fila > 11 && (col < fila - 9 || col > 21 - (fila - 11))) continue;
-    dubrovnik.arquitectura.edificios.push({ lat, lon, anchoM: 14 + col % 3, largoM: 13 + fila % 3, alturaM: 8 + (fila * 7 + col * 3) % 5, orientacion: fila > 8 ? 0.12 : -0.08, tono: (fila * 11 + col * 7) % 5 });
+    // Plazas y edificios singulares rompen la trama repetitiva.
+    if (lat < 42.64135 && lon > 18.1099) continue;
+    if (lat > 42.64145 && lon > 18.1102) continue;
+    const clave = fila * 11 + col * 7;
+    dubrovnik.arquitectura.edificios.push({ lat, lon, anchoM: 12 + clave % 5, largoM: 12 + fila % 4, alturaM: 7 + clave % 10, alturaTejadoM: 1.2 + clave % 3 * 0.35, orientacion: fila > 8 ? 0.12 : -0.08, tono: clave % 5, chimenea: clave % 4 === 0 });
   }
 }
+// Casas escalonadas sobre la ladera: separación suficiente para ver verde y calles.
+// Desfase determinista por fila, sin aleatoriedad durante el render.
+for (let fila = 0; fila < 10; fila += 1) {
+  for (let col = 0; col < 31; col += 1) {
+    const clave = fila * 37 + col * 13;
+    if (clave % 7 === 0 || (fila > 6 && col % 3 === 0) || Math.abs(col - 7 - fila) < 1) continue;
+    const lat = 42.64315 + fila * 0.00036 + (clave % 5 - 2) * 0.000055;
+    const lon = 18.102 + col * 0.00042 + (fila % 2) * 0.00013 + (clave % 3 - 1) * 0.00006;
+    dubrovnik.arquitectura.edificios.push({ lat, lon, exterior: true, anchoM: 11 + clave % 7, largoM: 11 + clave % 5, alturaM: 6 + clave % 9, alturaTejadoM: 1.6, orientacion: -0.22 + clave % 5 * 0.1, tono: clave % 5, chimenea: clave % 6 === 0 });
+  }
+}
+// Siluetas que permiten reconocer el casco: campanario, cúpula y palacios.
+dubrovnik.arquitectura.edificios.push(
+  { monumento: true, lat: 42.64137, lon: 18.11073, anchoM: 7, largoM: 7, alturaM: 31, alturaTejadoM: 2.5, tipo: 'campanario', tono: 1 },
+  { monumento: true, lat: 42.64067, lon: 18.11041, anchoM: 27, largoM: 39, alturaM: 18, tipo: 'cupula', tono: 2 },
+  { monumento: true, lat: 42.64104, lon: 18.11075, anchoM: 24, largoM: 28, alturaM: 15, alturaTejadoM: 2, tono: 1 },
+  { monumento: true, lat: 42.64162, lon: 18.11064, anchoM: 24, largoM: 31, alturaM: 16, alturaTejadoM: 2, tono: 3 },
+);
 module.exports = dubrovnik;

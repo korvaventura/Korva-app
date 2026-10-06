@@ -224,13 +224,26 @@ function crearArquitectura(datos, conv, escena) {
     const { x, z } = proy.aKm(e.lat, e.lon);
     const h = datos.campo.muestrear(x, z);
     // Las murallas y fortalezas conservan su silueta, sin casas encima.
-    if (!(h >= 2 && h < 34)) continue;
+    if (!(h >= 2 && (e.exterior ? h < 330 : (e.monumento || h < 34)))) continue;
     const w = conv.x(e.anchoM / 1000); const d = conv.z(e.largoM / 1000);
-    const alto = conv.y(e.alturaM); const base = conv.y(Math.min(h, config.suelo?.alturaM ?? h));
+    const alto = conv.y(e.alturaM); const base = conv.y(e.exterior ? h : e.monumento ? (config.suelo?.alturaM ?? h) : Math.min(h, config.suelo?.alturaM ?? h));
     const px = conv.x(x); const pz = conv.z(z);
+    if (e.exterior) {
+      // Zócalo hasta la cota más baja de las esquinas: evita casas suspendidas.
+      const ang = e.orientacion || 0;
+      let minimo = h;
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+        const dx = sx * e.anchoM / 2000; const dz = sz * e.largoM / 2000;
+        minimo = Math.min(minimo, datos.campo.muestrear(x + dx * Math.cos(ang) + dz * Math.sin(ang), z - dx * Math.sin(ang) + dz * Math.cos(ang)));
+      }
+      const cimentacion = conv.y(Math.max(0.5, h - minimo));
+      const zocalo = new THREE.BoxGeometry(w, cimentacion, d);
+      zocalo.rotateY(ang);
+      incluir(zocalo, pared.clone().multiplyScalar(0.82), px, base - cimentacion / 2, pz);
+    }
     const fachada = new THREE.BoxGeometry(w, alto, d);
     fachada.rotateY(e.orientacion || 0);
-    incluir(fachada, pared, px, base + alto / 2, pz, alto);
+    incluir(fachada, pared.clone().multiplyScalar(0.90 + (e.tono ?? 2) * 0.035), px, base + alto / 2, pz, alto);
     // Huecos de fachada: quads combinados en el mismo mesh, sin texturas
     // ni nuevos materiales/draw calls. La orientación sigue al edificio.
     const ventana = new THREE.Color('#52605B'); const puerta = new THREE.Color('#655044');
@@ -249,7 +262,7 @@ function crearArquitectura(datos, conv, escena) {
     }
     abrirHueco(w * 0.14, alto * 0.26, 0, alto * 0.13, d / 2 + 0.0008, false, puerta);
     const cubierta = new THREE.BufferGeometry();
-    const k = conv.y(config.alturaTejadoM ?? 3); const v = [
+    const k = conv.y(e.alturaTejadoM ?? config.alturaTejadoM ?? 3); const v = [
       -w/2,0,-d/2, w/2,0,-d/2, 0,k,-d/2,
       -w/2,0,d/2, 0,k,d/2, w/2,0,d/2,
       -w/2,0,-d/2, 0,k,-d/2, 0,k,d/2, -w/2,0,-d/2, 0,k,d/2, -w/2,0,d/2,
@@ -263,6 +276,23 @@ function crearArquitectura(datos, conv, escena) {
     cubierta.rotateY(e.orientacion || 0);
     const colorCubierta = tejado.clone().multiplyScalar(0.86 + (e.tono ?? 2) * 0.07);
     incluir(cubierta, colorCubierta, px, base + alto, pz);
+    if (e.chimenea) {
+      const chimenea = new THREE.BoxGeometry(conv.x(0.0015), conv.y(2.2), conv.z(0.0015));
+      incluir(chimenea, pared, px + w * 0.2, base + alto + k * 0.6 + conv.y(1.1), pz);
+    }
+    if (e.tipo === 'cupula') {
+      const radio = Math.min(w, d) * 0.32;
+      incluir(new THREE.CylinderGeometry(radio, radio, conv.y(4), 12), pared, px, base + alto + conv.y(2), pz);
+      const cupula = new THREE.SphereGeometry(radio, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+      incluir(cupula, new THREE.Color('#87998A'), px, base + alto + conv.y(4), pz);
+    }
+    if (e.tipo === 'campanario') {
+      const reloj = new THREE.CircleGeometry(w * 0.27, 12);
+      reloj.translate(0, alto * 0.79, d / 2 + 0.001);
+      incluir(reloj, new THREE.Color('#EDE2C5'), px, base, pz);
+      const aguja = new THREE.BoxGeometry(w * 0.04, alto * 0.09, conv.z(0.0002));
+      incluir(aguja, puerta, px, base + alto * 0.81, pz + d / 2 + 0.0012);
+    }
   }
   const piedra = new THREE.Color(config.colorMuralla || config.colorPared);
   const baseM = config.suelo?.alturaM ?? 0;
@@ -291,12 +321,17 @@ function crearArquitectura(datos, conv, escena) {
     const [lat, lon, radioKm] = torre.eje[0]; const p = proy.aKm(lat, lon);
     const base = torre.id === 'fuerte_lovrijenac' ? 37 : baseM;
     const radio = conv.x(radioKm); const alto = conv.y(torre.alturaM - base);
-    incluir(new THREE.CylinderGeometry(radio, radio, alto, 20), piedra, conv.x(p.x), conv.y(base) + alto / 2, conv.z(p.z));
+    const rectangular = ['revelin', 'fuerte_lovrijenac'].includes(torre.id);
+    const cuerpo = rectangular ? new THREE.BoxGeometry(radio * 1.9, alto, radio * 1.5) : new THREE.CylinderGeometry(radio, radio * 1.08, alto, 20);
+    incluir(cuerpo, piedra, conv.x(p.x), conv.y(base) + alto / 2, conv.z(p.z), alto);
+    if (torre.id === 'minceta') {
+      incluir(new THREE.CylinderGeometry(radio * 1.15, radio * 1.15, conv.y(4), 20), piedra, conv.x(p.x), conv.y(torre.alturaM - 2), conv.z(p.z));
+    }
     for (let j = 0; j < 12; j += 1) {
       const ang = j * Math.PI / 6;
       const almena = new THREE.BoxGeometry(conv.x(0.004), conv.y(3), conv.x(0.005));
       almena.rotateY(-ang);
-      incluir(almena, piedra, conv.x(p.x) + Math.cos(ang) * radio * 0.92, conv.y(torre.alturaM + 1.5), conv.z(p.z) + Math.sin(ang) * radio * 0.92);
+      incluir(almena, piedra, conv.x(p.x) + (rectangular ? Math.cos(ang) / Math.max(Math.abs(Math.cos(ang)), Math.abs(Math.sin(ang))) * radio * 0.9 : Math.cos(ang) * radio * 0.92), conv.y(torre.alturaM + 1.5), conv.z(p.z) + (rectangular ? Math.sin(ang) / Math.max(Math.abs(Math.cos(ang)), Math.abs(Math.sin(ang))) * radio * 0.7 : Math.sin(ang) * radio * 0.92));
     }
   }
   const g = new THREE.BufferGeometry();
