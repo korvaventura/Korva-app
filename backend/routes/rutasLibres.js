@@ -2,6 +2,7 @@ const express = require('express');
 const requireUser = require('../middleware/requireUser');
 const { traerTodo } = require('../lib/progresoSombra');
 const { ISLANDIA, progresoRutaLibre } = require('../lib/rutasLibres');
+const { healthConsentActivo } = require('../lib/flagsMotor');
 function crearRutasLibresRoutes({ supabase, auth = requireUser, ahora = Date.now, log = console.error }) {
   const router = express.Router();
   router.use(auth);
@@ -17,8 +18,27 @@ function crearRutasLibresRoutes({ supabase, auth = requireUser, ahora = Date.now
         .eq('user_id', req.userId).eq('route_id', ISLANDIA.id).maybeSingle();
       if (error) throw error;
       const actividades = p ? await traerTodo(() => supabase.from('activities')
-        .select('id,user_id,recorded_at,distance_km,excluida').eq('user_id', req.userId).gte('recorded_at', p.accepted_at)) : [];
-      return res.json({ ruta: ISLANDIA, participacion: progresoRutaLibre(p, actividades, req.userId, ahora()) });
+        .select('id,user_id,recorded_at,distance_km,duration_seconds,sport_type,excluida').eq('user_id', req.userId)) : [];
+      let health = null;
+      if (p && healthConsentActivo()) {
+        const ventanas = await traerTodo(() => supabase.from('health_challenge_consents').select('*')
+          .eq('user_id', req.userId).eq('tipo', 'libre').eq('participacion_id', p.id));
+        const dias = ventanas.length ? await traerTodo(() => supabase.from('daily_movement').select('*').eq('user_id', req.userId)) : [];
+        health = { ventanas, dias };
+      }
+      let participacion = progresoRutaLibre(p, actividades, req.userId, ahora(), health);
+      if (p && !p.health_completed_at && participacion?.completed_at && participacion.km_movimiento_diario > 0) {
+        // Cierre estable y condicionado: otra lectura no puede cambiar la fecha ganadora.
+        const { error: errorCierre } = await supabase.from('free_route_participations').update({
+          health_completed_at: participacion.completed_at, health_started_at: participacion.started_at,
+        }).eq('id', p.id).eq('user_id', req.userId).is('health_completed_at', null).is('paused_at', null).is('left_at', null);
+        if (errorCierre) throw errorCierre;
+        const { data: cerrado, error: errorLectura } = await supabase.from('free_route_participations').select('*')
+          .eq('id', p.id).eq('user_id', req.userId).single();
+        if (errorLectura) throw errorLectura;
+        participacion = progresoRutaLibre(cerrado, actividades, req.userId, ahora(), health);
+      }
+      return res.json({ ruta: ISLANDIA, participacion });
     } catch (e) { return fallar(res, e); }
   });
   router.post('/islandia/:accion', async (req, res) => {

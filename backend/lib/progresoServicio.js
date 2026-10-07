@@ -75,8 +75,9 @@ const recalcularProgresoUsuario = async ({
   for (let intento = 1; intento <= maxIntentos; intento++) {
     informe.intentos = intento;
     const estado = await repo.leerEstadoUsuario(userId, { incluirHealth });
+    const healthIncluido = incluirHealth || estado.incluirHealthAutorizado === true;
     const conflictos = [];
-    const residualesHealth = incluirHealth
+    const residualesHealth = healthIncluido
       ? calcularResidualesHealth({ dailyMovement: estado.dailyMovement || [], actividades: estado.actividades || [], ahoraMs })
       : [];
 
@@ -91,8 +92,9 @@ const recalcularProgresoUsuario = async ({
         challenge: estado.challenges.get(uc.challenge_id) || null,
         actividades: estado.actividades,
       };
-      const resultado = incluirHealth
-        ? calcularProgresoChallengeHealth({ ...argsCalculo, residuales: residualesHealth })
+      const resultado = healthIncluido
+        ? calcularProgresoChallengeHealth({ ...argsCalculo, residuales: residualesHealth,
+          consentimiento: estado.incluirHealthAutorizado === true ? (estado.healthConsent || []) : undefined })
         : calcularProgresoChallenge(argsCalculo);
       const decision = decidirAccion(uc, resultado);
       const registro = {
@@ -105,7 +107,7 @@ const recalcularProgresoUsuario = async ({
         km_nuevo: decision.kmNuevo,
         km_base: resultado.km_base,
         km_actividades: resultado.exacto?.kmActividades ?? 0,
-        health: incluirHealth ? { elegible_km: resultado.km_health_elegible || 0, estable_km: resultado.km_health_estable || 0 } : undefined,
+        health: healthIncluido ? { elegible_km: resultado.km_health_elegible || 0, estable_km: resultado.km_health_estable || 0 } : undefined,
         escrito: false,
       };
 

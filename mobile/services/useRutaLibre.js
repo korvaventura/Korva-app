@@ -26,7 +26,10 @@ export default function useRutaLibre() {
     const actividades = DeviceEventEmitter.addListener('korva:actividades-actualizadas', () => {
       if (AppState.currentState === 'active') actualizar();
     });
-    return () => { app.remove(); actividades.remove(); generacion.current++; controller.current?.abort(); };
+    const movimiento = DeviceEventEmitter.addListener('korva:movimiento-actualizado', () => {
+      if (AppState.currentState === 'active') actualizar({ conservarDatos: true });
+    });
+    return () => { app.remove(); actividades.remove(); movimiento.remove(); generacion.current++; controller.current?.abort(); };
   }, [actualizar]));
   return { estado, actualizar };
 }

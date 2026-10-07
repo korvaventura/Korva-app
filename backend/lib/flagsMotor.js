@@ -54,4 +54,9 @@ const stravaWebhookMotorActiva = (env = process.env) => writerMotorActivo('strav
  */
 const stravaProgresoSoloLectura = (env = process.env) => writerMotorActivo('strava_progreso', env);
 
-module.exports = { healthMotorActivo, gpsMotorActivo, WRITERS_CONOCIDOS, writersActivos, writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva, stravaImportMotorActiva, stravaWebhookMotorActiva, stravaProgresoSoloLectura };
+// No permitir consentimientos si todavía conviven writers que ignoran Salud.
+const healthConsentActivo = (env = process.env) => String(env.MOTOR_PROGRESO_HEALTH_CONSENT || '').trim() === '1';
+const aportesHealthDisponibles = (env = process.env) => healthConsentActivo(env)
+  && WRITERS_CONOCIDOS.every((w) => writerMotorActivo(w, env)) && gpsMotorActivo(env);
+
+module.exports = { healthConsentActivo, aportesHealthDisponibles, healthMotorActivo, gpsMotorActivo, WRITERS_CONOCIDOS, writersActivos, writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva, stravaImportMotorActiva, stravaWebhookMotorActiva, stravaProgresoSoloLectura };

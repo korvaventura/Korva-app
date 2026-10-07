@@ -4,6 +4,7 @@ import { conectar } from '../services/health/healthkitDiagnostico';
 import { estadoSalud, plataformaSoportada } from '../services/health/healthkitLectura';
 import { autoSyncActivado, setAutoSyncActivado, ejecutarSyncAutomatico } from '../services/health/syncAutomatico';
 import { colors } from '../theme/korvaTheme';
+import SaludAportesDesafios from './SaludAportesDesafios';
 
 export default function SaludConfiguracion({ userId }) {
   const [abierto,setAbierto]=useState(false),[activo,setActivo]=useState(false),[ocupado,setOcupado]=useState(false),[mensaje,setMensaje]=useState('');
@@ -32,7 +33,7 @@ export default function SaludConfiguracion({ userId }) {
   const desconectar=()=>Alert.alert('Desconectar Salud','Se detiene la sincronización en este teléfono. Tu historial ya guardado se conserva.',[{text:'Cancelar',style:'cancel'},{text:'Desconectar',style:'destructive',onPress:()=>operar(async()=>{await setAutoSyncActivado(userId,false);if(vivo.current){setActivo(false);setMensaje('Sincronización desactivada.');}})}]);
   return <View style={styles.card}>
     <TouchableOpacity accessibilityRole="button" onPress={()=>setAbierto(v=>!v)} style={styles.header}><Text style={styles.title}>Configurar movimiento diario</Text><Text style={styles.link}>{abierto?'Cerrar':'Configurar'}</Text></TouchableOpacity>
-    <Text style={styles.note}>Solo seguimiento · no suma a tus desafíos</Text>
+    <Text style={styles.note}>Resumen personal · los aportes se configuran por desafío</Text>
     {abierto && <View style={styles.body}>
       <Text style={styles.title}>{nombre}</Text>
       <Text style={styles.copy}>Conectá Salud para ver tus pasos y distancia diaria. Korva solo lee estos datos; no escribe en Salud.</Text>
@@ -41,7 +42,7 @@ export default function SaludConfiguracion({ userId }) {
       <TouchableOpacity style={styles.button} disabled={ocupado} onPress={activo?()=>operar(actualizar):conectarResumen} accessibilityRole="button"><Text style={styles.buttonText}>{ocupado?'Procesando…':activo?'Actualizar ahora':`Conectar con ${nombre}`}</Text></TouchableOpacity>
       {activo && <TouchableOpacity disabled={ocupado} onPress={desconectar} accessibilityRole="button"><Text style={styles.link}>Desconectar Salud</Text></TouchableOpacity>}
       {!!mensaje && <Text accessibilityLiveRegion="polite" style={styles.copy}>{mensaje}</Text>}
-      <View style={styles.challenge}><Text style={styles.title}>Movimiento en desafíos</Text><Text style={styles.copy}>Conectar Salud no cambia tus desafíos. Por ahora, avanzan con tus actividades registradas; el movimiento diario se muestra solo en este resumen.</Text></View>
+      <SaludAportesDesafios key={userId} userId={userId} conectado={activo}/>
     </View>}
   </View>;
 }

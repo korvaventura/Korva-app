@@ -5,7 +5,7 @@ import useRutaLibre from '../services/useRutaLibre';
 import KorvaGroups from '../components/KorvaGroups';
 import { nombreDeporteActividad, nombreFuenteActividad, iconoDeporteActividad } from '../utils/actividadPresentacion';
 import KorvaCompletedShare from '../components/KorvaCompletedShare';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Modal, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Modal, Dimensions, DeviceEventEmitter } from 'react-native';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
@@ -110,6 +110,10 @@ export default function PerfilScreen() {
           if (session?.user?.id) setUserId(session.user.id);
         });
       }
+      const movimiento = DeviceEventEmitter.addListener('korva:movimiento-actualizado', (e) => {
+        if (userId && e?.userId === userId) { cargarPerfil(); cargarInscripcionesActivas(); }
+      });
+      return () => movimiento.remove();
     }, [userId])
   );
 

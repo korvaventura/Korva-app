@@ -153,6 +153,10 @@ export default function HomeScreen({ navigation }) {
         verificarStrava();
         listarMisActividades().then((lista) => setActividadReciente(lista[0] || null)).catch(() => {});
       }
+      const movimiento = DeviceEventEmitter.addListener('korva:movimiento-actualizado', (e) => {
+        if (userId && e?.userId === userId) cargarProgreso();
+      });
+      return () => movimiento.remove();
     }, [userId])
   );
 

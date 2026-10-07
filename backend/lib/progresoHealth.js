@@ -9,19 +9,26 @@
 const { calcularProgresoChallenge } = require('./progresoDesafio');
 const { calcularResidualDia } = require('./residualMovimiento');
 const { evaluarElegibilidadDia } = require('./progresoHealthSombra');
+const { filtrarResidualesAutorizados } = require('./consentimientoHealth');
 
 const REGLA_VERSION = 'progreso_4b_v1_health_estable_2026-10-03';
 
 const calcularResidualesHealth = ({ dailyMovement = [], actividades = [], ahoraMs = Date.now() }) =>
   dailyMovement.map((dia) => calcularResidualDia(dia, actividades, ahoraMs));
 
-const calcularProgresoChallengeHealth = ({ uc, challenge, actividades = [], residuales = [] }) => {
+const calcularProgresoChallengeHealth = ({ uc, challenge, actividades = [], residuales = [], consentimiento }) => {
   const progreso4a = calcularProgresoChallenge({ uc, challenge, actividades });
   if (uc.status !== 'active') return progreso4a;
 
   let kmHealthElegible = 0;
   let kmHealthEstable = 0;
-  for (const residual of residuales) {
+  // La integración pública pasa consentimiento explícito. La llamada histórica
+  // sin este argumento se conserva para las simulaciones internas existentes.
+  const autorizados = consentimiento === undefined ? residuales : filtrarResidualesAutorizados({
+    userId: uc.user_id, tipo: 'pago', participacionId: uc.id,
+    ventanas: consentimiento || [], residuales,
+  });
+  for (const residual of autorizados) {
     const elegibilidad = evaluarElegibilidadDia(uc, residual);
     if (!elegibilidad.elegible) continue;
     const km = Number(residual?.residual?.total_crudo_km) || 0;
