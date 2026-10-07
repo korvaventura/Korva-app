@@ -13,10 +13,10 @@ export function crearAmbienteIslandia() {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv,2)); g.setIndex(index);
-    const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide,
-      uniforms: { tono: { value: new THREE.Color(banda === 2 ? '#AA81DC' : '#5EDCB9') } },
+    const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, toneMapped: false,
+      uniforms: { tono: { value: new THREE.Color(banda === 2 ? '#C79EFF' : '#75FFD1') } },
       vertexShader: 'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-      fragmentShader: 'uniform vec3 tono;varying vec2 vUv;void main(){float a=sin(vUv.y*3.14159)*sin(vUv.x*3.14159);float rayos=.65+.35*sin(vUv.x*180.);gl_FragColor=vec4(tono,a*rayos*.25);}',
+      fragmentShader: 'uniform vec3 tono;varying vec2 vUv;void main(){float a=sin(vUv.y*3.14159)*sin(vUv.x*3.14159);float rayos=.65+.35*sin(vUv.x*180.);gl_FragColor=vec4(tono,a*rayos*.68);}',
     });
     grupo.add(new THREE.Mesh(g,m));
   }

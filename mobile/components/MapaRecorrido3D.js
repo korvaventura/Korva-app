@@ -513,10 +513,11 @@ export default function MapaRecorrido3D({
   const iniciarJourney = () => {
     if (!mundo || reproduciendo) return;
     if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
-    const metaKm = Math.max(0.1, kmProgresoReal);
+    const metaKm = Math.max(0, kmProgresoReal);
+    if (metaKm <= 0) { recenter(); return; }
     // El replay debe sentirse como un viaje, no como una barra de progreso.
     // Tiempo de lectura y cámara amortiguada en curvas cerradas.
-    const duracion = duracionReplay(metaKm);
+    const duracion = duracionReplay(metaKm, escena.id);
     let anterior = Date.now(); let transcurrido = 0; let ultimaFicha = -Infinity;
     liberarGesto();
     camaraManualHastaRef.current=0;
@@ -540,7 +541,8 @@ export default function MapaRecorrido3D({
       const km = metaKm * suave;
       const p = posicionEnKm(mundo.datos, mundo.conv, km, 0);
       controlRef.current=seguirReplay(controlRef.current,p.toArray(),escena.camara.objetivo,dt,
-        !arrastrandoRef.current && ahora>=camaraManualHastaRef.current);
+        !arrastrandoRef.current && ahora>=camaraManualHastaRef.current,
+        escena.id === 'islandia' ? .18 : AJUSTES_MAPA.seguimientoPeso);
       progresoRef.current = { km, animando: true };
       if (ahora - ultimaFicha >= AJUSTES_MAPA.fichaIntervaloMs || t === 1) { setKmPlayback(km); ultimaFicha = ahora; }
       aplicarCamara();

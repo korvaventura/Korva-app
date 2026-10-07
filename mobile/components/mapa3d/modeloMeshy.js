@@ -41,12 +41,14 @@ export function construirModeloMeshy(datosOriginales, conv, modeloId = 'dubrovni
   const datos = { ...datosOriginales, campo };
   const grupo = new THREE.Group();
   // Extend only the sea beyond the supplied model, below its lowest vertex.
-  const mar = new THREE.Mesh(new THREE.PlaneGeometry(180, 180),
-    new THREE.MeshStandardMaterial({color: islandia ? '#081A29' : '#0C3553', roughness: 1, metalness: 0}));
+  const mar = new THREE.Mesh(new THREE.PlaneGeometry(islandia ? 600 : 180, islandia ? 600 : 180),
+    islandia
+      ? new THREE.MeshBasicMaterial({color: '#29485B'})
+      : new THREE.MeshStandardMaterial({color: '#0C3553', roughness: 1, metalness: 0}));
   mar.rotation.x = -Math.PI / 2;
   mar.position.y = meta.min[1] - .002;
   grupo.add(mar, paisaje);
-  return {grupo,datos,modeloMeshy:{id:modeloId,material:paisaje.material,materiales:[paisaje.material],meta,texturasListas:false},limites:{minX:-90,maxX:90,minZ:-90,maxZ:90}};
+  return {grupo,datos,modeloMeshy:{id:modeloId,material:paisaje.material,materiales:[paisaje.material],meta,texturasListas:false},limites:islandia ? {minX:-300,maxX:300,minZ:-300,maxZ:300} : {minX:-90,maxX:90,minZ:-90,maxZ:90}};
 }
 
 export function cargarTexturasMeshy(mundo,invalidate) {

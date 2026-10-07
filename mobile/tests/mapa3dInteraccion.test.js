@@ -78,3 +78,24 @@ test('mapas registrados: comparten replay de 25 s, centro propio y seguimiento m
     assert.equal(seguirReplay(control,[1,2,3],escena.camara.objetivo,16,false),control);
   }
 });
+
+test('Islandia: replay continuo según distancia y cero kilómetros solo recentra',()=>{
+  const {duracionReplay}=require('../services/mapa3d/replayCamaraCore');
+  assert.equal(duracionReplay(0,'islandia'),0);
+  assert.equal(duracionReplay(48,'islandia'),10000);
+  assert.equal(duracionReplay(350,'islandia'),16000);
+  assert.equal(duracionReplay(1400,'islandia'),25000);
+  let anterior=0;
+  for(let km=1;km<=1400;km++) {
+    const ms=duracionReplay(km,'islandia');
+    assert(ms>=anterior && ms<=25000);anterior=ms;
+  }
+  assert(Math.abs(duracionReplay(48.001,'islandia')-10000)<1);
+  assert(Math.abs(duracionReplay(350.001,'islandia')-16000)<1);
+  const source=fs.readFileSync(require.resolve('../components/MapaRecorrido3D'),'utf8');
+  const inicio=source.slice(source.indexOf('  const iniciarJourney ='),source.indexOf('    // El replay debe'));
+  const context=vm.createContext({mundo:{},reproduciendo:false,playbackRef:{current:null},kmProgresoReal:0,
+    recenter:()=>{context.centrados++;},centrados:0,cancelAnimationFrame:()=>{}});
+  vm.runInContext(inicio+'\n}; iniciarJourney();',context);
+  assert.equal(context.centrados,1);
+});
