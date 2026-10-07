@@ -1,3 +1,4 @@
+import TerminosScreen from './TerminosScreen';
 import KorvaProgressShare from '../components/KorvaProgressShare';
 import { ordenarAventurasPerfil } from '../services/aventurasPerfilCore';
 import { RutaLibreCardVista } from '../components/RutaLibreCard';
@@ -34,6 +35,7 @@ const diasEntre = (fecha1, fecha2) => {
 };
 
 export default function PerfilScreen() {
+  const [verLegal, setVerLegal] = useState(false);
   const navigation = useNavigation();
   const [usuario, setUsuario] = useState(null);
   const [modalEnvioReto, setModalEnvioReto] = useState(null);
@@ -1358,6 +1360,8 @@ export default function PerfilScreen() {
         )}
       </View>
 
+      <TouchableOpacity style={styles.cerrarButton} accessibilityRole="button" onPress={() => setVerLegal(true)}><Text style={styles.cerrarButtonText}>Términos y privacidad</Text></TouchableOpacity>
+      <Modal visible={verLegal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setVerLegal(false)}><TerminosScreen onVolver={() => setVerLegal(false)} /></Modal>
       <TouchableOpacity style={styles.cerrarButton} onPress={cerrarSesion}>
         <Text style={styles.cerrarButtonText}>Cerrar sesión</Text>
       </TouchableOpacity>

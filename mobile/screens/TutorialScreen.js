@@ -6,7 +6,7 @@ const SLIDES = [
   {
     emoji: '🏃‍♂️',
     titulo: '¡Bienvenido a Korva!',
-    desc: 'Completá km a tu ritmo desde cualquier lugar del mundo. Caminando, corriendo, en bici o como quieras — todo suma igual.',
+    desc: 'Completá km a tu ritmo desde cualquier lugar del mundo. Caminando, corriendo, en bici o como quieras — las actividades elegibles suman a tus desafíos activos.',
     color: '#FC4C02',
   },
   {
@@ -18,7 +18,7 @@ const SLIDES = [
   {
     emoji: '➕',
     titulo: 'Cargá tus km',
-    desc: 'Abrí Registrar y elegí GPS para una salida con el teléfono o Manual para cargar una actividad ya hecha. Strava es opcional si está habilitado en tu cuenta.',
+    desc: 'Abrí Registrar y elegí GPS para una salida con el teléfono o Manual para cargar una actividad ya hecha. Strava es opcional. En Tu movimiento podés conectar Salud y confirmar aparte qué desafíos reciben tu distancia diaria. Los pasos no se convierten a kilómetros.',
     color: '#1E6FD9',
   },
   {

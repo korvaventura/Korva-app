@@ -1,4 +1,5 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
+import TerminosScreen from './TerminosScreen';
 import { colors } from '../theme/korvaTheme';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Animated, ScrollView } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
@@ -10,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
 export default function LoginScreen({ onLogin }) {
+  const [verLegal, setVerLegal] = useState(false);
   const [modo, setModo] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -186,6 +188,8 @@ export default function LoginScreen({ onLogin }) {
       </View>
     );
   }
+
+  if (verLegal) return <TerminosScreen onVolver={() => setVerLegal(false)} />;
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -410,6 +414,7 @@ export default function LoginScreen({ onLogin }) {
             </TouchableOpacity>
           </>
         )}
+        <TouchableOpacity accessibilityRole="button" onPress={() => setVerLegal(true)} style={{ paddingVertical: 20 }}><Text style={{ color: colors.actionBlue, textAlign: 'center' }}>Términos de uso y privacidad</Text></TouchableOpacity>
       </Animated.View>
     </ScrollView>
     </KeyboardAvoidingView>

@@ -18,6 +18,7 @@ import LoginScreen from './screens/LoginScreen';
 import RankingScreen from './screens/RankingScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import TerminosScreen from './screens/TerminosScreen';
+import { LEGAL_VERSION, legalKey, onboardingKey } from './content/legal';
 import ResetPasswordScreen from './screens/ResetPasswordScreen';
 import DetalleRetoScreen from './screens/DetalleRetoScreen';
 import SaludDiagnosticoScreen from './screens/SaludDiagnosticoScreen';
@@ -56,13 +57,14 @@ Notifications.setNotificationHandler({
   }),
 });
 
-const registrarPushToken = async (userId) => {
+const registrarPushToken = async (userId, pedirPermiso = false) => {
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
+    // Startup only registers an already-authorized token; no permission wall.
+    // Native notification permission remains an independent device choice.
+    if (pedirPermiso && existingStatus !== 'granted') {
+      finalStatus = (await Notifications.requestPermissionsAsync()).status;
     }
     if (finalStatus !== 'granted') return;
 
@@ -78,13 +80,14 @@ const registrarPushToken = async (userId) => {
   }
 };
 
-const chequearPantallas = async (setMostrarTerminos, setMostrarOnboarding) => {
-  const terminosAceptados = await AsyncStorage.getItem('terminos_aceptados');
-  if (!terminosAceptados) {
-    setMostrarTerminos(true);
-  } else {
-    const onboardingVisto = await AsyncStorage.getItem('onboarding_visto');
-    if (!onboardingVisto) setMostrarOnboarding(true);
+const chequearPantallas = async (userId, setMostrarTerminos, setMostrarOnboarding) => {
+  try {
+    const version = await AsyncStorage.getItem(legalKey(userId));
+    const onboarding = await AsyncStorage.getItem(onboardingKey(userId));
+    setMostrarTerminos(version !== LEGAL_VERSION);
+    setMostrarOnboarding(version === LEGAL_VERSION && !onboarding);
+  } catch {
+    setMostrarTerminos(true); setMostrarOnboarding(false);
   }
 };
 
@@ -121,9 +124,9 @@ export default function App() {
   const [mostrarOnboarding, setMostrarOnboarding] = useState(false);
   const [mostrarReset, setMostrarReset] = useState(false);
 
-  // Sync autom?tico de Apple Health: solo iOS y, por ahora, solo admins (con opt-in en el diagn?stico).
+  // Salud: sincronización por cuenta solo después de conexión opcional.
   // Va antes de cualquier return para no cambiar el orden de los hooks.
-  useHealthAutoSync(usuario?.id || null);
+  useHealthAutoSync(!cargando && !mostrarTerminos ? usuario?.id || null : null);
 
   useEffect(() => {
     const handleDeepLink = async (url) => {
@@ -150,36 +153,40 @@ export default function App() {
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUsuario(session?.user ?? null);
-      setCargando(false);
       if (session?.user) {
-        await chequearPantallas(setMostrarTerminos, setMostrarOnboarding);
+        await chequearPantallas(session.user.id, setMostrarTerminos, setMostrarOnboarding);
         await registrarPushToken(session.user.id);
       }
+      setCargando(false);
     });
 
-    supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       const user = session?.user ?? null;
       setUsuario(user);
       if (event === 'PASSWORD_RECOVERY') {
         setMostrarReset(true);
       } else if (user) {
-        await chequearPantallas(setMostrarTerminos, setMostrarOnboarding);
+        setCargando(true);
+        await chequearPantallas(user.id, setMostrarTerminos, setMostrarOnboarding);
         await registrarPushToken(user.id);
+        setCargando(false);
+      } else {
+        setMostrarTerminos(false); setMostrarOnboarding(false);
       }
     });
 
-    return () => subscription.remove();
+    return () => { subscription.remove(); authListener.subscription.unsubscribe(); };
   }, []);
 
   const aceptarTerminos = async () => {
-    await AsyncStorage.setItem('terminos_aceptados', 'true');
+    await AsyncStorage.setItem(legalKey(usuario.id), LEGAL_VERSION);
     setMostrarTerminos(false);
-    const onboardingVisto = await AsyncStorage.getItem('onboarding_visto');
+    const onboardingVisto = await AsyncStorage.getItem(onboardingKey(usuario.id));
     if (!onboardingVisto) setMostrarOnboarding(true);
   };
 
   const terminarOnboarding = async () => {
-    await AsyncStorage.setItem('onboarding_visto', 'true');
+    await AsyncStorage.setItem(onboardingKey(usuario.id), 'true');
     setMostrarOnboarding(false);
   };
 
@@ -187,7 +194,7 @@ export default function App() {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ fontSize: 36, fontWeight: 'bold', color: colors.text, letterSpacing: 6, marginBottom: 8 }}>KORVA</Text>
-        <Text style={{ fontSize: 14, color: colors.textSoft, marginBottom: 32 }}>Desafíos virtuales. Medallas reales.</Text>
+        <Text style={{ fontSize: 14, color: colors.textSoft, marginBottom: 32 }}>Cada paso cuenta.</Text>
         <ActivityIndicator color="#FC4C02" size="large" />
       </View>
     );
@@ -206,7 +213,7 @@ export default function App() {
   }
 
   if (mostrarOnboarding) {
-    return <OnboardingScreen onTerminar={terminarOnboarding} />;
+    return <OnboardingScreen onTerminar={terminarOnboarding} onActivarAvisos={() => registrarPushToken(usuario.id, true)} />;
   }
 
   const esAdmin = ADMINS.includes(usuario.email?.toLowerCase());
