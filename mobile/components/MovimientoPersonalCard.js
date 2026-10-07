@@ -20,6 +20,9 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
   const [desgloseAbierto, setDesgloseAbierto] = useState(false);
   const listo = estado.status === 'disponible';
   const r = listo ? estado.datos : null;
+  const origenDistancia = !r || !Number.isFinite(r.hoy.km_health_adicional) ? 'Distancia de hoy'
+    : r.hoy.km_health_adicional > 0 ? (r.hoy.km_actividades > 0 ? 'Actividades + Salud' : 'De Salud')
+    : 'De tus actividades';
   if (compacto) return (
     <View style={styles.summaryGroup}>
       <TouchableOpacity style={styles.summary} activeOpacity={0.85} onPress={() => setDetalleAbierto(true)}
@@ -32,18 +35,16 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
           <View style={styles.metrics}>
             <View style={styles.metric}>
               <Text style={styles.summaryValue}>{format(r.hoy.km_movimiento)}<Text style={styles.summaryUnit}> km</Text></Text>
-              <Text style={styles.label}>Distancia total</Text>
+              <Text style={styles.label}>{origenDistancia}</Text>
             </View>
             <View style={styles.metric}>
               <Text style={styles.summaryValue}>{r.hoy.pasos === null ? '—' : format(r.hoy.pasos, 0)}</Text>
-              <Text style={styles.label}>Pasos · Salud</Text>
+              <Text style={styles.label}>pasos · de Salud</Text>
             </View>
           </View>
         ) : <Text style={styles.note}>{estados[estado.status] || estados.error}</Text>}
-        {listo && <Text style={styles.note}>Los pasos se muestran por separado.</Text>}
-        <Text style={styles.summaryLink}>Ver mi movimiento</Text>
+        <Text style={styles.summaryLink}>Ver detalle y configurar Salud</Text>
       </TouchableOpacity>
-      {estado.userId && <ObjetivoDiarioCard key={estado.userId} userId={estado.userId} pasos={listo ? r.hoy.pasos : null} integrado />}
       <Modal visible={detalleAbierto} animationType="slide" presentationStyle="pageSheet" allowSwipeDismissal
         onRequestClose={() => setDetalleAbierto(false)} onDismiss={() => setDetalleAbierto(false)}>
         <SafeAreaProvider>
@@ -128,6 +129,7 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
           </View>
         </>
       )}
+      {estado.userId && <ObjetivoDiarioCard key={estado.userId} userId={estado.userId} pasos={listo ? r.hoy.pasos : null} integrado />}
       <SaludConfiguracion key={estado.userId} userId={estado.userId} />
     </View>
   );
@@ -139,7 +141,7 @@ const styles = StyleSheet.create({
   breakdownLabel: { flex: 1 },
   breakdownValue: { color: colors.textSoft, fontSize: 12, fontWeight: '700' },
   summaryGroup: { backgroundColor: colors.backgroundDeep, borderWidth: 1, borderColor: colors.borderSoft, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg },
-  summary: { padding: 0, marginBottom: spacing.sm },
+  summary: { padding: 0 },
   summaryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   summaryValue: { color: colors.text, fontSize: 25, fontWeight: '800' },
   summaryUnit: { color: colors.textSoft, fontSize: 13, fontWeight: '600' },
