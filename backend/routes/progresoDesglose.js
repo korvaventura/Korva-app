@@ -24,7 +24,7 @@ router.get('/', requireUser, async (req, res) => {
     });
 
     return res.json({
-      health_activo: incluirHealth,
+      health_activo: informe.desafios.some((d) => (d.health?.elegible_km || 0) > 0),
       desafios: informe.desafios.map((d) => ({
         user_challenge_id: d.user_challenge_id,
         challenge_id: d.challenge_id,

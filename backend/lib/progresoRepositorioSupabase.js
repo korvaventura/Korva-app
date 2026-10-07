@@ -22,6 +22,7 @@
 //  - Nunca se escriben km_base ni km_base_motivo.
 //  - progreso_eventos (4A-3a): alta de eventos y su estado. actualizado_at lo pone la base (trigger).
 const { clienteSoloLectura, traerTodo } = require('./progresoSombra');
+const { healthConsentActivo } = require('./flagsMotor');
 
 const CAMPOS_USER_CHALLENGE = 'id, user_id, challenge_id, status, started_at, completed_at, pausado, pausado_at, periodos_pausados, version, modalidad, km_completed, km_base, km_base_motivo';
 const CAMPOS_CHALLENGE = 'id, title, modalidades, total_distance_km';
@@ -336,10 +337,14 @@ const crearRepositorioBase = (supabase) => {
         filas.forEach((c) => challenges.set(c.id, c));
       }
       const actividades = await traerTodo(() => lectura.from('activities').select(CAMPOS_ACTIVIDAD).eq('user_id', userId));
-      const dailyMovement = opcionesLectura.incluirHealth
+      const healthConsent = healthConsentActivo()
+        ? await traerTodo(() => supabase.from('health_challenge_consents').select('*').eq('user_id', userId).eq('tipo', 'pago'))
+        : null;
+      const incluirHealthAutorizado = healthConsent !== null;
+      const dailyMovement = opcionesLectura.incluirHealth || (healthConsent && healthConsent.length > 0)
         ? await traerTodo(() => lectura.from('daily_movement').select(CAMPOS_DAILY_MOVEMENT).eq('user_id', userId))
         : [];
-      return { userChallenges, challenges, actividades, dailyMovement };
+      return { userChallenges, challenges, actividades, dailyMovement, healthConsent, incluirHealthAutorizado };
     },
 
     /** Escribe km_completed solo si el desafío sigue activo y nadie lo cambió desde la lectura. */

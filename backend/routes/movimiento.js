@@ -7,6 +7,9 @@ const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const requireUser = require('../middleware/requireUser');
+const { prepararRecalculoHealth, terminarRecalculoHealth } = require('../lib/healthRecalculo');
+let dispararEfectos = () => {};
+router.configurarMotor = (opciones) => { dispararEfectos = opciones.dispararEfectos; };
 
 const getSupabase = () => createClient(
   process.env.SUPABASE_URL,
@@ -177,6 +180,7 @@ router.post('/sync', requireUser, async (req, res) => {
       .filter((f) => fechasCerradas.has(f.fecha))
       .map((f) => ({ fecha: f.fecha, motivo: 'cerrado' }));
     const aGuardar = filas.filter((f) => !fechasCerradas.has(f.fecha));
+    const preparado = aGuardar.length ? await prepararRecalculoHealth(supabase, userId) : null;
 
     if (aGuardar.length > 0) {
       // Idempotente por (user_id, fecha): si el día existe se reemplaza con los
@@ -194,8 +198,10 @@ router.post('/sync', requireUser, async (req, res) => {
       }
     }
 
+    const recalculo = await terminarRecalculoHealth(preparado, userId, dispararEfectos);
     res.json({
       ok: true,
+      progreso: recalculo.ok ? 'actualizado' : 'pendiente',
       guardados: aGuardar.map((f) => f.fecha),
       omitidos,
     });
