@@ -16,6 +16,7 @@ const { crearGruposRoutes } = require('./routes/grupos');
 const { crearComunidadRoutes } = require('./routes/comunidad');
 const { crearMovimientoPersonalRoutes } = require('./routes/movimientoPersonal');
 const { crearRutasLibresRoutes } = require('./routes/rutasLibres');
+const { crearHealthConsentRoutes } = require('./routes/healthConsent');
 const { writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva, stravaWebhookMotorActiva } = require('./lib/flagsMotor');
 const { crearRepositorioSupabase } = require('./lib/progresoRepositorioSupabase');
 const { reanudarDesafioConMotor } = require('./lib/reanudarDesafio');
@@ -106,6 +107,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use('/actividades/gps', crearActividadGpsRoutes({ supabase, procesadorEventos }));
 app.use('/movimiento-personal', crearMovimientoPersonalRoutes({ supabase }));
 app.use('/rutas-libres', crearRutasLibresRoutes({ supabase }));
+app.use('/movimiento-diario/desafios', crearHealthConsentRoutes({ supabase, dispararEfectos: (ids) => procesadorEventos.disparar(ids) }));
 app.use('/grupos', crearGruposRoutes({ supabase }));
 app.use('/comunidad', crearComunidadRoutes({ supabase }));
 
@@ -389,6 +391,7 @@ stravaRoutes.configurarMotor({ dispararEfectos: (ids) => procesadorEventos.dispa
 app.use('/mercadopago', mercadopagoRoutes);
 app.use('/invitaciones', invitacionesRoutes);
 app.use('/movimiento-diario', movimientoRoutes);
+movimientoRoutes.configurarMotor({ dispararEfectos: (ids) => procesadorEventos.disparar(ids) });
 app.use('/admin/residual', residualAdminRoutes); // Etapa 3: residual en modo sombra, solo admin, solo lectura
 app.use('/admin/progreso-sombra', progresoSombraAdminRoutes); // Etapa 4A: progreso unificado en modo sombra, solo admin, solo lectura
 app.use('/admin/progreso-health-sombra', progresoHealthSombraAdminRoutes); // Etapa 4B-1: Health + 4A en sombra, solo admin, solo lectura
