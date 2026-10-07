@@ -43,13 +43,14 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Korva necesita acceso a tu galería para que puedas subir tu foto de perfil."
+          "photosPermission": "Korva necesita acceso a tu galería para que puedas subir tu foto de perfil.",
+          "microphonePermission": false
         }
       ],
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "Korva lee tu distancia caminada, corrida y en bici desde Salud para mostrar tu movimiento diario.",
+          "NSHealthShareUsageDescription": "Korva lee tus pasos y distancia caminada, corrida y en bici desde Salud para mostrar tu movimiento diario y, solo si lo confirmás para cada desafío, sumar tu distancia a su progreso.",
           "NSHealthUpdateUsageDescription": false,
           "background": false
         }

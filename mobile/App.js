@@ -223,9 +223,7 @@ export default function App() {
         <Stack.Screen name="DetalleActividad" component={DetalleActividadScreen} />
         <Stack.Screen name="KorvaMundi" component={KorvaMundiScreen} />
         <Stack.Screen name="RutaLibre" component={RutaLibreScreen} options={{ title: 'Islandia', headerShown: true, headerStyle: { backgroundColor: colors.background }, headerTintColor: colors.text }} />
-        {esAdmin && (
-          <Stack.Screen name="SaludDiagnostico" component={SaludDiagnosticoScreen} />
-        )}
+        {esAdmin && __DEV__ && <Stack.Screen name="SaludDiagnostico" component={SaludDiagnosticoScreen} />}
       </Stack.Navigator>
     </NavigationContainer>
   );

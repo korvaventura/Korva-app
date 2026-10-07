@@ -18,8 +18,14 @@ y verificarla; no alcanza con apagar un botón ni una variable del backend.
 
 Pendientes para una publicación con Salud: verificar el aporte real del primer día,
 política de privacidad y declaraciones de datos/permisos en ambas consolas,
-pantalla de diagnóstico temporal en producción y permisos nativos del paquete.
+verificar los permisos nativos del paquete generado.
+La pantalla de diagnóstico queda disponible solo en desarrollo; se deshabilitó el
+permiso de micrófono del selector de fotos y se actualizó la explicación de Salud.
 No hay build de producción nuevo ni envío a revisión confirmado en este chat.
+
+La publicación incluirá todos los cambios de esta rama, incluida Salud, por decisión
+confirmada del usuario. Compilar esta rama directamente permite probar el paquete
+completo antes de integrar la versión móvil en main.
 
 ## Versiones
 
