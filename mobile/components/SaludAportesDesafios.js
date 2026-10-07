@@ -23,7 +23,7 @@ export default function SaludAportesDesafios({ userId, conectado }) {
     if (!d.activo && !conectado) { Alert.alert('Conectá Salud', 'Primero conectá Salud para sincronizar la distancia medida.'); return; }
     const habilitar = !d.activo;
     const texto = habilitar
-      ? 'La distancia medida de Salud empezará a aportar desde el próximo día completo. Los pasos no se convierten a km. Se descuenta la distancia ya registrada por actividades para evitar duplicaciones. Las pausas del desafío se respetan.'
+      ? 'Desde mañana, la distancia de Salud suma a este desafío. Los pasos no se convierten a km y las actividades no se cuentan dos veces. Se respetan las pausas. Para finalizar, Salud necesita al menos 48 horas después del día registrado para confirmar el avance.'
       : 'Se detienen los nuevos aportes a este desafío. Se conservan los días completos que ya autorizaste; el día de hoy queda fuera.';
     Alert.alert(habilitar ? `Usar Salud en ${d.titulo}` : `Detener aportes a ${d.titulo}`, texto,
       [{ text: 'Cancelar', style: 'cancel' }, { text: habilitar ? 'Confirmar aporte' : 'Detener aportes', onPress: () => operar(async () => {
@@ -35,22 +35,22 @@ export default function SaludAportesDesafios({ userId, conectado }) {
       }) }]);
   };
   return <View style={s.section}>
-    <Text style={s.title}>Movimiento en desafíos</Text>
-    <Text style={s.copy}>Conectar Salud no activa aportes. Elegí y confirmá cada desafío donde querés usar tu distancia diaria.</Text>
+    <Text style={s.title}>Sumar distancia a desafíos</Text>
+    <Text style={s.copy}>Vos elegís a cuáles sumar. No se activa automáticamente.</Text>
     <TouchableOpacity accessibilityRole="button" disabled={ocupado} onPress={() => {
       setAbierto((v) => !v); if (!abierto) operar(cargar);
-    }}><Text style={s.link}>{ocupado ? 'Cargando…' : abierto ? 'Cerrar selección' : 'Usar movimiento diario en desafíos'}</Text></TouchableOpacity>
+    }}><Text style={s.link}>{ocupado ? 'Cargando…' : abierto ? 'Cerrar selección' : 'Elegir desafíos'}</Text></TouchableOpacity>
     {abierto && <View style={s.list}>
       {!!error && <><Text style={s.copy}>{error}</Text><TouchableOpacity disabled={ocupado} onPress={() => operar(cargar)}><Text style={s.link}>Volver a intentar</Text></TouchableOpacity></>}
       {estado?.disponible === false && <Text style={s.copy}>Esta opción todavía no está habilitada. Tu movimiento sigue disponible en el resumen personal.</Text>}
       {estado?.disponible && estado.desafios.length === 0 && <Text style={s.copy}>No tenés desafíos en curso para configurar.</Text>}
       {estado?.disponible && estado.desafios.map((d) => <View key={`${d.tipo}:${d.id}`} style={s.row}>
         <View style={s.info}><Text style={s.title}>{d.titulo}</Text>
-          <Text style={s.copy}>{d.activo ? `Aporte activado · desde ${new Date(d.desde).toLocaleDateString()}${d.pausado ? ' · desafío pausado' : ''}` : 'Sin aporte de Salud'}</Text>
+          <Text style={s.copy}>{d.activo ? `Activo desde ${new Date(d.desde).toLocaleDateString()}${d.pausado ? ' · desafío pausado' : ''}` : 'No suma a este desafío'}</Text>
         </View>
-        <TouchableOpacity accessibilityRole="button" disabled={ocupado} onPress={() => elegir(d)}><Text style={s.link}>{d.activo ? 'Desactivar' : 'Elegir'}</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" disabled={ocupado} onPress={() => elegir(d)}><Text style={s.link}>{d.activo ? 'Desactivar' : 'Activar'}</Text></TouchableOpacity>
       </View>)}
-      {estado?.disponible && <Text style={s.copy}>La distancia diaria puede corregirse con nuevas lecturas. Para completar un desafío, Salud necesita datos estables durante al menos 48 horas después del día registrado.</Text>}
+      {estado?.disponible && <Text style={s.copy}>Empieza desde el próximo día completo, después de confirmar.</Text>}
     </View>}
   </View>;
 }

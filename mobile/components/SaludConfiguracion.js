@@ -7,7 +7,7 @@ import { colors } from '../theme/korvaTheme';
 import SaludAportesDesafios from './SaludAportesDesafios';
 
 export default function SaludConfiguracion({ userId }) {
-  const [abierto,setAbierto]=useState(false),[activo,setActivo]=useState(false),[ocupado,setOcupado]=useState(false),[mensaje,setMensaje]=useState('');
+  const [abierto,setAbierto]=useState(false),[activo,setActivo]=useState(false),[ocupado,setOcupado]=useState(false),[mensaje,setMensaje]=useState(''),[info,setInfo]=useState(false);
   const vivo=useRef(false),bloqueado=useRef(false);
   const nombre=Platform.OS==='android'?'Health Connect':'Apple Health';
   useEffect(()=>{vivo.current=true;let vigente=true;setActivo(false);setAbierto(false);setMensaje('');autoSyncActivado(userId).then(v=>{if(vigente)setActivo(v);});return()=>{vigente=false;vivo.current=false;};},[userId]);
@@ -32,18 +32,19 @@ export default function SaludConfiguracion({ userId }) {
   });
   const desconectar=()=>Alert.alert('Desconectar Salud','Se detiene la sincronización en este teléfono. Tu historial ya guardado se conserva.',[{text:'Cancelar',style:'cancel'},{text:'Desconectar',style:'destructive',onPress:()=>operar(async()=>{await setAutoSyncActivado(userId,false);if(vivo.current){setActivo(false);setMensaje('Sincronización desactivada.');}})}]);
   return <View style={styles.card}>
-    <TouchableOpacity accessibilityRole="button" onPress={()=>setAbierto(v=>!v)} style={styles.header}><Text style={styles.title}>Configurar movimiento diario</Text><Text style={styles.link}>{abierto?'Cerrar':'Configurar'}</Text></TouchableOpacity>
-    <Text style={styles.note}>Resumen personal · los aportes se configuran por desafío</Text>
+    <TouchableOpacity accessibilityRole="button" onPress={()=>setAbierto(v=>!v)} style={styles.header}><Text style={styles.title}>Salud y desafíos</Text><Text style={styles.link}>{abierto?'Cerrar':'Configurar'}</Text></TouchableOpacity>
+    <Text style={styles.note}>{activo?'Salud conectada · elegí si querés sumar a desafíos':'Conectá Salud y elegí dónde sumar distancia'}</Text>
     {abierto && <View style={styles.body}>
-      <Text style={styles.title}>{nombre}</Text>
-      <Text style={styles.copy}>Conectá Salud para ver tus pasos y distancia diaria. Korva solo lee estos datos; no escribe en Salud.</Text>
-      <Text style={styles.copy}>La sincronización se realiza al abrir o volver a la app, como máximo cada 3 horas. Podés actualizarla acá cuando lo necesites.</Text>
-      <Text style={styles.status}>{activo?'Sincronización del resumen activada':'Sincronización del resumen desactivada'}</Text>
-      <TouchableOpacity style={styles.button} disabled={ocupado} onPress={activo?()=>operar(actualizar):conectarResumen} accessibilityRole="button"><Text style={styles.buttonText}>{ocupado?'Procesando…':activo?'Actualizar ahora':`Conectar con ${nombre}`}</Text></TouchableOpacity>
-      {activo && <TouchableOpacity disabled={ocupado} onPress={desconectar} accessibilityRole="button"><Text style={styles.link}>Desconectar Salud</Text></TouchableOpacity>}
+      <Text style={styles.status}>{nombre} · {activo?'Conectada':'Sin conectar'}</Text>
+      {!activo && <Text style={styles.copy}>Leé tus pasos y distancia diaria desde Salud.</Text>}
+      <TouchableOpacity style={[styles.button,activo && styles.syncButton]} disabled={ocupado} onPress={activo?()=>operar(actualizar):conectarResumen} accessibilityRole="button"><Text style={[styles.buttonText,activo && styles.syncText]}>{ocupado?'Procesando…':activo?'Sincronizar ahora':'Conectar Salud'}</Text></TouchableOpacity>
       {!!mensaje && <Text accessibilityLiveRegion="polite" style={styles.copy}>{mensaje}</Text>}
       <SaludAportesDesafios key={userId} userId={userId} conectado={activo}/>
+      <TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:info}} onPress={()=>setInfo(v=>!v)}><Text style={styles.link}>{info?'Cerrar opciones':'Opciones de conexión'}</Text></TouchableOpacity>
+      {info && <View style={{gap:8}}><Text style={styles.copy}>Se sincroniza al abrir la app, como máximo cada 3 horas. Korva solo lee Salud; no modifica sus datos.</Text>
+        {activo && <TouchableOpacity disabled={ocupado} onPress={desconectar} accessibilityRole="button"><Text style={styles.link}>Desconectar Salud</Text></TouchableOpacity>}
+      </View>}
     </View>}
   </View>;
 }
-const styles=StyleSheet.create({card:{marginTop:18,borderTopWidth:1,borderTopColor:colors.borderSoft,paddingTop:18},header:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:12},title:{color:colors.text,fontSize:13,fontWeight:'700',flexShrink:1},note:{color:colors.textMuted,fontSize:11,lineHeight:17,marginTop:7},body:{gap:12,marginTop:20},copy:{color:colors.textSoft,fontSize:12,lineHeight:19},link:{color:colors.actionBlue,fontSize:12,fontWeight:'700',paddingVertical:8},status:{color:'#9DE1C8',fontSize:12,fontWeight:'700'},button:{backgroundColor:colors.brandOrange,padding:14,borderRadius:12,alignItems:'center'},buttonText:{color:'#FFF',fontSize:12,fontWeight:'800'},challenge:{borderTopWidth:1,borderTopColor:colors.borderSoft,paddingTop:15,gap:8}});
+const styles=StyleSheet.create({card:{marginTop:18,borderTopWidth:1,borderTopColor:colors.borderSoft,paddingTop:18},header:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:12},title:{color:colors.text,fontSize:13,fontWeight:'700',flexShrink:1},note:{color:colors.textMuted,fontSize:11,lineHeight:17,marginTop:7},body:{gap:12,marginTop:20},copy:{color:colors.textSoft,fontSize:12,lineHeight:19},link:{color:colors.actionBlue,fontSize:12,fontWeight:'700',paddingVertical:8},status:{color:'#9DE1C8',fontSize:12,fontWeight:'700'},button:{backgroundColor:colors.brandOrange,padding:14,borderRadius:12,alignItems:'center'},syncButton:{backgroundColor:colors.backgroundDeep,borderWidth:1,borderColor:colors.borderSoft,padding:10,alignSelf:'flex-start'},syncText:{color:colors.actionBlue},buttonText:{color:'#FFF',fontSize:12,fontWeight:'800'},challenge:{borderTopWidth:1,borderTopColor:colors.borderSoft,paddingTop:15,gap:8}});

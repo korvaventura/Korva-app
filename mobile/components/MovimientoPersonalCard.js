@@ -17,6 +17,7 @@ const estados = {
 
 export default function MovimientoPersonalCard({ estado, onActualizar, compacto = false }) {
   const [detalleAbierto, setDetalleAbierto] = useState(false);
+  const [desgloseAbierto, setDesgloseAbierto] = useState(false);
   const listo = estado.status === 'disponible';
   const r = listo ? estado.datos : null;
   if (compacto) return (
@@ -39,8 +40,8 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
             </View>
           </View>
         ) : <Text style={styles.note}>{estados[estado.status] || estados.error}</Text>}
-        {listo && <Text style={styles.note}>Distancia y pasos son medidas distintas, no se suman entre sí.</Text>}
-        <Text style={styles.summaryLink}>Ver desglose de mi movimiento</Text>
+        {listo && <Text style={styles.note}>Los pasos se muestran por separado.</Text>}
+        <Text style={styles.summaryLink}>Ver mi movimiento</Text>
       </TouchableOpacity>
       {estado.userId && <ObjetivoDiarioCard key={estado.userId} userId={estado.userId} pasos={listo ? r.hoy.pasos : null} integrado />}
       <Modal visible={detalleAbierto} animationType="slide" presentationStyle="pageSheet" allowSwipeDismissal
@@ -67,11 +68,11 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={styles.eyebrow}>TU MOVIMIENTO</Text>
-          <Text style={styles.title}>Cada paso cuenta</Text>
+          <Text style={styles.title}>Hoy</Text>
         </View>
-        <TouchableOpacity onPress={onActualizar} disabled={estado.status === 'cargando'} accessibilityRole="button" accessibilityLabel="Actualizar tu movimiento" hitSlop={10}>
-          <Text style={styles.refresh}>{estado.status === 'no_disponible' ? 'Consultar' : 'Actualizar'}</Text>
-        </TouchableOpacity>
+        {!listo && <TouchableOpacity onPress={onActualizar} disabled={estado.status === 'cargando'} accessibilityRole="button" accessibilityLabel="Actualizar tu movimiento" hitSlop={10}>
+          <Text style={styles.refresh}>{estado.status === 'no_disponible' ? 'Consultar' : 'Reintentar'}</Text>
+        </TouchableOpacity>}
       </View>
       {!listo ? (
         <View style={styles.state}>
@@ -80,26 +81,31 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
         </View>
       ) : (
         <>
-          <Text style={styles.period}>HOY</Text>
           <View style={styles.metrics}>
             <View style={styles.metric}>
               <Text style={styles.value}>{r.hoy.pasos === null ? '—' : format(r.hoy.pasos, 0)}</Text>
-              <Text style={styles.label}>pasos · Salud</Text>
+              <Text style={styles.label}>pasos de Salud</Text>
             </View>
             <View style={styles.metric}>
               <Text style={styles.value}>{format(r.hoy.km_movimiento)}</Text>
-              <Text style={styles.label}>km totales del día</Text>
+              <Text style={styles.label}>km recorridos</Text>
             </View>
           </View>
+          <Text style={styles.note}>Los pasos no se convierten a km.</Text>
           {Number.isFinite(r.hoy.km_actividades) && Number.isFinite(r.hoy.km_health_adicional) && (
-            <View style={styles.breakdown}>
+            <>
+            <TouchableOpacity onPress={() => setDesgloseAbierto(v => !v)} accessibilityRole="button" accessibilityState={{ expanded: desgloseAbierto }}>
+              <Text style={styles.summaryLink}>{desgloseAbierto ? 'Ocultar desglose' : '¿De dónde salen los km?'}</Text>
+            </TouchableOpacity>
+            {desgloseAbierto && <View style={styles.breakdown}>
               <View style={styles.breakdownRow}><Text style={styles.label}>Actividades registradas</Text><Text style={styles.breakdownValue}>{format(r.hoy.km_actividades)} km</Text></View>
-              <View style={styles.breakdownRow}><Text style={[styles.label,styles.breakdownLabel]}>Movimiento adicional de Salud</Text><Text style={styles.breakdownValue}>+ {format(r.hoy.km_health_adicional)} km</Text></View>
-              <View style={[styles.breakdownRow,styles.breakdownTotal]}><Text style={styles.totalLabel}>Total de hoy</Text><Text style={styles.totalLabel}>{format(r.hoy.km_movimiento)} km</Text></View>
-              <Text style={styles.note}>El movimiento adicional excluye la distancia que ya está contemplada en tus actividades.</Text>
+              <View style={styles.breakdownRow}><Text style={[styles.label,styles.breakdownLabel]}>Salud · sin repetir actividades</Text><Text style={styles.breakdownValue}>+ {format(r.hoy.km_health_adicional)} km</Text></View>
+              <Text style={styles.note}>Salud suma solo la distancia que no está registrada en tus actividades.</Text>
               {r.hoy.health_estado !== 'disponible' && <Text style={[styles.note,{marginTop:6}]}>Todavía no hay datos de Salud compatibles para hoy. El total muestra tus actividades registradas.</Text>}
               {r.hoy.health_estado === 'disponible' && r.hoy.health_actualizado_at && Number.isFinite(Date.parse(r.hoy.health_actualizado_at)) && <Text style={[styles.note,{marginTop:6}]}>Última lectura de Salud: {new Date(r.hoy.health_actualizado_at).toLocaleString('es-AR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</Text>}
-            </View>
+              <Text style={[styles.note,{marginTop:8}]}>Historial de actividades: {format(r.historial.km_actividades)} km.</Text>
+            </View>}
+            </>
           )}
           {r.hoy.pasos === null && <Text style={styles.note}>Todavía no hay una lectura de pasos para hoy.</Text>}
           <View style={styles.week}>
@@ -110,7 +116,7 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
             <View style={styles.days}>
               {r.semana.dias.map((d) => {
                 const conMovimiento = d.km_movimiento > 0 || (d.pasos ?? 0) > 0;
-                const dia = new Date(`${d.fecha}T12:00:00Z`).toLocaleDateString('es-AR', { weekday: 'narrow', timeZone: 'UTC' });
+                const dia = new Date(`${d.fecha}T12:00:00Z`).toLocaleDateString('es-AR', { weekday: 'short', timeZone: 'UTC' });
                 return (
                   <View key={d.fecha} style={styles.day} accessibilityLabel={`${d.fecha}: ${format(d.km_movimiento)} kilómetros${d.pasos === null ? '' : `, ${format(d.pasos, 0)} pasos`}`}>
                     <Text style={styles.dayLabel}>{dia.toUpperCase()}</Text>
@@ -119,10 +125,7 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
                 );
               })}
             </View>
-            <Text style={styles.note}>Movimiento registrado de lunes a hoy.</Text>
           </View>
-          <Text style={styles.history}>{format(r.historial.km_actividades)} km en tu historial de actividades</Text>
-          <Text style={styles.note}>Los pasos son la lectura diaria de Salud: pueden incluir los de tus caminatas o entrenamientos. No se convierten a kilómetros ni se suman otra vez al total.</Text>
         </>
       )}
       <SaludConfiguracion key={estado.userId} userId={estado.userId} />
@@ -135,8 +138,6 @@ const styles = StyleSheet.create({
   breakdownRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, marginBottom: spacing.sm },
   breakdownLabel: { flex: 1 },
   breakdownValue: { color: colors.textSoft, fontSize: 12, fontWeight: '700' },
-  breakdownTotal: { borderTopWidth: 1, borderTopColor: colors.borderSoft, paddingTop: spacing.sm },
-  totalLabel: { color: colors.text, fontSize: 13, fontWeight: '800' },
   summaryGroup: { backgroundColor: colors.backgroundDeep, borderWidth: 1, borderColor: colors.borderSoft, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg },
   summary: { padding: 0, marginBottom: spacing.sm },
   summaryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -168,5 +169,4 @@ const styles = StyleSheet.create({
   dayLabel: { color: colors.textMuted, fontSize: 10, fontWeight: '700' },
   dayMark: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.borderSoft },
   dayMarkActive: { backgroundColor: colors.brandOrange },
-  history: { color: colors.textSoft, fontSize: 12, fontWeight: '700', marginBottom: spacing.sm },
 });
