@@ -430,12 +430,12 @@ export default function MapaRecorrido3D({
     const pinesVisibles = pines.filter((p) => p.cabeza.visible && p.base.visible);
     const zonasHud = [
       { x: 0, y: 0, w: tam.w, h: 64 },
-      { x: 0, y: 64, w: 205, h: 72 },
+      { x: 0, y: 64, w: 205, h: escena.capitulos?.length ? 100 : 72 },
       { x: 0, y: tam.h - 124, w: 200, h: 124 },
       { x: tam.w - 56, y: tam.h - 92, w: 56, h: 92 },
       { x: 0, y: tam.h - 32, w: tam.w, h: 32 },
       ...(escena.mostrarRelacionRecorrido ? [{ x: tam.w - 150, y: tam.h - 142, w: 150, h: 64 }] : []),
-      ...(reproduciendo && actividades.length ? [{ x: 0, y: 142, w: 110, h: 92 }] : []),
+      ...(reproduciendo && actividades.length ? [{ x: 0, y: escena.capitulos?.length ? 166 : 142, w: 110, h: 92 }] : []),
     ];
     const aguas = (escena.etiquetas || []).map((e) => {
       const agua = escena.aguas.find((a) => a.id === e.id);
@@ -696,7 +696,7 @@ export default function MapaRecorrido3D({
       )}
 
       {reproduciendo && actividadesVisibles.length > 0 && (
-        <View pointerEvents="none" style={styles.actividadesJourney}>
+        <View pointerEvents="none" style={[styles.actividadesJourney, !!escena.capitulos?.length && { top: 166 }]}>
           <Text style={styles.actividadesEyebrow}>ACTIVIDADES</Text>
           {actividadesVisibles.map((act, i) => {
             const actual = i === actividadesVisibles.length - 1;
@@ -740,14 +740,14 @@ export default function MapaRecorrido3D({
       <TouchableOpacity
         activeOpacity={0.86}
         onPress={reproduciendo ? detenerJourney : iniciarJourney}
-        style={[styles.playJourney, reproduciendo && styles.playJourneyActivo]}
+        style={[styles.playJourney, !!escena.capitulos?.length && { top: 90 }, reproduciendo && styles.playJourneyActivo]}
       >
         <Text style={styles.playJourneyTxt}>
           {reproduciendo ? 'Ⅱ DETENER' : completado ? '▶ REVIVIR CONQUISTA' : '▶ VER MI VIAJE'}
         </Text>
       </TouchableOpacity>
       {!completado && overlay?.actual && (
-        <TouchableOpacity activeOpacity={0.82} onPress={enfocarPosicion} style={styles.estoyAca}>
+        <TouchableOpacity activeOpacity={0.82} onPress={enfocarPosicion} style={[styles.estoyAca, !!escena.capitulos?.length && { top: 124 }]}>
           <Text style={styles.estoyAcaTxt}>◎ ESTÁS ACÁ · {journey.kmActual.toFixed(journey.kmActual < 10 ? 1 : 0)} KM</Text>
         </TouchableOpacity>
       )}
