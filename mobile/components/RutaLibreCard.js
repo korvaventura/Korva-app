@@ -38,7 +38,7 @@ export function RutaLibreCardVista({ navigation, soloInscrita = false, estado, d
       <TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('RutaLibre', { vista: 'historia' })}><Text style={styles.footerText}>Historia</Text></TouchableOpacity>
       {accion === 'Ver ruta' && <TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('RutaLibre')}><Text style={styles.footerText}>Ver ruta</Text></TouchableOpacity>}
       {accion === 'Ver ruta' && p && p.estado !== 'completada' && <TouchableOpacity disabled={guardando} accessibilityRole="button" onPress={pausar}><Text style={styles.footerText}>{guardando ? 'Guardando…' : p.pausado ? 'Reanudar' : 'Pausar'}</Text></TouchableOpacity>}
-      {p && !p.abandonado && <TouchableOpacity accessibilityRole="button" onPress={() => setCompartiendo(true)}><Text style={styles.footerText}>Compartir progreso</Text></TouchableOpacity>}
+      {p && !p.abandonado && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Compartir progreso" hitSlop={8} style={{ padding: 8, marginLeft: 'auto' }} onPress={() => setCompartiendo(true)}><Ionicons name="share-outline" size={22} color="#78DEC5" /></TouchableOpacity>}
     </View>}
     {compartiendo && p && <KorvaProgressShare reto={{ titulo: 'Islandia · Ring Road', km: p.km, total: 1400, gratuita: true }} onClose={() => setCompartiendo(false)} />}
   </View>;

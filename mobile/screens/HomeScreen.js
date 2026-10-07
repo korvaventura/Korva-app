@@ -10,8 +10,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
 import CompletadoScreen from './CompletadoScreen';
 import TutorialScreen from './TutorialScreen';
-import ViewShot from 'react-native-view-shot';
-import * as Sharing from 'expo-sharing';
+import KorvaProgressShare from '../components/KorvaProgressShare';
 import MapaRecorrido from './MapaRecorrido';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -93,7 +92,6 @@ export default function HomeScreen({ navigation }) {
   const [retoActivoIndex, setRetoActivoIndex] = useState(0);
   const [modalModalidadVisible, setModalModalidadVisible] = useState(false);
   const [actividadReciente, setActividadReciente] = useState(null);
-  const viewShotRefs = useRef([]);
   const progresoLeido = useRef(false);
   const completadosConocidos = useRef(null);
   const { estado: movimientoPersonal, actualizar: actualizarMovimiento } = useMovimientoPersonal(userId);
@@ -403,28 +401,9 @@ export default function HomeScreen({ navigation }) {
   const scrollRef = useRef(null);
   const actividadesInicioY = useRef(0);
   const movimientoInicioY = useRef(0);
-  const shareCardRef = useRef(null);
 
   const compartirProgreso = async (index) => {
     setModalCompartirItem(challengesActivos[index]);
-  };
-
-  const ejecutarCompartir = async () => {
-    try {
-      if (!shareCardRef?.current) {
-        Alert.alert('Error', 'No se pudo capturar la imagen. Cerrá y volvé a intentar.');
-        return;
-      }
-      // Esperar un frame para asegurar que el ViewShot está renderizado
-      await new Promise(resolve => setTimeout(resolve, 200));
-      const uri = await shareCardRef.current.capture();
-      setModalCompartirItem(null);
-      await new Promise(resolve => setTimeout(resolve, 400));
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: '¡Compartí tu progreso en Korva!' });
-    } catch (err) {
-      console.error('Error compartiendo:', err);
-      Alert.alert('Error', 'No se pudo compartir. Intentá de nuevo.');
-    }
   };
 
   if (mostrarTutorial) {
@@ -514,71 +493,10 @@ export default function HomeScreen({ navigation }) {
 
       {/* Modal Próximamente Strava */}
       {/* Modal Compartir Progreso */}
-      <Modal visible={!!modalCompartirItem} transparent animationType="fade" onRequestClose={() => setModalCompartirItem(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={{ width: '100%', alignItems: 'center' }}>
-            {modalCompartirItem && (
-              <ViewShot ref={shareCardRef} options={{ format: 'png', quality: 1 }}>
-                {(() => {
-                  const pct = Math.min(parseFloat(modalCompartirItem.porcentaje || 0), 100);
-                  const kmComp = parseFloat(modalCompartirItem.km_completados || 0).toFixed(1);
-                  const distTotal = parseFloat(modalCompartirItem.distancia_total || 0).toFixed(0);
-                  const mensaje = pct >= 100 ? 'META ALCANZADA'
-                    : pct >= 75 ? 'CASI EN LA META'
-                    : pct >= 50 ? 'MITAD DEL CAMINO'
-                    : pct >= 25 ? 'EN MOVIMIENTO'
-                    : 'EN RUTA';
-                  return (
-                    <View style={{ backgroundColor: colors.background, borderRadius: 20, width: 320, overflow: 'hidden' }}>
-                      <View style={{ padding: 28, alignItems: 'center' }}>
-                        {/* Logo */}
-                        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, letterSpacing: 4, fontWeight: 'bold', marginBottom: 24 }}>KORVA AVENTURAS</Text>
-                        {/* Medalla */}
-                        {modalCompartirItem.medal_image_url ? (
-                          <Image source={{ uri: modalCompartirItem.medal_image_url }} style={{ width: 72, height: 72, marginBottom: 16 }} resizeMode="contain" />
-                        ) : (
-                          <Text style={{ fontSize: 44, marginBottom: 16 }}>🏅</Text>
-                        )}
-                        {/* Nombre desafío */}
-                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 3, textTransform: 'uppercase', textAlign: 'center', marginBottom: 20 }}>
-                          {modalCompartirItem.challenge || '—'}
-                        </Text>
-                        {/* Porcentaje grande */}
-                        <Text style={{ color: colors.text, fontSize: 80, fontWeight: 'bold', letterSpacing: -3, lineHeight: 84 }}>
-                          {pct.toFixed(0)}<Text style={{ fontSize: 28, color: 'rgba(255,255,255,0.4)', fontWeight: '300' }}>%</Text>
-                        </Text>
-                        {/* Mensaje estado */}
-                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, letterSpacing: 3, marginTop: 6, marginBottom: 24 }}>{mensaje}</Text>
-                        {/* Barra progreso */}
-                        <View style={{ width: '100%', height: 3, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 2, marginBottom: 8 }}>
-                          <View style={{ width: `${pct}%`, height: 3, backgroundColor: colors.text, borderRadius: 2 }} />
-                        </View>
-                        {/* km */}
-                        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, letterSpacing: 1, marginBottom: 28 }}>
-                          {kmComp} / {distTotal} KM
-                        </Text>
-                        {/* Footer */}
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
-                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>{nombre?.toUpperCase()}</Text>
-                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: 1 }}>KORVA.RUN</Text>
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })()}
-              </ViewShot>
-            )}
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
-              <TouchableOpacity style={[styles.modalBtn, { flex: 1, backgroundColor: colors.surfaceStrong }]} onPress={() => setModalCompartirItem(null)}>
-                <Text style={[styles.modalBtnText, { color: colors.textSoft }]}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, { flex: 1 }]} onPress={ejecutarCompartir}>
-                <Text style={styles.modalBtnText}>📤 Compartir</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {modalCompartirItem && <KorvaProgressShare
+        reto={{ titulo: modalCompartirItem.challenge, km: modalCompartirItem.km_completados, total: modalCompartirItem.distancia_total }}
+        onClose={() => setModalCompartirItem(null)}
+      />}
 
       {/* Modal Strava Info — Qué es Strava y cómo conectarlo */}
       <Modal visible={modalStravaInfoVisible} transparent animationType="fade" onRequestClose={() => setModalStravaInfoVisible(false)}>
@@ -815,7 +733,6 @@ export default function HomeScreen({ navigation }) {
                 guardarMeta={guardarMeta}
                 saltarMeta={saltarMeta}
                 compartirProgreso={compartirProgreso}
-                viewShotRefs={viewShotRefs}
                 onModalidadPress={() => setModalModalidadVisible(true)}
                 scrollRef={scrollRef}
                 descargarBib={descargarBib}
@@ -1064,7 +981,7 @@ function GpsHomeAction({ navigation }) {
   );
 }
 
-function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress, scrollRef, descargarBib, cargandoBib, togglePausar }) {
+function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, onModalidadPress, scrollRef, descargarBib, cargandoBib, togglePausar }) {
   if (!item) return null;
   if (item.libre) return (
     <View>
@@ -1087,14 +1004,14 @@ function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, meta
 
   return (
     <View>
-      <ViewShot
-        ref={ref => viewShotRefs.current[index] = ref}
-        options={{ format: 'png', quality: 1 }}
-      >
+
         <View style={[styles.shareCard, { borderColor: bordeCard }]}>
           {/* FIX: header rediseñado — sin colores que parezcan botones */}
           <View style={styles.shareHeader}>
             <Text style={styles.shareKorvaLogo}>TU AVENTURA</Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Compartir progreso" hitSlop={8} style={{ padding: 8 }} onPress={() => compartirProgreso(index)}>
+              <Ionicons name="share-outline" size={22} color={colors.actionBlue} />
+            </TouchableOpacity>
           </View>
           <Text style={styles.shareChallengeName}>{item.challenge || '—'}</Text>
           <View style={styles.heroMetricRow}>
@@ -1128,10 +1045,7 @@ function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, meta
             <Ionicons name="arrow-forward" size={13} color={colors.actionBlue} />
           </TouchableOpacity>
         </View>
-      </ViewShot>
-      <TouchableOpacity accessibilityRole="button" style={{ paddingVertical: 12 }} onPress={() => compartirProgreso(index)}>
-        <Text style={{ color: colors.actionBlue, fontWeight: '700' }}>Compartir progreso</Text>
-      </TouchableOpacity>
+
 
       <MapaRecorrido
           kmCompletados={item.km_completados}

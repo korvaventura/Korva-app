@@ -7,6 +7,8 @@ import { colors } from '../theme/korvaTheme';
 export default function KorvaProgressShare({ reto, onClose }) {
   const shot = useRef(null), ocupado = useRef(false);
   const [preparando, setPreparando] = useState(false);
+  const [formato, setFormato] = useState('historia');
+  const transparente = formato === 'transparente';
   if (!reto) return null;
   const km = Math.max(0, Number(reto.km) || 0), total = Math.max(1, Number(reto.total) || 1);
   const pct = Math.min(100, km / total * 100);
@@ -24,9 +26,23 @@ export default function KorvaProgressShare({ reto, onClose }) {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <TouchableOpacity onPress={onClose} accessibilityRole="button"><Text style={styles.link}>Cerrar</Text></TouchableOpacity>
       <Text style={styles.title}>Compartir progreso</Text>
-      <Text style={styles.copy}>Así se verá tu imagen. Elegí dónde compartirla cuando estés listo.</Text>
-      <ViewShot ref={shot} options={{ format: 'png', quality: 1, result: 'tmpfile', width: 1080, height: 1920 }}>
-        {reto.gratuita ? <View collapsable={false} style={styles.icelandCard}>
+      <Text style={styles.copy}>Elegí el formato y revisá tu imagen antes de compartir.</Text>
+      <View style={styles.formats}>
+        {[['historia', 'Historia'], ['transparente', 'Transparente']].map(([id, label]) => <TouchableOpacity key={id} disabled={preparando} accessibilityRole="button" accessibilityState={{ selected: formato === id }} onPress={() => setFormato(id)} style={[styles.format, formato === id && styles.formatSelected]}><Text style={styles.formatLabel}>{label}</Text></TouchableOpacity>)}
+      </View>
+      <Text style={styles.copy}>{transparente ? 'PNG sin fondo para colocar sobre tu propia foto. El fondo gris es solo la vista previa.' : 'Imagen vertical lista para compartir en tus historias.'}</Text>
+      <View style={[styles.preview, transparente && styles.transparentPreview]}>
+      <ViewShot key={formato} ref={shot} style={{ backgroundColor: 'transparent' }} options={{ format: 'png', quality: 1, result: 'tmpfile', width: 1080, height: 1920 }}>
+        {transparente ? <View collapsable={false} style={styles.overlayCard}>
+          <Text style={styles.overlayBrand}>KORVA</Text>
+          <View>
+            <Text style={styles.overlayTag}>MI AVENTURA</Text>
+            <Text style={styles.overlayName}>{reto.titulo}</Text>
+            <Text style={styles.overlayKm}>{km.toLocaleString('es-AR', { maximumFractionDigits: 2 })}<Text style={styles.overlayUnit}> km</Text></Text>
+            <Text style={styles.overlayDetail}>de {total.toLocaleString('es-AR')} km · {pct > 0 && pct < 1 ? 'Menos del 1%' : `${Math.floor(pct)}%`} recorrido</Text>
+          </View>
+          <View><Text style={styles.overlayMotto}>Cada paso cuenta.</Text><Text style={styles.overlayDetail}>korva.run</Text></View>
+        </View> : reto.gratuita ? <View collapsable={false} style={styles.icelandCard}>
           <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%" viewBox="0 0 360 640" preserveAspectRatio="xMidYMid slice">
             <Defs>
               <LinearGradient id="noche" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#06131F"/><Stop offset=".55" stopColor="#103641"/><Stop offset="1" stopColor="#071A26"/></LinearGradient>
@@ -67,12 +83,28 @@ export default function KorvaProgressShare({ reto, onClose }) {
           <Text style={styles.copy}>korva.run</Text>
         </View>}
       </ViewShot>
+      </View>
       <TouchableOpacity style={styles.button} onPress={compartir} disabled={preparando} accessibilityRole="button"><Text style={styles.buttonText}>{preparando ? 'Preparando imagen…' : 'Compartir esta imagen'}</Text></TouchableOpacity>
     </ScrollView>
   </Modal>;
 }
+const shadow = { textShadowColor: 'rgba(0,0,0,.65)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 };
 const styles = StyleSheet.create({
-  icelandCard: { aspectRatio: 9/16, marginTop: 20, padding: 24, borderRadius: 20, overflow: 'hidden', backgroundColor: '#071A26', justifyContent: 'space-between' },
+  formats: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  format: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.borderSoft, alignItems: 'center' },
+  formatSelected: { backgroundColor: colors.surface, borderColor: colors.brandOrange },
+  formatLabel: { color: '#FFF', fontWeight: '700' },
+  preview: { marginTop: 20, borderRadius: 20, overflow: 'hidden' },
+  transparentPreview: { backgroundColor: '#48515B' },
+  overlayCard: { aspectRatio: 9/16, padding: 26, backgroundColor: 'transparent', justifyContent: 'space-between' },
+  overlayBrand: { ...shadow, color: '#FFF', fontSize: 20, fontWeight: '900', letterSpacing: 4 },
+  overlayTag: { ...shadow, color: '#FFF', fontSize: 10, fontWeight: '700', letterSpacing: 2 },
+  overlayName: { ...shadow, color: '#FFF', fontSize: 29, fontWeight: '800', marginTop: 12, marginBottom: 24 },
+  overlayKm: { ...shadow, color: '#FFF', fontSize: 52, fontWeight: '900' },
+  overlayUnit: { fontSize: 22 },
+  overlayDetail: { ...shadow, color: '#FFF', fontSize: 13, marginTop: 8 },
+  overlayMotto: { ...shadow, color: '#FFF', fontSize: 18, fontWeight: '700' },
+  icelandCard: { aspectRatio: 9/16, padding: 24, borderRadius: 20, overflow: 'hidden', backgroundColor: '#071A26', justifyContent: 'space-between' },
   icelandHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   icelandBrand: { color: '#FFF', fontSize: 19, fontWeight: '900', letterSpacing: 3 },
   icelandEyebrow: { color: '#A9E9D5', fontSize: 9, fontWeight: '700', letterSpacing: 2 },
@@ -94,7 +126,7 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 24, fontWeight: '800', marginVertical: 16 },
   link: { color: colors.actionBlue, paddingVertical: 10, fontWeight: '700' },
   copy: { color: colors.textSoft, fontSize: 13, lineHeight: 20 },
-  card: { aspectRatio: 9 / 16, padding: 24, backgroundColor: colors.surface, borderRadius: 20, justifyContent: 'center', marginTop: 20 },
+  card: { aspectRatio: 9 / 16, padding: 24, backgroundColor: colors.surface, borderRadius: 20, justifyContent: 'center' },
   brand: { color: colors.brandOrange, fontSize: 25, fontWeight: '900', letterSpacing: 4 },
   tag: { color: '#78DEC5', fontSize: 10, fontWeight: '800', marginTop: 26 },
   name: { color: colors.text, fontSize: 27, fontWeight: '800', marginVertical: 16 },
