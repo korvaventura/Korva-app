@@ -123,7 +123,7 @@ export default function App() {
 
   // Sync autom?tico de Apple Health: solo iOS y, por ahora, solo admins (con opt-in en el diagn?stico).
   // Va antes de cualquier return para no cambiar el orden de los hooks.
-  useHealthAutoSync(usuario && ADMINS.includes(usuario.email?.toLowerCase()) ? usuario.id : null);
+  useHealthAutoSync(usuario?.id || null);
 
   useEffect(() => {
     const handleDeepLink = async (url) => {

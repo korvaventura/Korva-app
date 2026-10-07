@@ -1,4 +1,4 @@
-// Sync AUTOMÁTICO de Apple Health → daily_movement. Solo iOS, solo admins por ahora.
+// Sync AUTOMÁTICO de Apple Health → daily_movement. iOS y Android, opt-in por cuenta.
 //
 // - Opt-in explícito: solo corre si el admin lo activó en la pantalla de diagnóstico.
 // - Nunca pide permisos: si el pedido de permiso no se mostró antes, no hace nada.
@@ -62,7 +62,7 @@ async function guardarEstado(userId, previo, cambios) {
   return estado;
 }
 
-export async function ejecutarSyncAutomatico(userId) {
+export async function ejecutarSyncAutomatico(userId, { forzar = false } = {}) {
   if (!['ios', 'android'].includes(Platform.OS) || !plataformaSoportada || !userId) {
     return { ejecutado: false, motivo: 'no_disponible' };
   }
@@ -77,11 +77,11 @@ export async function ejecutarSyncAutomatico(userId) {
 
     previo = await leerEstadoAutoSync(userId);
     const ahora = Date.now();
-    if (previo?.ultimoExitoMs && ahora - previo.ultimoExitoMs < INTERVALO_EXITO_MS) {
+    if (!forzar && previo?.ultimoExitoMs && ahora - previo.ultimoExitoMs < INTERVALO_EXITO_MS) {
       return { ejecutado: false, motivo: 'reciente' };
     }
     const errorEsElUltimo = previo?.ultimoErrorMs && (!previo.ultimoExitoMs || previo.ultimoErrorMs > previo.ultimoExitoMs);
-    if (errorEsElUltimo && ahora - previo.ultimoErrorMs < INTERVALO_ERROR_MS) {
+    if (!forzar && errorEsElUltimo && ahora - previo.ultimoErrorMs < INTERVALO_ERROR_MS) {
       return { ejecutado: false, motivo: 'esperando_reintento' };
     }
 
@@ -116,7 +116,9 @@ export async function ejecutarSyncAutomatico(userId) {
       return { ejecutado: true, motivo: 'sin_datos' };
     }
 
-    const respuesta = await enviarMovimiento(prep.payload);
+    // A disconnect during native reading must not send a new snapshot.
+    if (!(await autoSyncActivado(userId))) return { ejecutado: false, motivo: 'desactivado' };
+    const respuesta = await enviarMovimiento(prep.payload, userId);
     if (respuesta.ok) {
       await guardarEstado(userId, previo, {
         ...base,

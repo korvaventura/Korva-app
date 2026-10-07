@@ -7,7 +7,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "node --test tests/versionDesafio.test.js tests/textosVersion.test.js tests/gpsCore.test.js tests/gpsArchiveCore.test.js tests/rutaVisualCore.test.js tests/movimientoPersonalCore.test.js tests/movimientoPersonalSync.test.js tests/objetivoDiarioCore.test.js tests/desafioShareCore.test.js tests/precioCatalogo.test.js tests/gruposCore.test.js tests/mapa3dCore.test.js tests/modeloMeshy.test.js tests/modeloDubrovnikUnificado.test.js tests/modeloIslandia.test.js tests/modeloSanAndres.test.js tests/rutaLibreMundi.test.js tests/mapa3dInteraccion.test.js"
+    "test": "node --test tests/versionDesafio.test.js tests/textosVersion.test.js tests/gpsCore.test.js tests/gpsArchiveCore.test.js tests/rutaVisualCore.test.js tests/movimientoPersonalCore.test.js tests/movimientoPersonalSync.test.js tests/healthPublicConnection.test.js tests/objetivoDiarioCore.test.js tests/desafioShareCore.test.js tests/precioCatalogo.test.js tests/gruposCore.test.js tests/mapa3dCore.test.js tests/modeloMeshy.test.js tests/modeloDubrovnikUnificado.test.js tests/modeloIslandia.test.js tests/modeloSanAndres.test.js tests/rutaLibreMundi.test.js tests/mapa3dInteraccion.test.js"
   },
   "dependencies": {
     "@kingstinct/react-native-healthkit": "16.0.0",

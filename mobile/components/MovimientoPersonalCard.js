@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors, radius, spacing } from '../theme/korvaTheme';
+import SaludConfiguracion from './SaludConfiguracion';
 import ObjetivoDiarioCard from './ObjetivoDiarioCard';
 
 const format = (n, decimales = 2) => n.toLocaleString('es-AR', { maximumFractionDigits: decimales });
@@ -30,15 +31,16 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
           <View style={styles.metrics}>
             <View style={styles.metric}>
               <Text style={styles.summaryValue}>{format(r.hoy.km_movimiento)}<Text style={styles.summaryUnit}> km</Text></Text>
-              <Text style={styles.label}>de movimiento</Text>
+              <Text style={styles.label}>Distancia total</Text>
             </View>
             <View style={styles.metric}>
               <Text style={styles.summaryValue}>{r.hoy.pasos === null ? '—' : format(r.hoy.pasos, 0)}</Text>
-              <Text style={styles.label}>Pasos</Text>
+              <Text style={styles.label}>Pasos · Salud</Text>
             </View>
           </View>
         ) : <Text style={styles.note}>{estados[estado.status] || estados.error}</Text>}
-        <Text style={styles.summaryLink}>Ver mi movimiento</Text>
+        {listo && <Text style={styles.note}>Distancia y pasos son medidas distintas, no se suman entre sí.</Text>}
+        <Text style={styles.summaryLink}>Ver desglose de mi movimiento</Text>
       </TouchableOpacity>
       {estado.userId && <ObjetivoDiarioCard key={estado.userId} userId={estado.userId} pasos={listo ? r.hoy.pasos : null} integrado />}
       <Modal visible={detalleAbierto} animationType="slide" presentationStyle="pageSheet" allowSwipeDismissal
@@ -82,13 +84,23 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
           <View style={styles.metrics}>
             <View style={styles.metric}>
               <Text style={styles.value}>{r.hoy.pasos === null ? '—' : format(r.hoy.pasos, 0)}</Text>
-              <Text style={styles.label}>pasos</Text>
+              <Text style={styles.label}>pasos · Salud</Text>
             </View>
             <View style={styles.metric}>
               <Text style={styles.value}>{format(r.hoy.km_movimiento)}</Text>
-              <Text style={styles.label}>km de movimiento</Text>
+              <Text style={styles.label}>km totales del día</Text>
             </View>
           </View>
+          {Number.isFinite(r.hoy.km_actividades) && Number.isFinite(r.hoy.km_health_adicional) && (
+            <View style={styles.breakdown}>
+              <View style={styles.breakdownRow}><Text style={styles.label}>Actividades registradas</Text><Text style={styles.breakdownValue}>{format(r.hoy.km_actividades)} km</Text></View>
+              <View style={styles.breakdownRow}><Text style={[styles.label,styles.breakdownLabel]}>Movimiento adicional de Salud</Text><Text style={styles.breakdownValue}>+ {format(r.hoy.km_health_adicional)} km</Text></View>
+              <View style={[styles.breakdownRow,styles.breakdownTotal]}><Text style={styles.totalLabel}>Total de hoy</Text><Text style={styles.totalLabel}>{format(r.hoy.km_movimiento)} km</Text></View>
+              <Text style={styles.note}>El movimiento adicional excluye la distancia que ya está contemplada en tus actividades.</Text>
+              {r.hoy.health_estado !== 'disponible' && <Text style={[styles.note,{marginTop:6}]}>Todavía no hay datos de Salud compatibles para hoy. El total muestra tus actividades registradas.</Text>}
+              {r.hoy.health_estado === 'disponible' && r.hoy.health_actualizado_at && Number.isFinite(Date.parse(r.hoy.health_actualizado_at)) && <Text style={[styles.note,{marginTop:6}]}>Última lectura de Salud: {new Date(r.hoy.health_actualizado_at).toLocaleString('es-AR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</Text>}
+            </View>
+          )}
           {r.hoy.pasos === null && <Text style={styles.note}>Todavía no hay una lectura de pasos para hoy.</Text>}
           <View style={styles.week}>
             <View style={styles.weekHeader}>
@@ -110,14 +122,21 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
             <Text style={styles.note}>Movimiento registrado de lunes a hoy.</Text>
           </View>
           <Text style={styles.history}>{format(r.historial.km_actividades)} km en tu historial de actividades</Text>
-          <Text style={styles.note}>Hoy y esta semana incluyen las actividades y el movimiento adicional disponible. Los pasos se muestran por separado.</Text>
+          <Text style={styles.note}>Los pasos son la lectura diaria de Salud: pueden incluir los de tus caminatas o entrenamientos. No se convierten a kilómetros ni se suman otra vez al total.</Text>
         </>
       )}
+      <SaludConfiguracion key={estado.userId} userId={estado.userId} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  breakdown: { backgroundColor: colors.backgroundDeep, padding: spacing.md, borderRadius: radius.lg, marginTop: spacing.sm, marginBottom: spacing.md },
+  breakdownRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, marginBottom: spacing.sm },
+  breakdownLabel: { flex: 1 },
+  breakdownValue: { color: colors.textSoft, fontSize: 12, fontWeight: '700' },
+  breakdownTotal: { borderTopWidth: 1, borderTopColor: colors.borderSoft, paddingTop: spacing.sm },
+  totalLabel: { color: colors.text, fontSize: 13, fontWeight: '800' },
   summaryGroup: { backgroundColor: colors.backgroundDeep, borderWidth: 1, borderColor: colors.borderSoft, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg },
   summary: { padding: 0, marginBottom: spacing.sm },
   summaryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

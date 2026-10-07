@@ -1,4 +1,4 @@
-// Dispara el sync automático de Apple Health (solo iOS, solo el usuario que se pasa).
+// Dispara el sync automático de Apple Health (iOS y Android, solo el usuario que se pasa).
 //
 // - Al abrir la app: con unos segundos de demora y después de las animaciones,
 //   para no competir con la carga inicial.

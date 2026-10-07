@@ -1,4 +1,4 @@
-// Sync MANUAL de validación: Apple Health → POST /movimiento-diario/sync. Solo admins.
+// Sync MANUAL de validación: Apple Health → POST /movimiento-diario/sync. Autenticado por cuenta.
 //
 // No importa HealthKit: trabaja únicamente con el resultado que ya devuelve
 // leerDiagnostico(). Solo envía distancia REAL medida por HealthKit; los pasos
@@ -112,10 +112,10 @@ export function construirPayload(diag, { origen = 'diagnostico_manual_v1' } = {}
   return resultado;
 }
 
-export async function enviarMovimiento(payload) {
+export async function enviarMovimiento(payload, userIdEsperado = null) {
   const { data, error } = await supabase.auth.getSession();
   const token = data?.session?.access_token;
-  if (error || !token) {
+  if (error || !token || (userIdEsperado && data.session.user?.id !== userIdEsperado)) {
     return { ok: false, status: null, cuerpo: null, error: 'No hay una sesión activa. Volvé a iniciar sesión.' };
   }
 
