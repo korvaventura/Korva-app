@@ -63,7 +63,7 @@ test('montaje real: no rota ni mezcla paisajes y la ruta permanece sobre la mall
   }
 });
 
-test('encuadre: ciudad, puerto y montaña entran en la cámara inicial', async () => {
+test('encuadre: paisaje llena los laterales y los seis checkpoints permanecen visibles', async () => {
   const THREE=await import('three');
   const escena=require('../services/mapa3d/escenas/dubrovnik');
   const mesh=core.decodificarModelo(meta,buffers),c=escena.camara;
@@ -71,10 +71,14 @@ test('encuadre: ciudad, puerto y montaña entran en la cámara inicial', async (
   const el=c.elevacionGrados*Math.PI/180,az=c.azimutGrados*Math.PI/180,[x,y,z]=c.objetivo;
   camera.position.set(x+Math.sin(az)*Math.cos(el)*c.distancia,y+Math.sin(el)*c.distancia,z-Math.cos(az)*Math.cos(el)*c.distancia);
   camera.lookAt(x,y,z);camera.updateMatrixWorld(true);
-  const v=new THREE.Vector3();let inside=0,total=0;
+  const v=new THREE.Vector3();let minX=Infinity,maxX=-Infinity;
   for(let i=0;i<meta.vertices;i+=100) {
-    v.fromArray(mesh.position,i*3).project(camera);total++;
-    if(Math.abs(v.x)<=1 && Math.abs(v.y)<=1 && v.z<1)inside++;
+    v.fromArray(mesh.position,i*3).project(camera);
+    minX=Math.min(minX,v.x);maxX=Math.max(maxX,v.x);
   }
-  assert(inside/total>.99);
+  assert(minX < -1 && maxX > 1);
+  for(const p of meta.visualSurfaceRoute.filter(p=>[0,4,8,12,16,19.4].includes(p.km))) {
+    v.set(p.x/.3,p.h*.004+.075,p.z/.3).project(camera);
+    assert(Math.abs(v.x)<.94 && Math.abs(v.y)<.94 && v.z>-1 && v.z<1);
+  }
 });
