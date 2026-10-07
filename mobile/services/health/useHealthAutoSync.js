@@ -6,7 +6,7 @@
 // La frecuencia, el opt-in y los permisos los controla syncAutomatico.js.
 // IMPORTANTE: llamar este hook arriba de todo en el componente, antes de cualquier return.
 import { useEffect } from 'react';
-import { AppState, InteractionManager, Platform } from 'react-native';
+import { AppState, DeviceEventEmitter, InteractionManager, Platform } from 'react-native';
 import { ejecutarSyncAutomatico } from './syncAutomatico';
 
 const DEMORA_INICIO_MS = 5000;
@@ -19,7 +19,11 @@ export default function useHealthAutoSync(userId) {
     const disparar = () => {
       InteractionManager.runAfterInteractions(() => {
         if (cancelado) return;
-        ejecutarSyncAutomatico(userId).catch(() => {});
+        ejecutarSyncAutomatico(userId).then((resultado) => {
+          if (!cancelado && resultado?.motivo === 'ok') {
+            DeviceEventEmitter.emit('korva:movimiento-actualizado', { userId });
+          }
+        }).catch(() => {});
       });
     };
 

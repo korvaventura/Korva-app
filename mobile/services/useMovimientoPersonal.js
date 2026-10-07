@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, DeviceEventEmitter } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { leerMovimientoPersonal } from './movimientoPersonalApi';
 const { crearCargaMovimientoPersonal } = require('./movimientoPersonalCore');
@@ -23,8 +23,12 @@ export default function useMovimientoPersonal(userId) {
       else if (anterior !== 'active') actualizar();
       anterior = actual;
     });
+    const movimientoSubscription = DeviceEventEmitter.addListener('korva:movimiento-actualizado', (evento) => {
+      if (evento?.userId === userId && AppState.currentState === 'active') actualizar();
+    });
     return () => {
       subscription.remove();
+      movimientoSubscription.remove();
       carga.cancelar();
       if (cargaRef.current === carga) cargaRef.current = null;
     };
