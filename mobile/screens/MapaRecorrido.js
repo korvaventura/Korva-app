@@ -274,6 +274,7 @@ const getConfig = (challengeId, challengeTitle) => {
   if (challengeId === '85a362a5-eee7-456d-9027-358d44446004') return CONFIGS.san_andres;
   if (challengeId === '881936a8-2282-4b7d-a94d-24a7c796d789') return CONFIGS.monte_fuji;
   const titulo = normalizar(challengeTitle);
+  if (titulo.includes('islandia') || titulo.includes('iceland')) return CONFIGS.islandia;
   if (titulo.includes('dubrovnik')) return CONFIGS.dubrovnik;
   if (titulo.includes('andres') || titulo.includes('san andr')) return CONFIGS.san_andres;
   if (titulo.includes('fuji') || titulo.includes('monte fuji')) return CONFIGS.monte_fuji;
@@ -684,6 +685,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
     const kmActual = Math.max(0, Number(kmCompletados) || 0);
     const total = Math.max(1, Number(distanciaTotal) || distanciaFisica);
     const pct = Math.max(0, Math.min(100, (kmActual / total) * 100));
+    const ultimo = [...checkpoints].reverse().find(cp => cp.kmFisico * factor <= kmActual);
     const proximo = checkpoints.find((cp) => (cp.kmFisico * factor) > kmActual);
     const proximoKm = proximo ? proximo.kmFisico * factor : total;
     const faltan = Math.max(0, proximoKm - kmActual);
@@ -704,6 +706,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
           )}
           {integrado ? (
             <View style={styles.previewNavCompacta}>
+              {!!ultimo && <Text style={styles.previewUbicacion} numberOfLines={1}>{proximo ? `Último punto · ${ultimo.nombre}` : `Llegaste a ${ultimo.nombre}`}</Text>}
               <View style={styles.previewNavFila}>
                 <Text style={styles.previewNavKm}>{kmActual.toFixed(1)} km</Text>
                 <View style={styles.previewNavDireccion}>
@@ -878,6 +881,7 @@ const styles = StyleSheet.create({
   containerIntegrado: { marginTop: 14 },
   previewIntegrada: { borderTopWidth: 1, borderTopColor: '#35577A', paddingTop: 13 },
     previewNavCompacta: { paddingTop: 4 },
+  previewUbicacion: { color: '#94A3B8', fontSize: 10, marginBottom: 7 },
   previewNavFila: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46 },
   previewNavKm: { color: '#F8FAFC', fontSize: 14, fontWeight: '900' },
   previewNavDireccion: { flex: 1, height: 22, flexDirection: 'row', alignItems: 'center' },

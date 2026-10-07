@@ -1062,7 +1062,13 @@ function GpsHomeAction({ navigation }) {
 
 function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress, scrollRef, descargarBib, cargandoBib, togglePausar }) {
   if (!item) return null;
-  if (item.libre) return <RutaLibreCardVista navigation={navigation} estado={{ datos: { participacion: item.participacion } }} destacado />;
+  if (item.libre) return (
+    <View>
+      <RutaLibreCardVista navigation={navigation} estado={{ datos: { participacion: item.participacion } }} destacado />
+      <MapaRecorrido challengeId="3b211caf-ee16-54c8-a93c-343a5eb2d57e" challengeTitle="Islandia · Ring Road"
+        kmCompletados={item.participacion.km} distanciaTotal={1400} porcentaje={item.participacion.porcentaje} integrado />
+    </View>
+  );
   const challengeId = item.challenge_id;
   const estaPausado = item.pausado || false;
   const estaActivo = item.status === 'active';
@@ -1120,8 +1126,7 @@ function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, meta
         </View>
       </ViewShot>
 
-      {tieneExpedicion && (
-        <MapaRecorrido
+      <MapaRecorrido
           kmCompletados={item.km_completados}
           distanciaTotal={item.distancia_total}
           porcentaje={pct}
@@ -1129,7 +1134,6 @@ function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, meta
           challengeTitle={item.challenge}
           integrado
         />
-      )}
 
       {mostrarCardMeta && (
         <View style={styles.metaCard}>
