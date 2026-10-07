@@ -1,5 +1,5 @@
 // Escena "El Archipiélago de San Andrés" — 57 km, Caribe colombiano.
-// Solo datos: mismo motor que Fin del Mundo y Monte Fuji.
+// Datos de escena y calibración del modelo unificado de Meshy.
 //
 // La isla mide ~13 km de norte a sur, así que el recorrido combina tierra y
 // travesías por mar (decisión de diseño sobre los checkpoints existentes):
@@ -11,6 +11,10 @@
 
 const sanAndres = {
   id: 'san_andres',
+  modeloMeshy: true,
+  // Route anchors are calibrated to this artistic source; stored km stay unchanged.
+  colorRuta: '#FF8540', grosorRuta: .58, mostrarRelacionRecorrido: false,
+  seguimientoPeso: .18,
   distanciaKm: 57,
   presentacion: {
     eyebrow: 'CARIBE · COLOMBIA',
@@ -21,11 +25,11 @@ const sanAndres = {
   limitesKm: { minX: -7, maxX: 9, minZ: -13, maxZ: 11 },
   resolucionKm: 0.12,
   mundo: { extensionKm: 120, crecimiento: 1.18 },
-  kmPorUnidad: 2,
-  exageracion: 4,
+  kmPorUnidad: .3,
+  exageracion: 1.2,
   pasoRutaKm: 0.08,
-  elevacionRutaUnidades: 0.021,
-  alturaPinUnidades: 0.17,
+  elevacionRutaUnidades: .008,
+  alturaPinUnidades: .075,
 
   ruta: [
     { lat: 12.5845, lon: -81.6975, km: 0 }, // San Andrés Town (Spratt Bight)
@@ -125,15 +129,17 @@ const sanAndres = {
   agua: { elevacionM: 0.05, somero: '#3FD3C8', medio: '#0FA3BE', profundo: '#0A3A74', profundidadColorM: 22, opacidad: 0.9, rugosidad: 0.18, espuma: '#F4FBFF', espumaHastaM: 1.3 },
 
   luz: {
+    intensidadSol: 1.35, intensidadHemi: 1.3, intensidadRelleno: .4,
+    colorSol: '#FFF1D7', colorCielo: '#D8F4FF', colorSuelo: '#729F98',
     solDir: [0.35, 0.8, 0.45], // sol alto del trópico
     alcanceSombraKm: 3,
     radioOclusionKm: 0.3,
     sombraMin: 0.55,
   },
 
-  // Desde el noreste: Johnny Cay y la laguna en primer plano, la isla en
-  // diagonal hasta Punta Sur.
-  camara: { objetivo: [0.2, 0.0, 0.3], elevacionGrados: 26, azimutGrados: 30, distancia: 9.0, fov: 40, aspectoReferencia: 0.82 },
+  // Norte hacia el fondo; isla completa en el encuadre vertical inicial.
+  camara: { objetivo: [0, .12, 0], elevacionGrados: 50, azimutGrados: -90, distancia: 8.6, fov: 42, aspectoReferencia: .82 },
+  exposicion: 1.1,
   atmosfera: {
     horizonte: '#CDE2EE',
     resplandor: '#FFE6B8',
@@ -143,11 +149,8 @@ const sanAndres = {
     lejos: 3.2,
   },
 
-  etiquetas: [
-    { id: 'caribe', texto: 'MAR CARIBE', lat: 12.53, lon: -81.635, tipo: 'agua' },
-    { id: 'laguna', texto: 'LAGUNA ARRECIFAL', lat: 12.578, lon: -81.679, tipo: 'agua' },
-    { id: 'loma', texto: 'LA LOMA', lat: 12.545, lon: -81.711, tipo: 'region' },
-  ],
+  etiquetas: [], // Source-local checkpoints provide labels; no old procedural positions.
+
 };
 
 module.exports = sanAndres;

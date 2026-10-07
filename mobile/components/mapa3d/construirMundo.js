@@ -214,7 +214,7 @@ function crearAguas(datos, conv, escena) {
 // se funden en una sola línea de horizonte atmosférica.
 function crearCielo(escena) {
   const atm = escena.atmosfera;
-  const R = escena.id === 'islandia' ? 150 : 90;
+  const R = escena.id === 'islandia' || escena.id === 'san_andres' ? 150 : 90;
   const g = new THREE.SphereGeometry(R, 48, 24);
   const p = g.attributes.position;
   const col = new Float32Array(p.count * 3);

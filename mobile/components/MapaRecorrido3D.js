@@ -542,7 +542,7 @@ export default function MapaRecorrido3D({
       const p = posicionEnKm(mundo.datos, mundo.conv, km, 0);
       controlRef.current=seguirReplay(controlRef.current,p.toArray(),escena.camara.objetivo,dt,
         !arrastrandoRef.current && ahora>=camaraManualHastaRef.current,
-        escena.id === 'islandia' ? .18 : AJUSTES_MAPA.seguimientoPeso);
+        escena.seguimientoPeso ?? (escena.id === 'islandia' ? .18 : AJUSTES_MAPA.seguimientoPeso));
       progresoRef.current = { km, animando: true };
       if (ahora - ultimaFicha >= AJUSTES_MAPA.fichaIntervaloMs || t === 1) { setKmPlayback(km); ultimaFicha = ahora; }
       aplicarCamara();

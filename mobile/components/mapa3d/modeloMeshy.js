@@ -21,9 +21,15 @@ function malla(meta, buffers, nombre, recalcular = false) {
 }
 
 export function construirModeloMeshy(datosOriginales, conv, modeloId = 'dubrovnik') {
-  const islandia = modeloId === 'islandia';
-  const meta = islandia ? require('../../assets/mapa3d/islandia-unificado/meta') : require('../../assets/mapa3d/dubrovnik-unificado/meta');
-  const buffers = islandia ? {
+  const islandia = modeloId === 'islandia', sanAndres = modeloId === 'san_andres';
+  const marAmplio = islandia || sanAndres;
+  const meta = sanAndres ? require('../../assets/mapa3d/san-andres-unificado/meta') : islandia ? require('../../assets/mapa3d/islandia-unificado/meta') : require('../../assets/mapa3d/dubrovnik-unificado/meta');
+  const buffers = sanAndres ? {
+    position: require('../../assets/mapa3d/san-andres-unificado/position'),
+    normal: require('../../assets/mapa3d/san-andres-unificado/normal'),
+    uv: require('../../assets/mapa3d/san-andres-unificado/uv'),
+    index: require('../../assets/mapa3d/san-andres-unificado/index'),
+  } : islandia ? {
     position: require('../../assets/mapa3d/islandia-unificado/position'),
     normal: require('../../assets/mapa3d/islandia-unificado/normal'),
     uv: require('../../assets/mapa3d/islandia-unificado/uv'),
@@ -34,21 +40,21 @@ export function construirModeloMeshy(datosOriginales, conv, modeloId = 'dubrovni
     uv: require('../../assets/mapa3d/dubrovnik-unificado/uv'),
     index: require('../../assets/mapa3d/dubrovnik-unificado/index'),
   };
-  const paisaje = malla(meta, buffers, islandia ? 'Islandia — modelo unificado' : 'Dubrovnik — modelo unificado');
+  const paisaje = malla(meta, buffers, sanAndres ? 'San Andrés — modelo unificado' : islandia ? 'Islandia — modelo unificado' : 'Dubrovnik — modelo unificado');
   // No rotations, reflections, masked terrain or joins: preserve the complete source.
   const alturaModelo = crearMuestreadorModelo(meta);
   const campo = { ...datosOriginales.campo, muestrear: (x, z) => alturaModelo(conv.x(x), conv.z(z)) / conv.y(1) };
   const datos = { ...datosOriginales, campo };
   const grupo = new THREE.Group();
   // Extend only the sea beyond the supplied model, below its lowest vertex.
-  const mar = new THREE.Mesh(new THREE.PlaneGeometry(islandia ? 600 : 180, islandia ? 600 : 180),
-    islandia
-      ? new THREE.MeshBasicMaterial({color: '#29485B'})
+  const mar = new THREE.Mesh(new THREE.PlaneGeometry(marAmplio ? 600 : 180, marAmplio ? 600 : 180),
+    marAmplio
+      ? new THREE.MeshBasicMaterial({color: sanAndres ? '#0C416D' : '#29485B'})
       : new THREE.MeshStandardMaterial({color: '#0C3553', roughness: 1, metalness: 0}));
   mar.rotation.x = -Math.PI / 2;
   mar.position.y = meta.min[1] - .002;
   grupo.add(mar, paisaje);
-  return {grupo,datos,modeloMeshy:{id:modeloId,material:paisaje.material,materiales:[paisaje.material],meta,texturasListas:false},limites:islandia ? {minX:-300,maxX:300,minZ:-300,maxZ:300} : {minX:-90,maxX:90,minZ:-90,maxZ:90}};
+  return {grupo,datos,modeloMeshy:{id:modeloId,material:paisaje.material,materiales:[paisaje.material],meta,texturasListas:false},limites:marAmplio ? {minX:-300,maxX:300,minZ:-300,maxZ:300} : {minX:-90,maxX:90,minZ:-90,maxZ:90}};
 }
 
 export function cargarTexturasMeshy(mundo,invalidate) {
@@ -56,7 +62,7 @@ export function cargarTexturasMeshy(mundo,invalidate) {
   if(!modelo||modelo.texturasListas)return Promise.resolve();
   if(modelo.carga)return modelo.carga;
   const loader=new THREE.TextureLoader(),loaded=[];
-  const ids=[modelo.id === 'islandia' ? require('../../assets/mapa3d/islandia-unificado/color.jpg') : require('../../assets/mapa3d/dubrovnik-unificado/color.jpg')];
+  const ids=[modelo.id === 'san_andres' ? require('../../assets/mapa3d/san-andres-unificado/color.jpg') : modelo.id === 'islandia' ? require('../../assets/mapa3d/islandia-unificado/color.jpg') : require('../../assets/mapa3d/dubrovnik-unificado/color.jpg')];
   modelo.carga=Promise.allSettled(ids.map(id=>new Promise((resolve,reject)=>loader.load(id,t=>{t.flipY=false;t.generateMipmaps=true;t.minFilter=THREE.LinearMipmapLinearFilter;t.magFilter=THREE.LinearFilter;t.colorSpace=THREE.SRGBColorSpace;loaded.push(t);resolve(t);},undefined,reject)))).then(results=>{
     const failure=results.find(r=>r.status==='rejected');if(failure){loaded.forEach(t=>t.dispose());throw failure.reason;}
     results.forEach((r,i)=>{const material=modelo.materiales[i];material.color.set('#FFFFFF');material.map=r.value;material.emissive.set('#FFFFFF');material.emissiveMap=r.value;material.emissiveIntensity=.08;material.needsUpdate=true;});
