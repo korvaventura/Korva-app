@@ -68,7 +68,7 @@ test('revivir: arranca centrado, acelera moderadamente y el seguimiento respeta 
 test('mapas registrados: comparten replay de 25 s, centro propio y seguimiento manual independiente',()=>{
   const {escenaParaConfig,clavesConEscena}=require('../services/mapa3d/escenas');
   const {duracionReplay,controlInicialReplay,seguirReplay}=require('../services/mapa3d/replayCamaraCore');
-  assert.deepEqual(clavesConEscena().sort(),['default','dubrovnik','monte_fuji','san_andres']);
+  assert.deepEqual(clavesConEscena().sort(),['default','dubrovnik','islandia','monte_fuji','san_andres']);
   for(const clave of clavesConEscena()) {
     const {escena}=escenaParaConfig(clave);
     assert.equal(duracionReplay(escena.distanciaKm),25000);

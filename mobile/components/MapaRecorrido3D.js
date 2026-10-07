@@ -86,8 +86,8 @@ function Ruta({ mundo, escena, progresoRef }) {
   const vacia = useMemo(() => new THREE.BufferGeometry(), []);
   const mats = useMemo(() => ({
     pendiente: materialesRuta.pendiente(),
-    hecho: materialesRuta.hecho(escena.id === 'dubrovnik' ? '#44F2DC' : colors.brandOrange),
-    brillo: materialesRuta.brillo(escena.id === 'dubrovnik' ? '#44F2DC' : colors.brandOrange),
+    hecho: materialesRuta.hecho(escena.colorRuta || (escena.id === 'dubrovnik' ? '#44F2DC' : colors.brandOrange)),
+    brillo: materialesRuta.brillo(escena.colorRuta || (escena.id === 'dubrovnik' ? '#44F2DC' : colors.brandOrange)),
   }), []);
   const estaticos = useMemo(() => {
     if(!datos.visualModeloMeshy)return null;
@@ -461,7 +461,10 @@ export default function MapaRecorrido3D({
     // algoritmo de colisiones hace que una etiqueta salte entre dos posiciones
     // y visualmente "titile". En replay usamos un anclaje determinista.
     const etiquetas = ubicarEtiquetas(
-          pinesVisibles.map((p) => ({ id: p.cp.id, x: p.cabeza.x, y: p.cabeza.y, texto: p.cp.nombre?.toUpperCase(), prioridad: p.cp.id === seleccionadoId ? 4 : p.estadoJourney === 'proximo' ? 3 : p.desbloqueado ? 2 : 1 })),
+          pinesVisibles.filter((p) => !escena.capitulos?.length || p.cp.id === seleccionadoId
+            || p.cp.id === journey.checkpoints[0]?.id || p.estadoJourney === 'proximo'
+            || p.cp.id === journey.checkpoints.filter(cp => cp.estadoJourney === 'conquistado').at(-1)?.id)
+            .map((p) => ({ id: p.cp.id, x: p.cabeza.x, y: p.cabeza.y, texto: p.cp.nombre?.toUpperCase(), prioridad: p.cp.id === seleccionadoId ? 4 : p.estadoJourney === 'proximo' ? 3 : p.desbloqueado ? 2 : 1 })),
           tam.w,
           tam.h,
           { ocupados, ocultarSiNoCabe: true, preferidas:etiquetasPreviasRef.current },
@@ -710,6 +713,7 @@ export default function MapaRecorrido3D({
       <View pointerEvents="none" style={styles.hud}>
         <Text numberOfLines={1} style={[styles.hudEyebrow, { maxWidth: Math.max(100, (tam?.w || 320) - 150) }]}>{escena.presentacion?.eyebrow || 'KORVA JOURNEY'}</Text>
         <Text numberOfLines={1} style={styles.hudTitulo}>{escena.presentacion?.titulo || 'Tu recorrido'}</Text>
+        {!!escena.capitulos?.length && <Text numberOfLines={1} style={styles.hudCapitulo}>{escena.capitulos.find(c => kmProgreso <= c.hastaKm)?.nombre || 'Ruta completada'}</Text>}
       </View>
       <View pointerEvents="none" style={[styles.chip, completado && styles.chipCompleto]}>
         <Text style={[styles.chipTxt, completado && styles.chipTxtCompleto]}>
@@ -784,6 +788,7 @@ const styles = StyleSheet.create({
   relacionDetalle: { color: colors.textSoft, fontSize: 9, marginTop: 2 },
   hudEyebrow: { color: colors.brandOrange, fontSize: 9, fontWeight: '900', letterSpacing: 1.8 },
   hudTitulo: { color: colors.text, fontSize: 13, fontWeight: '800', marginTop: 14, ...sombraTexto },
+  hudCapitulo: { color: colors.textSoft, fontSize: 9, fontWeight: '700', marginTop: 3, ...sombraTexto },
   chip: { position: 'absolute', right: 12, top: 12, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: 'rgba(9,23,37,0.72)', borderWidth: 1, borderColor: 'rgba(168,207,255,0.22)' },
   chipCompleto: { backgroundColor: 'rgba(243,107,10,0.18)', borderColor: 'rgba(255,176,120,0.55)' },
   chipTxt: { color: colors.textSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },

@@ -10,6 +10,7 @@
 
 import * as THREE from 'three';
 import { construirModeloMeshy } from './modeloMeshy';
+import { crearAmbienteIslandia } from './ambienteIslandia';
 import { crearRutaVisualModelo } from '../../services/mapa3d/modeloMeshyCore';
 import { construirDatosDiorama, puntoEnKm, indiceCercano } from '../../services/mapa3d/terrenoCore';
 import { deserializarDiorama } from '../../services/mapa3d/horneadoCore';
@@ -562,7 +563,8 @@ export function construirMundo(escena, horneado) {
   const datos = datosDeEscena(escena, horneado);
   const conv = crearConversor(escena);
   if (escena.modeloMeshy) {
-    const modelo = construirModeloMeshy(datos, conv);
+    const modelo = construirModeloMeshy(datos, conv, escena.id);
+    if (escena.id === 'islandia') modelo.grupo.add(crearAmbienteIslandia());
     // Route and surface heights are calibrated to the active unified source.
     modelo.datos.ruta = modelo.modeloMeshy.meta.visualSurfaceRoute || crearRutaVisualModelo(modelo.modeloMeshy.meta.visualRoute, modelo.datos.campo.muestrear, conv);
     modelo.datos.visualModeloMeshy = true;
@@ -722,4 +724,3 @@ export function crearLuces(escena) {
   relleno.position.set(6, 5, -8);
   return [sol, hemi, relleno];
 }
-

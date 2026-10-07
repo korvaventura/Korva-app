@@ -25,6 +25,7 @@ import GpsTrackerScreen from './screens/GpsTrackerScreen';
 import MisActividadesScreen from './screens/MisActividadesScreen';
 import DetalleActividadScreen from './screens/DetalleActividadScreen';
 import KorvaMundiScreen from './screens/KorvaMundiScreen';
+import RutaLibreScreen from './screens/RutaLibreScreen';
 import useHealthAutoSync from './services/health/useHealthAutoSync';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from './theme/korvaTheme';
@@ -221,6 +222,7 @@ export default function App() {
         <Stack.Screen name="MisActividades" component={MisActividadesScreen} />
         <Stack.Screen name="DetalleActividad" component={DetalleActividadScreen} />
         <Stack.Screen name="KorvaMundi" component={KorvaMundiScreen} />
+        <Stack.Screen name="RutaLibre" component={RutaLibreScreen} options={{ title: 'Islandia', headerShown: true, headerStyle: { backgroundColor: colors.background }, headerTintColor: colors.text }} />
         {esAdmin && (
           <Stack.Screen name="SaludDiagnostico" component={SaludDiagnosticoScreen} />
         )}

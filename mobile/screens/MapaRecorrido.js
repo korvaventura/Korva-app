@@ -261,7 +261,15 @@ const CONFIGS = {
   },
 };
 
+const islandiaHistoria = require('../services/desafios/islandia');
+CONFIGS.islandia = {
+  titulo: 'Islandia · Ring Road', distanciaFisica: 1400, clima: 'mixto',
+  segmentos: islandiaHistoria.checkpoints.map((cp) => ({ km: cp.kmFisico, x: 40 + cp.kmFisico / 1400 * 720, y: 130 })),
+  checkpoints: islandiaHistoria.checkpoints.map((cp) => ({ ...cp, x: 40 + cp.kmFisico / 1400 * 720, y: 130 })),
+  decoraciones: () => null,
+};
 const getConfig = (challengeId, challengeTitle) => {
+  if (challengeId === '3b211caf-ee16-54c8-a93c-343a5eb2d57e') return CONFIGS.islandia;
   if (challengeId === '64442b1d-12b8-4a58-a951-50ea10cb2131') return CONFIGS.dubrovnik;
   if (challengeId === '85a362a5-eee7-456d-9027-358d44446004') return CONFIGS.san_andres;
   if (challengeId === '881936a8-2282-4b7d-a94d-24a7c796d789') return CONFIGS.monte_fuji;

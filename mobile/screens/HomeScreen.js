@@ -1,6 +1,7 @@
 import KorvaHelpSheet from '../components/KorvaHelpSheet';
+import RutaLibreCard from '../components/RutaLibreCard';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking, TextInput, Alert, Modal, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking, TextInput, Alert, Modal, Dimensions, KeyboardAvoidingView, Platform, DeviceEventEmitter } from 'react-native';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -215,6 +216,7 @@ export default function HomeScreen({ navigation }) {
           .then(sync => {
             if (Number(sync?.importadas || 0) > 0) {
               actualizarMovimiento();
+              DeviceEventEmitter.emit('korva:actividades-actualizadas');
               return fetch(`${BACKEND_URL}/strava/progreso/${userId}`)
                 .then(r => r.json())
                 .then(actualizado => {
@@ -816,6 +818,7 @@ export default function HomeScreen({ navigation }) {
       {userId && (
         <View style={styles.movimientoResumen}>
           <MovimientoPersonalCard compacto estado={movimientoPersonal} onActualizar={actualizarMovimiento} />
+          <RutaLibreCard key={userId} navigation={navigation} />
         </View>
       )}
 
