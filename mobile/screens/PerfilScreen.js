@@ -1,3 +1,4 @@
+import KorvaProgressShare from '../components/KorvaProgressShare';
 import { ordenarAventurasPerfil } from '../services/aventurasPerfilCore';
 import { RutaLibreCardVista } from '../components/RutaLibreCard';
 import useRutaLibre from '../services/useRutaLibre';
@@ -37,11 +38,12 @@ export default function PerfilScreen() {
   const [usuario, setUsuario] = useState(null);
   const [modalEnvioReto, setModalEnvioReto] = useState(null);
   const [detallesReto, setDetallesReto] = useState({});
+  const [progresoCompartir, setProgresoCompartir] = useState(null);
   const [retoCompartir, setRetoCompartir] = useState(null);
   const [stats, setStats] = useState(null);
   const [alturasRetos, setAlturasRetos] = useState({});
   const [userId, setUserId] = useState(null);
-  const { estado: rutaLibre } = useRutaLibre();
+  const { estado: rutaLibre, actualizar: actualizarRutaLibre } = useRutaLibre();
   const participacionLibre = rutaLibre.datos?.userId === userId ? rutaLibre.datos.participacion : null;
   const tieneRutaLibre = !!participacionLibre && !participacionLibre.abandonado;
   const scrollRef = useRef(null);
@@ -865,7 +867,7 @@ export default function PerfilScreen() {
               if (inscripcion.libre) return (
                 <View key="islandia-libre" style={{ width: SCREEN_WIDTH, paddingHorizontal: 24, alignSelf: 'flex-start' }}
                   onLayout={e => { const h = Math.ceil(e.nativeEvent.layout.height); setAlturasRetos(prev => prev[idx] === h ? prev : { ...prev, [idx]: h }); }}>
-                  <RutaLibreCardVista navigation={navigation} estado={rutaLibre} destacado accion="Ver ruta" />
+                  <RutaLibreCardVista navigation={navigation} estado={rutaLibre} destacado accion="Ver ruta" onActualizar={() => actualizarRutaLibre({ conservarDatos: true })} />
                 </View>
               );
               const cId = inscripcion.challenge_id;
@@ -924,6 +926,10 @@ export default function PerfilScreen() {
                       <Ionicons name="map-outline" size={16} color={colors.actionBlue} />
                       <Text style={styles.retoRutaBtnText}>Ver ruta</Text>
                       <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.retoRutaBtn} accessibilityRole="button"
+                      onPress={() => setProgresoCompartir({ titulo: inscripcion.challenges?.title, km: kmCompletados, total: distanciaTotal })}>
+                      <Ionicons name="share-outline" size={16} color={colors.actionBlue} /><Text style={styles.retoRutaBtnText}>Compartir progreso</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.retoDetailsToggle}
                       onPress={() => setDetallesReto(prev => ({ ...prev, [cId]: !prev[cId] }))}
@@ -1356,6 +1362,7 @@ export default function PerfilScreen() {
         <Text style={styles.eliminarCuentaBtnText}>Eliminar cuenta</Text>
       </TouchableOpacity>
 
+      {progresoCompartir && <KorvaProgressShare reto={progresoCompartir} onClose={() => setProgresoCompartir(null)} />}
       <KorvaCompletedShare nombrePersona={usuario?.name} reto={retoCompartir} onClose={() => setRetoCompartir(null)} />
     </ScrollView></SafeAreaView>
   );

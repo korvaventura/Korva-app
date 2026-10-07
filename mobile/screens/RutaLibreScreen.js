@@ -1,12 +1,14 @@
+import KorvaProgressShare from '../components/KorvaProgressShare';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapaRecorrido from './MapaRecorrido';
 import useRutaLibre from '../services/useRutaLibre';
 import { consultarRutaLibre } from '../services/rutasLibresApi';
 import { colors, spacing } from '../theme/korvaTheme';
 const ID = '3b211caf-ee16-54c8-a93c-343a5eb2d57e';
-export default function RutaLibreScreen({ navigation }) {
+export default function RutaLibreScreen({ navigation, route }) {
   const { estado, actualizar } = useRutaLibre();
+  const [compartiendo, setCompartiendo] = useState(false);
   const [guardando, setGuardando] = useState(false), [error, setError] = useState(''), [scrollEnabled, setScrollEnabled] = useState(true);
   const scroll = useRef(null), pendiente = useRef(false), vivo = useRef(false);
   const scrollY = useRef(0);
@@ -39,6 +41,11 @@ export default function RutaLibreScreen({ navigation }) {
     <Text style={styles.tag}>RUTA GRATUITA · SIN MEDALLA</Text>
     <Text style={styles.title}>Islandia · Ring Road</Text>
     <Text style={styles.copy}>1.400 km en cinco capítulos: cascadas, glaciares, fiordos, volcanes y sagas.</Text>
+    {route?.params?.vista === 'historia' && <View style={{ marginVertical: 20 }}>
+      <Text style={styles.title}>La vuelta a Islandia</Text>
+      <Text style={styles.copy}>Un viaje de 1.400 km por la Ring Road, contado en cinco capítulos. Cada checkpoint abre una historia del lugar: el fuego, el hielo, los fiordos y las sagas acompañan tu recorrido.</Text>
+      {require('../services/desafios/islandia').capitulos.map(c => <Text key={c.id} style={styles.copy}>{c.numero}. {c.nombre}</Text>)}
+    </View>}
     {estado.cargando ? <ActivityIndicator color={colors.actionBlue} /> : estado.error ? <>
       <Text style={styles.error}>{estado.error}</Text><TouchableOpacity onPress={actualizar}><Text style={styles.link}>Reintentar</Text></TouchableOpacity>
     </> : p && !p.abandonado ? <>
@@ -50,7 +57,8 @@ export default function RutaLibreScreen({ navigation }) {
         <TouchableOpacity disabled={guardando} onPress={() => Alert.alert('Dejar la ruta', 'Se conserva tu avance. Si volvés a aceptarla, el movimiento realizado mientras estuvo abandonada no cuenta.', [{text:'Cancelar',style:'cancel'}, {text:'Dejar ruta',onPress:()=>actuar('dejar')}])}><Text style={styles.link}>Dejar ruta</Text></TouchableOpacity>
       </View>}
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('HomeTabs', { screen: 'Registrar' })}><Text style={styles.buttonText}>Registrar actividad</Text></TouchableOpacity>
-      <TouchableOpacity onPress={() => Share.share({ message: `Estoy recorriendo Islandia con Korva: ${p.km.toLocaleString('es-AR', { maximumFractionDigits: 2 })} de 1.400 km. Una ruta gratuita de fuego, hielo y auroras. https://korva.run` }).catch(() => setError('No pudimos abrir las opciones para compartir.'))}><Text style={styles.link}>Compartir progreso</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => setCompartiendo(true)}><Text style={styles.link}>Compartir progreso</Text></TouchableOpacity>
+      {compartiendo && <KorvaProgressShare reto={{ titulo: 'Islandia · Ring Road', km: p.km, total: 1400, gratuita: true }} onClose={() => setCompartiendo(false)} />}
     </> : <TouchableOpacity style={styles.button} disabled={guardando} onPress={aceptar}><Text style={styles.buttonText}>{p?.abandonado ? 'Retomar ruta gratuita' : 'Elegir esta ruta gratuita'}</Text></TouchableOpacity>}
     {guardando && <ActivityIndicator color={colors.actionBlue} />}
     {!!error && <Text style={styles.error}>{error}</Text>}

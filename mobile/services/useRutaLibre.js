@@ -5,10 +5,10 @@ import { consultarRutaLibre } from './rutasLibresApi';
 export default function useRutaLibre() {
   const [estado, setEstado] = useState({ cargando: true, datos: null, error: '' });
   const generacion = useRef(0), controller = useRef(null);
-  const actualizar = useCallback(async () => {
+  const actualizar = useCallback(async ({ conservarDatos = false } = {}) => {
     const turno = ++generacion.current;
     controller.current?.abort(); controller.current = new AbortController();
-    setEstado({ cargando: true, datos: null, error: '' });
+    setEstado(prev => ({ cargando: true, datos: conservarDatos ? prev.datos : null, error: '' }));
     try {
       const datos = await consultarRutaLibre({ signal: controller.current.signal });
       if (turno === generacion.current) setEstado({ cargando: false, datos, error: '' });

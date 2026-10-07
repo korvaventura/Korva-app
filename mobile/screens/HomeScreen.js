@@ -1125,6 +1125,9 @@ function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, meta
           </TouchableOpacity>
         </View>
       </ViewShot>
+      <TouchableOpacity accessibilityRole="button" style={{ paddingVertical: 12 }} onPress={() => compartirProgreso(index)}>
+        <Text style={{ color: colors.actionBlue, fontWeight: '700' }}>Compartir progreso</Text>
+      </TouchableOpacity>
 
       <MapaRecorrido
           kmCompletados={item.km_completados}
