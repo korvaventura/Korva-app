@@ -7,7 +7,7 @@ const objetivos = crearObjetivosDiarios(AsyncStorage);
 const format = (n) => n.toLocaleString('es-AR');
 
 // El padre usa key=userId: cada cuenta tiene su propia instancia y almacenamiento.
-export default function ObjetivoDiarioCard({ userId, pasos }) {
+export default function ObjetivoDiarioCard({ userId, pasos, integrado = false }) {
   const [objetivo, setObjetivo] = useState(null);
   const [texto, setTexto] = useState('');
   const [editando, setEditando] = useState(false);
@@ -48,7 +48,7 @@ export default function ObjetivoDiarioCard({ userId, pasos }) {
   };
   const progreso = progresoObjetivo(objetivo, pasos);
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, integrado && styles.integrada]}>
       <View style={styles.header}>
         <Text style={styles.title}>Objetivo diario · pasos</Text>
         {lecturaLista && !editando && <TouchableOpacity onPress={() => {
@@ -70,7 +70,7 @@ export default function ObjetivoDiarioCard({ userId, pasos }) {
             {objetivo !== null && <TouchableOpacity disabled={guardando} onPress={() => guardar(true)} accessibilityRole="button"><Text style={styles.note}>Quitar objetivo</Text></TouchableOpacity>}
           </View>
         </>
-      ) : objetivo === null ? <Text style={styles.note}>Elegí una meta de pasos a tu ritmo. Es opcional.</Text> : (
+      ) : objetivo === null ? (integrado ? null : <Text style={styles.note}>Elegí una meta de pasos a tu ritmo. Es opcional.</Text>) : (
         <>
           <Text style={styles.value}>{format(objetivo)} pasos</Text>
           {progreso === null ? <Text style={styles.note}>Pendiente de lectura de pasos de hoy.</Text> : (
@@ -85,12 +85,13 @@ export default function ObjetivoDiarioCard({ userId, pasos }) {
         </>
       )}
       {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-      <Text style={styles.storage}>Guardado en este teléfono para tu cuenta.</Text>
+      {(!integrado || editando) && <Text style={styles.storage}>Guardado en este teléfono para tu cuenta.</Text>}
     </View>
   );
 }
 const styles = StyleSheet.create({
   card: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.surfaceSoft, marginBottom: spacing.lg },
+  integrada: { backgroundColor: 'transparent', padding: 0, paddingTop: 10, marginBottom: 0, borderTopWidth: 1, borderColor: colors.borderSoft, borderRadius: 0 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
   title: { color: colors.textSoft, fontSize: 12, fontWeight: '700' },
   action: { color: colors.actionBlue, fontSize: 13, fontWeight: '700', paddingVertical: 10 },

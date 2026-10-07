@@ -19,7 +19,7 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
   const listo = estado.status === 'disponible';
   const r = listo ? estado.datos : null;
   if (compacto) return (
-    <>
+    <View style={styles.summaryGroup}>
       <TouchableOpacity style={styles.summary} activeOpacity={0.85} onPress={() => setDetalleAbierto(true)}
         accessibilityRole="button" accessibilityLabel="Ver mi movimiento de hoy y esta semana">
         <View style={styles.summaryHeader}>
@@ -40,7 +40,7 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
         ) : <Text style={styles.note}>{estados[estado.status] || estados.error}</Text>}
         <Text style={styles.summaryLink}>Ver mi movimiento</Text>
       </TouchableOpacity>
-      {estado.userId && <ObjetivoDiarioCard key={estado.userId} userId={estado.userId} pasos={listo ? r.hoy.pasos : null} />}
+      {estado.userId && <ObjetivoDiarioCard key={estado.userId} userId={estado.userId} pasos={listo ? r.hoy.pasos : null} integrado />}
       <Modal visible={detalleAbierto} animationType="slide" presentationStyle="pageSheet" allowSwipeDismissal
         onRequestClose={() => setDetalleAbierto(false)} onDismiss={() => setDetalleAbierto(false)}>
         <SafeAreaProvider>
@@ -58,7 +58,7 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
           </SafeAreaView>
         </SafeAreaProvider>
       </Modal>
-    </>
+    </View>
   );
   return (
     <View style={[styles.card, !listo && styles.cardCompact]}>
@@ -118,7 +118,8 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
 }
 
 const styles = StyleSheet.create({
-  summary: { backgroundColor: colors.backgroundDeep, borderWidth: 1, borderColor: colors.borderSoft, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg },
+  summaryGroup: { backgroundColor: colors.backgroundDeep, borderWidth: 1, borderColor: colors.borderSoft, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg },
+  summary: { padding: 0, marginBottom: spacing.sm },
   summaryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   summaryValue: { color: colors.text, fontSize: 25, fontWeight: '800' },
   summaryUnit: { color: colors.textSoft, fontSize: 13, fontWeight: '600' },

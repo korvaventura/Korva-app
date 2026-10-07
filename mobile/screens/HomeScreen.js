@@ -64,6 +64,10 @@ export default function HomeScreen({ navigation }) {
   const [challenges, setChallenges] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(false);
+  const [alturasAventuras, setAlturasAventuras] = useState({});
+  const [anchoAventuras, setAnchoAventuras] = useState(Dimensions.get('window').width - 48);
+  const aventurasRef = useRef(null);
+  const [conquistaAbierta, setConquistaAbierta] = useState(null);
   const [userId, setUserId] = useState(null);
   const { estado: rutaLibre } = useRutaLibre();
   const [completado, setCompletado] = useState(null);
@@ -470,7 +474,10 @@ export default function HomeScreen({ navigation }) {
     .filter(esTerminado)
     // Último completado arriba; el primero que terminó va quedando al fondo.
     .sort((a, b) => fechaOrden(b.completed_at) - fechaOrden(a.completed_at));
-  const challengesActivos = challengesEnCurso;
+  const challengesActivos = [...challengesEnCurso, ...(tieneRutaLibre ? [{
+    id: participacionLibre.id, challenge_id: 'islandia-libre', challenge: 'Islandia', libre: true,
+    participacion: participacionLibre, pausado: participacionLibre.pausado, porcentaje: participacionLibre.porcentaje,
+  }] : [])];
   const retoVisibleIndex = Math.min(retoActivoIndex, Math.max(0, challengesActivos.length - 1));
   const movimientoPrimero = !challengesEnCurso.some(c => !c.pausado);
 
@@ -708,8 +715,6 @@ export default function HomeScreen({ navigation }) {
         </View>
       )}
 
-      {userId && <RutaLibreCardVista key={userId} navigation={navigation} estado={rutaLibre.datos?.userId === userId ? rutaLibre : { ...rutaLibre, datos: null }} />}
-
       {cargando ? (
         <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
       ) : error ? (
@@ -773,9 +778,9 @@ export default function HomeScreen({ navigation }) {
                     <TouchableOpacity
                       key={item.id || item.challenge_id || i}
                       style={[styles.retoTab, i === retoVisibleIndex && styles.retoTabActivo]}
-                      onPress={() => setRetoActivoIndex(i)}
+                      onPress={() => { setRetoActivoIndex(i); aventurasRef.current?.scrollTo({ x: i * anchoAventuras, animated: true }); }}
                     >
-                      <Text style={[styles.retoTabText, i === retoVisibleIndex && styles.retoTabTextActivo]}>
+                      <Text style={[styles.retoTabText, i === retoVisibleIndex && styles.retoTabTextActivo, item.libre && { color: '#78DEC5' }]}>
                         {item.challenge}
                       </Text>
                       {parseFloat(item.porcentaje || 0) >= 100 && <Text style={styles.retoTabBadge}>🏅</Text>}
@@ -784,9 +789,17 @@ export default function HomeScreen({ navigation }) {
                 </ScrollView>
               )}
 
+              <View onLayout={e => setAnchoAventuras(e.nativeEvent.layout.width)}>
+                <ScrollView ref={aventurasRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false}
+                  onContentSizeChange={() => aventurasRef.current?.scrollTo({ x: retoVisibleIndex * anchoAventuras, animated: false })}
+                  style={alturasAventuras[challengesActivos[retoVisibleIndex]?.challenge_id] ? { height: alturasAventuras[challengesActivos[retoVisibleIndex].challenge_id] } : undefined}
+                  onMomentumScrollEnd={e => setRetoActivoIndex(Math.round(e.nativeEvent.contentOffset.x / Math.max(1, anchoAventuras)))}>
+                  {challengesActivos.map((item, i) => (
+                    <View key={item.id || item.challenge_id} style={{ width: anchoAventuras, alignSelf: 'flex-start' }}
+                      onLayout={e => { const h = Math.ceil(e.nativeEvent.layout.height); setAlturasAventuras(prev => prev[item.challenge_id] === h ? prev : { ...prev, [item.challenge_id]: h }); }}>
               <RetoCard
-                item={challengesActivos[retoVisibleIndex]}
-                index={retoVisibleIndex}
+                item={item}
+                index={i}
                 nombre={nombre}
                 nombrePersona={nombreCompartir}
                 userId={userId}
@@ -806,7 +819,12 @@ export default function HomeScreen({ navigation }) {
                 cargandoBib={cargandoBib}
               />
 
-              {!movimientoPrimero && <GpsHomeAction navigation={navigation} />}
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+
+
 
 
             </>
@@ -814,13 +832,7 @@ export default function HomeScreen({ navigation }) {
         </>
       )}
 
-      {!cargando && !error && (
-        <KorvaMundiTeaser
-          conquistados={challengesCompletados.length + (tieneRutaLibre && participacionLibre.estado === 'completada' ? 1 : 0)}
-          enCurso={challengesEnCurso.filter((c) => !c.pausado).length + (tieneRutaLibre && !participacionLibre.pausado && participacionLibre.estado !== 'completada' ? 1 : 0)}
-          onPress={() => navigation.navigate('KorvaMundi')}
-        />
-      )}
+      {userId && <GpsHomeAction navigation={navigation} />}
 
       {userId && (
         <View style={styles.movimientoResumen}>
@@ -830,13 +842,7 @@ export default function HomeScreen({ navigation }) {
 
       {userId && (
         <View style={styles.movimientoSection} onLayout={(e) => { movimientoInicioY.current = e.nativeEvent.layout.y; }}>
-          {movimientoPrimero && <GpsHomeAction navigation={navigation} />}
-          <TouchableOpacity style={styles.scrollCue}
-            accessibilityRole="button" accessibilityLabel="Ver actividades y desafíos completados"
-            onPress={() => scrollRef.current?.scrollTo({ y: Math.max(0, movimientoInicioY.current + actividadesInicioY.current - 16), animated: true })}>
-            <Text style={styles.scrollCueText}>Seguí explorando</Text>
-            <Ionicons name="chevron-down" size={20} color={colors.textSoft} />
-          </TouchableOpacity>
+
           <View onLayout={(e) => { actividadesInicioY.current = e.nativeEvent.layout.y; }}>
             <Text style={styles.movimientoTitulo}>Tus actividades</Text>
       {actividadReciente && (
@@ -876,17 +882,28 @@ export default function HomeScreen({ navigation }) {
         </View>
       )}
 
+      {!cargando && !error && (
+        <KorvaMundiTeaser
+          conquistados={challengesCompletados.length + (tieneRutaLibre && participacionLibre.estado === 'completada' ? 1 : 0)}
+          enCurso={challengesEnCurso.filter((c) => !c.pausado).length + (tieneRutaLibre && !participacionLibre.pausado && participacionLibre.estado !== 'completada' ? 1 : 0)}
+          onPress={() => navigation.navigate('KorvaMundi')}
+        />
+      )}
+
+      {userId && !tieneRutaLibre && <TouchableOpacity style={styles.actividadesInicioCard} onPress={() => navigation.navigate('RutaLibre')}><Text style={styles.actividadesInicioTitulo}>Descubrir Islandia · ruta gratuita</Text><Ionicons name="arrow-forward" size={18} color="#78DEC5" /></TouchableOpacity>}
+
       {/* Retos completados — solo lectura */}
       {!error && challengesCompletados.length > 0 && (
         <View style={{ marginTop: 8, marginBottom: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 0, marginBottom: 12 }}>
             <Text style={[styles.seccionTitulo, { flex: 1 }]}><Ionicons name="checkmark-circle-outline" size={18} color={colors.brandOrangeSoft} /> Completados</Text>
           </View>
           {challengesCompletados.map((item, i) => (
             <View key={i} style={styles.completadoCard}>
               <TouchableOpacity
                 style={{ flexDirection: 'row', alignItems: 'center' }}
-                onPress={() => navigation.navigate('DetalleReto', { item, userId, nombrePersona: nombreCompartir })}
+                onPress={() => setConquistaAbierta(conquistaAbierta === item.challenge_id ? null : item.challenge_id)}
+                accessibilityRole="button" accessibilityState={{ expanded: conquistaAbierta === item.challenge_id }}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.completadoChallenge}>{item.challenge || item.challenge_title || '—'}</Text>
@@ -895,8 +912,10 @@ export default function HomeScreen({ navigation }) {
                 <View style={styles.completedSeal}>
                   <Ionicons name="checkmark" size={18} color={colors.brandOrangeSoft} />
                   <Text style={styles.completedSealText}>100%</Text>
+                  <Ionicons name={conquistaAbierta === item.challenge_id ? "chevron-up" : "chevron-down"} size={15} color={colors.textSoft} />
                 </View>
               </TouchableOpacity>
+              {conquistaAbierta === item.challenge_id && <>
               <View style={styles.completedActions}>
                 <TouchableOpacity style={styles.completedAction}
                   onPress={() => navigation.navigate('DetalleReto', { item, userId, nombrePersona: nombreCompartir })}>
@@ -918,6 +937,7 @@ export default function HomeScreen({ navigation }) {
                 <Ionicons name="share-outline" size={16} color={colors.brandOrangeSoft} />
                 <Text style={styles.completedShareText}>Compartir desafío completado</Text>
               </TouchableOpacity>
+              </>}
             </View>
           ))}
         </View>
@@ -1041,10 +1061,11 @@ function GpsHomeAction({ navigation }) {
 }
 
 function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress, scrollRef, descargarBib, cargandoBib, togglePausar }) {
+  if (!item) return null;
+  if (item.libre) return <RutaLibreCardVista navigation={navigation} estado={{ datos: { participacion: item.participacion } }} destacado />;
   const challengeId = item.challenge_id;
   const estaPausado = item.pausado || false;
   const estaActivo = item.status === 'active';
-  if (!item) return null;
   const pct = Math.min(parseFloat(item.porcentaje || 0), 100);
   const estaCompletado = pct >= 100;
   const frase = getFrase(pct);
@@ -1288,7 +1309,7 @@ const styles = StyleSheet.create({
   heroTotal: { color: colors.textMuted, fontSize: 12, fontWeight: '700', marginTop: 1 },
   heroFooter: { minHeight: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   heroFooterMuted: { color: '#6888A7', fontSize: 11 },
-  gpsHeroAction: { marginTop: 20, minHeight: 78, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 14, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderStrong },
+  gpsHeroAction: { marginTop: 20, marginBottom: 20, minHeight: 78, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 14, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderStrong },
   gpsHeroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
   gpsHeroStart: { height: 42, borderRadius: 21, backgroundColor: colors.brandOrange, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   gpsHeroStartText: { color: colors.text, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
@@ -1320,7 +1341,7 @@ const styles = StyleSheet.create({
   bibBtn: { flex: 1, backgroundColor: colors.surfaceStrong, borderRadius: 12, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.brandOrange },
   bibBtnSecundario: { borderColor: colors.actionBlueStrong },
   bibBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 12 },
-  completadoCard: { backgroundColor: colors.surface, borderRadius: 18, padding: 16, marginHorizontal: 20, marginBottom: 12, borderWidth: 1, borderColor: colors.borderStrong },
+  completadoCard: { backgroundColor: colors.backgroundDeep, borderRadius: 18, padding: 16, marginHorizontal: 0, marginBottom: 12, borderWidth: 1, borderColor: colors.borderStrong },
   completedSeal: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 8, borderRadius: 16, backgroundColor: colors.backgroundDeep },
   completedSealText: { color: colors.brandOrangeSoft, fontSize: 11, fontWeight: '800' },
   completedActions: { flexDirection: 'row', gap: 12, marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderColor: colors.borderSoft },
@@ -1353,7 +1374,7 @@ const styles = StyleSheet.create({
   movimientoResumen: { marginTop: 2 },
   movimientoSection: { marginHorizontal: 0, marginTop: 14, marginBottom: 6 },
   movimientoTitulo: { color: colors.textSoft, fontSize: 11, fontWeight: '800', letterSpacing: 1.4, marginBottom: 10 },
-  actividadRecienteCard: { backgroundColor: '#13283D', borderRadius: 16, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: colors.surfaceStrong },
+  actividadRecienteCard: { backgroundColor: 'transparent', borderRadius: 0, paddingVertical: 12, paddingHorizontal: 0, marginBottom: 10, borderBottomWidth: 1, borderColor: colors.borderSoft },
   actividadRecienteHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 },
   actividadRecienteEyebrow: { color: '#617184', fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
   actividadRecienteFecha: { color: '#617184', fontSize: 11, fontWeight: '600' },

@@ -1,4 +1,5 @@
-import RutaLibreCard from '../components/RutaLibreCard';
+import { RutaLibreCardVista } from '../components/RutaLibreCard';
+import useRutaLibre from '../services/useRutaLibre';
 import KorvaGroups from '../components/KorvaGroups';
 import { nombreDeporteActividad, nombreFuenteActividad, iconoDeporteActividad } from '../utils/actividadPresentacion';
 import KorvaCompletedShare from '../components/KorvaCompletedShare';
@@ -37,7 +38,11 @@ export default function PerfilScreen() {
   const [detallesReto, setDetallesReto] = useState({});
   const [retoCompartir, setRetoCompartir] = useState(null);
   const [stats, setStats] = useState(null);
+  const [alturasRetos, setAlturasRetos] = useState({});
   const [userId, setUserId] = useState(null);
+  const { estado: rutaLibre } = useRutaLibre();
+  const participacionLibre = rutaLibre.datos?.userId === userId ? rutaLibre.datos.participacion : null;
+  const tieneRutaLibre = !!participacionLibre && !participacionLibre.abandonado;
   const scrollRef = useRef(null);
   const direccionY = useRef(0);
   const actividadesY = useRef(0);
@@ -843,18 +848,13 @@ export default function PerfilScreen() {
       </TouchableOpacity>
 
 
-      {userId && (
-        <View style={{ width: '100%', paddingHorizontal: 24 }}>
-          <RutaLibreCard key={userId} navigation={navigation} soloInscrita />
-        </View>
-      )}
-
       {/* Retos activos */}
-      {inscripcionesActivas.length > 0 && (
+      {(inscripcionesActivas.length > 0 || tieneRutaLibre) && (
         <View style={{ width: '100%', marginBottom: 20 }}>
           <Text style={[styles.seccionTitulo, { paddingHorizontal: 24 }]}>Mis desafíos</Text>
           <ScrollView
             horizontal
+            style={alturasRetos[retoIndex] ? { height: alturasRetos[retoIndex] } : undefined}
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             onMomentumScrollEnd={e => setRetoIndex(Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH))}
@@ -872,7 +872,8 @@ export default function PerfilScreen() {
               // El plan escala solo por la distancia de la versión (no asume deporte).
 
               return (
-                <View key={cId} style={{ width: SCREEN_WIDTH, paddingHorizontal: 24 }}>
+                <View key={cId} style={{ width: SCREEN_WIDTH, paddingHorizontal: 24, alignSelf: 'flex-start' }}
+                  onLayout={e => { const h = Math.ceil(e.nativeEvent.layout.height); setAlturasRetos(prev => prev[idx] === h ? prev : { ...prev, [idx]: h }); }}>
                   <View style={styles.retoCard}>
                     <Text style={styles.retoEyebrow}>{inscripcion.status === 'active' ? (inscripcion.pausado ? 'DESAFÍO PAUSADO' : 'TU AVENTURA') : 'DESAFÍO COMPLETADO'}</Text>
                     <View style={styles.retoTitleRow}>
@@ -1038,10 +1039,14 @@ export default function PerfilScreen() {
                 </View>
               );
             })}
+            {tieneRutaLibre && <View style={{ width: SCREEN_WIDTH, paddingHorizontal: 24, alignSelf: 'flex-start' }}
+              onLayout={e => { const h = Math.ceil(e.nativeEvent.layout.height); const idx = inscripcionesActivas.length; setAlturasRetos(prev => prev[idx] === h ? prev : { ...prev, [idx]: h }); }}>
+              <RutaLibreCardVista navigation={navigation} estado={rutaLibre} destacado />
+            </View>}
           </ScrollView>
-          {inscripcionesActivas.length > 1 && (
+          {inscripcionesActivas.length + (tieneRutaLibre ? 1 : 0) > 1 && (
             <View style={styles.dotsRow}>
-              {inscripcionesActivas.map((_, i) => (
+              {Array.from({ length: inscripcionesActivas.length + (tieneRutaLibre ? 1 : 0) }, (_, i) => (
                 <View key={i} style={[styles.dot, i === retoIndex && styles.dotActivo]} />
               ))}
             </View>
