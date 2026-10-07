@@ -17,7 +17,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.korva.mobile",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSHealthUpdateUsageDescription": "Korva usa la integración con Salud para consultar tu movimiento diario. Esta versión no solicita guardar ni modificar datos en Salud."
       },
       "buildNumber": "19"
     },
@@ -51,7 +52,7 @@
         "@kingstinct/react-native-healthkit",
         {
           "NSHealthShareUsageDescription": "Korva lee tus pasos y distancia caminada, corrida y en bici desde Salud para mostrar tu movimiento diario y, solo si lo confirmás para cada desafío, sumar tu distancia a su progreso.",
-          "NSHealthUpdateUsageDescription": false,
+          "NSHealthUpdateUsageDescription": "Korva usa la integración con Salud para consultar tu movimiento diario. Esta versión no solicita guardar ni modificar datos en Salud.",
           "background": false
         }
       ],
