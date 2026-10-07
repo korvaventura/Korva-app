@@ -304,10 +304,12 @@ export default function RegistroManualScreen({ navigation }) {
         ))}
       </View>
 
-      {estadoDesafios === 'listo' && desafios.length === 0 && (
+      {estadoDesafios === 'listo' && activos.length === 0 && (
         <View style={styles.freeMode}>
           <Text style={styles.challengeTitle}>Modo libre</Text>
-          <Text style={styles.challengeExplanation}>Tus kilómetros quedan guardados en tu historial personal. Podés empezar ahora y elegir un desafío cuando quieras.</Text>
+          <Text style={styles.challengeExplanation}>{desafios.length > 0
+            ? 'Tus desafíos están pausados. Podés seguir registrando movimiento y consultar tu historial personal.'
+            : 'Tus kilómetros quedan guardados en tu historial personal. Podés empezar ahora y elegir un desafío cuando quieras.'}</Text>
           <TouchableOpacity style={styles.freeLink} onPress={() => navigation.navigate('Catalogo')} accessibilityRole="button">
             <Text style={styles.challengeActionText}>Explorar desafíos</Text>
             <Ionicons name="arrow-forward" size={15} color={colors.actionBlue} />

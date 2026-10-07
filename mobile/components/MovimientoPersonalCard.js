@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors, radius, spacing } from '../theme/korvaTheme';
+import ObjetivoDiarioCard from './ObjetivoDiarioCard';
 
 const format = (n, decimales = 2) => n.toLocaleString('es-AR', { maximumFractionDigits: decimales });
 const estados = {
@@ -39,6 +40,7 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
         ) : <Text style={styles.note}>{estados[estado.status] || estados.error}</Text>}
         <Text style={styles.summaryLink}>Ver mi movimiento</Text>
       </TouchableOpacity>
+      {estado.userId && <ObjetivoDiarioCard key={estado.userId} userId={estado.userId} pasos={listo ? r.hoy.pasos : null} />}
       <Modal visible={detalleAbierto} animationType="slide" presentationStyle="pageSheet" allowSwipeDismissal
         onRequestClose={() => setDetalleAbierto(false)} onDismiss={() => setDetalleAbierto(false)}>
         <SafeAreaProvider>
