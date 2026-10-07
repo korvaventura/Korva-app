@@ -1,3 +1,4 @@
+import { ordenarAventurasPerfil } from '../services/aventurasPerfilCore';
 import { RutaLibreCardVista } from '../components/RutaLibreCard';
 import useRutaLibre from '../services/useRutaLibre';
 import KorvaGroups from '../components/KorvaGroups';
@@ -56,6 +57,7 @@ export default function PerfilScreen() {
   const [editandoDireccion, setEditandoDireccion] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [inscripcionesActivas, setInscripcionesActivas] = useState([]);
+  const aventurasPerfil = ordenarAventurasPerfil(inscripcionesActivas, participacionLibre);
   const [retoIndex, setRetoIndex] = useState(0);
   const [cambiandoModalidad, setCambiandoModalidad] = useState(false);
   const [metaFecha, setMetaFecha] = useState({});
@@ -859,7 +861,13 @@ export default function PerfilScreen() {
             showsHorizontalScrollIndicator={false}
             onMomentumScrollEnd={e => setRetoIndex(Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH))}
           >
-            {inscripcionesActivas.map((inscripcion, idx) => {
+            {aventurasPerfil.map((inscripcion, idx) => {
+              if (inscripcion.libre) return (
+                <View key="islandia-libre" style={{ width: SCREEN_WIDTH, paddingHorizontal: 24, alignSelf: 'flex-start' }}
+                  onLayout={e => { const h = Math.ceil(e.nativeEvent.layout.height); setAlturasRetos(prev => prev[idx] === h ? prev : { ...prev, [idx]: h }); }}>
+                  <RutaLibreCardVista navigation={navigation} estado={rutaLibre} destacado accion="Ver ruta" />
+                </View>
+              );
               const cId = inscripcion.challenge_id;
               const versionActual = versionDeInscripcion(inscripcion);
               const versiones = versionesDelDesafio(inscripcion.challenges).filter(v => v.distancia_km !== null);
@@ -1039,14 +1047,10 @@ export default function PerfilScreen() {
                 </View>
               );
             })}
-            {tieneRutaLibre && <View style={{ width: SCREEN_WIDTH, paddingHorizontal: 24, alignSelf: 'flex-start' }}
-              onLayout={e => { const h = Math.ceil(e.nativeEvent.layout.height); const idx = inscripcionesActivas.length; setAlturasRetos(prev => prev[idx] === h ? prev : { ...prev, [idx]: h }); }}>
-              <RutaLibreCardVista navigation={navigation} estado={rutaLibre} destacado />
-            </View>}
           </ScrollView>
-          {inscripcionesActivas.length + (tieneRutaLibre ? 1 : 0) > 1 && (
+          {aventurasPerfil.length > 1 && (
             <View style={styles.dotsRow}>
-              {Array.from({ length: inscripcionesActivas.length + (tieneRutaLibre ? 1 : 0) }, (_, i) => (
+              {Array.from({ length: aventurasPerfil.length }, (_, i) => (
                 <View key={i} style={[styles.dot, i === retoIndex && styles.dotActivo]} />
               ))}
             </View>
