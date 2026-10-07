@@ -4,11 +4,12 @@ import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop, Line } from 'rea
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import * as THREE from 'three';
 import { cargarTexturasMeshy } from './mapa3d/modeloMeshy';
+import { configurarRutaContinua } from './mapa3d/rutaContinua';
 import { colors } from '../theme/korvaTheme';
 import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
 import { muestraGesto, avanzarGesto, seleccionarPin } from '../services/mapa3d/gestosCore';
 import { estadoJourney } from '../services/mapa3d/journeyCore';
-import { crearCorteRuta } from '../services/mapa3d/rutaPlaybackCore';
+import { crearCorteRuta, crearFraccionRuta } from '../services/mapa3d/rutaPlaybackCore';
 import { AJUSTES_MAPA } from '../services/mapa3d/ajustesInteraccion';
 import { duracionReplay, controlInicialReplay, seguirReplay } from '../services/mapa3d/replayCamaraCore';
 import { ubicarEtiquetas, seSuperponen } from '../services/mapa3d/etiquetasCore';
@@ -89,11 +90,16 @@ function Ruta({ mundo, escena, progresoRef }) {
     hecho: materialesRuta.hecho(escena.colorRuta || (escena.id === 'dubrovnik' ? '#44F2DC' : colors.brandOrange)),
     brillo: materialesRuta.brillo(escena.colorRuta || (escena.id === 'dubrovnik' ? '#44F2DC' : colors.brandOrange)),
   }), []);
+  const avanceContinuo = useMemo(() => ({ value: 0 }), []);
+  if (escena.rutaContinua) {
+    configurarRutaContinua(mats.pendiente, avanceContinuo, false);
+    configurarRutaContinua(mats.hecho, avanceContinuo, true);
+  }
   const estaticos = useMemo(() => {
     if(!datos.visualModeloMeshy)return null;
     const pendiente=geometriaTramo(datos,conv,0,total,.013*grosor);
     const hecho=geometriaTramo(datos,conv,0,total,.019*grosor);
-    return {pendiente,hecho,brillo:null,cortar:crearCorteRuta(datos.ruta,conv,hecho.parameters.tubularSegments)};
+    return {pendiente,hecho,brillo:null,fraccion:crearFraccionRuta(datos.ruta,conv),cortar:crearCorteRuta(datos.ruta,conv,hecho.parameters.tubularSegments)};
   },[datos,conv,total,grosor]);
   useFrame(({ clock }) => {
     const { km, animando } = progresoRef.current;
@@ -101,8 +107,12 @@ function Ruta({ mundo, escena, progresoRef }) {
     if (km === ultimo.km) return;
     if(estaticos) {
       const corte=estaticos.cortar(km),count=estaticos.hecho.index.count;
-      estaticos.hecho.setDrawRange(0,corte);
-      estaticos.pendiente.setDrawRange(corte,count-corte);
+      if (escena.rutaContinua) {
+        avanceContinuo.value=estaticos.fraccion(km);
+      } else {
+        estaticos.hecho.setDrawRange(0,corte);
+        estaticos.pendiente.setDrawRange(corte,count-corte);
+      }
       for(const id of ['pendiente','hecho']) {
         const mesh=meshes[id].current;
         if(mesh){mesh.geometry=estaticos[id];mesh.visible=estaticos[id].drawRange.count>0;}
@@ -537,13 +547,15 @@ export default function MapaRecorrido3D({
       // Un frame tardío no produce un salto para recuperar tiempo perdido.
       transcurrido += dt;
       const t = THREE.MathUtils.clamp(transcurrido / duracion, 0, 1);
-      const suave = t * t * (3 - 2 * t);
+      const suave = escena.rutaContinua ? t : t * t * (3 - 2 * t);
       const km = metaKm * suave;
       const p = posicionEnKm(mundo.datos, mundo.conv, km, 0);
       controlRef.current=seguirReplay(controlRef.current,p.toArray(),escena.camara.objetivo,dt,
         !arrastrandoRef.current && ahora>=camaraManualHastaRef.current,
         escena.seguimientoPeso ?? (escena.id === 'islandia' ? .18 : AJUSTES_MAPA.seguimientoPeso));
       progresoRef.current = { km, animando: true };
+      // Smooth GPU progress without doubling React camera/checkpoint updates.
+      if (escena.rutaContinua) r3fRef.current?.invalidate();
       if (ahora - ultimaFicha >= AJUSTES_MAPA.fichaIntervaloMs || t === 1) { setKmPlayback(km); ultimaFicha = ahora; }
       aplicarCamara();
       if (t < 1) {

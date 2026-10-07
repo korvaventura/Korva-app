@@ -26,3 +26,21 @@ test('San Andrés: constructor real, superficie alineada y cámara sin recortar 
   const v=new THREE.Vector3(),pos=mesh.geometry.attributes.position;
   for(let i=0;i<pos.count;i+=50){v.fromBufferAttribute(pos,i).project(cam);assert(Math.abs(v.x)<1 && Math.abs(v.y)<1);}
 });
+test('San Andrés: punta continua sin escalones, shaders complementarios y replay moderado',()=>{
+  const {crearFraccionRuta}=require('../services/mapa3d/rutaPlaybackCore');
+  const f=crearFraccionRuta(meta.visualSurfaceRoute,{x:x=>x/.3,z:z=>z/.3,y:y=>y*.004});
+  assert.equal(f(0),0);assert.equal(f(57),1);
+  for(let km=.01;km<57;km+=.11)assert(f(km+.00001)>f(km));
+  const {duracionReplay}=require('../services/mapa3d/replayCamaraCore');
+  assert.equal(duracionReplay(57,'san_andres'),18000);assert.equal(duracionReplay(0,'san_andres'),0);
+  assert(duracionReplay(1,'san_andres')>=5000);assert.equal(duracionReplay(1400,'islandia'),25000);
+  const file=path.resolve(__dirname,'../components/mapa3d/rutaContinua.js');
+  const configure=vm.runInNewContext(fs.readFileSync(file,'utf8').replace(/export /g,'')+'\nconfigurarRutaContinua');
+  const avance={value:.5},hecho={},pendiente={};configure(hecho,avance,true);configure(pendiente,avance,false);
+  for(const [material,condition] of [[hecho,'>'],[pendiente,'<=']]) {
+    const shader={uniforms:{},vertexShader:'#include <begin_vertex>',fragmentShader:'#include <color_fragment>'};material.onBeforeCompile(shader);
+    assert.equal(shader.uniforms.korvaAvance,avance);assert(shader.vertexShader.includes('korvaTramo = uv.x;'));
+    assert(shader.fragmentShader.includes('korvaTramo '+condition+' korvaAvance'));
+  }
+  assert.notEqual(hecho.customProgramCacheKey(),pendiente.customProgramCacheKey());
+});

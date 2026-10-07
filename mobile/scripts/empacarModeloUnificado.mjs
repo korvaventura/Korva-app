@@ -130,7 +130,16 @@ const route=[];
 for(let i=1;i<knots.length;i++) {
   const a=knots[i-1],b=knots[i],steps=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.z-a.z)/.009));
   for(let j=i===1?0:1;j<=steps;j++) {
-    const t=j/steps,x=a.x+(b.x-a.x)*t,z=a.z+(b.z-a.z)*t;
+    const t=j/steps;
+    // Optional source-local Hermite interpolation passes through every checkpoint.
+    // Heights are sampled again after smoothing, never interpolated through terrain.
+    const before=knots[Math.max(0,i-2)],after=knots[Math.min(knots.length-1,i+1)];
+    const interpolate = key => {
+      if(!calibration.suavizar)return a[key]+(b[key]-a[key])*t;
+      const h00=2*t*t*t-3*t*t+1,h10=t*t*t-2*t*t+t,h01=-2*t*t*t+3*t*t,h11=t*t*t-t*t;
+      return h00*a[key]+h10*(b[key]-before[key])*.35+h01*b[key]+h11*(after[key]-a[key])*.35;
+    };
+    const x=interpolate('x'),z=interpolate('z');
     const h=at(x,z); // The renderer adds its own small line clearance.
     route.push({x:x*calibration.kmPorUnidad,z:z*calibration.kmPorUnidad,h:h/calibration.metrosAUnidades,km:a.km+(b.km-a.km)*t});
   }

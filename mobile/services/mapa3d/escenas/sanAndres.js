@@ -13,8 +13,8 @@ const sanAndres = {
   id: 'san_andres',
   modeloMeshy: true,
   // Route anchors are calibrated to this artistic source; stored km stay unchanged.
-  colorRuta: '#FF8540', grosorRuta: .58, mostrarRelacionRecorrido: false,
-  seguimientoPeso: .18,
+  colorRuta: '#FF8540', grosorRuta: 1.05, mostrarRelacionRecorrido: false,
+  seguimientoPeso: .18, rutaContinua: true,
   distanciaKm: 57,
   presentacion: {
     eyebrow: 'CARIBE · COLOMBIA',

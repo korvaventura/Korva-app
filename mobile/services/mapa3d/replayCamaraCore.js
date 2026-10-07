@@ -1,5 +1,9 @@
 const { AJUSTES_MAPA } = require('./ajustesInteraccion');
 function duracionReplay(km, escenaId) {
+  if (escenaId === 'san_andres') {
+    const distancia=Math.min(57,Math.max(0,Number(km)||0));
+    return distancia ? 5000+13000*Math.sqrt(distancia/57) : 0;
+  }
   if (escenaId === 'islandia') {
     const distancia = Math.min(1400, Math.max(0, Number(km) || 0));
     if (!distancia) return 0;
