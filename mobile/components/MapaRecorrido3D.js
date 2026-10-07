@@ -414,8 +414,10 @@ export default function MapaRecorrido3D({
   const overlay = useMemo(() => {
     if (!mundo || !tam) return null;
     const { datos, conv } = mundo;
-    const cam = new THREE.PerspectiveCamera();
-    configurarCamara(cam, escena, tam.w / tam.h, controlRef.current, mundo);
+    // Project from the camera already applied to the Canvas, never from a
+    // newer gesture ref: playback can render React before the GL camera tick.
+    const cam = r3fRef.current?.camera;
+    if (!cam) return null;
     const aPx = (v) => {
       const p = v.clone().project(cam);
       const x = ((p.x + 1) / 2) * tam.w;
@@ -455,8 +457,9 @@ export default function MapaRecorrido3D({
       return e.visible && caja.x >= 6 && caja.x + caja.w <= tam.w - 6
         && !zonasHud.some((z) => seSuperponen(caja, z));
     });
-    const actualPx = kmProgreso > 0.05 && kmProgreso < escena.distanciaKm - 0.05
-      ? aPx(posicionEnKm(datos, conv, kmProgreso, 0))
+    const kmVisual = progresoRef.current.km;
+    const actualPx = kmVisual > 0.05 && kmVisual < escena.distanciaKm - 0.05
+      ? aPx(posicionEnKm(datos, conv, kmVisual, 0))
       : null;
     const actual = actualPx?.visible ? actualPx : null;
     // Norte en pantalla: proyectar un tramo hacia -z.
@@ -543,9 +546,11 @@ export default function MapaRecorrido3D({
 
     const tick = () => {
       const ahora = Date.now();
-      const dt = Math.max(0, Math.min(AJUSTES_MAPA.frameMaximoMs, ahora - anterior)); anterior = ahora;
-      // Un frame tardío no produce un salto para recuperar tiempo perdido.
-      transcurrido += dt;
+      const elapsed = Math.max(0, ahora - anterior); anterior = ahora;
+      const dt = Math.min(AJUSTES_MAPA.frameMaximoMs, elapsed);
+      // Keep the promised duration at low FPS; cap camera smoothing separately.
+      // A background interruption does not skip the whole journey.
+      transcurrido += Math.min(250, elapsed);
       const t = THREE.MathUtils.clamp(transcurrido / duracion, 0, 1);
       const suave = escena.rutaContinua ? t : t * t * (3 - 2 * t);
       const km = metaKm * suave;

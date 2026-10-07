@@ -99,3 +99,26 @@ test('Islandia: replay continuo según distancia y cero kilómetros solo recentr
   vm.runInContext(inicio+'\n}; iniciarJourney();',context);
   assert.equal(context.centrados,1);
 });
+
+test('replay y zoom: el overlay usa la cámara aplicada, aunque el gesto esté adelantado',()=>{
+  const source=fs.readFileSync(require.resolve('../components/MapaRecorrido3D'),'utf8');
+  const prelude=source.slice(source.indexOf('    // Project from the camera'),source.indexOf('    const aPx ='));
+  const applied={position:{x:5},projectionMatrix:{zoom:.7}};
+  const context=vm.createContext({r3fRef:{current:{camera:applied}},controlRef:{current:{zoom:1.6}},configurarCamara:()=>{throw Error('No proyectar desde el gesto pendiente');}});
+  assert.equal(vm.runInContext(`(()=>{${prelude}\nreturn cam;})()`,context),applied);
+  context.r3fRef.current=null;
+  assert.equal(vm.runInContext(`(()=>{${prelude}\nreturn cam;})()`,context),null);
+});
+
+test('replay: frames de 160 ms no duplican su duración; interrupciones quedan limitadas',()=>{
+  const source=fs.readFileSync(require.resolve('../components/MapaRecorrido3D'),'utf8');
+  const step=source.slice(source.indexOf('      const elapsed ='),source.indexOf('      const t = THREE.MathUtils.clamp'));
+  const context=vm.createContext({ahora:160,anterior:0,transcurrido:0,AJUSTES_MAPA});
+  vm.runInContext(`(()=>{${step}})()`,context);
+  assert.equal(context.transcurrido,160);
+  context.ahora=10000;
+  vm.runInContext(`(()=>{${step}})()`,context);
+  assert.equal(context.transcurrido,410);
+  const {duracionReplay}=require('../services/mapa3d/replayCamaraCore');
+  assert.equal(duracionReplay(68,'monte_fuji'),20000);
+});

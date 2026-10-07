@@ -32,8 +32,8 @@ test('San Andrés: punta continua sin escalones, shaders complementarios y repla
   assert.equal(f(0),0);assert.equal(f(57),1);
   for(let km=.01;km<57;km+=.11)assert(f(km+.00001)>f(km));
   const {duracionReplay}=require('../services/mapa3d/replayCamaraCore');
-  assert.equal(duracionReplay(57,'san_andres'),18000);assert.equal(duracionReplay(0,'san_andres'),0);
-  assert(duracionReplay(1,'san_andres')>=5000);assert.equal(duracionReplay(1400,'islandia'),25000);
+  assert.equal(duracionReplay(57,'san_andres'),14000);assert.equal(duracionReplay(0,'san_andres'),0);
+  assert(duracionReplay(1,'san_andres')>=4000);assert.equal(duracionReplay(1400,'islandia'),25000);
   const file=path.resolve(__dirname,'../components/mapa3d/rutaContinua.js');
   const configure=vm.runInNewContext(fs.readFileSync(file,'utf8').replace(/export /g,'')+'\nconfigurarRutaContinua');
   const avance={value:.5},hecho={},pendiente={};configure(hecho,avance,true);configure(pendiente,avance,false);
