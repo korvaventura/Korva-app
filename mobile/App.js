@@ -185,9 +185,8 @@ export default function App() {
   if (cargando) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: 64, marginBottom: 16 }}>??</Text>
         <Text style={{ fontSize: 36, fontWeight: 'bold', color: colors.text, letterSpacing: 6, marginBottom: 8 }}>KORVA</Text>
-        <Text style={{ fontSize: 14, color: colors.textSoft, marginBottom: 32 }}>Desaf?os virtuales. Medallas reales.</Text>
+        <Text style={{ fontSize: 14, color: colors.textSoft, marginBottom: 32 }}>Desafíos virtuales. Medallas reales.</Text>
         <ActivityIndicator color="#FC4C02" size="large" />
       </View>
     );
@@ -229,4 +228,3 @@ export default function App() {
     </NavigationContainer>
   );
 }
-
