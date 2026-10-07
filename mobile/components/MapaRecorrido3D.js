@@ -42,7 +42,7 @@ function obtenerMundo(escena, horneado) {
   return cacheEscenas.get(escena.id);
 }
 
-function Montaje({ mundo, escena, controlRef, r3fRef, onModeloEstado }) {
+function Montaje({ mundo, escena, controlRef, r3fRef, onModeloEstado, onCamaraAplicada }) {
   const { camera, size, scene, invalidate } = useThree();
   useEffect(() => {
     if (!mundo.modeloMeshy) return undefined;
@@ -68,6 +68,14 @@ function Montaje({ mundo, escena, controlRef, r3fRef, onModeloEstado }) {
       if (r3fRef.current?.camera === camera) r3fRef.current = null;
     };
   }, [camera, size.width, size.height, scene, mundo, escena, invalidate, controlRef, r3fRef]);
+  // Apply the gesture and publish overlays inside the GL frame that draws
+  // the terrain. JS requestAnimationFrame can run while native GL is behind.
+  useFrame(() => {
+    if (escena.id !== 'san_andres') return;
+    configurarCamara(camera, escena, size.width / Math.max(1, size.height), controlRef.current, mundo);
+    actualizarAtmosfera(mundo, escena, camera);
+    onCamaraAplicada();
+  });
   return (
     <>
       <primitive object={mundo.cielo} dispose={null} />
@@ -153,12 +161,12 @@ function Ruta({ mundo, escena, progresoRef }) {
 }
 
 // El overlay nativo puede cambiar sin reconfigurar el contexto GL ni su árbol.
-const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3fRef, progresoRef, alCrear, onModeloEstado }) {
+const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3fRef, progresoRef, alCrear, onModeloEstado, onCamaraAplicada }) {
   const camaraInicial = useMemo(() => ({ fov: escena.camara.fov, near: 0.05, far: 200, position: [0, 6, -10] }), [escena]);
   const opcionesGL = useMemo(() => ({ alpha: true, antialias: true }), []);
   return (
     <Canvas style={styles.canvas} frameloop="demand" dpr={mundo.modeloMeshy ? 1.5 : 2} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
-      <Montaje mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} onModeloEstado={onModeloEstado} />
+      <Montaje mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} onModeloEstado={onModeloEstado} onCamaraAplicada={onCamaraAplicada} />
       <Ruta mundo={mundo} escena={escena} progresoRef={progresoRef} />
     </Canvas>
   );
@@ -275,14 +283,20 @@ export default function MapaRecorrido3D({
       if (!estado) return;
       const ahora=Date.now();
       if(ahora-ultimaPublicacionRef.current<AJUSTES_MAPA.camaraIntervaloMs)return;
-      const mundoActual = cacheEscenas.get(escena.id);
-      configurarCamara(estado.camera, escena, estado.size.width / Math.max(1, estado.size.height), controlRef.current, mundoActual);
-      if (mundoActual) actualizarAtmosfera(mundoActual, escena, estado.camera);
+      if (escena.id !== 'san_andres') {
+        const mundoActual = cacheEscenas.get(escena.id);
+        configurarCamara(estado.camera, escena, estado.size.width / Math.max(1, estado.size.height), controlRef.current, mundoActual);
+        if (mundoActual) actualizarAtmosfera(mundoActual, escena, estado.camera);
+      }
       estado.invalidate();
       ultimaPublicacionRef.current=ahora;
-      setRevisionCamara((v) => v + 1);
+      if (escena.id !== 'san_andres') setRevisionCamara(v => v + 1);
     });
   }, [escena]);
+
+  const onCamaraAplicada = useCallback(() => {
+    setRevisionCamara(v => v + 1);
+  }, []);
 
   const moverObjetivo = (dx, dy, baseObjetivo) => {
     const estado = r3fRef.current;
@@ -559,8 +573,8 @@ export default function MapaRecorrido3D({
         !arrastrandoRef.current && ahora>=camaraManualHastaRef.current,
         escena.seguimientoPeso ?? (escena.id === 'islandia' ? .18 : AJUSTES_MAPA.seguimientoPeso));
       progresoRef.current = { km, animando: true };
-      // Smooth GPU progress without doubling React camera/checkpoint updates.
-      if (escena.rutaContinua) r3fRef.current?.invalidate();
+      // Route and terrain share the same capped render loop as Dubrovnik.
+      // A second invalidate here rendered San Andrés twice as often.
       if (ahora - ultimaFicha >= AJUSTES_MAPA.fichaIntervaloMs || t === 1) { setKmPlayback(km); ultimaFicha = ahora; }
       aplicarCamara();
       if (t < 1) {
@@ -653,7 +667,7 @@ export default function MapaRecorrido3D({
       <Fondo />
       {mundo && (
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: aparicion }]}>
-          <EscenaCanvas mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} progresoRef={progresoRef} alCrear={alCrear} onModeloEstado={setEstadoModelo} />
+          <EscenaCanvas mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} progresoRef={progresoRef} alCrear={alCrear} onModeloEstado={setEstadoModelo} onCamaraAplicada={onCamaraAplicada} />
         </Animated.View>
       )}
 
