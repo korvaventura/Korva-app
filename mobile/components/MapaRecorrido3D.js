@@ -12,7 +12,7 @@ import { estadoJourney } from '../services/mapa3d/journeyCore';
 import { crearCorteRuta, crearFraccionRuta } from '../services/mapa3d/rutaPlaybackCore';
 import { AJUSTES_MAPA } from '../services/mapa3d/ajustesInteraccion';
 import { duracionReplay, controlInicialReplay, seguirReplay } from '../services/mapa3d/replayCamaraCore';
-import { ubicarEtiquetas, seSuperponen } from '../services/mapa3d/etiquetasCore';
+import { ubicarEtiquetas, seSuperponen, separarPinesCercanos } from '../services/mapa3d/etiquetasCore';
 import {
   actualizarAtmosfera,
   configurarCamara,
@@ -424,7 +424,7 @@ export default function MapaRecorrido3D({
       const visible = p.z > -1 && p.z < 1 && x > -20 && x < tam.w + 20 && y > -20 && y < tam.h + 20;
       return { x, y, visible };
     };
-    const pines = journey.checkpoints.map((cp, i) => {
+    const pines = separarPinesCercanos(journey.checkpoints.map((cp, i) => {
       const km = cp.kmJourney;
       return {
         cp,
@@ -436,7 +436,7 @@ export default function MapaRecorrido3D({
         desbloqueado: cp.estadoJourney === 'conquistado',
         estadoJourney: cp.estadoJourney,
       };
-    });
+    }), escena.pinesSeparados, tam.w, tam.h);
     const pinesVisibles = pines.filter((p) => p.cabeza.visible && p.base.visible);
     const zonasHud = [
       { x: 0, y: 0, w: tam.w, h: 64 },

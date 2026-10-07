@@ -15,6 +15,7 @@ const sanAndres = {
   // Route anchors are calibrated to this artistic source; stored km stay unchanged.
   colorRuta: '#FF8540', grosorRuta: 1.05, mostrarRelacionRecorrido: false,
   seguimientoPeso: .18, rutaContinua: true,
+  pinesSeparados: [['el_hoyo', 'punta_sur']],
   distanciaKm: 57,
   presentacion: {
     eyebrow: 'CARIBE · COLOMBIA',

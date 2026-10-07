@@ -83,4 +83,23 @@ function ubicarEtiquetas(items, ancho, alto, { radioPin = 9, ocupados = [], ocul
   return salida;
 }
 
-module.exports = { ubicarEtiquetas, anchoEstimado, medidasEtiqueta, seSuperponen };
+// Presentation only: keep route anchors untouched while separating tappable heads.
+function separarPinesCercanos(pines, grupos, ancho, alto, minimo = 64) {
+  if (!grupos?.length) return pines;
+  const salida=pines.map(p=>({...p,cabeza:{...p.cabeza}}));
+  for(const [idA,idB] of grupos || []) {
+    const a=salida.find(p=>p.cp.id===idA),b=salida.find(p=>p.cp.id===idB);
+    if(!a?.cabeza.visible || !b?.cabeza.visible || !a.base.visible || !b.base.visible)continue;
+    let dx=b.cabeza.x-a.cabeza.x,dy=b.cabeza.y-a.cabeza.y;
+    const distancia=Math.hypot(dx,dy);if(distancia>=minimo)continue;
+    if(distancia<.001){dx=1;dy=0;}else{dx/=distancia;dy/=distancia;}
+    const radio=minimo/2, margen=24;
+    const limitar=(v,t,r)=>Math.max(margen+r,Math.min(t-margen-r,v));
+    const x=limitar((a.cabeza.x+b.cabeza.x)/2,ancho,Math.abs(dx)*radio);
+    const y=limitar((a.cabeza.y+b.cabeza.y)/2,alto,Math.abs(dy)*radio);
+    a.cabeza.x=x-dx*radio;a.cabeza.y=y-dy*radio;
+    b.cabeza.x=x+dx*radio;b.cabeza.y=y+dy*radio;
+  }
+  return salida;
+}
+module.exports = { ubicarEtiquetas, anchoEstimado, medidasEtiqueta, seSuperponen, separarPinesCercanos };
