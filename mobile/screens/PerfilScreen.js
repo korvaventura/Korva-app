@@ -1,3 +1,4 @@
+import RutaLibreCard from '../components/RutaLibreCard';
 import KorvaGroups from '../components/KorvaGroups';
 import { nombreDeporteActividad, nombreFuenteActividad, iconoDeporteActividad } from '../utils/actividadPresentacion';
 import KorvaCompletedShare from '../components/KorvaCompletedShare';
@@ -841,6 +842,12 @@ export default function PerfilScreen() {
         <Ionicons name="chevron-forward" size={16} color={colors.textDim} />
       </TouchableOpacity>
 
+
+      {userId && (
+        <View style={{ width: '100%', paddingHorizontal: 24 }}>
+          <RutaLibreCard key={userId} navigation={navigation} soloInscrita />
+        </View>
+      )}
 
       {/* Retos activos */}
       {inscripcionesActivas.length > 0 && (

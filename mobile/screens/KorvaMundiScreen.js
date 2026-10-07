@@ -1,3 +1,5 @@
+import useRutaLibre from '../services/useRutaLibre';
+import { destinoRutaLibre, ISLANDIA_MUNDI } from '../services/rutaLibreMundiCore';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +34,7 @@ const formatFecha = (value) => {
 
 
 export default function KorvaMundiScreen({ navigation }) {
+  const { estado: rutaLibre } = useRutaLibre();
   const [catalogo, setCatalogo] = useState([]);
   const [inscripciones, setInscripciones] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -82,7 +85,8 @@ export default function KorvaMundiScreen({ navigation }) {
 
   const destinos = useMemo(() => {
     const porChallenge = new Map(inscripciones.map((x) => [x.challenge_id, x]));
-    return catalogo
+    const pagos = catalogo
+      .filter(c => c.id !== ISLANDIA_MUNDI.id)
       .filter((c) => Number.isFinite(Number(c.latitude)) && Number.isFinite(Number(c.longitude)))
       .map((challenge) => {
         const uc = porChallenge.get(challenge.id);
@@ -95,7 +99,8 @@ export default function KorvaMundiScreen({ navigation }) {
         if (uc && (COMPLETADOS.has(uc.status) || porcentaje >= 100)) estado = 'conquistado';
         return { ...challenge, ...uc, objetivo, km, porcentaje, estado };
       });
-  }, [catalogo, inscripciones]);
+    return [...pagos, destinoRutaLibre(rutaLibre.datos?.participacion)];
+  }, [catalogo, inscripciones, rutaLibre.datos]);
 
   const resumen = useMemo(() => ({
     conquistados: destinos.filter((d) => d.estado === 'conquistado').length,
@@ -179,6 +184,7 @@ export default function KorvaMundiScreen({ navigation }) {
   };
 
   const estadoTexto = (d) => {
+    if (d.gratuita && d.pausado) return 'Ruta gratuita · pausada';
     if (d.estado === 'conquistado') return 'Conquistado';
     if (d.estado === 'en_curso') return `${Math.round(d.porcentaje)}% conquistado`;
     if (d.estado === 'adquirido') return 'Listo para comenzar';
@@ -269,7 +275,11 @@ export default function KorvaMundiScreen({ navigation }) {
                     <Text style={styles.progressText}>{conquistado ? (fecha ? `Conquistado · ${fecha}` : 'Desafío completado') : `${formatKm(Math.max(0, seleccionado.objetivo - seleccionado.km))} restantes`}</Text>
                   </View>
                   <Text style={styles.destinationCopy} numberOfLines={4}>{editorial?.copy || seleccionado.historia || seleccionado.description}</Text>
-                  {seleccionado.estado === 'por_conquistar' ? (
+                  {seleccionado.gratuita ? (
+                    <TouchableOpacity style={styles.cta} onPress={() => { setSeleccionado(null); navigation.navigate('RutaLibre'); }}>
+                      <Text style={styles.ctaText}>{seleccionado.estado === 'por_conquistar' ? 'Explorar ruta gratuita' : 'Ver mi viaje'}</Text><Ionicons name="arrow-forward" size={16} color={colors.text} />
+                    </TouchableOpacity>
+                  ) : seleccionado.estado === 'por_conquistar' ? (
                     <TouchableOpacity style={styles.cta} onPress={() => { setSeleccionado(null); navigation.navigate('HomeTabs', { screen: 'Catalogo' }); }}>
                       <Text style={styles.ctaText}>Descubrir desafío</Text><Ionicons name="arrow-forward" size={16} color={colors.text} />
                     </TouchableOpacity>

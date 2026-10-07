@@ -2,11 +2,15 @@ import { Text, TouchableOpacity, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../theme/korvaTheme';
 import useRutaLibre from '../services/useRutaLibre';
-export default function RutaLibreCard({ navigation }) {
+export default function RutaLibreCard({ navigation, soloInscrita = false }) {
   const { estado } = useRutaLibre();
+  return <RutaLibreCardVista navigation={navigation} soloInscrita={soloInscrita} estado={estado} />;
+}
+export function RutaLibreCardVista({ navigation, soloInscrita = false, estado }) {
   const p = estado.datos?.participacion;
+  if (soloInscrita && (!p || p.abandonado)) return null;
   return <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('RutaLibre')} accessibilityRole="button" accessibilityLabel="Explorar Islandia, ruta gratuita">
-    <View style={styles.row}><Text style={styles.tag}>RUTA GRATUITA</Text><Ionicons name="chevron-forward" size={20} color={colors.textSoft} /></View>
+    <View style={styles.row}><Text style={styles.tag}>{p && !p.abandonado ? 'MI DESAFÍO GRATUITO' : 'RUTA GRATUITA'}</Text><Ionicons name="chevron-forward" size={20} color={colors.textSoft} /></View>
     <Text style={styles.title}>Islandia · Ring Road</Text>
     <Text style={styles.copy}>1.400 km · Fuego, hielo y auroras</Text>
     {p && !p.abandonado ? <>

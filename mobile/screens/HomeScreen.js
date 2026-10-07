@@ -1,5 +1,6 @@
 import KorvaHelpSheet from '../components/KorvaHelpSheet';
-import RutaLibreCard from '../components/RutaLibreCard';
+import { RutaLibreCardVista } from '../components/RutaLibreCard';
+import useRutaLibre from '../services/useRutaLibre';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking, TextInput, Alert, Modal, Dimensions, KeyboardAvoidingView, Platform, DeviceEventEmitter } from 'react-native';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -64,6 +65,7 @@ export default function HomeScreen({ navigation }) {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(false);
   const [userId, setUserId] = useState(null);
+  const { estado: rutaLibre } = useRutaLibre();
   const [completado, setCompletado] = useState(null);
   const [retoCompartir, setRetoCompartir] = useState(null);
   const [mostrarTutorial, setMostrarTutorial] = useState(false);
@@ -453,6 +455,9 @@ export default function HomeScreen({ navigation }) {
     return Number.isFinite(ms) ? ms : 0;
   };
 
+  const participacionLibre = rutaLibre.datos?.userId === userId ? rutaLibre.datos.participacion : null;
+  const tieneRutaLibre = !!participacionLibre && !participacionLibre.abandonado;
+
   const challengesPending = challenges.filter(c => c.pending);
   const challengesEnCurso = challenges
     .filter(c => !c.pending && !esTerminado(c))
@@ -703,6 +708,8 @@ export default function HomeScreen({ navigation }) {
         </View>
       )}
 
+      {userId && <RutaLibreCardVista key={userId} navigation={navigation} estado={rutaLibre.datos?.userId === userId ? rutaLibre : { ...rutaLibre, datos: null }} />}
+
       {cargando ? (
         <ActivityIndicator size="large" color="#1E6FD9" style={{ marginTop: 40 }} />
       ) : error ? (
@@ -742,7 +749,7 @@ export default function HomeScreen({ navigation }) {
             </View>
           ))}
 
-          {challengesActivos.length === 0 ? (
+          {challengesActivos.length === 0 ? (tieneRutaLibre ? null :
             <View style={styles.emptyCard}>
               <Text style={styles.emptyEmoji}>🏅</Text>
               <Text style={styles.emptyText}>Tu próxima aventura</Text>
@@ -809,8 +816,8 @@ export default function HomeScreen({ navigation }) {
 
       {!cargando && !error && (
         <KorvaMundiTeaser
-          conquistados={challengesCompletados.length}
-          enCurso={challengesEnCurso.filter((c) => !c.pausado).length}
+          conquistados={challengesCompletados.length + (tieneRutaLibre && participacionLibre.estado === 'completada' ? 1 : 0)}
+          enCurso={challengesEnCurso.filter((c) => !c.pausado).length + (tieneRutaLibre && !participacionLibre.pausado && participacionLibre.estado !== 'completada' ? 1 : 0)}
           onPress={() => navigation.navigate('KorvaMundi')}
         />
       )}
@@ -818,7 +825,6 @@ export default function HomeScreen({ navigation }) {
       {userId && (
         <View style={styles.movimientoResumen}>
           <MovimientoPersonalCard compacto estado={movimientoPersonal} onActualizar={actualizarMovimiento} />
-          <RutaLibreCard key={userId} navigation={navigation} />
         </View>
       )}
 
