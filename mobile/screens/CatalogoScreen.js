@@ -37,7 +37,7 @@ export default function CatalogoScreen() {
           .select('challenge_id, status')
           .eq('user_id', session.user.id)
           .in('status', ['active', 'completed', 'shipped', 'cargado', 'pending']);
-        if (ucs) setMisDesafios(ucs.map(u => u.challenge_id));
+        if (ucs) setMisDesafios(ucs);
       }
     });
     cargarChallenges();
@@ -113,19 +113,21 @@ export default function CatalogoScreen() {
   }
 
   const renderCardActiva = (item, index) => {
-    const yaInscripto = misDesafios.includes(item.id);
+    const inscripciones = misDesafios.filter(uc => uc.challenge_id === item.id);
+    const yaInscripto = inscripciones.some(uc => ['active', 'completed', 'shipped', 'cargado'].includes(uc.status));
+    const compraPendiente = !yaInscripto && inscripciones.some(uc => uc.status === 'pending');
     return (
     <TouchableOpacity key={index} style={[styles.card, yaInscripto && { borderWidth: 1.5, borderColor: '#22C55E' }]} onPress={() => abrirDetalle(item)} activeOpacity={0.85}>
       <View style={styles.imageWrapper}>
         {item.medal_image_url && (
           <Image source={{ uri: item.medal_image_url }} style={styles.medallaImage} resizeMode="contain" />
         )}
-        {yaInscripto && (
-          <View style={[styles.ofertaBadge, { backgroundColor: '#15803D' }]}>
-            <Text style={styles.ofertaTexto}>✅ Ya inscripto</Text>
+        {(yaInscripto || compraPendiente) && (
+          <View style={[styles.ofertaBadge, { backgroundColor: compraPendiente ? '#854D0E' : '#15803D' }]}>
+            <Text style={styles.ofertaTexto}>{compraPendiente ? 'Compra pendiente' : '✅ Ya inscripto'}</Text>
           </View>
         )}
-        {!yaInscripto && item.oferta_texto && (
+        {!yaInscripto && !compraPendiente && item.oferta_texto && (
           <View style={styles.ofertaBadge}>
             <Text style={styles.ofertaTexto}>🔥 {item.oferta_texto}</Text>
           </View>
