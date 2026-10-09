@@ -43,7 +43,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Korva necesita acceso a tu galería para que puedas subir tu foto de perfil."
+          "photosPermission": "Korva necesita acceso a tu galer\u00eda para que puedas subir tu foto de perfil."
         }
       ],
       [
@@ -58,8 +58,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Korva usa tu ubicación para medir el recorrido de tus actividades.",
-          "locationAlwaysAndWhenInUsePermission": "Korva usa tu ubicación durante una actividad para seguir midiendo el recorrido aunque bloquees la pantalla o uses otra app.",
+          "locationWhenInUsePermission": "Korva usa tu ubicaci\u00f3n para medir el recorrido de tus actividades.",
+          "locationAlwaysAndWhenInUsePermission": "Korva usa tu ubicaci\u00f3n durante una actividad para seguir midiendo el recorrido aunque bloquees la pantalla o uses otra app.",
           "isIosBackgroundLocationEnabled": true
         }
       ],
@@ -78,6 +78,14 @@
       "eas": {
         "projectId": "f433761f-30a0-4bfc-8260-a18e898d2688"
       }
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f433761f-30a0-4bfc-8260-a18e898d2688",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
     }
   }
 }
