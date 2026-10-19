@@ -96,14 +96,23 @@ test('timestamp fuera de orden reancla sin sumar un salto', () => {
   assert.equal(s.puntos.length, 2);
 });
 
-test('gap largo reancla y no une dos tramos separados', () => {
+test('gap largo con velocidad normal suma distancia', () => {
   let s = crearSesionGps({ ahoraMs: 1000 });
   s = agregarPuntoGps(s, p(0, 0, 1000));
   s = agregarPuntoGps(s, p(0, 0.001, 200000));
+  assert.ok(s.distanciaM > 110 && s.distanciaM < 112);
+  assert.equal(s.descartados.salto, 0);
+  s = agregarPuntoGps(s, p(0, 0.0011, 202000));
+  assert.ok(s.distanciaM > 122 && s.distanciaM < 124);
+});
+
+test('gap largo con velocidad absurda no suma y cuenta salto', () => {
+  let s = crearSesionGps({ ahoraMs: 1000 });
+  s = agregarPuntoGps(s, p(0, 0, 1000));
+  // 11 km en ~3 minutos supera 15 m/s.
+  s = agregarPuntoGps(s, p(0, 0.1, 200000));
   assert.equal(s.distanciaM, 0);
   assert.equal(s.descartados.salto, 1);
-  s = agregarPuntoGps(s, p(0, 0.0011, 202000));
-  assert.ok(s.distanciaM > 11 && s.distanciaM < 12);
 });
 
 test('ignora puntos mientras esta pausada o finalizada', () => {
