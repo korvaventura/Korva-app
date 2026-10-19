@@ -17,6 +17,13 @@ export const iniciarGpsBackground = async () => {
   await Location.startLocationUpdatesAsync(GPS_BACKGROUND_TASK, {
     accuracy: Location.Accuracy.High,
     distanceInterval: 3,
+    timeInterval: 2000,
+    deferredUpdatesInterval: 0,
+    foregroundService: {
+      notificationTitle: 'Korva está registrando tu actividad',
+      notificationBody: 'Midiendo tu recorrido en segundo plano',
+      killServiceOnDestroy: false,
+    },
     activityType: Location.ActivityType.Fitness,
     pausesUpdatesAutomatically: false,
     showsBackgroundLocationIndicator: true,
