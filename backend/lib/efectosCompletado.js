@@ -240,10 +240,21 @@ const crearEfectosCompletado = ({ supabase, generarCertificado, emails, obtenerR
       ejecutar: async (ctx) => {
         const c = contextoDe(ctx);
         if (!serialPropio(ctx)) return { estado: RESULTADO.OMITIDO, motivo: 'certificado ya emitido por otro camino' };
-        const u = await leerUsuario(ctx.evento.user_id, 'name, email, bib_number');
+        const u = await leerUsuario(ctx.evento.user_id, 'name, email');
         if (!u) return { estado: RESULTADO.DEFINITIVO, error: 'el usuario ya no existe' };
         if (!u.email) return { estado: RESULTADO.DEFINITIVO, error: 'el usuario no tiene email' };
-        const pdf = await generarCertificado(supabase, u.name, c.titulo, c.distancia_km, u.bib_number || '---', c.fecha_completado, ctx.efectos.serial.serial);
+        // El dorsal es propio de cada inscripción, no del perfil general del usuario.
+        const { data: inscripcion, error: errorInscripcion } = await supabase
+          .from('user_challenges')
+          .select('numero_bib, user_id')
+          .eq('id', ctx.evento.user_challenge_id)
+          .eq('user_id', ctx.evento.user_id)
+          .maybeSingle();
+        if (errorInscripcion) return { estado: RESULTADO.ERROR, error: errorInscripcion.message };
+        if (!inscripcion || inscripcion.numero_bib == null) {
+          return { estado: RESULTADO.ERROR, error: 'la inscripción no tiene dorsal asignado' };
+        }
+        const pdf = await generarCertificado(supabase, u.name, c.titulo, c.distancia_km, inscripcion.numero_bib, c.fecha_completado, ctx.efectos.serial.serial);
         if (!pdf) return { estado: RESULTADO.ERROR, error: 'no se pudo generar el PDF del certificado' };
         let opciones;
         if (c.esGrupo && !c.esComprador) {
