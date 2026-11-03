@@ -185,6 +185,15 @@ test('actividad que NO completa: se registra, suma 1:1 a los activos, sin evento
   assert.equal(s.m.db.activities.filter((a) => a.user_id === U).length, 2);
 });
 
+test('actividad en desafío pausado: se guarda sin prometer kilómetros sumados', async () => {
+  const s = montar();
+  const r = await s.registrar({ km: 5, challenge_id: 'c2' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.mensaje, 'Actividad registrada, pero no se sumaron kilómetros al desafío seleccionado');
+  assert.equal(s.fila('uc2').km_completed, 10);
+  assert.equal(s.fila('uc1').km_completed, 45); // otro desafío activo sí puede sumar
+});
+
 test('actividad que COMPLETA (Estándar): RPC + un evento motor; efectos una vez; km_base intacto', async () => {
   const s = montar();
   const r = await s.registrar({ km: 15 });
@@ -325,7 +334,7 @@ test('fallan todos los intentos de recálculo: 200 con la actividad y "pendiente
   const s = montar({ fallar: (op) => op.tabla === 'activities' && op.tipo === 'select' && fallas++ < 3 });
   const r = await s.registrar({ km: 15 });
   assert.equal(r.status, 200);
-  assert.equal(r.body.mensaje, 'Actividad registrada y kilómetros sumados');
+  assert.equal(r.body.mensaje, 'Actividad registrada; los kilómetros se actualizarán cuando finalice el recálculo');
   assert.ok(r.body.actividad);
   assert.deepEqual([r.body.progreso.recalculo, r.body.progreso.recuperacion], ['pendiente', 'automatica']);
   assert.deepEqual(s.marcas(), ['uc1', 'uc2']);
