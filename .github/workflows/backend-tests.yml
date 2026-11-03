@@ -29,3 +29,27 @@ jobs:
         run: npm test -- --test-concurrency=2
       - name: Probar generación de PDF (sin servicios externos)
         run: python3 -m unittest discover -s tests -p 'test_generar_certificado.py' -v
+      - name: Instalar LibreOffice para conversión real
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libreoffice-impress
+          python3 -m venv .venv-certificados
+          .venv-certificados/bin/pip install python-pptx
+      - name: Generar PDF real de prueba (sin datos de clientes)
+        run: |
+          .venv-certificados/bin/python - <<'PY'
+          import base64
+          import io
+          from pptx import Presentation
+          from generar_certificado import reemplazar_en_pptx, pptx_a_pdf_base64
+          presentacion = Presentation()
+          slide = presentacion.slides.add_slide(presentacion.slide_layouts[6])
+          textbox = slide.shapes.add_textbox(0, 0, 4000000, 800000)
+          textbox.text = 'Certificado {{NOMBRE_COMPLETO}}'
+          salida = io.BytesIO()
+          presentacion.save(salida)
+          editado = reemplazar_en_pptx(salida.getvalue(), {'NOMBRE_COMPLETO': 'Usuario de prueba'})
+          pdf = base64.b64decode(pptx_a_pdf_base64(editado, 'certificado'))
+          assert pdf.startswith(b'%PDF-') and len(pdf) > 1000, 'PDF inválido o vacío'
+          print(f'Conversión real OK: PDF de {len(pdf)} bytes')
+          PY
