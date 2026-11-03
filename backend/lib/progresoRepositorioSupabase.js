@@ -252,7 +252,7 @@ const crearRepositorioBase = (supabase) => {
     correrInicioPorActividad: async ({ userId, challengeId, recordedAt }) => {
       const { data, error } = await lectura
         .from('user_challenges')
-        .select('id, started_at')
+        .select('id, started_at, inicio_protegido_at')
         .eq('user_id', userId)
         .eq('challenge_id', challengeId)
         .limit(2);
@@ -262,6 +262,7 @@ const crearRepositorioBase = (supabase) => {
       const nuevoCorte = resolverInicioRetroactivo({
         inicioActual: ucCorte.started_at,
         fechaActividad: recordedAt,
+        inicioProtegido: ucCorte.inicio_protegido_at ?? null,
       });
       if (!nuevoCorte) return false;
       // CAS: si una corrección administrativa o carga paralela cambió el inicio,
