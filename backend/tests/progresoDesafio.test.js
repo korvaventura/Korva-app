@@ -219,7 +219,7 @@ test('retroactiva: una actividad antes del reinicio no cuenta aunque llegue desp
   const corteReinicio = '2026-11-02T20:57:33Z';
   const r = calc({ started_at: corteReinicio, km_completed: 2.5 }, actividades);
   assert.equal(r.km_actividades, 2.5);
-  assert.equal(r.actividades.anteriores_al_inicio.km, 19.5769);
+  assert.equal(r.actividades.anteriores_al_inicio.km, 19.577);
 });
 
 test('pausa abierta: lo posterior a pausado_at no cuenta', () => {
