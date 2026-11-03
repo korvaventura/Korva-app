@@ -267,11 +267,16 @@ const crearRepositorioBase = (supabase) => {
       if (!nuevoCorte) return false;
       // CAS: si una corrección administrativa o carga paralela cambió el inicio,
       // no sobreescribirla. La próxima carga podrá reintentar sobre el nuevo estado.
-      const { data: actualizado, error: e2 } = await supabase.from('user_challenges')
+      let actualizacion = supabase.from('user_challenges')
         .update({ started_at: nuevoCorte })
         .eq('id', ucCorte.id)
-        .eq('started_at', ucCorte.started_at)
-        .select('id');
+        .eq('started_at', ucCorte.started_at);
+      // Evita la carrera SELECT→UPDATE: el administrador puede proteger un inicio
+      // sin cambiar started_at. El piso debe seguir idéntico al valor leído.
+      actualizacion = ucCorte.inicio_protegido_at == null
+        ? actualizacion.is('inicio_protegido_at', null)
+        : actualizacion.eq('inicio_protegido_at', ucCorte.inicio_protegido_at);
+      const { data: actualizado, error: e2 } = await actualizacion.select('id');
       if (e2) throw e2;
       return Array.isArray(actualizado) && actualizado.length === 1;
     },
