@@ -188,6 +188,40 @@ test('regresión: 21 ciclos de pausa conservan solo las salidas hechas fuera de 
   assert.equal(r.categoria_diferencia, CATEGORIAS.COINCIDE);
 });
 
+test('retroactiva: importa fecha real, no fecha de sincronización, en pausas múltiples', () => {
+  const periodos = [
+    { desde: '2026-10-05T08:00:00Z', hasta: '2026-10-06T08:00:00Z' },
+    { desde: '2026-10-08T08:00:00Z', hasta: '2026-10-10T08:00:00Z' },
+  ];
+  const actividades = [
+    act('2026-10-04T13:00:00Z', 2),
+    act('2026-10-05T10:00:00Z', 7), // cargada días después, pero ocurrió durante pausa
+    act('2026-10-07T13:00:00Z', 3), // salida conjunta fuera de pausa
+    act('2026-10-09T13:00:00Z', 11), // importada por Strava tras reanudar
+    act('2026-10-11T13:00:00Z', 4),
+  ];
+  const r = calc({
+    started_at: '2026-10-01T00:00:00Z',
+    periodos_pausados: periodos,
+    km_completed: 9,
+  }, actividades);
+  assert.equal(r.km_actividades, 9);
+  assert.equal(r.actividades.cuentan.cantidad, 3);
+  assert.equal(r.actividades.en_pausa.cantidad, 2);
+  assert.equal(r.actividades.en_pausa.km, 18);
+});
+
+test('retroactiva: una actividad antes del reinicio no cuenta aunque llegue después', () => {
+  const actividades = [
+    act('2026-10-28T10:00:00Z', 19.5769),
+    act('2026-11-04T10:00:00Z', 2.5),
+  ];
+  const corteReinicio = '2026-11-02T20:57:33Z';
+  const r = calc({ started_at: corteReinicio, km_completed: 2.5 }, actividades);
+  assert.equal(r.km_actividades, 2.5);
+  assert.equal(r.actividades.anteriores_al_inicio.km, 19.5769);
+});
+
 test('pausa abierta: lo posterior a pausado_at no cuenta', () => {
   const actividades = [act('2026-09-10T09:00:00', 5), act('2026-09-10T11:00:00', 7)];
   const r = calc({ pausado: true, pausado_at: '2026-09-10T10:00:00' }, actividades);
