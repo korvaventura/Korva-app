@@ -262,7 +262,7 @@ test('reinicio administrativo: cargar actividad antigua NO mueve inicio ni resuc
   const inicio = '2026-09-01T00:00:00';
   const s = montar({
     ucs: [UC1({ started_at: inicio, inicio_protegido_at: inicio, km_base: 0, km_completed: 0, km_base_motivo: null })],
-    actividades: [A1],
+    actividades: [],
   });
   const r = await s.registrar({ km: 6, recorded_at: '2026-08-28T08:00:00Z' });
   assert.equal(r.status, 200);
