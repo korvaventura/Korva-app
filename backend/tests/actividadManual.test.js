@@ -258,6 +258,35 @@ test('pausado: nunca se completa; lo cargado durante la pausa abierta no suma; l
   assert.equal(enPausaCerrada.fila('uc1').km_completed, 46); // para uc1 sí cuenta
 });
 
+test('reinicio administrativo: cargar actividad antigua NO mueve inicio ni resucita kilómetros anteriores', async () => {
+  const inicio = '2026-09-01T00:00:00';
+  const s = montar({
+    ucs: [UC1({ started_at: inicio, inicio_protegido_at: inicio, km_base: 0, km_completed: 0, km_base_motivo: null })],
+    actividades: [A1],
+  });
+  const r = await s.registrar({ km: 6, recorded_at: '2026-08-28T08:00:00Z' });
+  assert.equal(r.status, 200);
+  assert.equal(s.fila('uc1').started_at, inicio);
+  assert.equal(s.fila('uc1').km_completed, 0);
+  assert.equal(s.m.db.activities.some(a => a.recorded_at === '2026-08-28T08:00:00Z'), true);
+  const cambiosInicio = s.m.registro.filter(op => op.tabla === 'user_challenges' && op.tipo === 'update' && op.valores?.started_at);
+  assert.equal(cambiosInicio.length, 0);
+});
+
+test('inicio normal sin marca: conserva retroactividad de hasta 30 días', async () => {
+  const s = montar({ ucs: [UC1({ inicio_protegido_at: null })] });
+  await s.registrar({ km: 3, recorded_at: '2026-08-28T08:00:00Z' });
+  assert.equal(s.fila('uc1').started_at, '2026-08-28T08:00:00Z');
+});
+
+test('inicio protegido previo: permite corregir inicio solo hasta la fecha protegida', async () => {
+  const s = montar({ ucs: [UC1({ inicio_protegido_at: '2026-08-25T00:00:00Z' })] });
+  await s.registrar({ km: 3, recorded_at: '2026-08-28T08:00:00Z' });
+  assert.equal(s.fila('uc1').started_at, '2026-08-28T08:00:00Z');
+  await s.registrar({ km: 4, recorded_at: '2026-08-24T08:00:00Z' });
+  assert.equal(s.fila('uc1').started_at, '2026-08-28T08:00:00Z');
+});
+
 test('started_at: una actividad anterior al inicio lo corre hacia atrás (máx. 30 días) y cuenta', async () => {
   const s = montar();
   const r = await s.registrar({ km: 4, recorded_at: '2026-08-20T08:00:00.000Z' });
