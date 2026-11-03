@@ -266,7 +266,7 @@ test('started_at: una actividad anterior al inicio lo corre hacia atrás (máx. 
   assert.equal(s.fila('uc1').km_completed, 44);
   const lejos = montar();
   await lejos.registrar({ km: 4, recorded_at: '2026-06-01T08:00:00.000Z' });
-  assert.equal(new Date(lejos.fila('uc1').started_at).toISOString(), new Date(Date.parse('2026-09-01T00:00:00') - 30 * 24 * 3600 * 1000).toISOString());
+  assert.equal(new Date(lejos.fila('uc1').started_at).toISOString(), new Date(Date.parse('2026-09-01T00:00:00Z') - 30 * 24 * 3600 * 1000).toISOString());
   assert.equal(lejos.fila('uc1').km_completed, 40); // sigue fuera de la ventana
   // modo libre (sin challenge_id): no corre nada, pero suma a los activos
   const libre = montar();
