@@ -18,6 +18,7 @@ const { crearMovimientoPersonalRoutes } = require('./routes/movimientoPersonal')
 const { crearRutasLibresRoutes } = require('./routes/rutasLibres');
 const { crearHealthConsentRoutes } = require('./routes/healthConsent');
 const { writerMotorActivo, algunWriterMotorActivo, efectosMotorActivos, modalidadMotorActiva, actividadManualMotorActiva, stravaWebhookMotorActiva } = require('./lib/flagsMotor');
+const { pausarDesafio } = require('./lib/pausarDesafio');
 const { crearRepositorioSupabase } = require('./lib/progresoRepositorioSupabase');
 const { reanudarDesafioConMotor } = require('./lib/reanudarDesafio');
 const { eliminarActividadConMotor } = require('./lib/eliminarActividad');
@@ -1882,28 +1883,15 @@ app.get('/direcciones/detalle/:placeId', async (req, res) => {
   }
 });
 
-// Pausar desafío
+// Pausar desafío: confirmar la escritura y proteger solicitudes simultáneas.
 app.post('/challenges/pausar', async (req, res) => {
-  const { user_id, challenge_id } = req.body;
+  const { user_id, challenge_id } = req.body || {};
   try {
-    const { data: uc } = await supabase
-      .from('user_challenges')
-      .select('id, pausado, periodos_pausados')
-      .eq('user_id', user_id)
-      .eq('challenge_id', challenge_id)
-      .single();
-
-    if (!uc) return res.status(404).json({ error: 'Desafío no encontrado' });
-    if (uc.pausado) return res.json({ mensaje: 'Ya estaba pausado' });
-
-    await supabase.from('user_challenges').update({
-      pausado: true,
-      pausado_at: new Date().toISOString()
-    }).eq('id', uc.id);
-
-    res.json({ mensaje: 'Desafío pausado' });
+    const resultado = await pausarDesafio({ supabase, userId: user_id, challengeId: challenge_id });
+    return res.status(resultado.status).json(resultado.body);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error pausando desafío:', error);
+    return res.status(500).json({ error: 'No se pudo pausar el desafío' });
   }
 });
 
