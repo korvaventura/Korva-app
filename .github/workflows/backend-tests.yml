@@ -27,3 +27,5 @@ jobs:
         run: npm ci
       - name: Probar backend (concurrencia limitada)
         run: npm test -- --test-concurrency=2
+      - name: Probar generación de PDF (sin servicios externos)
+        run: python3 -m unittest discover -s tests -p 'test_generar_certificado.py' -v
