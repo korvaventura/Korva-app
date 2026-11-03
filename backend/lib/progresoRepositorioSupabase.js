@@ -23,6 +23,7 @@
 //  - progreso_eventos (4A-3a): alta de eventos y su estado. actualizado_at lo pone la base (trigger).
 const { clienteSoloLectura, traerTodo } = require('./progresoSombra');
 const { healthConsentActivo } = require('./flagsMotor');
+const { resolverInicioRetroactivo } = require('./inicioRetroactivo');
 
 const CAMPOS_USER_CHALLENGE = 'id, user_id, challenge_id, status, started_at, completed_at, pausado, pausado_at, periodos_pausados, version, modalidad, km_completed, km_base, km_base_motivo';
 const CAMPOS_CHALLENGE = 'id, title, modalidades, total_distance_km';
@@ -258,13 +259,20 @@ const crearRepositorioBase = (supabase) => {
       if (error) throw error;
       if (!Array.isArray(data) || data.length !== 1) return false;
       const ucCorte = data[0];
-      if (!(ucCorte && recordedAt < ucCorte.started_at)) return false;
-      const limiteMinimo = new Date(ucCorte.started_at);
-      limiteMinimo.setDate(limiteMinimo.getDate() - 30);
-      const nuevoCorte = new Date(recordedAt) < limiteMinimo ? limiteMinimo.toISOString() : recordedAt;
-      const { error: e2 } = await supabase.from('user_challenges').update({ started_at: nuevoCorte }).eq('id', ucCorte.id);
+      const nuevoCorte = resolverInicioRetroactivo({
+        inicioActual: ucCorte.started_at,
+        fechaActividad: recordedAt,
+      });
+      if (!nuevoCorte) return false;
+      // CAS: si una corrección administrativa o carga paralela cambió el inicio,
+      // no sobreescribirla. La próxima carga podrá reintentar sobre el nuevo estado.
+      const { data: actualizado, error: e2 } = await supabase.from('user_challenges')
+        .update({ started_at: nuevoCorte })
+        .eq('id', ucCorte.id)
+        .eq('started_at', ucCorte.started_at)
+        .select('id');
       if (e2) throw e2;
-      return true;
+      return Array.isArray(actualizado) && actualizado.length === 1;
     },
 
     /**
