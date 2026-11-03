@@ -161,6 +161,33 @@ test('pausas: varios períodos', () => {
   assert.equal(r.pausas.periodos.length, 2);
 });
 
+test('regresión: 21 ciclos de pausa conservan solo las salidas hechas fuera de pausa', () => {
+  // Caso de uso real: desafío compartido que se reanuda solo para caminar juntos.
+  // Cada día incluye una actividad durante la pausa y otra tras reanudar.
+  const periodos = [];
+  const actividades = [];
+  for (let dia = 1; dia <= 21; dia++) {
+    const fecha = `2026-10-${String(dia).padStart(2, '0')}`;
+    periodos.push({
+      desde: `${fecha}T08:00:00.000Z`,
+      hasta: `${fecha}T09:00:00.000Z`,
+    });
+    actividades.push(act(`${fecha}T08:30:00.000Z`, 2));
+    actividades.push(act(`${fecha}T10:00:00.000Z`, 1.25));
+  }
+  const r = calc({
+    started_at: '2026-10-01T00:00:00',
+    periodos_pausados: periodos,
+    km_completed: 26.25,
+  }, actividades);
+
+  assert.equal(r.km_actividades, 26.25);
+  assert.equal(r.actividades.cuentan.cantidad, 21);
+  assert.equal(r.actividades.en_pausa.cantidad, 21);
+  assert.equal(r.actividades.en_pausa.km, 42);
+  assert.equal(r.categoria_diferencia, CATEGORIAS.COINCIDE);
+});
+
 test('pausa abierta: lo posterior a pausado_at no cuenta', () => {
   const actividades = [act('2026-09-10T09:00:00', 5), act('2026-09-10T11:00:00', 7)];
   const r = calc({ pausado: true, pausado_at: '2026-09-10T10:00:00' }, actividades);
