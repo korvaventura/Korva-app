@@ -41,7 +41,7 @@ test('dos pausas consecutivas conservan la primera fecha y avisan que ya estaba 
 
 test('fallo de actualización de Supabase no devuelve éxito ni escribe cambios', async () => {
   const { m, pedir } = montar(inicial(), (op) => op.tabla === 'user_challenges' && op.tipo === 'update');
-  await assert.rejects(pedir(), /falla simulada/);
+  await assert.rejects(pedir(), (error) => error?.message === 'falla simulada');
   assert.equal(m.db.user_challenges[0].pausado, false);
   assert.equal(m.db.user_challenges[0].pausado_at, null);
 });
