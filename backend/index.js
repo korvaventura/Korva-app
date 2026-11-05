@@ -503,8 +503,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
         cuentaParaParticipacion(a, reto)
       );
 
-      const totalKm = actividadesValidas.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0)
-        + (Number(reto.km_base) || 0);
+      const totalKm = actividadesValidas.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0);
 
       const distanciaTotal = distanciaDeLaVersion(reto, reto.challenges); // versión elegida (D-V1 en el certificado)
       const porcentaje = (totalKm / distanciaTotal) * 100;
