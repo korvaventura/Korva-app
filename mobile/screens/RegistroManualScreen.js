@@ -245,7 +245,7 @@ export default function RegistroManualScreen({ navigation }) {
       <Text style={styles.titulo}>Registrar km</Text>
       <Text style={styles.subtitulo}>Carga tus actividades manualmente</Text>
 
-      {!challengeId && userId && (
+      {!challengeId && retosDisponibles.length === 0 && userId && (
         <TouchableOpacity
           style={styles.bannerSinReto}
           onPress={() => navigation?.navigate('Catalogo')}
