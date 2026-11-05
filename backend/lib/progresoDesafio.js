@@ -113,7 +113,6 @@ const motivoActividad = (actividad, uc, inicioMs, pausas) => {
   const ms = instanteUTC(actividad.recorded_at);
   if (ms === null) return { motivo: MOTIVOS.FECHA_INVALIDA, ms };
   if (inicioMs === null || ms < inicioMs) return { motivo: MOTIVOS.ANTERIOR_AL_INICIO, ms };
-  if (actividad.excluida !== false) return { motivo: MOTIVOS.EXCLUIDA, ms };
 
   // NULL = historial/automático: no alterar reglas de Strava, GPS o carga antigua.
   // Un array explícito y no vacío es una decisión persistente del usuario.
@@ -123,7 +122,7 @@ const motivoActividad = (actividad, uc, inicioMs, pausas) => {
     return { motivo: MOTIVOS.NO_ASIGNADA, ms };
   }
   const protegidoMs = instanteUTC(uc.inicio_protegido_at);
-  if (protegidoMs !== null && ms < protegidoMs) {
+  if (destinos !== null && protegidoMs !== null && ms < protegidoMs) {
     return { motivo: MOTIVOS.REINICIO_PROTEGIDO, ms };
   }
   // Una selección EXPLÍCITA puede acreditarse aun con ese desafío pausado.
@@ -131,6 +130,7 @@ const motivoActividad = (actividad, uc, inicioMs, pausas) => {
     if (pausas.validos.some((p) => ms >= p.desdeMs && ms <= p.hastaMs)) return { motivo: MOTIVOS.EN_PAUSA, ms };
     if (pausas.pausaAbiertaDesdeMs !== null && ms >= pausas.pausaAbiertaDesdeMs) return { motivo: MOTIVOS.EN_PAUSA_ABIERTA, ms };
   }
+  if (actividad.excluida !== false) return { motivo: MOTIVOS.EXCLUIDA, ms };
   return { motivo: MOTIVOS.CUENTA, ms };
 };
 
