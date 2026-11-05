@@ -1,0 +1,22 @@
+name: Mobile - feedback de actividad manual
+on:
+  pull_request:
+    paths:
+      - 'mobile/screens/RegistroManualScreen.js'
+      - 'mobile/services/manualFeedback.js'
+      - 'mobile/tests/manualFeedback.test.js'
+      - '.github/workflows/mobile-manual-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  manual-feedback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar resultados de carga manual
+        run: node --test mobile/tests/manualFeedback.test.js

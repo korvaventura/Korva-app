@@ -662,3 +662,41 @@ test('solo lectura: la capa de datos pide km_base y km_base_motivo y no escribe'
   assert.equal(rep.desafios[0].km_progreso_sombra, 5);
   assert.equal(rep.resumen.coinciden, 1);
 });
+
+test('manual explícita suma solo al destino elegido, incluso con pausa histórica', () => {
+  const fecha = '2026-11-02T03:11:24.053Z';
+  const actividad = act(fecha, 4.82, {
+    source: 'manual', manual_target_uc_ids: ['fuji'],
+  });
+  const pausa = [{ desde: '2026-10-30T00:00:00Z', hasta: '2026-11-03T00:00:00Z' }];
+  const fuji = calc({ id: 'fuji', periodos_pausados: pausa }, [actividad]);
+  const fin = calc({ id: 'fin', periodos_pausados: [] }, [actividad]);
+  assert.equal(fuji.km_actividades, 4.82);
+  assert.equal(fin.km_actividades, 0);
+  assert.equal(fin.detalle_actividades[0].motivo, 'no_asignada_a_este_desafio');
+});
+
+test('manual explícita permite dos destinos; carga antigua conserva pausas', () => {
+  const fecha = '2026-11-02T03:11:24Z';
+  const pausa = [{ desde: '2026-11-01T00:00:00Z', hasta: '2026-11-03T00:00:00Z' }];
+  const asignada = act(fecha, 4.82, { source: 'manual', manual_target_uc_ids: ['fuji', 'fin'] });
+  const antigua = act(fecha, 3, { source: 'manual' });
+  assert.equal(calc({ id: 'fuji', periodos_pausados: pausa }, [asignada, antigua]).km_actividades, 4.82);
+  assert.equal(calc({ id: 'fin', periodos_pausados: pausa }, [asignada, antigua]).km_actividades, 4.82);
+});
+
+test('asignación explícita no evade exclusiones ni reinicios administrativos', () => {
+  const fecha = '2026-11-02T03:11:24Z';
+  const asignada = act(fecha, 4.82, { source: 'manual', manual_target_uc_ids: ['fuji'] });
+  const excluida = { ...asignada, id: 'a_excluida', excluida: true };
+  assert.equal(calc({ id: 'fuji' }, [excluida]).km_actividades, 0);
+  const protegida = calc({ id: 'fuji', inicio_protegido_at: '2026-11-03T00:00:00Z' }, [asignada]);
+  assert.equal(protegida.km_actividades, 0);
+  assert.equal(protegida.detalle_actividades[0].motivo, 'antes_de_inicio_protegido');
+});
+
+test('Strava ignora destinos manuales mal colocados y respeta pausas', () => {
+  const a = act('2026-11-02T03:11:24Z', 5, { source: 'strava', manual_target_uc_ids: ['fuji'] });
+  const pausas = [{ desde: '2026-11-01T00:00:00Z', hasta: '2026-11-03T00:00:00Z' }];
+  assert.equal(calc({ id: 'fuji', periodos_pausados: pausas }, [a]).km_actividades, 0);
+});

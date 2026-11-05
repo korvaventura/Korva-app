@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const stravaRoutes = require('./routes/strava');
+const { cuentaParaParticipacion } = require('./lib/asignacionManual');
 const shopifyRoutes = require('./routes/shopify');
 const mercadopagoRoutes = require('./routes/mercadopago');
 const invitacionesRoutes = require('./routes/invitaciones');
@@ -479,7 +480,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
   try {
     let query = supabase
       .from('user_challenges')
-      .select('id, started_at, challenge_id, status, version, modalidad, pausado, periodos_pausados, challenges(title, modalidades, total_distance_km)')
+      .select('id, started_at, inicio_protegido_at, challenge_id, status, version, modalidad, pausado, pausado_at, periodos_pausados, km_base, challenges(title, modalidades, total_distance_km)')
       .eq('user_id', user_id)
       .in('status', ['active'])
       .eq('pausado', false);
@@ -491,19 +492,16 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
     for (const reto of retos || []) {
       const { data: todasActividades } = await supabase
         .from('activities')
-        .select('distance_km, recorded_at')
+        .select('distance_km, recorded_at, source, excluida, manual_target_uc_ids')
         .eq('user_id', user_id)
         .eq('excluida', false)
         .gte('recorded_at', reto.started_at);
 
-      // Filtrar actividades en períodos pausados
-      const actividadesValidas = (todasActividades || []).filter(a => {
-        const fecha = new Date(a.recorded_at);
-        for (const p of (reto.periodos_pausados || [])) {
-          if (fecha >= new Date(p.desde) && fecha <= new Date(p.hasta)) return false;
-        }
-        return true;
-      });
+      // La asignación manual explícita no se redistribuye a otros desafíos
+      // cuando un writer legacy recalcule por otro evento.
+      const actividadesValidas = (todasActividades || []).filter(a =>
+        cuentaParaParticipacion(a, reto)
+      );
 
       const totalKm = actividadesValidas.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0);
 
@@ -1035,8 +1033,41 @@ app.get('/perfil/:userId', async (req, res) => {
 });
 
 app.post('/actividades/manual', async (req, res) => {
-  const { user_id, challenge_id, sport_type, distance_km, recorded_at, evidencia_url, duration_seconds } = req.body;
+  const { user_id, challenge_id, sport_type, distance_km, recorded_at, evidencia_url, duration_seconds, manual_target_uc_ids } = req.body;
   const distanciaFloat = parseFloat(distance_km);
+  const asignacionExplicita = manual_target_uc_ids !== undefined && manual_target_uc_ids !== null;
+
+  if (asignacionExplicita) {
+    // Las apps antiguas siguen usando el endpoint sin selección. Una selección
+    // explícita exige motor activo, token propio y participaciones válidas.
+    if (!actividadManualMotorActiva()) {
+      return res.status(503).json({ error: 'La selección de desafíos aún no está disponible. Intentá nuevamente más tarde.' });
+    }
+    if (!Array.isArray(manual_target_uc_ids) || manual_target_uc_ids.length < 1 ||
+        manual_target_uc_ids.length > 20 ||
+        new Set(manual_target_uc_ids).size !== manual_target_uc_ids.length ||
+        !manual_target_uc_ids.every((id) => typeof id === 'string' &&
+          /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(id))) {
+      return res.status(400).json({ error: 'Seleccioná al menos un desafío válido.' });
+    }
+    const jwt = /^Bearer (.+)$/i.exec(req.headers.authorization || '')?.[1];
+    if (!jwt) return res.status(401).json({ error: 'Volvé a iniciar sesión para elegir desafíos.' });
+    const { data: authData, error: authError } = await supabase.auth.getUser(jwt);
+    if (authError || !authData?.user || authData.user.id !== user_id) {
+      return res.status(403).json({ error: 'No se pudo verificar tu sesión.' });
+    }
+    const { data: destinos, error: errorDestinos } = await supabase
+      .from('user_challenges')
+      .select('id, challenge_id')
+      .eq('user_id', user_id)
+      .eq('status', 'active')
+      .in('id', manual_target_uc_ids);
+    if (errorDestinos) return res.status(500).json({ error: 'No pudimos validar tus desafíos.' });
+    if (!destinos || destinos.length !== manual_target_uc_ids.length ||
+        (challenge_id && !destinos.some((d) => d.challenge_id === challenge_id))) {
+      return res.status(400).json({ error: 'La selección cambió. Volvé a elegir tus desafíos.' });
+    }
+  }
 
   try {
     const hoy = new Date();
@@ -1105,6 +1136,7 @@ app.post('/actividades/manual', async (req, res) => {
           duration_seconds: duration_seconds || null,
           recorded_at: recorded_at || new Date().toISOString(),
           evidencia_url: evidencia_url || null,
+          ...(asignacionExplicita ? { manual_target_uc_ids } : {}),
         },
         dispararEfectos: (ids) => procesadorEventos.disparar(ids),
       });

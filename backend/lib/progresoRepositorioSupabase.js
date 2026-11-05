@@ -25,9 +25,9 @@ const { clienteSoloLectura, traerTodo } = require('./progresoSombra');
 const { healthConsentActivo } = require('./flagsMotor');
 const { resolverInicioRetroactivo } = require('./inicioRetroactivo');
 
-const CAMPOS_USER_CHALLENGE = 'id, user_id, challenge_id, status, started_at, completed_at, pausado, pausado_at, periodos_pausados, version, modalidad, km_completed, km_base, km_base_motivo';
+const CAMPOS_USER_CHALLENGE = 'id, user_id, challenge_id, status, started_at, completed_at, pausado, pausado_at, periodos_pausados, version, modalidad, km_completed, km_base, km_base_motivo, inicio_protegido_at';
 const CAMPOS_CHALLENGE = 'id, title, modalidades, total_distance_km';
-const CAMPOS_ACTIVIDAD = 'id, user_id, source, sport_type, distance_km, duration_seconds, recorded_at, excluida';
+const CAMPOS_ACTIVIDAD = 'id, user_id, source, sport_type, distance_km, duration_seconds, recorded_at, excluida, manual_target_uc_ids';
 const CAMPOS_DAILY_MOVEMENT = 'fecha, timezone, distancia_caminando_km, distancia_bici_km, pasos, tipo_medicion, plataforma, cerrado, raw_payload, updated_at';
 const TAMANO_LOTE_IDS = 100;
 const CAMPOS_EVENTO = 'id, user_challenge_id, user_id, tipo, estado, intentos, datos, resultado, ultimo_error, procesando_desde, creado_at, actualizado_at';

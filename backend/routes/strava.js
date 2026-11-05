@@ -1,4 +1,5 @@
 const express = require('express');
+const { cuentaParaParticipacion } = require('../lib/asignacionManual');
 const { objetivoDeInscripcion, versionDeInscripcion, etiquetaVersion } = require('../lib/versionDesafio');
 
 // Distancia objetivo de la VERSIÓN elegida (Estándar/Extendida). El deporte no interviene.
@@ -90,20 +91,15 @@ const yaExisteActividad = async (supabase, userId, startDate, km, externalId) =>
 const calcularKmDeChallenge = async (supabase, userId, uc) => {
   const { data: actividades } = await supabase
     .from('activities')
-    .select('distance_km, recorded_at')
+    .select('distance_km, recorded_at, source, excluida, manual_target_uc_ids')
     .eq('user_id', userId)
     .eq('excluida', false)
     .gte('recorded_at', uc.started_at);
 
-  // Filtrar actividades en períodos pausados
   const periodos = uc.periodos_pausados || [];
-  const actividadesValidas = (actividades || []).filter(a => {
-    const fecha = new Date(a.recorded_at);
-    for (const p of periodos) {
-      if (fecha >= new Date(p.desde) && fecha <= new Date(p.hasta)) return false;
-    }
-    return true;
-  });
+  const actividadesValidas = (actividades || []).filter(a =>
+    cuentaParaParticipacion(a, uc)
+  );
 
   const suma = actividadesValidas.reduce((acc, a) => acc + (a.distance_km || 0), 0);
 
