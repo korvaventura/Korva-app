@@ -101,7 +101,8 @@ const calcularKmDeChallenge = async (supabase, userId, uc) => {
     cuentaParaParticipacion(a, uc)
   );
 
-  const suma = actividadesValidas.reduce((acc, a) => acc + (a.distance_km || 0), 0);
+  const suma = actividadesValidas.reduce((acc, a) => acc + (a.distance_km || 0), 0)
+    + (Number(uc.km_base) || 0);
 
   // Si está pausado O tiene períodos pausados — usar suma filtrada sin Math.max
   // Si no tiene pausas — comportamiento original con Math.max (protege migrados)
