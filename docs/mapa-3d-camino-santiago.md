@@ -40,9 +40,9 @@ con textos y el UUID real.
 
 ## 3. Trazado
 
-**Fuente base:** traza del Camino Francés de caminofrances.info (B. Guptill,
-dibujada sobre OpenStreetMap; GeoJSON publicado en `vaadin/docs` como
-`camino-frances-route.geojson`, 2.028 puntos). Su licencia de datos no está
+**Fuente base:** traza del Camino Francés de caminofrances.info (B. Guptill la
+retrazó a mano a partir de su GPS y P. Rukavina la exportó a GeoJSON; copia
+publicada en `vaadin/docs` como `camino-frances-route.geojson`, 2.028 puntos). Su licencia de datos no está
 declarada: antes de publicar conviene confirmarla o reemplazarla por la relación
 OSM del Camino Francés (ODbL). El generador acepta cualquier GeoJSON LineString.
 
@@ -109,8 +109,9 @@ GeoNames y guías del Camino; ninguna queda a más de 1 km del trazado:
 | Arzúa | GeoNames | 0,32 km |
 | Santiago (Obradoiro) | Wikipedia | 0,0 km |
 
-Burgos queda a 0,73 km porque GeoNames da el centro urbano y el Camino cruza
-por la catedral; ahí el ancla es el vértice más cercano del trazado.
+Burgos queda a 0,73 km porque GeoNames da un punto del centro urbano que no
+cae sobre la calle del Camino; ahí el ancla es el vértice más cercano del
+trazado (no se mueve el trazado hacia el centroide).
 
 **Distancias:** la traza simplificada mide 723,5 km entre Roncesvalles y el
 Obradoiro; el Camino caminado ronda 760-790 km según la guía. Los 775 km
