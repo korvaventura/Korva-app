@@ -564,6 +564,62 @@ const hexARgb = (hex) => {
 };
 const mezclar = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
 
+// Regiones de paisaje opcionales (`escena.biomas`): paleta y pisos varían a lo
+// largo del eje x con transiciones suaves. Sin `biomas` no se usa nada de esto.
+function prepararBiomas(escena, xs, pal, pisos) {
+  const lista = [...escena.biomas].sort((a, b) => a.x - b.x).map((b) => {
+    const p = { ...pal };
+    Object.entries(b.paleta || {}).forEach(([k, v]) => { p[k] = hexARgb(v); });
+    return {
+      ...b,
+      pal: p,
+      pisos: { ...pisos, ...(b.pisos || {}) },
+      colores: (b.parcelas?.colores || []).map(hexARgb),
+    };
+  });
+  const paletas = []; const pisosCol = []; const parcelas = [];
+  for (let i = 0; i < xs.length; i += 1) {
+    const x = xs[i];
+    let a = lista[0]; let b = lista[0]; let t = 0;
+    if (x >= lista[lista.length - 1].x) { a = lista[lista.length - 1]; b = a; } else if (x > lista[0].x) {
+      let k = 0;
+      while (k < lista.length - 2 && x > lista[k + 1].x) k += 1;
+      a = lista[k]; b = lista[k + 1];
+      const medio = (a.x + b.x) / 2;
+      const ancho = ((a.transicionKm ?? 30) + (b.transicionKm ?? 30)) / 2;
+      t = smoothstep(medio - ancho, medio + ancho, x);
+    }
+    const p = {};
+    Object.keys(a.pal).forEach((k) => { p[k] = mezclar(a.pal[k], b.pal[k], t); });
+    const q = {};
+    Object.keys(a.pisos).forEach((k) => { q[k] = lerp(a.pisos[k], b.pisos[k], t); });
+    paletas.push(p); pisosCol.push(q);
+    const peso = lerp(a.parcelas?.mezcla ?? 0, b.parcelas?.mezcla ?? 0, t);
+    // Entre dos regiones cada parcela elige su paleta al azar con probabilidad t:
+    // la transición se disuelve campo a campo, sin una línea recta.
+    const ca = a.colores.length ? a.colores : b.colores;
+    const cb = b.colores.length ? b.colores : a.colores;
+    const base = t < 0.5 ? a.parcelas || b.parcelas : b.parcelas || a.parcelas;
+    parcelas.push(peso > 0 && ca.length ? { ...base, coloresA: ca, coloresB: cb, t, peso } : null);
+  }
+  return { paletas, pisos: pisosCol, parcelas };
+}
+
+// Parcelas: celdas rotadas y deformadas con ruido; cada una toma un color de la
+// región. Sólo en llano: las laderas y el bosque conservan su color.
+function mezclarParcela(color, parcela, x, z, pendiente, ruido, intensidad = 1) {
+  const a = parcela.orientacion || 0;
+  const tam = parcela.tamanoKm || 3;
+  const u = (x * Math.cos(a) - z * Math.sin(a)) / tam + 0.6 * ruido.fbm(x * 0.05 + 2.7, z * 0.05 - 6.1, 2);
+  const v = (x * Math.sin(a) + z * Math.cos(a)) / (tam * 0.7) + 0.6 * ruido.fbm(x * 0.05 - 9.3, z * 0.05 + 1.9, 2);
+  const h = (Math.imul(Math.floor(u), 73856093) ^ Math.imul(Math.floor(v), 19349663)) >>> 0;
+  const h2 = (Math.imul(h ^ (h >>> 15), 2246822519) >>> 0) / 4294967296;
+  const colores = h2 < parcela.t ? parcela.coloresB : parcela.coloresA;
+  const c = colores[h % colores.length];
+  const plano = 1 - smoothstep(0.05, 0.14, pendiente);
+  return mezclar(color, c, parcela.peso * plano * intensidad);
+}
+
 // Colores por vértice (sRGB 0..1): bosque de lenga, turba, roca, nieve, costa.
 function colorearTerreno(campo, escena, luz) {
   const { nx, nz, xs, zs, alturas, agua } = campo;
@@ -573,10 +629,13 @@ function colorearTerreno(campo, escena, luz) {
   const ruido = campo.geo.ruido;
   const colores = new Float32Array(nx * nz * 3);
   const coloresMasa = (campo.geo.masas || []).map((m) => (m.color ? hexARgb(m.color) : null));
+  const biomas = escena.biomas?.length ? prepararBiomas(escena, xs, pal, pisos) : null;
 
   for (let j = 0; j < nz; j += 1) {
     for (let i = 0; i < nx; i += 1) {
       const idx = j * nx + i;
+      const P = biomas ? biomas.paletas[i] : pal;
+      const Q = biomas ? biomas.pisos[i] : pisos;
       const h = alturas[idx];
       const x = xs[i];
       const z = zs[j];
@@ -590,43 +649,52 @@ function colorearTerreno(campo, escena, luz) {
 
       const n1 = ruido.fbm(x * 0.35, z * 0.35, 3);
       const n2 = ruido.fbm(x * 1.3 + 40, z * 1.3 - 40, 2);
-      const lineaArboles = pisos.lineaArbolesM + n1 * 110;
-      const lineaNieve = pisos.lineaNieveM + n1 * 140 + clamp(z - escena.limitesKm.minZ, -80, 120) * pisos.nieveBajaHaciaSurM;
+      const lineaArboles = Q.lineaArbolesM + n1 * 110;
+      const lineaNieve = Q.lineaNieveM + n1 * 140 + clamp(z - escena.limitesKm.minZ, -80, 120) * Q.nieveBajaHaciaSurM;
 
       let c;
       const bajoAgua = agua[idx] > -Infinity && h < agua[idx];
       if (bajoAgua) {
-        const prof = clamp((agua[idx] - h) / (pisos.profundidadColorM ?? 60), 0, 1);
-        c = mezclar(pal.fondoSomero, pal.fondoProfundo, prof);
+        const prof = clamp((agua[idx] - h) / (Q.profundidadColorM ?? 60), 0, 1);
+        c = mezclar(P.fondoSomero, P.fondoProfundo, prof);
       } else {
         // Llanura norte: turba y coirón en tonos oliva/ocre.
         const turba = smoothstep(0.05, 0.35, ruido.fbm(x * 0.18 + 7, z * 0.18 + 3, 3));
-        const llano = mezclar(pal.estepa, pal.turba, turba * 0.5);
+        let llano = mezclar(P.estepa, P.turba, turba * 0.5);
+        // Mosaico agrícola opcional (biomas): viñedos, cereal, prados.
+        if (biomas && biomas.parcelas[i]) {
+          // Sólo en la zona fina: en el mundo exterior las celdas son largas y el
+          // mosaico se volvería vetas.
+          const { minX, maxX, minZ, maxZ } = escena.limitesKm;
+          const fuera = Math.max(minX - x, x - maxX, minZ - z, z - maxZ);
+          const dentro = 1 - smoothstep(-30, 40, fuera);
+          if (dentro > 0) llano = mezclarParcela(llano, biomas.parcelas[i], x, z, pendiente, ruido, dentro);
+        }
         // Bosque de lenga con manchas otoñales cerca del límite superior.
-        const bosqueBase = mezclar(pal.bosque, pal.bosqueClaro, 0.5 + 0.5 * n2);
+        const bosqueBase = mezclar(P.bosque, P.bosqueClaro, 0.5 + 0.5 * n2);
         const otono = smoothstep(lineaArboles - 260, lineaArboles - 30, h) * smoothstep(0.1, 0.45, ruido.fbm(x * 0.5 - 9, z * 0.5 + 9, 3));
-        const bosque = mezclar(bosqueBase, pal.lengaOtono, otono * pisos.intensidadOtono);
+        const bosque = mezclar(bosqueBase, P.lengaOtono, otono * Q.intensidadOtono);
         // Bosque: por altura y, si la escena lo define, al sur de `bosqueAlSurZ`.
-        const tBosque = smoothstep(pisos.inicioBosqueM - 40, pisos.inicioBosqueM + 60, h) + smoothstep(pisos.bosqueAlSurZ - 3, pisos.bosqueAlSurZ + 1, z) * (0.75 + 0.25 * n2);
+        const tBosque = smoothstep(Q.inicioBosqueM - 40, Q.inicioBosqueM + 60, h) + smoothstep(Q.bosqueAlSurZ - 3, Q.bosqueAlSurZ + 1, z) * (0.75 + 0.25 * n2);
         c = mezclar(llano, bosque, clamp(tBosque, 0, 1));
         // Fondos de valle planos: vegas y turbales que abren claros en el bosque.
-        if (pal.vega) {
+        if (P.vega) {
           const plano = 1 - smoothstep(0.04, 0.12, pendiente);
           const vega = plano * smoothstep(0.0, 0.3, ruido.fbm(x * 0.6 + 3, z * 0.6 - 7, 3) + 0.15) * (1 - smoothstep(lineaArboles - 150, lineaArboles, h));
-          c = mezclar(c, pal.vega, vega * 0.45);
+          c = mezclar(c, P.vega, vega * 0.45);
         }
         // Límite de árboles -> pradera alpina/pedrero -> roca.
         const tAlpino = smoothstep(lineaArboles - 30, lineaArboles + 70, h);
-        const alpino = mezclar(pal.pedrero, pal.roca, smoothstep(0.35, 0.8, pendiente));
+        const alpino = mezclar(P.pedrero, P.roca, smoothstep(0.35, 0.8, pendiente));
         c = mezclar(c, alpino, tAlpino);
         // Roca expuesta en paredes fuertes aun dentro del bosque.
-        c = mezclar(c, pal.roca, smoothstep(0.55, 0.95, pendiente) * 0.75);
+        c = mezclar(c, P.roca, smoothstep(0.55, 0.95, pendiente) * 0.75);
         // Nieve: más en lo alto y en lo plano; la roca empinada no la retiene.
         const tNieve = smoothstep(lineaNieve - 60, lineaNieve + 120, h) * (1 - smoothstep(0.55, 1.05, pendiente) * 0.85);
-        c = mezclar(c, pal.nieve, clamp(tNieve, 0, 1));
+        c = mezclar(c, P.nieve, clamp(tNieve, 0, 1));
         // Costa/playa de canto rodado.
         const costa = campo.costa ? campo.costa[idx] : 0;
-        c = mezclar(c, pal.costa, costa);
+        c = mezclar(c, P.costa, costa);
         const zona = campo.zonas ? campo.zonas[idx] : 0;
         if (zona > 0) {
           const m = campo.geo.masas[zona - 1];
