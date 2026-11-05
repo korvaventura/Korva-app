@@ -7,10 +7,10 @@ const path = require('path');
 const { construirDatosDiorama } = require('../services/mapa3d/terrenoCore');
 const { serializarDiorama } = require('../services/mapa3d/horneadoCore');
 
-const DISPONIBLES = ['finDelMundo', 'monteFuji', 'sanAndres', 'dubrovnik'];
+const DISPONIBLES = ['finDelMundo', 'monteFuji', 'sanAndres', 'dubrovnik', 'caminoSantiago'];
 const ESCENAS = process.argv.slice(2);
 if (!ESCENAS.length || ESCENAS.some((nombre) => !DISPONIBLES.includes(nombre))) {
-  throw new Error('Indicá una escena: node scripts/hornearMapa3D.js monteFuji (finDelMundo, sanAndres o dubrovnik)');
+  throw new Error('Indicá una escena: node scripts/hornearMapa3D.js monteFuji (finDelMundo, sanAndres, dubrovnik o caminoSantiago)');
 }
 
 for (const nombre of ESCENAS) {
