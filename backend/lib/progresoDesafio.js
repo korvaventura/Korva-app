@@ -41,6 +41,8 @@ const MOTIVOS = {
   EN_PAUSA_ABIERTA: 'en_pausa_abierta',
   EXCLUIDA: 'excluida',
   FECHA_INVALIDA: 'fecha_invalida',
+  NO_ASIGNADA: 'no_asignada_a_este_desafio',
+  REINICIO_PROTEGIDO: 'antes_de_inicio_protegido',
 };
 
 const CATEGORIAS = {
@@ -107,13 +109,28 @@ const normalizarPausas = (uc) => {
 };
 
 /** Motivo por el que una actividad cuenta o no para un desafío (orden fijo de reglas). */
-const motivoActividad = (actividad, inicioMs, pausas) => {
+const motivoActividad = (actividad, uc, inicioMs, pausas) => {
   const ms = instanteUTC(actividad.recorded_at);
   if (ms === null) return { motivo: MOTIVOS.FECHA_INVALIDA, ms };
   if (inicioMs === null || ms < inicioMs) return { motivo: MOTIVOS.ANTERIOR_AL_INICIO, ms };
-  if (pausas.validos.some((p) => ms >= p.desdeMs && ms <= p.hastaMs)) return { motivo: MOTIVOS.EN_PAUSA, ms };
-  if (pausas.pausaAbiertaDesdeMs !== null && ms >= pausas.pausaAbiertaDesdeMs) return { motivo: MOTIVOS.EN_PAUSA_ABIERTA, ms };
   if (actividad.excluida !== false) return { motivo: MOTIVOS.EXCLUIDA, ms };
+
+  // NULL = historial/automático: no alterar reglas de Strava, GPS o carga antigua.
+  // Un array explícito y no vacío es una decisión persistente del usuario.
+  const destinos = actividad.source === 'manual' && Array.isArray(actividad.manual_target_uc_ids)
+    ? actividad.manual_target_uc_ids : null;
+  if (destinos !== null && !destinos.includes(uc.id)) {
+    return { motivo: MOTIVOS.NO_ASIGNADA, ms };
+  }
+  const protegidoMs = instanteUTC(uc.inicio_protegido_at);
+  if (protegidoMs !== null && ms < protegidoMs) {
+    return { motivo: MOTIVOS.REINICIO_PROTEGIDO, ms };
+  }
+  // Una selección EXPLÍCITA puede acreditarse aun con ese desafío pausado.
+  if (destinos === null) {
+    if (pausas.validos.some((p) => ms >= p.desdeMs && ms <= p.hastaMs)) return { motivo: MOTIVOS.EN_PAUSA, ms };
+    if (pausas.pausaAbiertaDesdeMs !== null && ms >= pausas.pausaAbiertaDesdeMs) return { motivo: MOTIVOS.EN_PAUSA_ABIERTA, ms };
+  }
   return { motivo: MOTIVOS.CUENTA, ms };
 };
 
@@ -172,7 +189,7 @@ const calcularProgresoChallenge = ({ uc, challenge, actividades, incluirDetalle 
   const detalle = [];
 
   lista.forEach((a) => {
-    const { motivo, ms } = motivoActividad(a, inicioMs, pausas);
+    const { motivo, ms } = motivoActividad(a, uc, inicioMs, pausas);
     const km = numero(a.distance_km);
     kmPorMotivo[motivo] += km;
     cantidadPorMotivo[motivo] += 1;
