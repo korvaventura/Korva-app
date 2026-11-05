@@ -480,7 +480,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
   try {
     let query = supabase
       .from('user_challenges')
-      .select('id, started_at, inicio_protegido_at, challenge_id, status, version, modalidad, pausado, pausado_at, periodos_pausados, challenges(title, modalidades, total_distance_km)')
+      .select('id, started_at, inicio_protegido_at, challenge_id, status, version, modalidad, pausado, pausado_at, periodos_pausados, km_base, challenges(title, modalidades, total_distance_km)')
       .eq('user_id', user_id)
       .in('status', ['active'])
       .eq('pausado', false);
@@ -503,7 +503,8 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
         cuentaParaParticipacion(a, reto)
       );
 
-      const totalKm = actividadesValidas.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0);
+      const totalKm = actividadesValidas.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0)
+        + (Number(reto.km_base) || 0);
 
       const distanciaTotal = distanciaDeLaVersion(reto, reto.challenges); // versión elegida (D-V1 en el certificado)
       const porcentaje = (totalKm / distanciaTotal) * 100;
