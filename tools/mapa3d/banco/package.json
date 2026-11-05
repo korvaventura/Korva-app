@@ -1,0 +1,9 @@
+{
+  "name": "korva-mapa3d-banco",
+  "private": true,
+  "description": "Banco de pruebas web de los mapas 3D: monta el motor real (construirMundo) en Chrome headless para propuestas visuales. No forma parte de la app.",
+  "scripts": {
+    "build": "NODE_PATH=$PWD/node_modules esbuild src/entrada.js --bundle --outfile=dist/banco.js --format=iife --log-level=warning --loader:.js=jsx --loader:.jpg=empty --loader:.png=empty --loader:.glb=empty --loader:.bin=empty --define:process.env.NODE_ENV='\"production\"'"
+  },
+  "devDependencies": { "esbuild": "^0.25.0", "three": "0.186.1" }
+}
