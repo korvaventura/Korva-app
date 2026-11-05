@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const stravaRoutes = require('./routes/strava');
+const { cuentaParaParticipacion } = require('./lib/asignacionManual');
 const shopifyRoutes = require('./routes/shopify');
 const mercadopagoRoutes = require('./routes/mercadopago');
 const invitacionesRoutes = require('./routes/invitaciones');
@@ -479,7 +480,7 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
   try {
     let query = supabase
       .from('user_challenges')
-      .select('id, started_at, challenge_id, status, version, modalidad, pausado, periodos_pausados, challenges(title, modalidades, total_distance_km)')
+      .select('id, started_at, inicio_protegido_at, challenge_id, status, version, modalidad, pausado, pausado_at, periodos_pausados, challenges(title, modalidades, total_distance_km)')
       .eq('user_id', user_id)
       .in('status', ['active'])
       .eq('pausado', false);
@@ -491,19 +492,16 @@ const recalcularKmUsuario = async (user_id, challenge_id = null) => {
     for (const reto of retos || []) {
       const { data: todasActividades } = await supabase
         .from('activities')
-        .select('distance_km, recorded_at')
+        .select('distance_km, recorded_at, source, excluida, manual_target_uc_ids')
         .eq('user_id', user_id)
         .eq('excluida', false)
         .gte('recorded_at', reto.started_at);
 
-      // Filtrar actividades en períodos pausados
-      const actividadesValidas = (todasActividades || []).filter(a => {
-        const fecha = new Date(a.recorded_at);
-        for (const p of (reto.periodos_pausados || [])) {
-          if (fecha >= new Date(p.desde) && fecha <= new Date(p.hasta)) return false;
-        }
-        return true;
-      });
+      // La asignación manual explícita no se redistribuye a otros desafíos
+      // cuando un writer legacy recalcule por otro evento.
+      const actividadesValidas = (todasActividades || []).filter(a =>
+        cuentaParaParticipacion(a, reto)
+      );
 
       const totalKm = actividadesValidas.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0);
 
