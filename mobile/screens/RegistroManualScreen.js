@@ -30,6 +30,10 @@ export default function RegistroManualScreen({ navigation }) {
   const [diasAtras, setDiasAtras] = useState(0);
   const [challengeId, setChallengeId] = useState(null);
   const [challengeTitle, setChallengeTitle] = useState('');
+  // Por defecto, mantener el comportamiento automático histórico.
+  const [retosDisponibles, setRetosDisponibles] = useState([]);
+  const [modoAsignacion, setModoAsignacion] = useState('automatico');
+  const [destinosElegidos, setDestinosElegidos] = useState([]);
 
   const [evidenciaUri, setEvidenciaUri] = useState(null);
   const [subiendoEvidencia, setSubiendoEvidencia] = useState(false);
@@ -42,22 +46,20 @@ export default function RegistroManualScreen({ navigation }) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user?.id) {
         setUserId(session.user.id);
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('user_challenges')
-          .select('challenge_id, challenges(title)')
+          .select('id, challenge_id, pausado, challenges(title)')
           .eq('user_id', session.user.id)
           .eq('status', 'active')
-          .eq('pausado', false)
-          .order('started_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        if (data?.challenge_id) {
-          setChallengeId(data.challenge_id);
-          setChallengeTitle(data.challenges?.title || '');
-        } else {
-          setChallengeId(null);
-          setChallengeTitle('');
+          .order('started_at', { ascending: true });
+        if (error) {
+          setMensaje('No pudimos cargar tus desafíos. Intentá nuevamente.');
+          return;
         }
+        setRetosDisponibles(data || []);
+        const porDefecto = (data || []).find((d) => !d.pausado);
+        setChallengeId(porDefecto?.challenge_id || null);
+        setChallengeTitle(porDefecto?.challenges?.title || '');
       }
     });
   }, []));
@@ -150,6 +152,11 @@ export default function RegistroManualScreen({ navigation }) {
       setMensaje('Error de sesion, intenta de nuevo');
       return;
     }
+    if (modoAsignacion === 'elegir' && destinosElegidos.length === 0) {
+      setMensaje('Elegí al menos un desafío para sumar tus kilómetros.');
+      setExito(false);
+      return;
+    }
     guardarActividad();
   };
 
@@ -170,12 +177,24 @@ export default function RegistroManualScreen({ navigation }) {
       const s = parseInt(segundos) || 0;
       const duracionSegundos = (h * 3600 + m * 60 + s) || null;
 
+      const explicita = modoAsignacion === 'elegir' && retosDisponibles.length > 1;
+      const elegidos = retosDisponibles.filter((r) => destinosElegidos.includes(r.id));
+      const desafioParaRegistro = explicita ? elegidos[0]?.challenge_id : challengeId;
+      const { data: authData } = explicita
+        ? await supabase.auth.getSession()
+        : { data: null };
+      const token = authData?.session?.access_token;
+      if (explicita && !token) throw new Error('Sesión vencida');
       const res = await fetch(`${BACKEND_URL}/actividades/manual`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(explicita ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           user_id: userId,
-          challenge_id: challengeId,
+          challenge_id: desafioParaRegistro,
+          ...(explicita ? { manual_target_uc_ids: elegidos.map((r) => r.id) } : {}),
           sport_type: descripcionActividad.trim() || 'manual',
           distance_km: parseFloat(distancia),
           recorded_at: fechaActividad.toISOString(),
@@ -189,7 +208,7 @@ export default function RegistroManualScreen({ navigation }) {
         setExito(false);
       } else {
         const feedback = resultadoCargaManual({
-          data, challengeId, distancia, actividadLabel: descripcionActividad.trim(),
+          data, challengeId: desafioParaRegistro, distancia, actividadLabel: descripcionActividad.trim(),
         });
         setMensaje(feedback.mensaje);
         setExito(!feedback.sinAvance && !feedback.pendiente);
@@ -254,9 +273,64 @@ export default function RegistroManualScreen({ navigation }) {
         </Text>
       </View>
 
-      {challengeTitle ? (
+      {retosDisponibles.length > 1 ? (
+        <View style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 16 }}>
+          <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 15, marginBottom: 10 }}>
+            ¿Dónde querés sumar estos km?
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+            {[
+              ['automatico', 'Como siempre'],
+              ['elegir', 'Elegir desafíos'],
+            ].map(([valor, titulo]) => (
+              <TouchableOpacity
+                key={valor}
+                onPress={() => setModoAsignacion(valor)}
+                style={{ flex: 1, padding: 12, borderRadius: 10,
+                  backgroundColor: modoAsignacion === valor ? '#1E6FD9' : '#1E3A5F' }}
+              >
+                <Text style={{ textAlign: 'center', color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>{titulo}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {modoAsignacion === 'elegir' ? (
+            <>
+              <Text style={{ color: '#A8CFFF', fontSize: 12, marginBottom: 10 }}>
+                Tocá uno o varios desafíos. No hace falta reanudarlos para esta actividad.
+              </Text>
+              {retosDisponibles.map((reto) => {
+                const marcado = destinosElegidos.includes(reto.id);
+                return (
+                  <TouchableOpacity
+                    key={reto.id}
+                    onPress={() => setDestinosElegidos((actual) =>
+                      marcado ? actual.filter((id) => id !== reto.id) : [...actual, reto.id]
+                    )}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 10,
+                      padding: 12, marginBottom: 7, borderRadius: 10,
+                      borderWidth: 1, borderColor: marcado ? '#77B9FF' : '#34516C' }}
+                  >
+                    <Ionicons name={marcado ? 'checkbox' : 'square-outline'} size={22}
+                      color={marcado ? '#77B9FF' : '#A8CFFF'} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>{reto.challenges?.title || 'Desafío'}</Text>
+                      {reto.pausado ? <Text style={{ color: '#A8CFFF', fontSize: 11 }}>Actualmente pausado</Text> : null}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </>
+          ) : (
+            <Text style={{ color: '#A8CFFF', fontSize: 12 }}>
+              Se suma automáticamente a los desafíos que correspondan según sus pausas.
+            </Text>
+          )}
+        </View>
+      ) : challengeTitle ? (
         <View style={{ backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10, marginBottom: 12 }}>
-          <Text style={{ color: '#A8CFFF', fontSize: 13 }}>💡 Esta actividad sumará a todos tus desafíos activos. Si querés pausar alguno, podés hacerlo desde la pantalla principal.</Text>
+          <Text style={{ color: '#A8CFFF', fontSize: 13 }}>
+            Tus km se suman automáticamente al desafío que corresponda.
+          </Text>
         </View>
       ) : null}
 
