@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../supabase';
+import manualFeedback from '../services/manualFeedback';
+
+const { resultadoCargaManual } = manualFeedback;
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -185,12 +188,11 @@ export default function RegistroManualScreen({ navigation }) {
         setMensaje(data.error);
         setExito(false);
       } else {
-        const actividadLabel = descripcionActividad.trim();
-        const msgModo = challengeId
-          ? `${distancia} km${actividadLabel ? ` de ${actividadLabel}` : ''} registrados!`
-          : `${distancia} km guardados en modo libre 🏃`;
-        setMensaje(msgModo);
-        setExito(true);
+        const feedback = resultadoCargaManual({
+          data, challengeId, distancia, actividadLabel: descripcionActividad.trim(),
+        });
+        setMensaje(feedback.mensaje);
+        setExito(!feedback.sinAvance && !feedback.pendiente);
         setDistancia('');
         setDiasAtras(0);
         setEvidenciaUri(null);
@@ -198,7 +200,7 @@ export default function RegistroManualScreen({ navigation }) {
         setHoras('');
         setMinutos('');
         setSegundos('');
-        setTimeout(() => { setMensaje(''); setExito(false); }, 3000);
+        setTimeout(() => { setMensaje(''); setExito(false); }, 7000);
       }
     } catch (error) {
       setMensaje('Error de conexion');
