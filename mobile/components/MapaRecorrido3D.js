@@ -490,6 +490,7 @@ export default function MapaRecorrido3D({
     const etiquetas = ubicarEtiquetas(
           pinesVisibles.filter((p) => !escena.capitulos?.length || p.cp.id === seleccionadoId
             || p.cp.id === journey.checkpoints[0]?.id || p.estadoJourney === 'proximo'
+            || (escena.etiquetaFinal && p.cp.id === journey.checkpoints.at(-1)?.id)
             || p.cp.id === journey.checkpoints.filter(cp => cp.estadoJourney === 'conquistado').at(-1)?.id)
             .map((p) => ({ id: p.cp.id, x: p.cabeza.x, y: p.cabeza.y, texto: p.cp.nombre?.toUpperCase(), prioridad: p.cp.id === seleccionadoId ? 4 : p.estadoJourney === 'proximo' ? 3 : p.desbloqueado ? 2 : 1 })),
           tam.w,

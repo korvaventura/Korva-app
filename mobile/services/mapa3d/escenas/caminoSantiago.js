@@ -109,6 +109,8 @@ const caminoSantiago = {
   elevacionRutaUnidades: 0.022,
   alturaPinUnidades: 0.34,
   grosorRuta: 0.75,
+  // Roncesvalles y Santiago siempre rotulados (además de seleccionado/próximo/último).
+  etiquetaFinal: true,
   seguimientoPeso: 0.2,
 
   ruta,
@@ -182,11 +184,11 @@ const caminoSantiago = {
   paleta: {
     estepa: '#8C8450',
     turba: '#76694A',
-    bosque: '#244330',
-    bosqueClaro: '#365C3A',
+    bosque: '#33503A',
+    bosqueClaro: '#42633F',
     lengaOtono: '#8B5A2B',
     pedrero: '#7E7468',
-    roca: '#5E5852',
+    roca: '#6E6760',
     nieve: '#EEF2F5',
     costa: '#9A9078',
     vega: '#7F8A4E',
@@ -199,18 +201,18 @@ const caminoSantiago = {
   // paleta y pisos entre regiones vecinas; `parcelas` dibuja el mosaico agrícola.
   biomas: [
     { x: 300, transicionKm: 40, pisos: { inicioBosqueM: 380, lineaArbolesM: 1750 },
-      paleta: { estepa: '#6E7C45', vega: '#6F8A48', bosque: '#1F3F2B', bosqueClaro: '#2F5A35' } },
+      paleta: { estepa: '#6E7C45', vega: '#6F8A48', bosque: '#3A5A38', bosqueClaro: '#4A6A40' } },
     { x: 190, transicionKm: 45, pisos: { inicioBosqueM: 900 },
       paleta: { estepa: '#7C6A44', turba: '#6A4E3A', vega: '#7D7A3E' },
-      parcelas: { colores: ['#6F5B3A', '#5E6A33', '#7A4E3B', '#857246', '#4F5E30'], tamanoKm: 2.6, mezcla: 0.22, orientacion: 0.35 } },
+      parcelas: { colores: ['#6F5B3A', '#5E6A33', '#7A4E3B', '#857246', '#4F5E30'], tamanoKm: 2.6, mezcla: 0.1, orientacion: 0.35 } },
     { x: 20, transicionKm: 70, pisos: { inicioBosqueM: 1250 },
       paleta: { estepa: '#B79A5A', turba: '#9C7F4A', vega: '#8F8A4E' },
-      parcelas: { colores: ['#C9A85E', '#A98B4E', '#8C7A45', '#B58F55', '#7D7A48'], tamanoKm: 4.2, mezcla: 0.25, orientacion: -0.2 } },
+      parcelas: { colores: ['#C9A85E', '#A98B4E', '#8C7A45', '#B58F55', '#7D7A48'], tamanoKm: 4.2, mezcla: 0.12, orientacion: -0.2 } },
     { x: -125, transicionKm: 30, pisos: { inicioBosqueM: 650, lineaArbolesM: 1450 },
-      paleta: { estepa: '#7A7048', pedrero: '#7B6A5E', bosque: '#2B4430', lengaOtono: '#6E4A6A' } },
+      paleta: { estepa: '#7A7048', pedrero: '#7B6A5E', bosque: '#45553A', lengaOtono: '#6E4A6A' } },
     { x: -230, transicionKm: 35, pisos: { inicioBosqueM: 120, lineaArbolesM: 1500 },
-      paleta: { estepa: '#4F7A3E', turba: '#4A6A38', vega: '#5E8C45', bosque: '#1C3E28', bosqueClaro: '#2C5A33' },
-      parcelas: { colores: ['#5B8A43', '#4C7A3A', '#6A9550', '#3F6B35'], tamanoKm: 2.2, mezcla: 0.15, orientacion: 0.6 } },
+      paleta: { estepa: '#4F7A3E', turba: '#4A6A38', vega: '#5E8C45', bosque: '#355E36', bosqueClaro: '#43703F' },
+      parcelas: { colores: ['#5B8A43', '#4C7A3A', '#6A9550', '#3F6B35'], tamanoKm: 2.2, mezcla: 0.08, orientacion: 0.6 } },
   ],
 
   luz: {
@@ -218,13 +220,16 @@ const caminoSantiago = {
     solDir: [-0.78, 0.42, 0.46],
     alcanceSombraKm: 70,
     radioOclusionKm: 6,
-    sombraMin: 0.74,
+    sombraMin: 0.86,
+    // Luz en tiempo real más difusa: menos moteado del relieve fino del MDT.
+    intensidadSol: 1.9,
+    intensidadHemi: 1.3,
+    colorSuelo: '#4A4636',
   },
 
-  // Vista general desde el sureste: el camino cruza la pantalla en diagonal,
-  // Roncesvalles abajo a la derecha y Santiago arriba a la izquierda, con el
-  // Atlántico en el horizonte. Aprovecha el alto del teléfono sin acortar tanto.
-  camara: { objetivo: [0.5, 0.0, -1.5], elevacionGrados: 40, azimutGrados: 108, distancia: 11.2, fov: 40, aspectoReferencia: 0.82 },
+  // Vista general desde el sureste: el recorrido cruza el ancho en diagonal,
+  // Roncesvalles abajo a la derecha y Santiago arriba a la izquierda.
+  camara: { objetivo: [0.3, 0.0, -1.6], elevacionGrados: 40, azimutGrados: 116, distancia: 13.5, fov: 40, aspectoReferencia: 0.82 },
   atmosfera: {
     horizonte: '#B8B6C2',
     resplandor: '#F2B37E',
