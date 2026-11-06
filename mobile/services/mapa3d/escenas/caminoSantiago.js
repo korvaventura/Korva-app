@@ -104,11 +104,11 @@ const caminoSantiago = {
   resolucionKm: 1.6,
   mundo: { extensionKm: 600, crecimiento: 1.2 },
   kmPorUnidad: 55,
-  exageracion: 9,
+  exageracion: 3, // relieve IGN ×3 en vertical (primera prueba; antes ×9)
   pasoRutaKm: 0.8,
   elevacionRutaUnidades: 0.022,
   alturaPinUnidades: 0.34,
-  grosorRuta: 1.7,
+  grosorRuta: 0.75,
   seguimientoPeso: 0.2,
 
   ruta,
@@ -202,15 +202,15 @@ const caminoSantiago = {
       paleta: { estepa: '#6E7C45', vega: '#6F8A48', bosque: '#1F3F2B', bosqueClaro: '#2F5A35' } },
     { x: 190, transicionKm: 45, pisos: { inicioBosqueM: 900 },
       paleta: { estepa: '#7C6A44', turba: '#6A4E3A', vega: '#7D7A3E' },
-      parcelas: { colores: ['#6F5B3A', '#5E6A33', '#7A4E3B', '#857246', '#4F5E30'], tamanoKm: 2.6, mezcla: 0.75, orientacion: 0.35 } },
+      parcelas: { colores: ['#6F5B3A', '#5E6A33', '#7A4E3B', '#857246', '#4F5E30'], tamanoKm: 2.6, mezcla: 0.22, orientacion: 0.35 } },
     { x: 20, transicionKm: 70, pisos: { inicioBosqueM: 1250 },
       paleta: { estepa: '#B79A5A', turba: '#9C7F4A', vega: '#8F8A4E' },
-      parcelas: { colores: ['#C9A85E', '#A98B4E', '#8C7A45', '#B58F55', '#7D7A48'], tamanoKm: 4.2, mezcla: 0.85, orientacion: -0.2 } },
+      parcelas: { colores: ['#C9A85E', '#A98B4E', '#8C7A45', '#B58F55', '#7D7A48'], tamanoKm: 4.2, mezcla: 0.25, orientacion: -0.2 } },
     { x: -125, transicionKm: 30, pisos: { inicioBosqueM: 650, lineaArbolesM: 1450 },
       paleta: { estepa: '#7A7048', pedrero: '#7B6A5E', bosque: '#2B4430', lengaOtono: '#6E4A6A' } },
     { x: -230, transicionKm: 35, pisos: { inicioBosqueM: 120, lineaArbolesM: 1500 },
       paleta: { estepa: '#4F7A3E', turba: '#4A6A38', vega: '#5E8C45', bosque: '#1C3E28', bosqueClaro: '#2C5A33' },
-      parcelas: { colores: ['#5B8A43', '#4C7A3A', '#6A9550', '#3F6B35'], tamanoKm: 2.2, mezcla: 0.5, orientacion: 0.6 } },
+      parcelas: { colores: ['#5B8A43', '#4C7A3A', '#6A9550', '#3F6B35'], tamanoKm: 2.2, mezcla: 0.15, orientacion: 0.6 } },
   ],
 
   luz: {
@@ -218,20 +218,20 @@ const caminoSantiago = {
     solDir: [-0.78, 0.42, 0.46],
     alcanceSombraKm: 70,
     radioOclusionKm: 6,
-    sombraMin: 0.5,
+    sombraMin: 0.74,
   },
 
   // Vista general desde el sureste: el camino cruza la pantalla en diagonal,
   // Roncesvalles abajo a la derecha y Santiago arriba a la izquierda, con el
   // Atlántico en el horizonte. Aprovecha el alto del teléfono sin acortar tanto.
-  camara: { objetivo: [0.8, 0.0, -0.85], elevacionGrados: 46, azimutGrados: 122, distancia: 11.2, fov: 40, aspectoReferencia: 0.82 },
+  camara: { objetivo: [0.5, 0.0, -1.5], elevacionGrados: 40, azimutGrados: 108, distancia: 11.2, fov: 40, aspectoReferencia: 0.82 },
   atmosfera: {
     horizonte: '#B8B6C2',
     resplandor: '#F2B37E',
     medio: '#6286AE',
     cenit: '#1A3557',
-    cerca: 1.5,
-    lejos: 3.4,
+    cerca: 2.4,
+    lejos: 5.5,
   },
   agua: { color: '#2F6C88' },
 
