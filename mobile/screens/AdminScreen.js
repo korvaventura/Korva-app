@@ -524,6 +524,11 @@ export default function AdminScreen() {
         <Text style={styles.menuBtnLabel}>Diagnóstico Apple Health (temporal)</Text>
       </TouchableOpacity>}
 
+      {__DEV__ && <TouchableOpacity style={[styles.menuBtn, { marginBottom: 12 }]}
+        onPress={() => navigation.navigate('CaminoSantiagoPrueba')}>
+        <Text style={styles.menuBtnLabel}>Camino de Santiago · prueba del mapa</Text>
+      </TouchableOpacity>}
+
       {/* Menú desplegable */}
       <View style={styles.menuWrapper}>
         <TouchableOpacity
