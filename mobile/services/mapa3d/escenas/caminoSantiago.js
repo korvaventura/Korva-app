@@ -39,27 +39,23 @@ const distanciaGeo = (a, b) => Math.hypot(
 );
 
 const kmPorIndice = new Map(Object.entries(trazado.anclas).map(([id, i]) => [i, HITOS_KM[id]]));
-// Llegada: el monumento de la catedral se dibuja en escala simbólica (ver
-// `monumentoLlegada`), así que en los últimos km el trazado rodea su flanco
-// norte —como el Camino real por la Azabachería— y entra a la plaza desde el
-// norte. Es la única desviación artística del trazado y se limita a ese radio.
-const OBRADOIRO = trazado.puntos[trazado.puntos.length - 1];
-const ANCHO_MONUMENTO_KM = 7;
-const RADIO_LLEGADA_KM = ANCHO_MONUMENTO_KM * 1.6;
-const desplazar = ([lat, lon], esteKm, norteKm) => [
-  Number((lat + norteKm / KM_POR_GRADO).toFixed(5)),
-  Number((lon + esteKm / (KM_POR_GRADO * Math.cos((lat * Math.PI) / 180))).toFixed(5)),
-];
-const W = ANCHO_MONUMENTO_KM;
-const rodeoLlegada = [[1.25 * W, 0.8 * W], [0.55 * W, 0.85 * W], [-0.05 * W, 0.7 * W], [-0.3 * W, 0.35 * W]]
-  .map(([e, n]) => desplazar(OBRADOIRO, e, n));
-const ultimoReal = trazado.puntos.findIndex((p, i) => i > 0 && distanciaGeo(p, OBRADOIRO) < RADIO_LLEGADA_KM);
-const puntosVisuales = [...trazado.puntos.slice(0, ultimoReal), ...rodeoLlegada, OBRADOIRO];
-const indiceVisual = (i) => (i === trazado.puntos.length - 1 ? puntosVisuales.length - 1 : i);
-const kmPorIndiceVisual = new Map([...kmPorIndice.entries()].map(([i, km]) => [indiceVisual(i), km]));
-const ruta = puntosVisuales.map(([lat, lon], i) => (
-  kmPorIndiceVisual.has(i) ? { lat, lon, km: kmPorIndiceVisual.get(i) } : { lat, lon }
+// La ruta es el trazado real completo hasta la Praza do Obradoiro.
+const ruta = trazado.puntos.map(([lat, lon], i) => (
+  kmPorIndice.has(i) ? { lat, lon, km: kmPorIndice.get(i) } : { lat, lon }
 ));
+
+// Km real (sobre la línea OSM) -> km virtual, con las mismas anclas.
+const anclasReales = Object.entries(trazado.kmRealAnclas)
+  .map(([id, kmReal]) => [kmReal, HITOS_KM[id]]).sort((a, b) => a[0] - b[0]);
+function kmVirtualDeKmReal(kmReal) {
+  for (let k = 1; k < anclasReales.length; k += 1) {
+    const [r0, v0] = anclasReales[k - 1]; const [r1, v1] = anclasReales[k];
+    if (kmReal <= r1) return v0 + ((v1 - v0) * (kmReal - r0)) / ((r1 - r0) || 1);
+  }
+  return DISTANCIA_KM;
+}
+// Límites de comunidad autónoma sobre el trazado (Natural Earth, ver trazado).
+const inicioRegion = (nombre) => Math.round(kmVirtualDeKmReal(trazado.regiones.find((r) => r.region === nombre).desdeKmReal));
 
 // Distancia geográfica acumulada y conversión a km virtuales (misma regla que el motor).
 const acumulado = [0];
@@ -91,12 +87,13 @@ const caminoSantiago = {
   // Cinco tramos de paisaje: la cabecera muestra en qué región va el peregrino.
   // Mismo mecanismo que Islandia (etiquetas sólo del seleccionado, próximo y último).
   capitulos: [
-    { numero: 1, id: 'navarra', nombre: 'Bosques y montes de Navarra', hastaKm: 94 },
-    { numero: 2, id: 'rioja', nombre: 'Viñedos de La Rioja', hastaKm: 230 },
-    { numero: 3, id: 'meseta', nombre: 'La Meseta castellana', hastaKm: 507 },
-    { numero: 4, id: 'montes_leon', nombre: 'Montes de León y El Bierzo', hastaKm: 615 },
-    { numero: 5, id: 'galicia', nombre: 'Galicia verde', hastaKm: DISTANCIA_KM },
+    { numero: 1, id: 'navarra', nombre: 'Navarra', hastaKm: inicioRegion('La Rioja') },
+    { numero: 2, id: 'rioja', nombre: 'Viñedos de La Rioja', hastaKm: inicioRegion('Castilla y León') },
+    { numero: 3, id: 'meseta', nombre: 'Castilla y la Meseta', hastaKm: HITOS_KM.astorga },
+    { numero: 4, id: 'montes_leon', nombre: 'Montes de León y El Bierzo', hastaKm: inicioRegion('Galicia') },
+    { numero: 5, id: 'galicia', nombre: 'Galicia', hastaKm: DISTANCIA_KM },
   ],
+
   semilla: 1211,
   centro: { lat: 42.7, lon: -4.9 },
   // Zona fina alrededor del camino (x este, z sur, km); el mundo sigue ~600 km más (el borde nunca se ve).
@@ -111,6 +108,8 @@ const caminoSantiago = {
   grosorRuta: 0.75,
   // Roncesvalles y Santiago siempre rotulados (además de seleccionado/próximo/último).
   etiquetaFinal: true,
+  // Las etiquetas esquivan todos los pines; si quedan lejos, una guía fina las une.
+  etiquetasSeparadas: true,
   seguimientoPeso: 0.2,
 
   ruta,
@@ -229,21 +228,16 @@ const caminoSantiago = {
 
   // Vista general desde el sureste: el recorrido cruza el ancho en diagonal,
   // Roncesvalles abajo a la derecha y Santiago arriba a la izquierda.
-  camara: { objetivo: [0.3, 0.0, -1.6], elevacionGrados: 40, azimutGrados: 116, distancia: 13.5, fov: 40, aspectoReferencia: 0.82 },
+  camara: { objetivo: [0.3, 0.0, -1.6], elevacionGrados: 46, azimutGrados: 116, distancia: 13.5, fov: 40, aspectoReferencia: 0.82 },
   atmosfera: {
     horizonte: '#B8B6C2',
     resplandor: '#F2B37E',
     medio: '#6286AE',
     cenit: '#1A3557',
-    cerca: 2.4,
-    lejos: 5.5,
+    cerca: 3.2,
+    lejos: 7.5,
   },
   agua: { color: '#2F6C88' },
-
-  // Monumento de llegada: la fachada del Obradoiro en escala simbólica
-  // (ver documento: no es la escala real de la catedral).
-  // lat/lon = Praza do Obradoiro (km 0); la fachada mira al oeste, hacia la plaza.
-  monumentoLlegada: { lat: 42.8806, lon: -8.5458, orientacionGrados: 270, anchoKm: ANCHO_MONUMENTO_KM },
 
   etiquetas: [
     { id: 'oceano', texto: 'OCÉANO ATLÁNTICO', lat: 42.75, lon: -9.75, tipo: 'agua' },

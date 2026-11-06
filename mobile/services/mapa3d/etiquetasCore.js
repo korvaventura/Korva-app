@@ -102,4 +102,23 @@ function separarPinesCercanos(pines, grupos, ancho, alto, minimo = 64) {
   }
   return salida;
 }
-module.exports = { ubicarEtiquetas, anchoEstimado, medidasEtiqueta, seSuperponen, separarPinesCercanos };
+// Cajas de los pines para que las etiquetas no los tapen (opcional por escena).
+function cajasDePines(pines, radio = 11) {
+  return pines.map((p) => ({ x: p.x - radio, y: p.y - radio, w: radio * 2, h: radio * 2 }));
+}
+
+// Guía fina entre un pin y su etiqueta cuando la etiqueta quedó separada.
+// Devuelve { x, y, largo, angulo } (desde el borde del pin al punto más
+// cercano de la caja) o null si la etiqueta está pegada al pin.
+function guiaEtiqueta(pin, caja, { radioPin = 9, separacionMinima = 18 } = {}) {
+  if (!pin || !caja) return null;
+  const cx = Math.max(caja.x, Math.min(pin.x, caja.x + caja.w));
+  const cy = Math.max(caja.y, Math.min(pin.y, caja.y + caja.h));
+  const dx = cx - pin.x; const dy = cy - pin.y;
+  const d = Math.hypot(dx, dy);
+  if (d <= separacionMinima) return null;
+  const ux = dx / d; const uy = dy / d;
+  return { x: pin.x + ux * radioPin, y: pin.y + uy * radioPin, largo: d - radioPin, angulo: Math.atan2(dy, dx) };
+}
+
+module.exports = { ubicarEtiquetas, anchoEstimado, medidasEtiqueta, seSuperponen, separarPinesCercanos, cajasDePines, guiaEtiqueta };

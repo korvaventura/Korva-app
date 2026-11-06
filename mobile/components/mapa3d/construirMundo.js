@@ -11,7 +11,6 @@
 import * as THREE from 'three';
 import { construirModeloMeshy } from './modeloMeshy';
 import { crearAmbienteIslandia } from './ambienteIslandia';
-import { crearMonumentoLlegada } from './monumentoLlegada';
 import { crearRutaVisualModelo } from '../../services/mapa3d/modeloMeshyCore';
 import { construirDatosDiorama, puntoEnKm, indiceCercano } from '../../services/mapa3d/terrenoCore';
 import { deserializarDiorama } from '../../services/mapa3d/horneadoCore';
@@ -586,8 +585,6 @@ export function construirMundo(escena, horneado) {
   grupo.add(crearAguas(datos, conv, escena));
   const arquitectura = crearArquitectura(datos, conv, escena);
   if (arquitectura) grupo.add(arquitectura);
-  const monumento = crearMonumentoLlegada(datos, conv, escena);
-  if (monumento) grupo.add(monumento);
   const cielo = crearCielo(escena);
   const niebla = new THREE.Fog(escena.atmosfera.horizonte, 5, 30);
   const limites = {

@@ -3,6 +3,9 @@ import * as THREE from 'three';
 import { construirMundo, crearLuces, configurarCamara, actualizarAtmosfera, geometriaTramo, materialesRuta, posicionEnKm } from '../../../../mobile/components/mapa3d/construirMundo';
 import { estadoJourney } from '../../../../mobile/services/mapa3d/journeyCore';
 import { seguirReplay, controlInicialReplay } from '../../../../mobile/services/mapa3d/replayCamaraCore';
+import { ubicarEtiquetas, cajasDePines, guiaEtiqueta } from '../../../../mobile/services/mapa3d/etiquetasCore';
+const zonasHud = (W, H) => [{ x: 0, y: 0, w: W, h: 64 }, { x: 0, y: 64, w: 205, h: 100 }, { x: 0, y: H - 124, w: 200, h: 124 }, { x: W - 56, y: H - 92, w: 56, h: 92 }, { x: 0, y: H - 32, w: W, h: 32 }];
+const enZona = (x, y, W, H) => zonasHud(W, H).some((z) => x > z.x - 10 && x < z.x + z.w + 10 && y > z.y - 10 && y < z.y + z.h + 10);
 const escena = require('../../../../mobile/services/mapa3d/escenas/caminoSantiago');
 const horneado = require('../../../../mobile/services/mapa3d/escenas/caminoSantiago.horneado');
 const CPS = window.CHECKPOINTS;
@@ -38,6 +41,7 @@ if (q.get('foco')) { // "Estás acá": objetivo en la posición, zoom 0.72 (o el
 configurarCamara(camera, escena, W / H, control, mundo);
 actualizarAtmosfera(mundo, escena, camera);
 if (q.get('sinniebla')) { scene.fog = null; }
+if (q.get('obj')) { const [ox, oz] = q.get('obj').split(',').map(Number); escena.camara.objetivo = [ox, 0, oz]; control.objetivo = [ox, 0, oz]; }
 if (q.get('cam')) { const [a,e,d] = q.get('cam').split(',').map(Number); escena.camara.azimutGrados=a; escena.camara.elevacionGrados=e; escena.camara.distancia=d; configurarCamara(camera, escena, W / H, control, mundo); actualizarAtmosfera(mundo, escena, camera); }
 const grosor = escena.grosorRuta ?? 1, total = escena.distanciaKm;
 const color = escena.colorRuta || '#F36B0A';
@@ -54,10 +58,12 @@ const px = (v) => { const p = v.clone().project(camera); return { x: (p.x + 1) /
 const j = estadoJourney({ checkpoints: CPS, kmProgreso: kmUser, distanciaKm: total, completado: kmUser >= total });
 const ultimo = j.checkpoints.filter((c) => c.estadoJourney === 'conquistado').at(-1);
 g.font = '800 10px -apple-system, Helvetica, Arial'; g.textBaseline = 'middle';
+const pinesPx = [];
 for (const cp of j.checkpoints) {
   const base = px(posicionEnKm(mundo.datos, mundo.conv, cp.kmJourney, 0));
   const cab = px(posicionEnKm(mundo.datos, mundo.conv, cp.kmJourney, 0).add(new THREE.Vector3(0, escena.alturaPinUnidades, 0)));
   if (!cab.ok) continue;
+  pinesPx.push({ cp, base, cab });
   const on = cp.estadoJourney === 'conquistado';
   g.strokeStyle = on ? 'rgba(255,190,140,0.6)' : 'rgba(214,228,240,0.38)'; g.lineWidth = 1;
   g.beginPath(); g.moveTo(cab.x, cab.y); g.lineTo(base.x, base.y); g.stroke();
@@ -65,15 +71,26 @@ for (const cp of j.checkpoints) {
   g.beginPath(); g.arc(cab.x, cab.y, s ? 11 : 8, 0, 7);
   g.fillStyle = on ? '#F36B0A' : '#13283D'; g.fill(); g.lineWidth = on ? 2 : 1.5;
   g.strokeStyle = cp.estadoJourney === 'proximo' ? '#FFB078' : on ? '#fff' : '#8DA4B8'; g.stroke();
-  const etiqueta = s || cp.id === j.checkpoints[0].id || cp.estadoJourney === 'proximo' || cp.id === ultimo?.id;
-  if (etiqueta) {
-    g.fillStyle = '#fff'; g.shadowColor = 'rgba(0,0,0,.8)'; g.shadowBlur = 4;
-    const txt = cp.nombre.toUpperCase(); const x = cab.x + 14;
-    g.font = '800 10px Helvetica, Arial'; g.fillText(txt, x, cab.y - 5);
-    g.font = '600 9px Helvetica, Arial'; g.fillStyle = '#B9C7D6';
-    g.fillText(on ? `${cp.km} km` : cp.estadoJourney === 'proximo' ? `PRÓXIMO · ${cp.km} km` : `🔒 ${cp.km} km`, x, cab.y + 7);
-    g.shadowBlur = 0;
-  }
+}
+// Mismo filtro y mismo ubicador de etiquetas que MapaRecorrido3D.
+const items = pinesPx.filter(({ cp }) => cp.id === sel || cp.id === j.checkpoints[0].id || cp.estadoJourney === 'proximo' || cp.id === ultimo?.id || (escena.etiquetaFinal && cp.id === j.checkpoints.at(-1).id))
+  .map(({ cp, cab }) => ({ id: cp.id, x: cab.x, y: cab.y, texto: cp.nombre.toUpperCase(), prioridad: cp.id === sel ? 4 : cp.estadoJourney === 'proximo' ? 3 : cp.estadoJourney === 'conquistado' ? 2 : 1 }));
+const cajas = ubicarEtiquetas(items, W, H, { ocupados: [...zonasHud(W, H), ...(escena.etiquetasSeparadas ? cajasDePines(pinesPx.map((p) => p.cab)) : [])], ocultarSiNoCabe: true });
+window.ETIQUETAS = cajas;
+const sup = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+window.CHOQUES = Object.entries(cajas).flatMap(([id, c]) => [
+  ...pinesPx.filter((p) => sup(c, { x: p.cab.x - 9, y: p.cab.y - 9, w: 18, h: 18 })).map((p) => `${id}~pin:${p.cp.id}`),
+  ...zonasHud(W, H).filter((z) => sup(c, z)).map(() => `${id}~hud`),
+  ...Object.entries(cajas).filter(([o, d]) => o > id && sup(c, d)).map(([o]) => `${id}~${o}`)]);
+for (const it of items) {
+  const c = cajas[it.id]; if (!c) continue;
+  const guia = escena.etiquetasSeparadas && guiaEtiqueta({ x: it.x, y: it.y }, c);
+  if (guia) { g.strokeStyle = 'rgba(235,242,248,0.7)'; g.lineWidth = 1; g.beginPath(); g.moveTo(guia.x, guia.y); g.lineTo(guia.x + Math.cos(guia.angulo) * guia.largo, guia.y + Math.sin(guia.angulo) * guia.largo); g.stroke(); }
+  const cp = j.checkpoints.find((x) => x.id === it.id); const on = cp.estadoJourney === 'conquistado';
+  g.fillStyle = 'rgba(9,23,37,0.55)'; g.beginPath(); g.roundRect(c.x, c.y, c.w, c.h, 6); g.fill();
+  g.fillStyle = '#fff'; g.font = '800 10px Helvetica, Arial'; g.fillText(it.texto, c.x + 6, c.y + 9);
+  g.font = '600 9px Helvetica, Arial'; g.fillStyle = '#B9C7D6';
+  g.fillText(on ? `${cp.km} km` : cp.estadoJourney === 'proximo' ? `PRÓXIMO · ${cp.km} km` : `${cp.km} km`, c.x + 6, c.y + 19);
 }
 for (const e of escena.etiquetas) {
   const p = px(mundo.datos.campo.geo.proy ? new THREE.Vector3(...posGeo(e.lat, e.lon)) : null);
@@ -95,23 +112,24 @@ if (q.get('ajustar')) {
   const pts = mundo.datos.ruta.filter((_, i) => i % 10 === 0).map((p) => posicionEnKm(mundo.datos, mundo.conv, p.km, 0));
   const pinesAlto = escena.alturaPinUnidades;
   let mejor = null;
-  for (let az = 114; az <= 122; az += 4) for (let el = 42; el <= 46; el += 4) for (let ox = -1.5; ox <= 2.5; ox += 0.25) for (let oz = -1.5; oz <= 1.5; oz += 0.25) {
+  for (let az = 190; az <= 250; az += 6) for (let el = 36; el <= 52; el += 4) for (let ox = -2.5; ox <= 2.5; ox += 0.5) for (let oz = -3; oz <= 2; oz += 0.5) {
     escena.camara.azimutGrados = az; escena.camara.elevacionGrados = el;
     let lo = 6, hi = 30;
     for (let it = 0; it < 14; it += 1) {
       const d = (lo + hi) / 2; escena.camara.distancia = d;
       configurarCamara(camera, escena, W / H, { azimut: 0, elevacion: 0, zoom: 1, objetivo: [ox, 0, oz] }, null);
       const ok = pts.every((v) => { const a = v.clone().project(camera); const b = v.clone().add(new THREE.Vector3(0, pinesAlto, 0)).project(camera);
-        const X = (b.x + 1) / 2 * W, Y = (1 - b.y) / 2 * H, Y0 = (1 - a.y) / 2 * H; return X > 34 && X < W - 34 && Y > 120 && Y0 < H - 80; });
+        const X = (b.x + 1) / 2 * W, Y = (1 - b.y) / 2 * H, Y0 = (1 - a.y) / 2 * H; return X > 30 && X < W - 30 && Y > 70 && Y0 < H - 40 && !enZona(X, Y, W, H); });
       if (ok) hi = d; else lo = d;
     }
     escena.camara.distancia = hi;
     configurarCamara(camera, escena, W / H, { azimut: 0, elevacion: 0, zoom: 1, objetivo: [ox, 0, oz] }, null);
     let largo = 0; let prev = null;
     for (const v of pts) { const a = v.clone().project(camera); const P = [(a.x + 1) / 2 * W, (1 - a.y) / 2 * H]; if (prev) largo += Math.hypot(P[0] - prev[0], P[1] - prev[1]); prev = P; }
+    let mnX=1e9,mxX=-1e9; for (const v of pts){const a=v.clone().project(camera); const X=(a.x+1)/2*W; mnX=Math.min(mnX,X); mxX=Math.max(mxX,X);} const desc=Math.abs((mnX+mxX)/2-W/2); largo -= 3*desc;
     if (!mejor || largo > mejor.largo) mejor = { az, el, ox, oz, d: hi / Math.max(1, (escena.camara.aspectoReferencia || 1) / (W / H)), largo };
   }
   window.AJUSTE = mejor;
 }
-window.METRICAS = { tBuild, tRender, triangulos: renderer.info.render.triangles, llamadas: renderer.info.render.calls, nx: mundo.datos.campo.nx, nz: mundo.datos.campo.nz, largoKm: mundo.datos.largoKm };
+window.METRICAS = { etiquetas: Object.keys(window.ETIQUETAS || {}), choques: window.CHOQUES, extremos: [pinesPx[0], pinesPx.at(-1)].map((p) => p && [p.cp.id, Math.round(p.cab.x), Math.round(p.cab.y)]), tBuild, tRender, triangulos: renderer.info.render.triangles, llamadas: renderer.info.render.calls, nx: mundo.datos.campo.nx, nz: mundo.datos.campo.nz, largoKm: mundo.datos.largoKm };
 window.LISTO = true;

@@ -2,20 +2,23 @@
 
 No forman parte de la app. Sirven para regenerar y revisar la escena.
 
-## 1. Trazado (geografía real)
+## 1. Trazado (OpenStreetMap)
 
-    python3 tools/mapa3d/trazado_camino_santiago.py \
-      tools/mapa3d/datos/camino-frances-referencia.geojson \
-      /tmp/camino-trazado.json \
-      tools/mapa3d/referencias_camino_santiago.json
+    cd tools/mapa3d
+    python3 trazado_camino_santiago.py datos/camino-frances-osm-etapas.json.gz \
+      referencias_camino_santiago.json datos/regiones-espana-ne10m.geojson.gz \
+      /tmp/verificacion-trazado.json ../../mobile/services/mapa3d/escenas/caminoSantiago.trazado.js
 
-- `datos/camino-frances-referencia.geojson`: traza de referencia de
-  caminofrances.info (copia publicada en `vaadin/docs`). Licencia de datos sin
-  declarar: ver `docs/mapa-3d-camino-santiago.md` §8.
-- `referencias_camino_santiago.json`: localidades de control y su fuente.
-- La salida incluye la verificación (distancia de cada localidad al trazado).
-  `mobile/services/mapa3d/escenas/caminoSantiago.trazado.js` es esa salida
-  (`puntos`, `anclas`, `largoGeograficoKm`) envuelta en `module.exports`.
+- Entrada: etapas de la relación OSM 2163573 (© colaboradores de OSM, ODbL)
+  obtenidas de la API de Waymarked Trails el 2026-11-06.
+- La salida JSON trae la verificación (variantes, localidades, desvío).
+
+## 1b. Relieve real (IGN)
+
+    python3 preparar_relieve_camino.py
+
+- MDT500 del IGN, Natural Earth (tierra y límites) y Encoro de Belesar (IGN).
+- Escribe `mobile/scripts/mapa3d/caminoSantiago.relieve.bin/.json`.
 
 ## 2. Horneado (relieve artístico)
 

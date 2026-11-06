@@ -97,3 +97,33 @@ test('[camino_santiago] la ruta nunca queda bajo el agua y la malla entra en pre
 test('[camino_santiago] coordinación: no está activada ni tiene UUID', () => {
   assert.equal(escenaParaConfig('camino_santiago'), null);
 });
+
+test('[camino_santiago] capítulos por comunidad: Irache en Navarra, O Cebreiro en Galicia', () => {
+  const capituloDe = (km) => escena.capitulos.find((c) => km <= c.hastaKm).id;
+  assert.equal(capituloDe(94), 'navarra');
+  assert.equal(capituloDe(194), 'rioja');
+  assert.equal(capituloDe(269), 'meseta');
+  assert.equal(capituloDe(562), 'montes_leon');
+  assert.equal(capituloDe(615), 'galicia');
+  assert.equal(escena.capitulos.at(-1).hastaKm, 775);
+});
+
+test('[camino_santiago] sin rodeo ni monumento: la ruta es el trazado real hasta el Obradoiro', () => {
+  assert.equal(escena.ruta.length, trazado.puntos.length);
+  escena.ruta.forEach((w, i) => assert.deepEqual([w.lat, w.lon], trazado.puntos[i]));
+  assert.equal(escena.monumentoLlegada, undefined);
+  assert.equal(escena.ruta.at(-1).km, 775);
+  assert.equal(escena.ruta.filter((w) => w.km != null).length, 13);
+});
+
+test('[etiquetas] cajasDePines y guiaEtiqueta (opciones de Camino)', () => {
+  const { cajasDePines, guiaEtiqueta, ubicarEtiquetas, seSuperponen } = require('../services/mapa3d/etiquetasCore');
+  assert.deepEqual(cajasDePines([{ x: 50, y: 40 }]), [{ x: 39, y: 29, w: 22, h: 22 }]);
+  assert.equal(guiaEtiqueta({ x: 100, y: 100 }, { x: 114, y: 87, w: 80, h: 26 }), null, 'pegada: sin guía');
+  const g = guiaEtiqueta({ x: 100, y: 100 }, { x: 100, y: 160, w: 80, h: 26 });
+  assert.ok(g && Math.abs(g.largo - 51) < 1e-9 && Math.abs(g.angulo - Math.PI / 2) < 1e-9);
+  // Con los pines como obstáculos, la etiqueta no tapa un pin vecino sin nombre.
+  const pines = [{ x: 100, y: 100 }, { x: 140, y: 100 }];
+  const cajas = ubicarEtiquetas([{ id: 'a', x: 100, y: 100, texto: 'RONCESVALLES', prioridad: 1 }], 390, 560, { ocupados: cajasDePines(pines) });
+  assert.ok(!seSuperponen(cajas.a, cajasDePines([pines[1]])[0]));
+});

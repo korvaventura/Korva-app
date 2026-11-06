@@ -12,7 +12,7 @@ import { estadoJourney } from '../services/mapa3d/journeyCore';
 import { crearCorteRuta, crearFraccionRuta } from '../services/mapa3d/rutaPlaybackCore';
 import { AJUSTES_MAPA } from '../services/mapa3d/ajustesInteraccion';
 import { duracionReplay, controlInicialReplay, seguirReplay } from '../services/mapa3d/replayCamaraCore';
-import { ubicarEtiquetas, seSuperponen, separarPinesCercanos } from '../services/mapa3d/etiquetasCore';
+import { ubicarEtiquetas, seSuperponen, separarPinesCercanos, cajasDePines, guiaEtiqueta } from '../services/mapa3d/etiquetasCore';
 import {
   actualizarAtmosfera,
   configurarCamara,
@@ -483,6 +483,8 @@ export default function MapaRecorrido3D({
     const ocupados = [
       ...(actual ? [{ x: actual.x - 12, y: actual.y - 12, w: 24, h: 24 }] : []),
       ...zonasHud,
+      // Opcional (Camino): las etiquetas tampoco tapan pines sin nombre.
+      ...(escena.etiquetasSeparadas ? cajasDePines(pinesVisibles.map((p) => p.cabeza)) : []),
     ];
     // Durante el playback la cámara se mueve cada frame. Recalcular el
     // algoritmo de colisiones hace que una etiqueta salte entre dos posiciones
@@ -712,6 +714,12 @@ export default function MapaRecorrido3D({
                 >
                   {sel && <View style={styles.pinNucleo} />}
                 </TouchableOpacity>
+                {escena.etiquetasSeparadas && caja && !overlay.zonasHud.some((zona) => seSuperponen(caja, zona)) && (() => {
+                  const guia = guiaEtiqueta(cabeza, caja);
+                  return guia && (
+                    <View pointerEvents="none" style={[styles.guiaEtiqueta, { left: guia.x, top: guia.y, width: guia.largo, transform: [{ translateX: -guia.largo / 2 }, { rotate: `${guia.angulo}rad` }, { translateX: guia.largo / 2 }] }]} />
+                  );
+                })()}
                 {caja && !overlay.zonasHud.some((zona) => seSuperponen(caja, zona)) && (!reproduciendo || (caja.x >= 4 && caja.x + caja.w <= (tam?.w || 0) - 4)) && (
                   <TouchableOpacity activeOpacity={0.75} onPress={presionar} style={[styles.etiqueta, { left: caja.x, top: caja.y, width: caja.w, height: caja.h }, caja.lado === 'izquierda' && styles.etiquetaIzq, (caja.lado === 'arriba' || caja.lado === 'abajo') && styles.etiquetaCentro]}>
                     <Text allowFontScaling={false} numberOfLines={2} style={[styles.etiquetaNombre, !desbloqueado && styles.etiquetaBloqueada, sel && styles.etiquetaSel]}>{cp.nombre?.toUpperCase()}</Text>
@@ -848,6 +856,7 @@ const styles = StyleSheet.create({
   tallo: { position: 'absolute', width: 1, backgroundColor: 'rgba(214,228,240,0.38)' },
   talloActivo: { backgroundColor: 'rgba(255,190,140,0.6)' },
   pie: { position: 'absolute', width: 5, height: 3, borderRadius: 3, backgroundColor: 'rgba(214,228,240,0.5)' },
+  guiaEtiqueta: { position: 'absolute', height: StyleSheet.hairlineWidth * 2, backgroundColor: 'rgba(235,242,248,0.7)' },
   pieActivo: { backgroundColor: colors.brandOrangeSoft },
   pin: { position: 'absolute', width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
   pinActivo: { backgroundColor: colors.brandOrange, borderWidth: 2, borderColor: '#FFFFFF' },
