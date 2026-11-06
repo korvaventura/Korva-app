@@ -147,7 +147,13 @@ function crearAguas(datos, conv, escena) {
   const estilo = escena.agua || {};
   const puerto = mascaraPuerto(datos, escena);
   const ciudad = mascaraCiudad(datos, escena);
-  const niveles = [...new Set([...(escena.aguas || []).map((a) => a.nivelM), ...(escena.mar ? [escena.mar.nivelM] : [])])];
+  // Niveles declarados por la escena y, al final, los que sólo vienen en el
+  // horneado (agua de un relieve real, p. ej. un embalse del IGN). En los
+  // mapas que ya existían ambos conjuntos coinciden: nada cambia.
+  const declarados = [...(escena.aguas || []).map((a) => a.nivelM), ...(escena.mar ? [escena.mar.nivelM] : [])];
+  const horneados = new Set();
+  for (let k = 0; k < agua.length; k += 1) if (agua[k] > -Infinity) horneados.add(agua[k]);
+  const niveles = [...new Set([...declarados, ...[...horneados].sort((a, b) => a - b)])];
   // Color por profundidad (opcional): laguna turquesa -> azul profundo.
   const porProfundidad = !!(estilo.somero && estilo.profundo);
   const somero = porProfundidad ? new THREE.Color(estilo.somero) : null;

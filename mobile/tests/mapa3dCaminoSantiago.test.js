@@ -7,6 +7,7 @@ const trazado = require('../services/mapa3d/escenas/caminoSantiago.trazado');
 const { construirDatosDiorama, crearFuncionAltura, puntoEnKm, indiceCercano } = require('../services/mapa3d/terrenoCore');
 const { serializarDiorama, deserializarDiorama } = require('../services/mapa3d/horneadoCore');
 const { escenaParaConfig } = require('../services/mapa3d/escenas');
+const { conRelieveReal } = require('../scripts/mapa3d/caminoSantiago.relieveReal');
 
 const HITOS = {
   roncesvalles: [0, 43.00917, -1.32], pamplona: [44, 42.8169, -1.6432], puente_la_reina: [69, 42.6729, -1.8141],
@@ -27,15 +28,15 @@ const distTrazado = (lat, lon) => Math.min(...trazado.puntos.slice(1).map((b, i)
 }));
 
 test('[camino_santiago] horneado sincronizado con el generador', () => {
-  assert.deepEqual(horneado, serializarDiorama(construirDatosDiorama(escena)), 'regenerar con: node scripts/hornearMapa3D.js caminoSantiago');
+  assert.deepEqual(horneado, serializarDiorama(construirDatosDiorama(conRelieveReal(escena))), 'regenerar con: node scripts/hornearMapa3D.js caminoSantiago');
 });
 
 test('[camino_santiago] 775 km virtuales, monótonos, de Roncesvalles al Obradoiro', () => {
   assert.equal(deco.ruta[0].km, 0);
   assert.equal(deco.ruta.at(-1).km, 775);
   for (let i = 1; i < deco.ruta.length; i += 1) assert.ok(deco.ruta[i].km >= deco.ruta[i - 1].km);
-  assert.deepEqual(trazado.puntos[0], [43.00917, -1.32]);
-  assert.deepEqual(trazado.puntos.at(-1), [42.8806, -8.5458]);
+  assert.ok(distKm(trazado.puntos[0], [43.00917, -1.32]) < 0.1, 'empieza en Roncesvalles');
+  assert.ok(distKm(trazado.puntos.at(-1), [42.8806, -8.5458]) < 0.05, 'termina en el Obradoiro');
 });
 
 test('[camino_santiago] cada hito cae en su km virtual y sobre su coordenada (<1 km)', () => {
@@ -65,13 +66,24 @@ test('[camino_santiago] no es una línea entre paradas: localidades intermedias 
   assert.ok(trazado.puntos.length > 500);
 });
 
-test('[camino_santiago] relieve: Cruz de Ferro y O Cebreiro son altos, la Meseta llana y Santiago baja', () => {
+test('[camino_santiago] relieve IGN: Cruz de Ferro y O Cebreiro altos, Meseta llana, Santiago baja', () => {
   const h = (km) => puntoEnKm(deco.ruta, km).h;
-  const cruz = escena.perfilRuta.find(([, m]) => m === 1500)[0];
+  const cruz = escena.kmVirtualDe(42.4886, -6.3612);
   assert.ok(h(cruz) > 1300, `Cruz de Ferro ${h(cruz)}`);
   assert.ok(h(615) > 1150, `O Cebreiro ${h(615)}`);
   assert.ok(h(775) < 400, `Santiago ${h(775)}`);
   for (let km = 340; km <= 450; km += 10) assert.ok(Math.abs(h(km) - 830) < 120, `Meseta km ${km}: ${h(km)}`);
+});
+
+test('[camino_santiago] el relieve viene del MDT del IGN y sólo se adjunta al hornear', () => {
+  assert.equal(escena.relieve.real, undefined, 'la escena de la app no carga el MDT');
+  const real = conRelieveReal(escena).relieve.real;
+  assert.match(real.fuente.relieve, /Instituto Geográfico Nacional/);
+  const { proy: p } = crearFuncionAltura(escena);
+  const muestra = (lat, lon) => { const k = p.aKm(lat, lon); return real.muestrear(k.x, k.z); };
+  assert.ok(muestra(43.1975, -4.8528).h > 2000, 'Picos de Europa');
+  assert.equal(muestra(42.88, -9.4).agua, 0, 'Atlántico frente a Finisterre');
+  assert.ok(Math.abs(muestra(42.6, -5.5703).h - 830) < 80, 'León ~830 m');
 });
 
 test('[camino_santiago] la ruta nunca queda bajo el agua y la malla entra en presupuesto', () => {

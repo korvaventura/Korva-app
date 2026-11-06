@@ -216,10 +216,19 @@ function crearFuncionAltura(escena) {
   const mar = escena.mar || null;
   const picos = (relieve.picos || []).map((p) => ({ ...p, ...proy.aKm(p.lat, p.lon) }));
   const perfil = escena.perfilRuta; // [[km, metros], ...]
+  // Relieve real opcional (p. ej. MDT del IGN): lo adjunta el horneado como
+  // relieve.real = { muestrear(x, z) -> { h, agua } }. Sin él, nada cambia.
+  const real = relieve.real || null;
+  let aguaReal = -Infinity;
 
   let zonaActual = 0;
   const montana = (x, z) => {
     zonaActual = 0;
+    if (real) {
+      const r = real.muestrear(x, z);
+      aguaReal = r.agua;
+      return r.h;
+    }
     // Distorsión de dominio: rompe la regularidad del ruido.
     const wx = x + 5.5 * ruido.fbm(x * 0.045 + 3.1, z * 0.045 - 1.7, 3);
     const wz = z + 3.5 * ruido.fbm(x * 0.045 - 8.2, z * 0.045 + 5.9, 3);
@@ -326,6 +335,7 @@ function crearFuncionAltura(escena) {
   const altura = (x, z) => {
     let h = montana(x, z);
     let zona = zonaActual;
+    const aguaRealCelda = aguaReal;
 
     // Corredor de la RN3: valle glaciar en U siguiendo la ruta.
     const cr = distanciaPolilinea(x, z, ruta.pts, ruta.acum);
@@ -372,6 +382,7 @@ function crearFuncionAltura(escena) {
       }
     }
 
+    if (real && aguaRealCelda > -Infinity) nivelAgua = Math.max(nivelAgua, aguaRealCelda);
     if (mar && h < mar.nivelM) nivelAgua = Math.max(nivelAgua, mar.nivelM);
 
     // Los cruces marítimos no construyen un terraplén en el fondo.

@@ -7,6 +7,11 @@ const path = require('path');
 const { construirDatosDiorama } = require('../services/mapa3d/terrenoCore');
 const { serializarDiorama } = require('../services/mapa3d/horneadoCore');
 
+// Escenas con datos que sólo se usan al hornear (no viajan en la app).
+const PREPARAR = {
+  caminoSantiago: (escena) => require('./mapa3d/caminoSantiago.relieveReal').conRelieveReal(escena),
+};
+
 const DISPONIBLES = ['finDelMundo', 'monteFuji', 'sanAndres', 'dubrovnik', 'caminoSantiago'];
 const ESCENAS = process.argv.slice(2);
 if (!ESCENAS.length || ESCENAS.some((nombre) => !DISPONIBLES.includes(nombre))) {
@@ -14,7 +19,8 @@ if (!ESCENAS.length || ESCENAS.some((nombre) => !DISPONIBLES.includes(nombre))) 
 }
 
 for (const nombre of ESCENAS) {
-  const escena = require(`../services/mapa3d/escenas/${nombre}`);
+  const base = require(`../services/mapa3d/escenas/${nombre}`);
+  const escena = PREPARAR[nombre] ? PREPARAR[nombre](base) : base;
   const t0 = Date.now();
   const datos = serializarDiorama(construirDatosDiorama(escena));
   const destino = path.join(__dirname, '..', 'services', 'mapa3d', 'escenas', `${nombre}.horneado.js`);

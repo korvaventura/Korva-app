@@ -81,48 +81,6 @@ function kmVirtualDe(lat, lon) {
   return kmVirtualDeIndice(mejor);
 }
 
-// Altitud aproximada del camino (m) en localidades y pasos conocidos. Se ubican
-// sobre el trazado por coordenada y se convierten a km virtuales.
-const ALTITUDES = [
-  [43.0092, -1.3200, 952], // Roncesvalles
-  [42.9300, -1.5040, 530], // Zubiri
-  [42.8169, -1.6432, 450], // Pamplona
-  [42.7395, -1.7395, 770], // Alto del Perdón
-  [42.6729, -1.8141, 346], // Puente la Reina
-  [42.6718, -2.0323, 426], // Estella
-  [42.5708, -2.1928, 447], // Los Arcos
-  [42.4667, -2.4500, 384], // Logroño
-  [42.4182, -2.7287, 485], // Nájera
-  [42.4402, -2.9537, 639], // Santo Domingo
-  [42.4205, -3.1913, 770], // Belorado
-  [42.3757, -3.4368, 1000], // San Juan de Ortega (Montes de Oca)
-  [42.3502, -3.6753, 860], // Burgos
-  [42.3000, -4.1000, 900], // Alto de Mostelares
-  [42.2667, -4.4055, 780], // Frómista
-  [42.3708, -5.0294, 820], // Sahagún
-  [42.6000, -5.5703, 838], // León
-  [42.4949, -5.8094, 866], // San Martín del Camino
-  [42.4588, -6.0560, 870], // Astorga
-  [42.4818, -6.2849, 1150], // Rabanal del Camino
-  [42.4886, -6.3612, 1500], // Cruz de Ferro
-  [42.5383, -6.5200, 595], // Molinaseca
-  [42.5466, -6.5962, 540], // Ponferrada
-  [42.6060, -6.8107, 510], // Villafranca del Bierzo
-  [42.7079, -7.0426, 1300], // O Cebreiro
-  [42.7231, -7.1076, 1335], // Alto do Poio
-  [42.7558, -7.2390, 665], // Triacastela
-  [42.7664, -7.2705, 905], // San Xil / Alto de Riocabo
-  [42.7815, -7.4143, 450], // Sarria
-  [42.8062, -7.6164, 390], // Portomarín
-  [42.8733, -7.8693, 565], // Palas de Rei
-  [42.9138, -8.0150, 455], // Melide
-  [42.9333, -8.1500, 390], // Arzúa
-  [42.8806, -8.5458, 260], // Santiago (Obradoiro)
-];
-const perfilRuta = ALTITUDES
-  .map(([lat, lon, m]) => [Number(kmVirtualDe(lat, lon).toFixed(1)), m])
-  .sort((a, b) => a[0] - b[0]);
-
 const caminoSantiago = {
   id: 'camino_santiago',
   distanciaKm: DISTANCIA_KM,
@@ -154,30 +112,18 @@ const caminoSantiago = {
   seguimientoPeso: 0.2,
 
   ruta,
-  perfilRuta,
-  corredor: { planoKm: 3, paredM: 22, potencia: 1.45, suavizadoM: 90 },
+  // El piso de la ruta sigue el relieve real (suavizado), no una tabla a mano.
+  perfilRuta: 'terreno',
+  pasoPerfilKm: 0.5,
+  corredor: { planoKm: 0.8, paredM: 60, potencia: 1.3, suavizadoM: 40, suavizadoPerfilKm: 1.5 },
 
-  aguas: [
-    // Embalse de Belesar (río Miño): el camino lo cruza en Portomarín. Ancho exagerado.
-    {
-      id: 'mino', nombre: 'RÍO MIÑO', nivelM: 325, profundidadM: 40, taludKm: 0.6, orillaKm: 1.2, irregularidadKm: 0.3, orillaSuave: true,
-      eje: [[42.90, -7.57, 0.5], [42.835, -7.600, 0.75], [42.79, -7.625, 0.85], [42.72, -7.66, 0.8], [42.64, -7.71, 0.7], [42.55, -7.76, 0.6]],
-    },
-    // Océano Atlántico y Mar Cantábrico como UNA sola cápsula de 400 km de
-    // semiancho que rodea Galicia: su borde interior sigue la costa (Atlántico
-    // ~9,3° O, Cantábrico ~43,5° N) y el exterior queda dentro de la niebla.
-    // Una sola pieza: el motor eleva la tierra fuera de cada cuerpo de agua, y
-    // dos mares superpuestos se taparían entre sí.
-    {
-      id: 'oceano', nombre: 'OCÉANO ATLÁNTICO', nivelM: 0, profundidadM: 400, taludKm: 8, orillaKm: 4, irregularidadKm: 9,
-      eje: [
-        [40.0, -14.3, 400], [42.0, -14.25, 400], [42.9, -14.35, 400], [43.8, -14.0, 400],
-        [45.6, -12.6, 400], [46.8, -10.4, 400], [47.3, -8.0, 400], [47.2, -6.5, 400],
-        [47.15, -5.5, 400], [47.05, -4.0, 400], [46.95, -2.8, 400], [47.0, -1.9, 400],
-      ],
-    },
-  ],
+  // Mar (nivel 0) y Encoro de Belesar vienen del relieve real (IGN + Natural
+  // Earth), adjuntado al hornear por scripts/mapa3d/caminoSantiago.relieveReal.js.
+  mar: { nivelM: 0 },
+  aguas: [],
 
+  // Relieve: al hornear se reemplaza por el MDT500 del IGN (relieve.real). Las
+  // fajas y picos de abajo quedan sólo como respaldo si se horneara sin él.
   relieve: {
     colinas: { base: 230, amp: 260 },
     fajas: [
