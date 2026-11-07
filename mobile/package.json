@@ -45,5 +45,9 @@
     "react-native-web": "^0.21.0",
     "three": "^0.186.1"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "@babel/plugin-transform-class-static-block": "^7.29.7",
+    "babel-preset-expo": "~54.0.12"
+  }
 }
