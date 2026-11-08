@@ -15,6 +15,7 @@ import PerfilScreen from './screens/PerfilScreen';
 import RegistroManualScreen from './screens/RegistroManualScreen';
 import AdminScreen from './screens/AdminScreen';
 import CaminoSantiagoPruebaScreen from './screens/CaminoSantiagoPruebaScreen';
+import ViaAppiaPruebaScreen from './screens/ViaAppiaPruebaScreen';
 import LoginScreen from './screens/LoginScreen';
 import RankingScreen from './screens/RankingScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
@@ -232,6 +233,7 @@ export default function App() {
         <Stack.Screen name="KorvaMundi" component={KorvaMundiScreen} />
         <Stack.Screen name="RutaLibre" component={RutaLibreScreen} options={{ title: 'Islandia', headerShown: true, headerStyle: { backgroundColor: colors.background }, headerTintColor: colors.text }} />
         {esAdmin && __DEV__ && <Stack.Screen name="CaminoSantiagoPrueba" component={CaminoSantiagoPruebaScreen} options={{ title: 'Camino · prueba local' }} />}
+        {esAdmin && __DEV__ && <Stack.Screen name="ViaAppiaPrueba" component={ViaAppiaPruebaScreen} options={{ title: 'Vía Appia · prueba local' }} />}
         {esAdmin && __DEV__ && <Stack.Screen name="SaludDiagnostico" component={SaludDiagnosticoScreen} />}
       </Stack.Navigator>
     </NavigationContainer>

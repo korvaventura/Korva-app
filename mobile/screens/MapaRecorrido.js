@@ -270,13 +270,17 @@ CONFIGS.islandia = {
 };
 const caminoSantiagoMapa = require('../services/desafios/caminoSantiagoMapa');
 CONFIGS.camino_santiago = caminoSantiagoMapa.config;
+const viaAppiaMapa = require('../services/desafios/viaAppiaMapa');
+CONFIGS.via_appia = viaAppiaMapa.config;
 const getConfig = (challengeId, challengeTitle) => {
+  if (challengeId === viaAppiaMapa.CHALLENGE_ID) return CONFIGS.via_appia;
   if (challengeId === caminoSantiagoMapa.CHALLENGE_ID) return CONFIGS.camino_santiago;
   if (challengeId === '3b211caf-ee16-54c8-a93c-343a5eb2d57e') return CONFIGS.islandia;
   if (challengeId === '64442b1d-12b8-4a58-a951-50ea10cb2131') return CONFIGS.dubrovnik;
   if (challengeId === '85a362a5-eee7-456d-9027-358d44446004') return CONFIGS.san_andres;
   if (challengeId === '881936a8-2282-4b7d-a94d-24a7c796d789') return CONFIGS.monte_fuji;
   const titulo = normalizar(challengeTitle);
+  if (titulo.includes('via appia') || titulo.includes('via apia')) return CONFIGS.via_appia;
   if (titulo.includes('camino de santiago')) return CONFIGS.camino_santiago;
   if (titulo.includes('islandia') || titulo.includes('iceland')) return CONFIGS.islandia;
   if (titulo.includes('dubrovnik')) return CONFIGS.dubrovnik;

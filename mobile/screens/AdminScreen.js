@@ -529,6 +529,11 @@ export default function AdminScreen() {
         <Text style={styles.menuBtnLabel}>Camino de Santiago · prueba del mapa</Text>
       </TouchableOpacity>}
 
+      {__DEV__ && <TouchableOpacity style={[styles.menuBtn, { marginBottom: 12 }]}
+        onPress={() => navigation.navigate('ViaAppiaPrueba')}>
+        <Text style={styles.menuBtnLabel}>Vía Appia · prueba local de ficha e hitos</Text>
+      </TouchableOpacity>}
+
       {/* Menú desplegable */}
       <View style={styles.menuWrapper}>
         <TouchableOpacity
