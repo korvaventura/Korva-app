@@ -252,6 +252,14 @@ const crearSupabaseMemoria = (tablas = {}, opciones = {}) => {
     return { data: { lapida_nueva: lapidaNueva, excluidas }, error: null };
   };
   const rpc = async (nombre, args) => {
+    if (nombre === 'asignar_dorsal_desafio') {
+      const fila = (db.user_challenges || []).find(x => x.id === args.p_inscripcion_id);
+      if (!fila) return { data: null, error: { message: 'Inscripción inexistente' } };
+      if (fila.numero_bib == null) {
+        fila.numero_bib = Math.max(0, ...db.user_challenges.filter(x => x.challenge_id === fila.challenge_id).map(x => Number(x.numero_bib) || 0)) + 1;
+      }
+      return { data: fila.numero_bib, error: null };
+    }
     if (nombre === 'completar_desafio_motor') return completarDesafioMotor(args);
     if (nombre === 'guardar_actividad_strava') return guardarActividadStrava(args);
     if (nombre === 'borrar_actividad_strava') return borrarActividadStrava(args);

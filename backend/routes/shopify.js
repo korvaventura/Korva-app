@@ -4,7 +4,8 @@ const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
 const { enviarEmailInscripcionConBib, enviarEmailInscripcion, enviarEmailInvitacion, enviarEmailAdmin } = require('../routes/emails');
-const { generarBibYPostal, asignarBibNumber } = require('../generador_bib');
+const { generarBibYPostal } = require('../generador_bib');
+const { asignarDorsal } = require('../lib/dorsalDesafio');
 
 const SHOPIFY_WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET;
 
@@ -36,6 +37,10 @@ const verificarFirmaShopify = (rawBody, hmacHeader) => {
 
 // Función centralizada para activar un challenge y enviar bib+postal
 const activarChallengeYEnviarBib = async (supabase, user, pendiente, enviarBib = true) => {
+  // La RPC conserva el dorsal existente o reserva uno por desafío en una transacción.
+  const bibNumber = await asignarDorsal(supabase, pendiente.id);
+  pendiente.numero_bib = bibNumber;
+
   // 1. Activar el challenge
   await supabase
     .from('user_challenges')
@@ -43,13 +48,6 @@ const activarChallengeYEnviarBib = async (supabase, user, pendiente, enviarBib =
     .eq('id', pendiente.id);
 
   console.log('Challenge activado para:', user.email, '-', pendiente.challenges?.title);
-
-  // 2. Usar numero_bib del challenge específico, fallback a bib_number global
-  let bibNumber = pendiente.numero_bib || user.bib_number;
-  if (!bibNumber) {
-    bibNumber = await asignarBibNumber(supabase, user.id);
-    user.bib_number = bibNumber;
-  }
 
   // 3. Si no hay que enviar bib (flag), salir acá
   if (!enviarBib) {
@@ -226,21 +224,6 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
       }
 
       if (!pendiente) continue;
-
-      // Asignar numero_bib específico del challenge si no lo tiene
-      if (!pendiente.numero_bib) {
-        const { data: maxBib } = await supabase
-          .from('user_challenges')
-          .select('numero_bib')
-          .eq('challenge_id', challengeIdFromProduct)
-          .not('numero_bib', 'is', null)
-          .order('numero_bib', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        const nextBib = (maxBib?.numero_bib || 0) + 1;
-        await supabase.from('user_challenges').update({ numero_bib: nextBib }).eq('id', pendiente.id);
-        pendiente.numero_bib = nextBib;
-      }
 
       // Activar challenge y enviar bib — uno por cada desafío distinto
       await activarChallengeYEnviarBib(supabase, user, pendiente, true);
