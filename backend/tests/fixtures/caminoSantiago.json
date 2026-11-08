@@ -11,12 +11,6 @@
       "label": "Estándar",
       "version": "estandar",
       "distancia_km": 775
-    },
-    {
-      "tipo": "ride",
-      "label": "Extendida",
-      "version": "extendida",
-      "distancia_km": 2325
     }
   ],
   "historia": "Desde la acogida medieval de Roncesvalles hasta la plaza del Obradoiro, el Camino une lugares, historias y personas. Tu recorrido virtual sigue trece hitos del Camino Francés. Cada actividad suma a una misma aventura, sin fecha límite: avanzar, descubrir y llegar a Santiago a tu propio ritmo.",

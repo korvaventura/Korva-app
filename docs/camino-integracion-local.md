@@ -10,7 +10,7 @@ No se cambió la rama de los proyectos existentes ni se desplegó código.
 - Challenge: `e6424df6-3949-4503-8af0-69408b4b34a2`, inactivo.
 - Producto Shopify: `15473077878962`, borrador.
 - Medalla: `1001-ry-005`.
-- Estándar: 775 km. Extendida: 2325 km, misma regla de los desafíos existentes.
+- Distancia única: 775 km. Sin versión extendida por decisión de Fabricio.
 - 13 hitos del mapa aprobado, con contenido y curiosidades.
 - Dorsal y postal propios en `korva-images/Plantillas`.
 - Imágenes de medalla, portada y galería pendientes para una etapa posterior.

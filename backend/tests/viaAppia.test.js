@@ -59,8 +59,8 @@ test('Vía Appia: compra pendiente, 611 km, certificado y aviso una sola vez; Sa
   assert.equal(r.efectos.emails.filter(e => /Medalla lista para despachar/.test(e.asunto)).length, 1);
 });
 
-test('Vía Appia: Estándar 611 y Extendida 1833 comparten suma 1:1 sin completar antes', () => {
-  for (const [version, total] of [['estandar', 611], ['extendida', 1833]]) {
+test('Vía Appia: única distancia 611; una versión legacy no ofrecida vuelve a la única opción del desafío', () => {
+  for (const [version, total] of [['estandar', 611], ['extendida', 611]]) {
     for (const [km, esperado] of [[total - 1, false], [total, true]]) {
       const fila = uc({ version });
       const resultado = calcularProgresoChallenge({ uc: fila, challenge: appia, actividades: [{ id: 'prueba', user_id: USER.id, recorded_at: '2026-11-02T10:00:00Z', distance_km: km, sport_type: 'ride', excluida: false }] });

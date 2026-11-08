@@ -11,12 +11,6 @@
       "label": "Estándar",
       "version": "estandar",
       "distancia_km": 611
-    },
-    {
-      "tipo": "ride",
-      "label": "Extendida",
-      "version": "extendida",
-      "distancia_km": 1833
     }
   ],
   "historia": "La vía Appia nació para conectar Roma con Capua y se prolongó después hacia el puerto de Brindisi. En este desafío virtual, el recorrido de referencia sigue el corredor de la Appia Antica, pasando por Benevento, Venosa y Taranto. Sus 611 km se acumulan actividad a actividad, sin fecha límite.",

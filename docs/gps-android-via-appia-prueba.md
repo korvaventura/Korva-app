@@ -62,7 +62,7 @@ Ficha creada inactiva en Supabase, con UUID generado por la base:
 Producto Shopify encontrado: `15473077780658`, en borrador.
 URL: https://korva.run/products/desafio-virtual-611km-via-appia-roma
 Medalla: `1001-ry-006`. Precio de referencia copiado del producto: USD 34,40.
-Modalidades: Estándar 611 km y Extendida 1833 km, como los desafíos existentes.
+Distancia única: 611 km. Sin versión extendida por decisión de Fabricio.
 
 Se prepararon 13 hitos con historias, curiosidades y fuentes primarias:
 Roma/Porta Capena, Cecilia Metella, Albano, Terracina, Formia, Capua antigua,

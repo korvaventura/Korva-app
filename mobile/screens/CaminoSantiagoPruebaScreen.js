@@ -16,8 +16,7 @@ const fichaPrueba = {
   description: 'Recorre virtualmente el Camino Francés desde Roncesvalles hasta Santiago de Compostela. Acumula 775 km a tu ritmo y descubre 13 hitos entre los Pirineos, la Meseta y Galicia.',
   historia: 'Desde la acogida medieval de Roncesvalles hasta la plaza del Obradoiro, el Camino une lugares, historias y personas. Tu recorrido virtual sigue trece hitos del Camino Francés. Cada actividad suma a una misma aventura, sin fecha límite: avanzar, descubrir y llegar a Santiago a tu propio ritmo.',
   checkpoints: historia.checkpoints, medal_image_url: null, imagen_portada: null, galeria: [],
-  modalidades: [{ tipo: 'run', label: 'Estándar', version: 'estandar', distancia_km: 775 },
-    { tipo: 'ride', label: 'Extendida', version: 'extendida', distancia_km: 2325 }],
+  modalidades: [{ tipo: 'run', label: 'Estándar', version: 'estandar', distancia_km: 775 }],
 };
 const paradas = [
   ['roncesvalles', 'Roncesvalles', 0], ['pamplona', 'Pamplona', 44],

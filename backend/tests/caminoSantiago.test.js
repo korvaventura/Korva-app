@@ -45,11 +45,11 @@ test('Shopify Camino: activa sólo el nuevo desafío y un reintento no duplica i
   assert.equal(r.efectos.emails.filter(e => e.para === USER.email).length, 1);
 });
 
-test('Shopify Camino: reutiliza una inscripción pendiente y conserva la versión elegida', async () => {
-  const pendiente = inscripcion({ status: 'pending', version: 'extendida', modalidad: 'ride' });
+test('Shopify Camino: reutiliza una inscripción pendiente en la única distancia ofrecida', async () => {
+  const pendiente = inscripcion({ status: 'pending', version: 'estandar', modalidad: 'run' });
   const r = await correr(tablas({ user_challenges: [pendiente] }), async b => [await orden(b)]);
   assert.equal(r.db.user_challenges.length, 1);
-  assert.deepEqual([r.db.user_challenges[0].id, r.db.user_challenges[0].status, r.db.user_challenges[0].version], ['uc-camino', 'active', 'extendida']);
+  assert.deepEqual([r.db.user_challenges[0].id, r.db.user_challenges[0].status, r.db.user_challenges[0].version], ['uc-camino', 'active', 'estandar']);
 });
 
 test('Shopify Camino: dos unidades conservan el aviso de activación grupal del flujo existente', async () => {
@@ -58,8 +58,8 @@ test('Shopify Camino: dos unidades conservan el aviso de activación grupal del 
   assert.ok(r.efectos.emails.some(e => /Compra grupal/.test(e.asunto)));
 });
 
-test('Camino: caminar, correr y bici suman 1:1; 775 completa Estándar y 2325 Extendida', () => {
-  for (const [version, objetivo] of [['estandar', 775], ['extendida', 2325]]) {
+test('Camino: única distancia 775; caminar, correr y bici suman 1:1, incluso ante una versión legacy no ofrecida', () => {
+  for (const [version, objetivo] of [['estandar', 775], ['extendida', 775]]) {
     const calcular = total => calcularProgresoChallenge({ uc: inscripcion({ version }), challenge: camino, actividades: ['walk', 'run', 'ride'].map((sport_type, i) => ({ id: String(i), user_id: USER.id, distance_km: total / 3, sport_type, recorded_at: '2026-11-02T10:00:00Z', excluida: false })) });
     const antes = calcular(objetivo - 1), completo = calcular(objetivo);
     assert.notEqual(decidirAccion(inscripcion({ version }), antes).accion, 'completar');

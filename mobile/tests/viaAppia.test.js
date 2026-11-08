@@ -23,7 +23,7 @@ test('Vía Appia: ficha propia, oculta, sin imágenes prestadas ni traza 3D inve
   assert.equal(CHALLENGE_ID, '54865c93-6b1b-4d2b-8324-71d705133998');
   assert.equal(fichaPrueba.is_active, false);
   assert.equal(fichaPrueba.medal_code, '1001-ry-006');
-  assert.deepEqual(fichaPrueba.modalidades.map(m => m.distancia_km), [611, 1833]);
+  assert.deepEqual(fichaPrueba.modalidades.map(m => m.distancia_km), [611]);
   assert.deepEqual([fichaPrueba.medal_image_url, fichaPrueba.imagen_portada, fichaPrueba.galeria], [null, null, []]);
   assert.equal(historia.estadoMapa, 'esquema_pendiente_traza_3d');
   assert.equal(escenaParaConfig('via_appia'), null);
