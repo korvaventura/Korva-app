@@ -85,13 +85,15 @@ function Montaje({ mundo, escena, controlRef, r3fRef, onModeloEstado, onCamaraAp
   );
 }
 
-function Ruta({ mundo, escena, progresoRef }) {
+function Ruta({ mundo, escena, progresoRef, detalle = false }) {
   const { datos, conv } = mundo;
   const total = escena.distanciaKm;
-  const grosor = escena.grosorRuta ?? 1;
+  const grosor = (escena.grosorRuta ?? 1) * (detalle ? .06 : 1);
   const meshes = { pendiente: useRef(null), brillo: useRef(null), hecho: useRef(null) };
   const geosRef = useRef({});
   const ultimoRef = useRef({ km: null, tiempo: -Infinity });
+  const invalidate = useThree(state => state.invalidate);
+  useEffect(() => { ultimoRef.current.km = null; invalidate(); }, [grosor, invalidate]);
   const vacia = useMemo(() => new THREE.BufferGeometry(), []);
   const mats = useMemo(() => ({
     pendiente: materialesRuta.pendiente(),
@@ -165,9 +167,9 @@ const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3f
   const camaraInicial = useMemo(() => ({ fov: escena.camara.fov, near: 0.05, far: 200, position: [0, 6, -10] }), [escena]);
   const opcionesGL = useMemo(() => ({ alpha: true, antialias: true }), []);
   return (
-    <Canvas style={styles.canvas} frameloop="demand" dpr={mundo.modeloMeshy ? 1.5 : 2} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
+    <Canvas style={styles.canvas} frameloop="demand" dpr={escena.id === 'camino_santiago' ? 2 : mundo.modeloMeshy ? 1.5 : 2} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
       <Montaje mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} onModeloEstado={onModeloEstado} onCamaraAplicada={onCamaraAplicada} />
-      <group visible={!inspeccion}><Ruta mundo={mundo} escena={escena} progresoRef={progresoRef} /></group>
+      <Ruta mundo={mundo} escena={escena} progresoRef={progresoRef} detalle={!!inspeccion} />
     </Canvas>
   );
 });
@@ -237,6 +239,7 @@ export default function MapaRecorrido3D({
   horneado,
   onInteraccionMapa,
 }) {
+  const [detalleActivo, setDetalleActivo] = useState(false);
   const [listo, setListo] = useState(cacheEscenas.has(escena.id));
   const [tam, setTam] = useState(null);
   const [estadoModelo, setEstadoModelo] = useState('cargando');
@@ -431,6 +434,7 @@ export default function MapaRecorrido3D({
 
   useEffect(() => {
     if (!mundo || !focoMonumento || escena.id !== 'camino_santiago') return;
+    setDetalleActivo(!focoMonumento.general);
     if (focoMonumento.general) {
       controlRef.current = { azimut: 0, elevacion: 0, zoom: 1 };
     } else {
@@ -564,6 +568,7 @@ export default function MapaRecorrido3D({
     if (metaKm <= 0) { recenter(); return; }
     // El replay debe sentirse como un viaje, no como una barra de progreso.
     // Tiempo de lectura y cámara amortiguada en curvas cerradas.
+    setDetalleActivo(false);
     const duracion = duracionReplay(metaKm, escena.id);
     let anterior = Date.now(); let transcurrido = 0; let ultimaFicha = -Infinity;
     liberarGesto();
@@ -640,6 +645,7 @@ export default function MapaRecorrido3D({
   };
 
   const recenter = () => {
+    setDetalleActivo(false);
     liberarGesto();
     camaraManualHastaRef.current=Date.now()+AJUSTES_MAPA.seguimientoEsperaManualMs;
     controlRef.current = controlInicialReplay(escena.camara.objetivo);
@@ -649,7 +655,7 @@ export default function MapaRecorrido3D({
 
   const totalTxt = Number(kmTotalUsuario) || escena.distanciaKm;
   const kmTxt = kmPlayback == null ? Math.min(Number(kmUsuario) || 0, totalTxt) : (kmPlayback / escena.distanciaKm) * totalTxt;
-  const inspeccion = escena.id === 'camino_santiago' && focoMonumento && !focoMonumento.general && !reproduciendo;
+  const inspeccion = detalleActivo && escena.id === 'camino_santiago' && focoMonumento && !focoMonumento.general && !reproduciendo;
 
   const actividadesJourney = useMemo(() => {
     let acumulado = 0;

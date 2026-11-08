@@ -107,6 +107,23 @@ function geometriaTerreno(datos, conv, escena) {
     }
   }
   for (let k = 0; k < nx * nz * 3; k += 1) col[k] = LUT_LINEAL[Math.round(colores[k] * 255)];
+  // Suavizar sólo el color, conservando todas las alturas del MDT.
+  // El promedio local reduce el moteado al acercarse a los hitos.
+  if (escena.id === 'camino_santiago') {
+    const original = col.slice();
+    for (let j = 0; j < nz; j += 1) for (let i = 0; i < nx; i += 1) {
+      const k = (j * nx + i) * 3;
+      const suma = [0, 0, 0]; let n = 0;
+      for (let dj = -1; dj <= 1; dj += 1) for (let di = -1; di <= 1; di += 1) {
+        const x = i + di, z = j + dj;
+        if (x < 0 || x >= nx || z < 0 || z >= nz) continue;
+        const q = (z * nx + x) * 3;
+        for (let c = 0; c < 3; c += 1) suma[c] += original[q + c];
+        n += 1;
+      }
+      for (let c = 0; c < 3; c += 1) col[k + c] = .2 * original[k + c] + .8 * suma[c] / n;
+    }
+  }
   const piedraInterior = new THREE.Color('#A49E8C');
   for (let j = 0; j < nz; j += 1) for (let i = 0; i < nx; i += 1) {
     const k = j * nx + i;
