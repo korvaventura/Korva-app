@@ -10,6 +10,8 @@ const SHOPIFY_WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET;
 
 // Mapa product_id de Shopify → challenge_id en Supabase
 const PRODUCT_CHALLENGE_MAP = {
+  '15473077780658': '54865c93-6b1b-4d2b-8324-71d705133998', // Vía Appia 611km
+  '15473077878962': 'e6424df6-3949-4503-8af0-69408b4b34a2', // Camino de Santiago 775km
   '8780043288754': 'ae54af78-dc6f-4cf5-af31-2c077ba58048', // Fin del Mundo 103km
   '8908019957938': '85a362a5-eee7-456d-9027-358d44446004', // San Andrés 57km
   '8908019466418': '64442b1d-12b8-4a58-a951-50ea10cb2131', // Dubrovnik 19.4km
