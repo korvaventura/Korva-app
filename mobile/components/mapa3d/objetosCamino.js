@@ -4,9 +4,9 @@ import { base64ABytes } from '../../services/mapa3d/horneadoCore';
 export function crearObjetosCamino(posicionEnKm) {
   const grupo = new THREE.Group(), materiales = [], texturas = [];
   const modelos = [
-    [require('../../assets/mapa3d/camino-hitos/catedral'),require('../../assets/mapa3d/camino-hitos/catedral.jpg'),775,.09,-.045,Math.PI],
-    [require('../../assets/mapa3d/camino-hitos/puente'),require('../../assets/mapa3d/camino-hitos/puente.jpg'),69,.10,.025,.4],
-    [require('../../assets/mapa3d/camino-hitos/mojon'),require('../../assets/mapa3d/camino-hitos/mojon.jpg'),0,.045,-.025,Math.PI],
+    [require('../../assets/mapa3d/camino-hitos/catedral'),require('../../assets/mapa3d/camino-hitos/catedral.jpg'),775,.18,-.045,Math.PI],
+    [require('../../assets/mapa3d/camino-hitos/puente'),require('../../assets/mapa3d/camino-hitos/puente.jpg'),69,.20,.025,.4],
+    [require('../../assets/mapa3d/camino-hitos/mojon'),require('../../assets/mapa3d/camino-hitos/mojon.jpg'),0,.09,-.025,Math.PI],
   ];
   for (const [datos,textura,km,escala,dx,giro] of modelos) {
     const g=new THREE.BufferGeometry();

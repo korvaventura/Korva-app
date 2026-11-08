@@ -11,7 +11,7 @@ function muestraGesto(touches) {
     distancia: b ? Math.hypot(b.pageX - a.pageX, b.pageY - a.pageY) : 0,
     angulo: b ? Math.atan2(b.pageY - a.pageY, b.pageX - a.pageX) : 0 };
 }
-function avanzarGesto(control, anterior, actual, { ancho, alto, elevacionBase }) {
+function avanzarGesto(control, anterior, actual, { ancho, alto, elevacionBase, zoomMin = 0.5, zoomMax = 1.7 }) {
   if (!anterior || !actual || anterior.ids !== actual.ids || anterior.n !== actual.n) return { control, pan: null };
   const dx = actual.x - anterior.x; const dy = actual.y - anterior.y;
   if (actual.n === 1) return { control: { ...control,
@@ -21,7 +21,7 @@ function avanzarGesto(control, anterior, actual, { ancho, alto, elevacionBase })
   let giro = actual.angulo - anterior.angulo;
   giro = Math.atan2(Math.sin(giro), Math.cos(giro));
   return { control: { ...control,
-    zoom: limitar((control.zoom || 1) * Math.max(1, anterior.distancia) / Math.max(1, actual.distancia), 0.5, 1.7),
+    zoom: limitar((control.zoom || 1) * Math.max(1, anterior.distancia) / Math.max(1, actual.distancia), zoomMin, zoomMax),
     azimut: (control.azimut || 0) + giro * AJUSTES_MAPA.sensibilidadGesto,
   }, pan: { dx, dy } };
 }

@@ -228,7 +228,8 @@ const caminoSantiago = {
 
   // Vista general desde el sureste: el recorrido cruza el ancho en diagonal,
   // Roncesvalles abajo a la derecha y Santiago arriba a la izquierda.
-  camara: { objetivo: [0.3, 0.0, -1.6], elevacionGrados: 46, azimutGrados: 116, distancia: 13.5, fov: 40, aspectoReferencia: 0.82 },
+  camara: {
+    zoomMin: 0.015, zoomMax: 1.7, objetivo: [0.3, 0.0, -1.6], elevacionGrados: 46, azimutGrados: 116, distancia: 13.5, fov: 40, aspectoReferencia: 0.82 },
   atmosfera: {
     horizonte: '#B8B6C2',
     resplandor: '#F2B37E',

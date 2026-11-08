@@ -16,6 +16,7 @@ const paradas = [
 ].map(([id, nombre, km]) => ({ id, nombre, km, kmFisico: km }));
 
 export default function CaminoSantiagoPruebaScreen() {
+  const [foco, setFoco] = useState(null);
   const [progreso, setProgreso] = useState(0);
   const [seleccion, setSeleccion] = useState(null);
   const [altura, setAltura] = useState(0);
@@ -30,8 +31,14 @@ export default function CaminoSantiagoPruebaScreen() {
         onPress={() => { setProgreso(valor); setSeleccion(null); }}>
         <Text style={styles.texto}>{valor * 100} %</Text>
       </TouchableOpacity>)}</View>
+    <View style={styles.controles}>{[['Mojón',0],['Puente',69],['Catedral',775],['General',null]].map(([nombre,km]) =>
+      <TouchableOpacity key={nombre} accessibilityRole="button" style={styles.boton}
+        onPress={() => setFoco(km == null ? {general:true} : {km})}>
+        <Text style={styles.texto}>{nombre}</Text>
+      </TouchableOpacity>)}</View>
     <View style={{ flex: 1 }} onLayout={(e) => setAltura(e.nativeEvent.layout.height)}>
       {altura > 0 && <MapaRecorrido3D key={progreso} escena={escena} horneado={horneado}
+        focoMonumento={foco}
         checkpoints={paradas} progreso={progreso} completado={progreso === 1}
         kmUsuario={775 * progreso} kmTotalUsuario={775} altura={altura}
         seleccionadoId={seleccion?.id} onSelect={setSeleccion} />}
@@ -46,8 +53,8 @@ export default function CaminoSantiagoPruebaScreen() {
 const styles = StyleSheet.create({
   pantalla: { flex: 1, backgroundColor: '#0a1a26', padding: 8, paddingBottom: 24 },
   texto: { color: '#fff', textAlign: 'center', padding: 4 },
-  controles: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginVertical: 6 },
-  boton: { backgroundColor: '#294351', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+  controles: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginVertical: 6 },
+  boton: { backgroundColor: '#294351', paddingHorizontal: 7, paddingVertical: 8, borderRadius: 8 },
   activo: { backgroundColor: '#e86400' },
   credito: { color: '#c6d3db', fontSize: 10, textAlign: 'center', paddingTop: 4 },
 });

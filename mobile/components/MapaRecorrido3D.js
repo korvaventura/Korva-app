@@ -227,6 +227,7 @@ export default function MapaRecorrido3D({
   progreso = 0,
   completado = false,
   seleccionadoId,
+  focoMonumento,
   onSelect,
   kmUsuario,
   kmTotalUsuario,
@@ -378,6 +379,7 @@ export default function MapaRecorrido3D({
       const estado = r3fRef.current;
       if (!estado) return;
       const siguiente = avanzarGesto(controlRef.current, gestoRef.current, actual, {
+        zoomMin: escena.camara.zoomMin, zoomMax: escena.camara.zoomMax,
         ancho: estado.size.width, alto: estado.size.height,
         elevacionBase: THREE.MathUtils.degToRad(escena.camara.elevacionGrados),
       });
@@ -426,6 +428,18 @@ export default function MapaRecorrido3D({
     distanciaKm: escena.distanciaKm,
     completado: completadoEnJourney,
   }), [checkpoints, kmProgreso, escena.distanciaKm, completadoEnJourney]);
+
+  useEffect(() => {
+    if (!mundo || !focoMonumento || escena.id !== 'camino_santiago') return;
+    if (focoMonumento.general) {
+      controlRef.current = { azimut: 0, elevacion: 0, zoom: 1 };
+    } else {
+      const p = posicionEnKm(mundo.datos, mundo.conv, focoMonumento.km, 0);
+      const dx = focoMonumento.km === 775 ? -.045 : focoMonumento.km === 69 ? .025 : -.025;
+      controlRef.current = { azimut: 0, elevacion: 0, zoom: .025, objetivo: [p.x + dx, p.y + .065, p.z] };
+    }
+    aplicarCamara();
+  }, [mundo, focoMonumento, escena.id, aplicarCamara]);
 
   // Proyección de pines y etiquetas con la misma cámara que usa el Canvas.
   const overlay = useMemo(() => {
