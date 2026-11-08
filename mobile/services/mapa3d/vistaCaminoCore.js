@@ -7,8 +7,8 @@ function cajaProyectada(puntos) {
     minY: Math.min(...visibles.map(p => p.y)), maxY: Math.max(...visibles.map(p => p.y)) };
 }
 // Se ejecuta sólo al abrir, cambiar tamaño o tocar General, no en cada frame.
-function resolverGeneralCamino(proyectar, inicial, ancho, alto) {
-  const top = Math.min(138, alto * .22), bottom = Math.min(90, alto * .14);
+function resolverGeneralCamino(proyectar, inicial, ancho, alto, opciones = {}) {
+  const top = opciones.top ?? Math.min(138, alto * .22), bottom = opciones.bottom ?? Math.min(90, alto * .14);
   const destinoY = (bottom - top) / alto;
   const limiteX = 1 - 2 * Math.min(36, ancho * .09) / ancho;
   const altoDisponible = 2 * (alto - top - bottom) / alto;
@@ -31,14 +31,14 @@ function resolverGeneralCamino(proyectar, inicial, ancho, alto) {
     }
     return c;
   };
-  let lo = .55, hi = 1.4;
+  let lo = opciones.zoomMin ?? .55, hi = opciones.zoomMax ?? 1.4;
   for (let it = 0; it < 13; it++) {
     const zoom = (lo + hi) / 2, c = centrar(zoom), b = cajaProyectada(proyectar(c));
     if (!b) return copiar(inicial);
     if (b.maxX - b.minX <= limiteX * 2 && b.maxY - b.minY <= altoDisponible) hi = zoom;
     else lo = zoom;
   }
-  return centrar(hi * 1.025);
+  return centrar(hi * (opciones.margenZoom ?? 1.025));
 }
 // Límites por defecto: los aprobados para el Camino. Cada escena puede
 // declarar los suyos en territorio.limitesGestos (unidades de escena).

@@ -11,7 +11,7 @@ const historia = require('../services/desafios/viaAppia');
 const { fichaPrueba } = require('../services/desafios/viaAppiaMapa');
 const paradas = historia.checkpoints.map(({ id, nombre, kmFisico }) => ({ id, nombre, km: kmFisico, kmFisico }));
 // Anclas de inspección: funcionan sin miniaturas cargadas.
-const anclas = [['Inicio', 'brindisi'], ['Benevento', 'benevento'], ['Roma', 'roma'], ['General', null]];
+const anclas = [['Inicio', 'brindisi'], ['Oria', 'oria'], ['Gravina', 'gravina'], ['Benevento', 'benevento'], ['Cecilia', 'cecilia_metella'], ['Roma', 'roma'], ['General', null]];
 
 export default function ViaAppiaPruebaScreen() {
   const insets = useSafeAreaInsets();
@@ -59,7 +59,7 @@ export default function ViaAppiaPruebaScreen() {
 const styles = StyleSheet.create({
   pantalla: { flex: 1, backgroundColor: '#0a1a26', padding: 8, paddingBottom: 24 },
   texto: { color: '#fff', textAlign: 'center', padding: 4 },
-  controles: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginVertical: 6 },
+  controles: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginVertical: 6 },
   boton: { backgroundColor: '#294351', paddingHorizontal: 7, paddingVertical: 8, borderRadius: 8 },
   activo: { backgroundColor: '#e86400' },
   credito: { color: '#c6d3db', fontSize: 10, textAlign: 'center', paddingTop: 4 },

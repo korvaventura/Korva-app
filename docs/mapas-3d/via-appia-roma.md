@@ -1,3 +1,5 @@
+> Informe de inversión del recorrido (6f0dffe). Los seis modelos ya se incorporaron después; ver `via-appia-monumentos.md` para el estado vigente.
+
 # Vía Appia: Brindisi → Roma, 611 km
 
 Cambio local desde `ae13f24`, la escena de Claude. Sin push, despliegue,

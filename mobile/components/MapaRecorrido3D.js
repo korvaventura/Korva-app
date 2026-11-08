@@ -4,6 +4,8 @@ import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop, Line } from 'rea
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import * as THREE from 'three';
 import { cargarTexturasMeshy } from './mapa3d/modeloMeshy';
+import { controlMonumento } from './mapa3d/camaraMonumento';
+import { mostrarMonumentos } from '../services/mapa3d/visibilidadMonumentosCore';
 import { configurarRutaContinua } from './mapa3d/rutaContinua';
 import { colors } from '../theme/korvaTheme';
 import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
@@ -50,8 +52,13 @@ function obtenerMundo(escena, horneado) {
   return cacheEscenas.get(escena.id);
 }
 
-function Montaje({ mundo, escena, controlRef, r3fRef, onModeloEstado, onCamaraAplicada }) {
+function Montaje({ mundo, escena, controlRef, r3fRef, onModeloEstado, onCamaraAplicada, monumentoActivo }) {
   const { camera, size, scene, invalidate } = useThree();
+  useLayoutEffect(() => {
+    mostrarMonumentos(mundo.monumentos, monumentoActivo);
+    invalidate();
+    return () => mostrarMonumentos(mundo.monumentos);
+  }, [mundo, monumentoActivo, invalidate]);
   useEffect(() => {
     if (!mundo.modeloMeshy) return undefined;
     let activo = true;
@@ -171,12 +178,12 @@ function Ruta({ mundo, escena, progresoRef, detalle = false }) {
 }
 
 // El overlay nativo puede cambiar sin reconfigurar el contexto GL ni su árbol.
-const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3fRef, progresoRef, alCrear, onModeloEstado, onCamaraAplicada, inspeccion }) {
+const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3fRef, progresoRef, alCrear, onModeloEstado, onCamaraAplicada, inspeccion, monumentoActivo }) {
   const camaraInicial = useMemo(() => ({ fov: escena.camara.fov, near: 0.05, far: 200, position: [0, 6, -10] }), [escena]);
   const opcionesGL = useMemo(() => ({ alpha: true, antialias: true }), []);
   return (
     <Canvas style={styles.canvas} frameloop="demand" dpr={escena.territorio?.dpr ?? (mundo.modeloMeshy ? 1.5 : 2)} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
-      <Montaje mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} onModeloEstado={onModeloEstado} onCamaraAplicada={onCamaraAplicada} />
+      <Montaje mundo={mundo} monumentoActivo={monumentoActivo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} onModeloEstado={onModeloEstado} onCamaraAplicada={onCamaraAplicada} />
       <Ruta mundo={mundo} escena={escena} progresoRef={progresoRef} detalle={!!inspeccion} />
     </Canvas>
   );
@@ -466,11 +473,13 @@ export default function MapaRecorrido3D({
   // Cámara de un ancla (monumento futuro o hito) en su km, con la dirección de
   // marcha para el desplazamiento lateral. No depende de que haya modelo.
   const controlInspeccion = useCallback((ancla, km = ancla.km) => {
+    const mesh = mundo.monumentos?.[ancla.hito];
+    if (mesh) return controlMonumento(mesh, ancla, escena, mundo, tam?.w, tam?.h);
     const p = posicionEnKm(mundo.datos, mundo.conv, km, 0);
     const a = posicionEnKm(mundo.datos, mundo.conv, Math.max(0, km - 1), 0);
     const b = posicionEnKm(mundo.datos, mundo.conv, Math.min(escena.distanciaKm, km + 1), 0);
     return controlAncla(ancla, p, escena.camara, { x: b.x - a.x, z: b.z - a.z }, escena.kmPorUnidad);
-  }, [mundo, escena]);
+  }, [mundo, escena, tam?.w, tam?.h]);
 
   useEffect(() => {
     if (!mundo || !escena.territorio || (!focoMonumento && !vistaGeneral)) return;
@@ -792,7 +801,7 @@ export default function MapaRecorrido3D({
       <Fondo />
       {mundo && (
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: aparicion }]}>
-          <EscenaCanvas mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} progresoRef={progresoRef} inspeccion={!!inspeccion} alCrear={alCrear} onModeloEstado={setEstadoModelo} onCamaraAplicada={onCamaraAplicada} />
+          <EscenaCanvas mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} progresoRef={progresoRef} inspeccion={!!inspeccion} monumentoActivo={inspeccion ? (llegadaFinal ? escena.territorio.llegada : buscarAncla(escena.territorio, focoMonumento)?.hito) : null} alCrear={alCrear} onModeloEstado={setEstadoModelo} onCamaraAplicada={onCamaraAplicada} />
         </Animated.View>
       )}
 

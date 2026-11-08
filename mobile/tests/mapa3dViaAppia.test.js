@@ -19,10 +19,7 @@ const { ubicarEtiquetas, cajasDePines, seSuperponen, separarPinesCercanos } = re
 const { buscarAncla, anclaLlegada, controlAncla, interpolarLlegada } = require('../services/mapa3d/anclasCore');
 const { estadoJourney } = require('../services/mapa3d/journeyCore');
 
-const fuente = fs.readFileSync(path.join(__dirname, '../components/mapa3d/construirMundo.js'), 'utf8').replace(/^import .*;\r?$/gm, '').replace(/export /g, '');
-const motor = new Function('THREE', 'crearObjetosCamino', 'construirModeloMeshy', 'crearAmbienteIslandia', 'crearRutaVisualModelo', 'construirDatosDiorama', 'puntoEnKm', 'indiceCercano', 'deserializarDiorama',
-  fuente + ';return {construirMundo, configurarCamara, actualizarAtmosfera, posicionEnKm, posicionGeo, profundidadBordeVisible};')(
-  THREE, () => null, () => null, () => null, () => null, terreno.construirDatosDiorama, terreno.puntoEnKm, terreno.indiceCercano, hc.deserializarDiorama);
+const motor = require('./helpers/motorAppia');
 const mundo = motor.construirMundo(escena, horneado);
 const deco = mundo.datos;
 const KM_LON = 111.2 * Math.cos(41.2 * Math.PI / 180);
@@ -164,10 +161,11 @@ test('[via_appia] contexto continuo: relieve en toda la malla, sin bordes estira
 test('[via_appia] presupuesto: vértices y triángulos no superan al Camino', () => {
   const { nx, nz } = deco.campo;
   assert.ok(nx * nz <= 227304, `vértices ${nx * nz}`);
-  let tri = 0; let draws = 0;
-  mundo.grupo.traverse((m) => { if (m.isMesh) { tri += (m.geometry.index?.count || m.geometry.attributes.position.count) / 3; draws += 1; } });
+  let tri = 0; let draws = 0; let triMonumentos = 0;
+  mundo.grupo.traverse((m) => { if (m.isMesh) { const n = (m.geometry.index?.count || m.geometry.attributes.position.count) / 3; if (m.userData.modelo) triMonumentos += n; else { tri += n; draws += 1; } } });
   assert.ok(tri <= 452784, `triángulos de terreno/agua ${tri}`);
   // Terreno, océano continuo y un plano por lago visible (Bolsena, Trasimeno, Bracciano, Skadar...).
+  assert.ok(triMonumentos <= 50000, `miniaturas ${triMonumentos}`);
   assert.ok(draws <= 8, `draw calls de paisaje ${draws}`);
   const mar = mundo.grupo.children[1].children.find((m) => m.geometry.type === 'PlaneGeometry');
   assert.ok(mar && mar.geometry.index.count === 6, 'océano continuo de dos triángulos');
@@ -287,13 +285,13 @@ test('[via_appia] la niebla oculta el borde del mundo en giros completos e incli
 });
 
 // ── Anclas, replay y llegada ─────────────────────────────────────────────
-test('[via_appia] anclas Meshy por hito, configurables y sin modelos cargados', () => {
+test('[via_appia] anclas por hito, seis miniaturas Meshy y el resto sin modelo', () => {
   const anclas = escena.territorio.anclas;
   assert.deepEqual(anclas.map((a) => a.hito), historia.checkpoints.map((c) => c.id));
   for (const a of anclas) {
     assert.equal(a.km, historia.checkpoints.find((c) => c.id === a.hito).kmFisico);
     for (const k of ['escala', 'rotacionGrados', 'desplazamientoLateralKm', 'ejeFrenteModelo', 'camara']) assert.ok(k in a, `${a.hito}.${k}`);
-    assert.equal(a.modelo, null, 'todavía sin modelo: no se cargan GLB');
+    assert.equal(!!a.modelo, ['roma', 'brindisi', 'benevento', 'oria', 'gravina', 'cecilia_metella'].includes(a.hito));
   }
   for (const [hito, rumbo] of [['benevento', 45], ['brindisi', 350]]) assert.equal(anclas.find((a) => a.hito === hito).frenteGrados, rumbo);
   // Cámara definida por la orientación del monumento, no por una rotación copiada.
@@ -309,7 +307,7 @@ test('[via_appia] anclas Meshy por hito, configurables y sin modelos cargados', 
 test('[via_appia] llegada: acercamiento suave al final, sin saltos, y el final queda en el encuadre', () => {
   const ancla = anclaLlegada(escena.territorio);
   const fin = motor.posicionEnKm(deco, mundo.conv, 611, 0); const prev = motor.posicionEnKm(deco, mundo.conv, 610, 0);
-  const destino = controlAncla(ancla, fin, escena.camara, { x: fin.x - prev.x, z: fin.z - prev.z }, escena.kmPorUnidad);
+  const destino = motor.controlMonumento(mundo.monumentos.roma, ancla, escena, mundo, 390, 640);
   const inicio = { azimut: 7.5, elevacion: 0.1, zoom: 0.8, objetivo: [1, 0, 1] };
   let anterior = interpolarLlegada(inicio, destino, 0);
   assert.deepEqual(anterior.objetivo, inicio.objetivo);
@@ -323,9 +321,11 @@ test('[via_appia] llegada: acercamiento suave al final, sin saltos, y el final q
   assert.deepEqual(final.objetivo, destino.objetivo); assert.ok(Math.abs(final.zoom - destino.zoom) < 1e-12);
   const camera = new THREE.PerspectiveCamera();
   for (const [w, h] of VISORES) {
-    motor.configurarCamara(camera, escena, w / h, destino, mundo);
-    const p = aPx(camera, fin, w, h);
-    assert.ok(p.visible && Math.abs(p.x - w / 2) < w * 0.1 && p.y > h * 0.3 && p.y < h * 0.7, `final fuera de cuadro en ${w}x${h}`);
+    const encuadre = motor.controlMonumento(mundo.monumentos.roma, ancla, escena, mundo, w, h);
+    motor.configurarCamara(camera, escena, w / h, encuadre, mundo);
+    const centro = new THREE.Box3().setFromObject(mundo.monumentos.roma).getCenter(new THREE.Vector3());
+    const p = aPx(camera, centro, w, h);
+    assert.ok(p.visible && Math.abs(p.x - w / 2) < w * 0.1 && p.y > 168 && p.y < h - 60, `final fuera de cuadro en ${w}x${h}`);
   }
 });
 

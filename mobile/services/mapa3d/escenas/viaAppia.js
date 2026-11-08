@@ -38,17 +38,32 @@ const ancla = (hito, extra = {}) => ({
 });
 const anclasMonumentos = [
   // Coliseo: símbolo de llegada a Roma. La traza histórica termina en Porta Capena.
-  // El modelo se añadirá con Meshy; no se inventa un tramo urbano de la Appia.
+  // Miniatura simbólica de Meshy; no se inventa un tramo urbano de la Appia.
   ancla('roma', { candidato: 'Coliseo de Roma', titulo: 'Roma · llegada', frenteGrados: 225, verificar: true }),
   ancla('cecilia_metella', { titulo: 'Mausoleo de Cecilia Metella' }),
   ancla('albano'), ancla('terracina'), ancla('formia'), ancla('capua'),
   // Arco de Trajano: sus fachadas miran al noreste (Via Traiana) y al suroeste.
   // Hito cercano a la Appia; no desvía el recorrido a la variante Traiana.
   ancla('benevento', { candidato: 'Arco de Trajano', titulo: 'Arco de Trajano · Benevento', frenteGrados: 45, verificar: true }),
-  ancla('aeclanum'), ancla('venosa'), ancla('gravina'), ancla('taranto'), ancla('oria'),
+  ancla('aeclanum'), ancla('venosa'), ancla('gravina', { titulo: 'Puente-acueducto · Gravina' }), ancla('taranto'), ancla('oria', { titulo: 'Castillo de Oria' }),
   // Columnas romanas sobre la Scalinata Virgiliana, frente al puerto (norte).
   ancla('brindisi', { candidato: 'Columnas romanas de Brindisi', titulo: 'Columnas romanas · Brindisi', frenteGrados: 350, verificar: true }),
 ];
+
+
+// Modelos recibidos de Meshy, normalizados a lado mayor 1; escalas simbólicas.
+const miniaturas = {
+  roma: { modelo: 'coliseo', escala: .28, desplazamientoLateralKm: 7.7, ejeFrenteModelo: '+X', frenteGrados: 225, camara: { zoom: .03, elevacionGrados: 38, alturaObjetivoUnidades: .07 } },
+  brindisi: { modelo: 'brindisi', escala: .20, ejeFrenteModelo: '+Z', frenteGrados: 350, camara: { zoom: .035, elevacionGrados: 25, alturaObjetivoUnidades: .10 } },
+  benevento: { modelo: 'benevento', escala: .20, ejeFrenteModelo: '+Z', frenteGrados: 45, camara: { zoom: .035, elevacionGrados: 25, alturaObjetivoUnidades: .10 } },
+  oria: { modelo: 'oria', escala: .23, ejeFrenteModelo: '+Z', frenteGrados: 120, camara: { zoom: .03, elevacionGrados: 32, alturaObjetivoUnidades: .065 } },
+  gravina: { modelo: 'gravina', escala: .38, ejeFrenteModelo: '+Z', frenteGrados: 145, camara: { zoom: .04, elevacionGrados: 25, alturaObjetivoUnidades: .025 } },
+  cecilia_metella: { modelo: 'cecilia_metella', escala: .16, desplazamientoLateralKm: -7.7, ejeFrenteModelo: '+Z', frenteGrados: 230, camara: { zoom: .03, elevacionGrados: 30, alturaObjetivoUnidades: .07 } },
+};
+for (const a of anclasMonumentos) {
+  const modelo = miniaturas[a.hito];
+  if (modelo) Object.assign(a, modelo, { verificar: false });
+}
 
 const viaAppia = {
   id: 'via_appia',
