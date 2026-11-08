@@ -187,7 +187,7 @@ test('el agua es geografía: Fagnano y Beagle existen en el mundo y la ruta los 
 const { escenaParaConfig, clavesConEscena } = require('../services/mapa3d/escenas');
 const CHECKPOINTS_POR_ESCENA = {
   camino_santiago: [0, 44, 69, 94, 194, 269, 337, 456, 507, 562, 615, 679, 775],
-  via_appia: [0, 7, 25, 105, 150, 205, 265, 300, 395, 455, 530, 580, 611],
+  via_appia: [0, 31, 81, 156, 216, 311, 346, 406, 461, 506, 586, 604, 611],
   san_andres: [0, 11, 21, 34, 44, 57],
   dubrovnik: [0, 4, 8, 12, 16, 19.4],
   default: [0, 20, 45, 80, 103],

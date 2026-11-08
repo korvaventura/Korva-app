@@ -1,4 +1,4 @@
-// Escena "Vía Appia — 611 km": Roma (Porta Capena) → Brindisi por la Appia Antica.
+// Escena "Vía Appia — 611 km": Brindisi → Roma (Porta Capena) por la Appia Antica.
 // Solo datos: usa el mismo motor que el Camino de Santiago (terrenoCore + construirMundo).
 //
 // Tres capas que no se mezclan:
@@ -11,7 +11,7 @@
 //   3. Representación: exageración vertical ×3, colores mediterráneos por región y
 //      anclas para futuras miniaturas. Nada de eso cambia la traza ni el progreso.
 
-const trazado = require('./viaAppia.trazado');
+const trazado = require('./viaAppia.recorrido');
 const historia = require('../../desafios/viaAppia');
 
 const DISTANCIA_KM = historia.distanciaKm; // 611, única distancia del desafío
@@ -26,7 +26,7 @@ const ruta = trazado.puntos.map(([lat, lon], i) => (
 //   frenteGrados: rumbo (0 = norte, 90 = este) hacia el que mira el frente del
 //     modelo; la cámara se ubica en ese rumbo para verlo de frente.
 //   ejeFrenteModelo: eje local del archivo que es su frente (a confirmar con Meshy).
-//   desplazamientoLateralKm: + a la derecha de la marcha (Roma → Brindisi).
+//   desplazamientoLateralKm: + a la derecha de la marcha (Brindisi → Roma).
 // Las orientaciones marcadas `verificar` son hipótesis de trabajo, no un dato.
 const ancla = (hito, extra = {}) => ({
   hito, km: HITOS_KM[hito], escala: 1, rotacionGrados: 0, desplazamientoLateralKm: 0,
@@ -37,9 +37,9 @@ const ancla = (hito, extra = {}) => ({
   ...extra,
 });
 const anclasMonumentos = [
-  // Candidato: tramo de basolato o monumento del inicio (no Coliseo). La cámara
-  // mira hacia el sureste, en el sentido de la marcha.
-  ancla('roma', { candidato: 'Tramo de basolato o monumento del inicio', titulo: 'Inicio de la Vía Appia', frenteGrados: 315, verificar: true }),
+  // Coliseo: símbolo de llegada a Roma. La traza histórica termina en Porta Capena.
+  // El modelo se añadirá con Meshy; no se inventa un tramo urbano de la Appia.
+  ancla('roma', { candidato: 'Coliseo de Roma', titulo: 'Roma · llegada', frenteGrados: 225, verificar: true }),
   ancla('cecilia_metella', { titulo: 'Mausoleo de Cecilia Metella' }),
   ancla('albano'), ancla('terracina'), ancla('formia'), ancla('capua'),
   // Arco de Trajano: sus fachadas miran al noreste (Via Traiana) y al suroeste.
@@ -55,7 +55,7 @@ const viaAppia = {
   distanciaKm: DISTANCIA_KM,
   presentacion: {
     eyebrow: 'VÍA APPIA · 611 KM',
-    titulo: 'Roma → Brindisi',
+    titulo: 'Brindisi → Roma',
   },
   capitulos: historia.capitulos,
 
@@ -179,13 +179,14 @@ const viaAppia = {
   // Modo desafío: encuadre automático, límites de gestos, pines y cámaras.
   territorio: {
     rutaEstatica: true,
+    replayPorHitos: true,
     dpr: 2,
     separarCabezasPin: true,
     // Límites del objetivo de cámara (unidades de escena) derivados del recorrido.
     limitesGestos: { caja: { minX: -8.5, maxX: 8.5, minZ: -6.5, maxZ: 6.5 }, radio: { x: [2.2, 9], z: [2, 6] } },
-    anclas: anclasMonumentos,
-    inspeccionPorDefecto: 'roma',
-    llegada: 'brindisi',
+    anclas: [...anclasMonumentos].sort((a, b) => a.km - b.km),
+    inspeccionPorDefecto: 'brindisi',
+    llegada: 'roma',
     textoCierre: 'DESAFÍO COMPLETADO',
   },
 

@@ -1,6 +1,6 @@
 // Respaldo 2D de la misma traza Itiner-e y los mismos km virtuales que la escena 3D.
 const historia = require('./viaAppia');
-const trazado = require('../mapa3d/escenas/viaAppia.trazado');
+const trazado = require('../mapa3d/escenas/viaAppia.recorrido');
 
 const CHALLENGE_ID = '54865c93-6b1b-4d2b-8324-71d705133998';
 const anclas = historia.checkpoints.map(cp => ({
@@ -28,7 +28,7 @@ function kmVirtual(indice) {
 const indices = new Set(anclas.map(a => a.indice));
 for (let i = 0; i < trazado.puntos.length; i += 12) indices.add(i);
 const config = {
-  titulo: 'Vía Appia · Roma → Brindisi',
+  titulo: 'Vía Appia · Brindisi → Roma',
   distanciaFisica: historia.distanciaKm,
   clima: 'mixto',
   segmentos: [...indices].sort((a, b) => a - b).map(i => ({ km: kmVirtual(i), ...proyectar(...trazado.puntos[i]) })),
@@ -38,8 +38,8 @@ const config = {
 const fichaPrueba = {
   id: CHALLENGE_ID, title: 'Vía Appia 611K', is_active: false, sport_type: 'multi',
   total_distance_km: 611, price_usd: 34.4, medal_code: '1001-ry-006',
-  description: 'Un recorrido virtual de 611 km desde Roma hasta Brindisi, inspirado en la Appia Antica. Descubre 13 hitos entre el Lazio, Campania, Basilicata y Puglia mientras sumas actividades a tu propio ritmo.',
-  historia: 'La vía Appia nació para conectar Roma con Capua y se prolongó después hacia el puerto de Brindisi. El recorrido de referencia de este desafío sigue la Appia Antica por Benevento, Venosa y Taranto.',
+  description: 'Un recorrido virtual de 611 km desde Brindisi hasta Roma, inspirado en la Appia Antica. Descubre 13 hitos entre Puglia, Basilicata, Campania y el Lazio mientras sumas actividades a tu propio ritmo.',
+  historia: 'La vía Appia nació para conectar Roma con Capua y se prolongó después hacia el puerto de Brindisi. En este desafío la recorremos en sentido inverso, por Taranto, Venosa y Benevento hasta Roma. La traza alcanza Porta Capena; el Coliseo representa la llegada a la ciudad. Sus 611 km se acumulan actividad a actividad, sin fecha límite.',
   modalidades: [{ tipo: 'run', label: 'Estándar', version: 'estandar', distancia_km: 611 }],
   link_shopify: 'https://korva.run/products/desafio-virtual-611km-via-appia-roma',
   medal_image_url: null, imagen_portada: null, galeria: [], checkpoints: historia.checkpoints,

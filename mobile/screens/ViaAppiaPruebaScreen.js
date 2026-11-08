@@ -11,7 +11,7 @@ const historia = require('../services/desafios/viaAppia');
 const { fichaPrueba } = require('../services/desafios/viaAppiaMapa');
 const paradas = historia.checkpoints.map(({ id, nombre, kmFisico }) => ({ id, nombre, km: kmFisico, kmFisico }));
 // Anclas de inspección: funcionan sin miniaturas cargadas.
-const anclas = [['Inicio', 'roma'], ['Benevento', 'benevento'], ['Brindisi', 'brindisi'], ['General', null]];
+const anclas = [['Inicio', 'brindisi'], ['Benevento', 'benevento'], ['Roma', 'roma'], ['General', null]];
 
 export default function ViaAppiaPruebaScreen() {
   const insets = useSafeAreaInsets();

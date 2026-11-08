@@ -309,6 +309,8 @@ def main():
     hitos = json.loads(subprocess.check_output(['node', '-e',
         "console.log(JSON.stringify(require('./mobile/services/desafios/viaAppia').checkpoints.map(c=>({id:c.id,nombre:c.nombre,km:c.kmFisico,lat:c.lat,lon:c.lon}))))"],
         cwd=RAIZ, text=True))
+    # La fuente canónica conserva Roma → Brindisi; el adaptador de la app invierte el viaje.
+    hitos = sorted([dict(h, km=611-h['km']) for h in hitos], key=lambda h: h['km'])
     itinere = json.load(open(args.itinere))
 
     # Inicio: extremo urbano de Itiner-e junto a Porta Capena; fin: columnas de Brindisi.

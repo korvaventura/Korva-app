@@ -1,3 +1,5 @@
+> Informe original de la escena Roma → Brindisi (ae13f24). El sentido actual es Brindisi → Roma. Ver `via-appia-roma.md` para los cambios y la prueba vigente.
+
 # Vía Appia: escena 3D, revisión y prueba en el teléfono
 
 Rama local `test/via-appia-3d-20261108`, desde `b37e283` (test/camino-integracion-20261108).

@@ -4,11 +4,11 @@ const { CHALLENGE_ID, config, fichaPrueba } = require('../services/desafios/viaA
 const historia = require('../services/desafios/viaAppia');
 const { escenaParaConfig } = require('../services/mapa3d/escenas');
 
-test('Vía Appia: 13 hitos con historia y fuentes, de Roma 0 a Brindisi 611', () => {
+test('Vía Appia: 13 hitos con historia y fuentes, de Brindisi 0 a Roma 611', () => {
   assert.equal(config.checkpoints.length, 13);
-  assert.equal(config.checkpoints[0].id, 'roma');
+  assert.equal(config.checkpoints[0].id, 'brindisi');
   assert.equal(config.checkpoints[0].kmFisico, 0);
-  assert.equal(config.checkpoints.at(-1).id, 'brindisi');
+  assert.equal(config.checkpoints.at(-1).id, 'roma');
   assert.equal(config.checkpoints.at(-1).kmFisico, 611);
   assert.equal(new Set(config.checkpoints.map(c => c.id)).size, 13);
   for (const [i, cp] of config.checkpoints.entries()) {

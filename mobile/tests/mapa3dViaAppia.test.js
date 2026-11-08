@@ -10,7 +10,7 @@ const terreno = require('../services/mapa3d/terrenoCore');
 const hc = require('../services/mapa3d/horneadoCore');
 const escena = require('../services/mapa3d/escenas/viaAppia');
 const horneado = require('../services/mapa3d/escenas/viaAppia.horneado');
-const trazado = require('../services/mapa3d/escenas/viaAppia.trazado');
+const trazado = require('../services/mapa3d/escenas/viaAppia.recorrido');
 const historia = require('../services/desafios/viaAppia');
 const { conRelieveReal, cargar, meta } = require('../scripts/mapa3d/viaAppia.relieveReal');
 const { resolverGeneralCamino, limitarVistaCamino } = require('../services/mapa3d/vistaCaminoCore');
@@ -46,7 +46,7 @@ function general(w, h) {
 const aPx = (camera, v, w, h) => { const p = v.clone().project(camera); return { x: (p.x + 1) / 2 * w, y: (1 - p.y) / 2 * h, visible: p.z > -1 && p.z < 1 }; };
 
 // ── Traza e hitos ────────────────────────────────────────────────────────
-test('[via_appia] traza Itiner-e continua, sin rectas entre ciudades, Porta Capena → Brindisi', () => {
+test('[via_appia] traza Itiner-e continua, sin rectas entre ciudades, Brindisi → Porta Capena', () => {
   assert.ok(trazado.puntos.length >= 800, 'traza densa, no 13 segmentos rectos');
   // Sólo las rectas reales de la Appia (tramo pontino, ~42 km) superan 12 km entre vértices.
   for (let i = 1; i < trazado.puntos.length; i += 1) {
@@ -58,9 +58,9 @@ test('[via_appia] traza Itiner-e continua, sin rectas entre ciudades, Porta Cape
     if (k === 0) return; // Porta Capena → Cecilia Metella: 4,5 km de ciudad
     assert.ok(trazado.anclas[id] - trazado.anclas[ids[k]] >= 4, `${ids[k]} → ${id} unido por una recta`);
   });
-  assert.ok(distKm(trazado.puntos[0], [41.8847, 12.4895]) < 0.15, 'empieza en Piazza di Porta Capena');
-  assert.ok(distKm(trazado.puntos[0], [41.8902, 12.4922]) > 0.5, 'no empieza en el Coliseo');
-  assert.ok(distKm(trazado.puntos.at(-1), [40.6414, 17.9458]) < 0.2, 'termina en las columnas de Brindisi');
+  assert.ok(distKm(trazado.puntos.at(-1), [41.8847, 12.4895]) < 0.15, 'termina en Piazza di Porta Capena');
+  assert.ok(distKm(trazado.puntos.at(-1), [41.8902, 12.4922]) > 0.5, 'el Coliseo es un símbolo, no el extremo histórico');
+  assert.ok(distKm(trazado.puntos[0], [40.6414, 17.9458]) < 0.2, 'empieza en las columnas de Brindisi');
   assert.match(trazado.fuente, /Itiner-e.*CC BY 4\.0/);
 });
 
@@ -75,8 +75,8 @@ test('[via_appia] Appia Antica por Venosa, Gravina y Taranto; no la variante Tra
 });
 
 test('[via_appia] los 13 hitos conservan IDs, orden y km, y caen sobre la traza', () => {
-  assert.deepEqual(historia.checkpoints.map((c) => c.id), ['roma', 'cecilia_metella', 'albano', 'terracina', 'formia', 'capua', 'benevento', 'aeclanum', 'venosa', 'gravina', 'taranto', 'oria', 'brindisi']);
-  assert.deepEqual(historia.checkpoints.map((c) => c.kmFisico), [0, 7, 25, 105, 150, 205, 265, 300, 395, 455, 530, 580, 611]);
+  assert.deepEqual(historia.checkpoints.map((c) => c.id), ['brindisi', 'oria', 'taranto', 'gravina', 'venosa', 'aeclanum', 'benevento', 'capua', 'formia', 'terracina', 'albano', 'cecilia_metella', 'roma']);
+  assert.deepEqual(historia.checkpoints.map((c) => c.kmFisico), [0, 31, 81, 156, 216, 311, 346, 406, 461, 506, 586, 604, 611]);
   const indices = historia.checkpoints.map((cp) => trazado.anclas[cp.id]);
   indices.forEach((v, i) => i && assert.ok(v > indices[i - 1], 'anclas en orden de marcha'));
   const kmReal = historia.checkpoints.map((cp) => trazado.kmRealAnclas[cp.id]);
@@ -93,7 +93,7 @@ test('[via_appia] los 13 hitos conservan IDs, orden y km, y caen sobre la traza'
 test('[via_appia] km virtuales crecientes 0-611; la geografía no se estira (573,6 km reales)', () => {
   assert.equal(deco.ruta[0].km, 0); assert.equal(deco.ruta.at(-1).km, 611);
   for (let i = 1; i < deco.ruta.length; i += 1) assert.ok(deco.ruta[i].km >= deco.ruta[i - 1].km);
-  const real = trazado.kmRealAnclas.brindisi;
+  const real = trazado.kmRealAnclas.roma;
   assert.ok(real > 565 && real < 580, `largo geográfico ${real}`);
   // La ruta dibujada suaviza ondulaciones menores de la traza (<1 km), sin atajos.
   let largo = 0; for (let i = 1; i < deco.ruta.length; i += 1) largo += Math.hypot(deco.ruta[i].x - deco.ruta[i - 1].x, deco.ruta[i].z - deco.ruta[i - 1].z);
@@ -202,7 +202,7 @@ function overlay(w, h, km) {
   pines = separarPinesCamino(pines, w, h);
   const zonasHud = [{ x: 0, y: 0, w, h: 64 }, { x: 0, y: 64, w: 205, h: 100 }, { x: 0, y: h - 124, w: 200, h: 124 }, { x: w - 56, y: h - 92, w: 56, h: 92 }, { x: 0, y: h - 32, w, h: 32 }];
   const ultimo = j.checkpoints.filter((c) => c.estadoJourney === 'conquistado').at(-1)?.id;
-  const items = pines.filter((p) => p.cp.id === j.checkpoints[0].id || p.estadoJourney === 'proximo' || p.cp.id === 'brindisi' || p.cp.id === ultimo)
+  const items = pines.filter((p) => p.cp.id === j.checkpoints[0].id || p.estadoJourney === 'proximo' || p.cp.id === 'roma' || p.cp.id === ultimo)
     .map((p) => ({ id: p.cp.id, x: p.cabeza.x, y: p.cabeza.y, texto: p.cp.nombre.toUpperCase(), prioridad: p.estadoJourney === 'proximo' ? 3 : 2 }));
   const etiquetas = ubicarEtiquetas(items, w, h, { ocupados: [...zonasHud, ...cajasDePines(pines.map((p) => p.cabeza))], ocultarSiNoCabe: true });
   return { pines, zonasHud, etiquetas, camera };
@@ -298,12 +298,12 @@ test('[via_appia] anclas Meshy por hito, configurables y sin modelos cargados', 
   for (const [hito, rumbo] of [['benevento', 45], ['brindisi', 350]]) assert.equal(anclas.find((a) => a.hito === hito).frenteGrados, rumbo);
   // Cámara definida por la orientación del monumento, no por una rotación copiada.
   const c = controlAncla(anclaLlegada(escena.territorio), { x: 0, y: 0, z: 0 }, escena.camara);
-  assert.ok(Math.abs(((c.azimut * 180 / Math.PI + escena.camara.azimutGrados) % 360 + 360) % 360 - 350) < 1e-9);
+  assert.ok(Math.abs(((c.azimut * 180 / Math.PI + escena.camara.azimutGrados) % 360 + 360) % 360 - 225) < 1e-9);
   // Desplazamiento lateral: a la derecha de la marcha, sin tocar la traza.
   const lateral = controlAncla({ ...anclas[6], desplazamientoLateralKm: 5.5 }, { x: 1, y: 0, z: 1 }, escena.camara, { x: 1, z: 0 }, 55);
   assert.ok(Math.abs(lateral.objetivo[2] - 1.1) < 1e-9 && Math.abs(lateral.objetivo[0] - 1) < 1e-9);
   assert.equal(buscarAncla(escena.territorio, { id: 'benevento' }).hito, 'benevento');
-  assert.equal(buscarAncla(escena.territorio, { km: 999 }).hito, 'roma', 'ancla por defecto');
+  assert.equal(buscarAncla(escena.territorio, { km: 999 }).hito, 'brindisi', 'ancla por defecto');
 });
 
 test('[via_appia] llegada: acercamiento suave al final, sin saltos, y el final queda en el encuadre', () => {

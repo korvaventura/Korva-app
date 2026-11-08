@@ -9,6 +9,7 @@ import { colors } from '../theme/korvaTheme';
 import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
 import { muestraGesto, avanzarGesto, seleccionarPin } from '../services/mapa3d/gestosCore';
 import { estadoJourney } from '../services/mapa3d/journeyCore';
+import { crearReplayHitos, kmEnReplay, rotulosReplay } from '../services/mapa3d/replayHitosCore';
 import { separarPinesCamino } from '../services/mapa3d/pinesCaminoCore';
 import { resolverGeneralCamino, limitarVistaCamino } from '../services/mapa3d/vistaCaminoCore';
 import { buscarAncla, anclaLlegada, controlAncla, interpolarLlegada, tituloAncla } from '../services/mapa3d/anclasCore';
@@ -268,6 +269,7 @@ export default function MapaRecorrido3D({
   const arrastrandoRef = useRef(false);
   const ultimoArrastreRef = useRef(0);
   const playbackRef = useRef(null);
+  const ultimoFocoRef = useRef(focoMonumento);
   const progresoRef = useRef({ km: 0, animando: false });
   const ultimaPublicacionRef = useRef(0);
   const ultimaSeleccionRef = useRef({id:null,tiempo:0});
@@ -472,6 +474,18 @@ export default function MapaRecorrido3D({
 
   useEffect(() => {
     if (!mundo || !escena.territorio || (!focoMonumento && !vistaGeneral)) return;
+    const cambioFoco = ultimoFocoRef.current !== focoMonumento;
+    ultimoFocoRef.current = focoMonumento;
+    // Un cambio de tamaño (p. ej. cerrar una historia) no interrumpe el viaje.
+    if (escena.territorio.replayPorHitos && playbackRef.current && !cambioFoco) return;
+    if (escena.territorio.replayPorHitos && cambioFoco) {
+      if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
+      playbackRef.current = null;
+      setReproduciendo(false);
+      setKmPlayback(null);
+      cierreOpacity.stopAnimation();
+      setCierreVisible(false);
+    }
     setLlegadaFinal(false);
     setDetalleActivo(!!focoMonumento && !focoMonumento.general);
     if (!focoMonumento || focoMonumento.general) {
@@ -484,6 +498,9 @@ export default function MapaRecorrido3D({
     }
     aplicarCamara();
   }, [mundo, focoMonumento, escena, aplicarCamara, vistaGeneral, controlInspeccion]);
+
+  const replayPorHitos = !!escena.territorio?.replayPorHitos;
+  const rotulos = rotulosReplay(journey);
 
   // Proyección de pines y etiquetas con la misma cámara que usa el Canvas.
   const overlay = useMemo(() => {
@@ -552,7 +569,9 @@ export default function MapaRecorrido3D({
     // algoritmo de colisiones hace que una etiqueta salte entre dos posiciones
     // y visualmente "titile". En replay usamos un anclaje determinista.
     const etiquetas = ubicarEtiquetas(
-          pinesVisibles.filter((p) => !escena.capitulos?.length || p.cp.id === seleccionadoId
+          pinesVisibles.filter((p) => reproduciendo && replayPorHitos
+            ? p.cp.id === rotulos.actual?.id
+            : !escena.capitulos?.length || p.cp.id === seleccionadoId
             || p.cp.id === journey.checkpoints[0]?.id || p.estadoJourney === 'proximo'
             || (escena.etiquetaFinal && p.cp.id === journey.checkpoints.at(-1)?.id)
             || p.cp.id === journey.checkpoints.filter(cp => cp.estadoJourney === 'conquistado').at(-1)?.id)
@@ -579,7 +598,7 @@ export default function MapaRecorrido3D({
       return true;
     });
     return { pines: pinesVisibles, aguas: aguasVisibles, actual, anguloNorte, etiquetas, zonasHud };
-  }, [mundo, tam, journey, escena, kmProgreso, seleccionadoId, revisionCamara, reproduciendo, actividades.length]);
+  }, [mundo, tam, journey, escena, kmProgreso, seleccionadoId, revisionCamara, reproduciendo, actividades.length, replayPorHitos]);
 
   overlayRef.current = overlay;
 
@@ -611,13 +630,15 @@ export default function MapaRecorrido3D({
     // Tiempo de lectura y cámara amortiguada en curvas cerradas.
     setLlegadaFinal(false);
     setDetalleActivo(false);
-    const duracion = duracionReplay(metaKm, escena.id);
+    const planHitos = replayPorHitos ? crearReplayHitos(checkpoints, metaKm, duracionReplay(metaKm, escena.id)) : null;
+    const duracion = planHitos ? planHitos.duracionMs : duracionReplay(metaKm, escena.id);
     let anterior = Date.now(); let transcurrido = 0; let ultimaFicha = -Infinity;
     liberarGesto();
     camaraManualHastaRef.current=0;
     etiquetasPreviasRef.current={};
     controlRef.current=controlInicialReplay(escena.camara.objetivo);
     progresoRef.current={km:0,animando:true};
+    if (replayPorHitos) onSelect?.(null);
     setKmPlayback(0);
     ultimaPublicacionRef.current=0;
     aplicarCamara();
@@ -634,7 +655,7 @@ export default function MapaRecorrido3D({
       transcurrido += Math.min(250, elapsed);
       const t = THREE.MathUtils.clamp(transcurrido / duracion, 0, 1);
       const suave = escena.rutaContinua ? t : t * t * (3 - 2 * t);
-      const km = metaKm * suave;
+      const km = planHitos ? kmEnReplay(planHitos, transcurrido) : metaKm * suave;
       const p = posicionEnKm(mundo.datos, mundo.conv, km, 0);
       controlRef.current=seguirReplay(controlRef.current,p.toArray(),escena.camara.objetivo,dt,
         !arrastrandoRef.current && ahora>=camaraManualHastaRef.current,
@@ -711,7 +732,7 @@ export default function MapaRecorrido3D({
   };
 
   const recenter = () => {
-    if (llegadaFinal) {
+    if (llegadaFinal || (reproduciendo && replayPorHitos)) {
       if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
       playbackRef.current = null;
       setKmPlayback(null);
@@ -855,8 +876,8 @@ export default function MapaRecorrido3D({
 
       <View pointerEvents="none" style={styles.hud}>
         <Text numberOfLines={1} style={[styles.hudEyebrow, { maxWidth: Math.max(100, (tam?.w || 320) - 150) }]}>{escena.presentacion?.eyebrow || 'KORVA JOURNEY'}</Text>
-        <Text numberOfLines={1} style={styles.hudTitulo}>{inspeccion ? tituloAncla(llegadaFinal ? anclaLlegada(escena.territorio) : buscarAncla(escena.territorio, focoMonumento), checkpoints) : (escena.presentacion?.titulo || 'Tu recorrido')}</Text>
-        {!!escena.capitulos?.length && <Text numberOfLines={1} style={styles.hudCapitulo}>{inspeccion ? 'Vista de detalle · General para volver al mapa' : (escena.capitulos.find(c => kmProgreso <= c.hastaKm)?.nombre || 'Ruta completada')}</Text>}
+        <Text numberOfLines={1} style={styles.hudTitulo}>{inspeccion ? tituloAncla(llegadaFinal ? anclaLlegada(escena.territorio) : buscarAncla(escena.territorio, focoMonumento), checkpoints) : (reproduciendo && replayPorHitos ? (rotulos.actual?.nombre || escena.presentacion?.titulo) : (escena.presentacion?.titulo || 'Tu recorrido'))}</Text>
+        {!!escena.capitulos?.length && <Text numberOfLines={1} style={styles.hudCapitulo}>{inspeccion ? 'Vista de detalle · General para volver al mapa' : (reproduciendo && replayPorHitos ? (rotulos.siguiente ? `Próximo: ${rotulos.siguiente.nombre} · ${textoKm(rotulos.siguiente.kmJourney)} km` : `Llegada · ${textoKm(escena.distanciaKm)} km`) : (escena.capitulos.find(c => kmProgreso <= c.hastaKm)?.nombre || 'Ruta completada'))}</Text>}
       </View>
       <View pointerEvents="none" style={[styles.chip, completado && styles.chipCompleto]}>
         <Text style={[styles.chipTxt, completado && styles.chipTxtCompleto]}>

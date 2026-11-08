@@ -680,6 +680,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
     // Volver a tocar el mismo punto lo mantiene abierto y lo trae a la vista.
     // Solo el botón de cerrar descarta la ficha.
     setCpSeleccionado(cp);
+    if (!cp) return;
     if (cpSeleccionado?.id === cp.id && !pantallaFija) {
       requestAnimationFrame(() => onHistoriaAbierta?.(historiaRef.current));
     }
