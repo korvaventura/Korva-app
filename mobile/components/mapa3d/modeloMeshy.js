@@ -62,7 +62,7 @@ export function cargarTexturasMeshy(mundo,invalidate) {
   if(!modelo||modelo.texturasListas)return Promise.resolve();
   if(modelo.carga)return modelo.carga;
   const loader=new THREE.TextureLoader(),loaded=[];
-  const ids=[modelo.id === 'san_andres' ? require('../../assets/mapa3d/san-andres-unificado/color.jpg') : modelo.id === 'islandia' ? require('../../assets/mapa3d/islandia-unificado/color.jpg') : require('../../assets/mapa3d/dubrovnik-unificado/color.jpg')];
+  const ids=modelo.texturas || [modelo.id === 'san_andres' ? require('../../assets/mapa3d/san-andres-unificado/color.jpg') : modelo.id === 'islandia' ? require('../../assets/mapa3d/islandia-unificado/color.jpg') : require('../../assets/mapa3d/dubrovnik-unificado/color.jpg')];
   modelo.carga=Promise.allSettled(ids.map(id=>new Promise((resolve,reject)=>loader.load(id,t=>{t.flipY=false;t.generateMipmaps=true;t.minFilter=THREE.LinearMipmapLinearFilter;t.magFilter=THREE.LinearFilter;t.colorSpace=THREE.SRGBColorSpace;loaded.push(t);resolve(t);},undefined,reject)))).then(results=>{
     const failure=results.find(r=>r.status==='rejected');if(failure){loaded.forEach(t=>t.dispose());throw failure.reason;}
     results.forEach((r,i)=>{const material=modelo.materiales[i];material.color.set('#FFFFFF');material.map=r.value;material.emissive.set('#FFFFFF');material.emissiveMap=r.value;material.emissiveIntensity=.08;material.needsUpdate=true;});

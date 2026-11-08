@@ -1,3 +1,4 @@
+import { crearObjetosCamino } from './objetosCamino';
 // Motor de mundo 3D de Korva Journey (genérico: no conoce ninguna escena).
 //
 // Concepto: no es un diorama ni una isla. Es una ventana sobre un territorio
@@ -585,13 +586,15 @@ export function construirMundo(escena, horneado) {
   grupo.add(crearAguas(datos, conv, escena));
   const arquitectura = crearArquitectura(datos, conv, escena);
   if (arquitectura) grupo.add(arquitectura);
+  const objetos = escena.id === 'camino_santiago' ? crearObjetosCamino(km => posicionEnKm(datos, conv, km, 0)) : null;
+  if (objetos) grupo.add(objetos.grupo);
   const cielo = crearCielo(escena);
   const niebla = new THREE.Fog(escena.atmosfera.horizonte, 5, 30);
   const limites = {
     minX: conv.x(datos.campo.minX), maxX: conv.x(datos.campo.maxX),
     minZ: conv.z(datos.campo.minZ), maxZ: conv.z(datos.campo.maxZ),
   };
-  return { grupo, cielo, niebla, datos, conv, limites };
+  return { grupo, cielo, niebla, datos, conv, limites, ...(objetos ? { modeloMeshy: objetos.modeloMeshy } : {}) };
 }
 
 // Distancia horizontal desde un punto hasta el borde del mundo en una dirección.

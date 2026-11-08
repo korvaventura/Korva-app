@@ -104,7 +104,7 @@ function Ruta({ mundo, escena, progresoRef }) {
     configurarRutaContinua(mats.hecho, avanceContinuo, true);
   }
   const estaticos = useMemo(() => {
-    if(!datos.visualModeloMeshy)return null;
+    if(!datos.visualModeloMeshy && escena.id !== 'camino_santiago')return null;
     const pendiente=geometriaTramo(datos,conv,0,total,.013*grosor);
     const hecho=geometriaTramo(datos,conv,0,total,.019*grosor);
     return {pendiente,hecho,brillo:null,fraccion:crearFraccionRuta(datos.ruta,conv),cortar:crearCorteRuta(datos.ruta,conv,hecho.parameters.tubularSegments)};
@@ -733,7 +733,7 @@ export default function MapaRecorrido3D({
             );
           })}
 
-          {overlay.actual && !completado && <PosicionActual x={overlay.actual.x} y={overlay.actual.y} />}
+          {overlay.actual && !completadoEnJourney && <PosicionActual x={overlay.actual.x} y={overlay.actual.y} />}
           <Brujula angulo={overlay.anguloNorte} />
         </Animated.View>
       )}
@@ -762,7 +762,7 @@ export default function MapaRecorrido3D({
       </View>
       <View pointerEvents="none" style={[styles.chip, completado && styles.chipCompleto]}>
         <Text style={[styles.chipTxt, completado && styles.chipTxtCompleto]}>
-          {completado ? '✓ CONQUISTADO' : `${kmTxt.toFixed(kmTxt < 10 ? 1 : 0)} / ${textoKm(totalTxt)} km`}
+          {completadoEnJourney ? '✓ CONQUISTADO' : `${kmTxt.toFixed(kmTxt < 10 ? 1 : 0)} / ${textoKm(totalTxt)} km`}
         </Text>
       </View>
       {escena.mostrarRelacionRecorrido && mundo && (
