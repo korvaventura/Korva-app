@@ -97,9 +97,9 @@ const caminoSantiago = {
   semilla: 1211,
   centro: { lat: 42.7, lon: -4.9 },
   // Zona fina alrededor del camino (x este, z sur, km); el mundo sigue ~600 km más (el borde nunca se ve).
-  limitesKm: { minX: -330, maxX: 318, minZ: -78, maxZ: 118 },
+  limitesKm: { minX: -330, maxX: 318, minZ: -134, maxZ: 118 },
   resolucionKm: 1.6,
-  mundo: { extensionKm: 600, crecimiento: 1.2 },
+  mundo: { extensionKm: 800, crecimiento: 1.08, pasoContextoKm: 4.5, radioContextoKm: 360, crecimientoLejano: 1.14 },
   kmPorUnidad: 55,
   exageracion: 3, // relieve IGN ×3 en vertical (primera prueba; antes ×9)
   pasoRutaKm: 0.8,
@@ -229,20 +229,23 @@ const caminoSantiago = {
   // Vista general desde el sureste: el recorrido cruza el ancho en diagonal,
   // Roncesvalles abajo a la derecha y Santiago arriba a la izquierda.
   camara: {
-    zoomMin: 0.015, zoomMax: 1.7, objetivo: [0.3, 0.0, -1.6], elevacionGrados: 46, azimutGrados: 116, distancia: 13.5, fov: 40, aspectoReferencia: 0.82 },
+    zoomMin: 0.015, zoomMax: 1.45, zoomExploracionMax: 1.15, zoomGeneral: .96, objetivoGeneral: [0, 0, -1], objetivo: [0.3, 0.0, -1.6], elevacionGrados: 46, azimutGrados: 116, distancia: 13.5, fov: 40, aspectoReferencia: 0.82 },
   atmosfera: {
-    horizonte: '#B8B6C2',
-    resplandor: '#F2B37E',
-    medio: '#6286AE',
-    cenit: '#1A3557',
+    horizonte: '#173D50',
+    resplandor: '#738F8A',
+    medio: '#254D68',
+    cenit: '#102C46',
     cerca: 3.2,
     lejos: 7.5,
   },
-  agua: { color: '#2F6C88' },
+  agua: { color: '#2F6C88', oceanoContinuo: true },
 
   etiquetas: [
+    { id: 'pais_espana', texto: 'ESPAÑA', lat: 40.25, lon: -4.0, tipo: 'pais' },
+    { id: 'pais_portugal', texto: 'PORTUGAL', lat: 39.9, lon: -8.0, tipo: 'pais' },
+    { id: 'pais_francia', texto: 'FRANCIA', lat: 45.4, lon: 1.5, tipo: 'pais' },
     { id: 'oceano', texto: 'OCÉANO ATLÁNTICO', lat: 42.75, lon: -9.75, tipo: 'agua' },
-    { id: 'cantabrico', texto: 'MAR CANTÁBRICO', lat: 43.9, lon: -5.2, tipo: 'region' },
+    { id: 'cantabrico', texto: 'MAR CANTÁBRICO', lat: 43.9, lon: -5.2, tipo: 'agua' },
     { id: 'pirineos', texto: 'PIRINEOS', lat: 43.0, lon: -0.9, tipo: 'region' },
     { id: 'meseta', texto: 'MESETA', lat: 42.2, lon: -4.7, tipo: 'region' },
     { id: 'galicia', texto: 'GALICIA', lat: 42.6, lon: -7.9, tipo: 'region' },

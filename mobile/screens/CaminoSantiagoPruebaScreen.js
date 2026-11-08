@@ -1,12 +1,24 @@
 import React, { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, Alert } from 'react-native';
 import MapaRecorrido3D from '../components/MapaRecorrido3D';
+import DetalleScreen from './DetalleScreen';
 
 // Acceso únicamente desde la ruta de administrador en desarrollo.
 // No consulta ni escribe progreso, compras o desafíos.
 const escena = require('../services/mapa3d/escenas/caminoSantiago');
 const horneado = require('../services/mapa3d/escenas/caminoSantiago.horneado');
+const historia = require('../services/desafios/caminoSantiago');
+const { CHALLENGE_ID } = require('../services/desafios/caminoSantiagoMapa');
+const fichaPrueba = {
+  id: CHALLENGE_ID, title: 'Camino de Santiago 775K', is_active: false,
+  total_distance_km: 775, price_usd: 34.4, medal_code: '1001-ry-005',
+  description: 'Recorre virtualmente el Camino Francés desde Roncesvalles hasta Santiago de Compostela. Acumula 775 km a tu ritmo y descubre 13 hitos entre los Pirineos, la Meseta y Galicia.',
+  historia: 'Desde la acogida medieval de Roncesvalles hasta la plaza del Obradoiro, el Camino une lugares, historias y personas. Tu recorrido virtual sigue trece hitos del Camino Francés. Cada actividad suma a una misma aventura, sin fecha límite: avanzar, descubrir y llegar a Santiago a tu propio ritmo.',
+  checkpoints: historia.checkpoints, medal_image_url: null, imagen_portada: null, galeria: [],
+  modalidades: [{ tipo: 'run', label: 'Estándar', version: 'estandar', distancia_km: 775 },
+    { tipo: 'ride', label: 'Extendida', version: 'extendida', distancia_km: 2325 }],
+};
 const paradas = [
   ['roncesvalles', 'Roncesvalles', 0], ['pamplona', 'Pamplona', 44],
   ['puente_la_reina', 'Puente la Reina', 69], ['irache', 'Irache', 94],
@@ -23,10 +35,16 @@ export default function CaminoSantiagoPruebaScreen() {
   const [seleccion, setSeleccion] = useState(null);
   const [altura, setAltura] = useState(0);
   const [error, setError] = useState('');
+  const [verFicha, setVerFicha] = useState(false);
   if (!__DEV__) return null;
+  if (verFicha) return <DetalleScreen challenge={fichaPrueba} onVolver={() => setVerFicha(false)}
+    onInscribir={() => Alert.alert('Prueba local', 'La compra está deshabilitada en esta vista. No se crea ninguna inscripción ni se abre Shopify.')} />;
   const abrir = (url) => Linking.openURL(url).catch(() => setError('No se pudo abrir el enlace.'));
   return <View style={[styles.pantalla, { paddingTop: insets.top + 4, paddingBottom: Math.max(insets.bottom, 12) }]}>
     <Text style={styles.texto}>Prueba local · no guarda kilómetros</Text>
+    <TouchableOpacity accessibilityRole="button" style={styles.boton} onPress={() => setVerFicha(true)}>
+      <Text style={styles.texto}>Ver ficha del desafío</Text>
+    </TouchableOpacity>
     <View style={styles.controles}>{[0, 0.5, 1].map((valor) =>
       <TouchableOpacity key={valor} accessibilityRole="button" accessibilityState={{ selected: progreso === valor }}
         style={[styles.boton, progreso === valor && styles.activo]}
@@ -48,6 +66,7 @@ export default function CaminoSantiagoPruebaScreen() {
     {seleccion && <Text style={styles.texto}>{seleccion.nombre} · {seleccion.kmFisico} km</Text>}
     <Text style={styles.credito} onPress={() => abrir('https://www.openstreetmap.org/copyright')}>© colaboradores de OpenStreetMap · ODbL</Text>
     <Text style={styles.credito} onPress={() => abrir('https://www.scne.es/productos.html')}>MDT y Hidrografía © Instituto Geográfico Nacional · CC BY 4.0</Text>
+    <Text style={styles.credito} onPress={() => abrir('https://www.ncei.noaa.gov/products/etopo-global-relief-model')}>Contexto de Europa · NOAA DEM Global Mosaic</Text>
     <Text style={styles.credito}>Natural Earth · Relieve simplificado y exagerado ×3</Text>
     {!!error && <Text style={styles.texto}>{error}</Text>}
   </View>;

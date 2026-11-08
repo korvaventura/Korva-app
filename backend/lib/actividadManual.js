@@ -31,6 +31,17 @@ const { tomarMarca, renovarMarcas, generarMarcaUnica } = require('./marcaRecalcu
 const { candadoPorUsuario } = require('./candadoUsuario');
 
 const MENSAJE_OK = 'Actividad registrada y kilómetros sumados';
+const MENSAJE_PENDIENTE = 'Actividad registrada; los kilómetros se actualizarán cuando finalice el recálculo';
+const MENSAJE_SIN_AVANCE = 'Actividad registrada, pero no se sumaron kilómetros al desafío seleccionado';
+
+const mensajeSegunProgreso = (desafios, challengeId) => {
+  const relevantes = challengeId
+    ? desafios.filter((d) => d.challenge_id === challengeId)
+    : desafios;
+  return relevantes.some((d) => Number(d.km_nuevo) > Number(d.km_leido))
+    ? MENSAJE_OK
+    : MENSAJE_SIN_AVANCE;
+};
 const ERROR_VIEJO = 'Error registrando actividad';
 const RENOVAR_MARCAS_DESPUES_MS = 30 * 1000;
 
@@ -113,7 +124,7 @@ const registrarActividadManualConMotor = async ({
     return {
       status: 200,
       body: {
-        mensaje: MENSAJE_OK,
+        mensaje: MENSAJE_PENDIENTE,
         actividad: nuevaActividad,
         progreso: { motor: true, recalculo: 'pendiente', recuperacion: 'automatica' },
       },
@@ -147,7 +158,7 @@ const registrarActividadManualConMotor = async ({
   return {
     status: 200,
     body: {
-      mensaje: MENSAJE_OK,
+      mensaje: mensajeSegunProgreso(r.informe.desafios, challengeId),
       actividad: nuevaActividad,
       progreso: {
         motor: true,

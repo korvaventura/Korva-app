@@ -402,7 +402,7 @@ function crearFuncionAltura(escena) {
 // Fina (resolucionKm) dentro de `limitesKm`, donde vive la ruta; afuera las celdas
 // crecen geométricamente hasta `mundo.extensionKm`. Una sola malla sin costuras:
 // el territorio sigue más allá del encuadre y termina dentro de la atmósfera.
-function ejeGraduado(min, max, res, extension, crecimiento) {
+function ejeGraduado(min, max, res, extension, crecimiento, contexto = null) {
   const n = Math.max(2, Math.round((max - min) / res) + 1);
   const paso = (max - min) / (n - 1);
   const centro = [];
@@ -414,7 +414,9 @@ function ejeGraduado(min, max, res, extension, crecimiento) {
     // La última celda puede pasarse del límite: truncarla crearía un salto de
     // resolución. La extensión es un mínimo, no un valor exacto.
     while (signo > 0 ? v < limite : v > limite) {
-      s *= crecimiento;
+      if (contexto && Math.abs(v - inicio) < contexto.radioKm) {
+        s = Math.min(s * crecimiento, contexto.pasoKm);
+      } else s *= contexto?.crecimientoLejano || crecimiento;
       v += signo * s;
       out.push(v);
     }
@@ -430,8 +432,12 @@ function crearGrilla(escena) {
   const mundo = escena.mundo || {};
   const ext = mundo.extensionKm ?? 0;
   const crec = mundo.crecimiento ?? 1.22;
-  const xs = ejeGraduado(minX, maxX, escena.resolucionKm, ext, crec);
-  const zs = ejeGraduado(minZ, maxZ, escena.resolucionKm, ext, crec);
+  const contexto = mundo.pasoContextoKm ? {
+    pasoKm: mundo.pasoContextoKm, radioKm: mundo.radioContextoKm,
+    crecimientoLejano: mundo.crecimientoLejano,
+  } : null;
+  const xs = ejeGraduado(minX, maxX, escena.resolucionKm, ext, crec, contexto);
+  const zs = ejeGraduado(minZ, maxZ, escena.resolucionKm, ext, crec, contexto);
   return { xs, zs };
 }
 

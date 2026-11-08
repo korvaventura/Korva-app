@@ -185,6 +185,15 @@ test('actividad que NO completa: se registra, suma 1:1 a los activos, sin evento
   assert.equal(s.m.db.activities.filter((a) => a.user_id === U).length, 2);
 });
 
+test('actividad en desafío pausado: se guarda sin prometer kilómetros sumados', async () => {
+  const s = montar();
+  const r = await s.registrar({ km: 5, challenge_id: 'c2' });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.mensaje, 'Actividad registrada, pero no se sumaron kilómetros al desafío seleccionado');
+  assert.equal(s.fila('uc2').km_completed, 10);
+  assert.equal(s.fila('uc1').km_completed, 45); // otro desafío activo sí puede sumar
+});
+
 test('actividad que COMPLETA (Estándar): RPC + un evento motor; efectos una vez; km_base intacto', async () => {
   const s = montar();
   const r = await s.registrar({ km: 15 });
@@ -249,6 +258,35 @@ test('pausado: nunca se completa; lo cargado durante la pausa abierta no suma; l
   assert.equal(enPausaCerrada.fila('uc1').km_completed, 46); // para uc1 sí cuenta
 });
 
+test('reinicio administrativo: cargar actividad antigua NO mueve inicio ni resucita kilómetros anteriores', async () => {
+  const inicio = '2026-09-01T00:00:00';
+  const s = montar({
+    ucs: [UC1({ started_at: inicio, inicio_protegido_at: inicio, km_base: 0, km_completed: 0, km_base_motivo: null })],
+    actividades: [],
+  });
+  const r = await s.registrar({ km: 6, recorded_at: '2026-08-28T08:00:00Z' });
+  assert.equal(r.status, 200);
+  assert.equal(s.fila('uc1').started_at, inicio);
+  assert.equal(s.fila('uc1').km_completed, 0);
+  assert.equal(s.m.db.activities.some(a => a.recorded_at === '2026-08-28T08:00:00Z'), true);
+  const cambiosInicio = s.m.registro.filter(op => op.tabla === 'user_challenges' && op.tipo === 'update' && op.valores?.started_at);
+  assert.equal(cambiosInicio.length, 0);
+});
+
+test('inicio normal sin marca: conserva retroactividad de hasta 30 días', async () => {
+  const s = montar({ ucs: [UC1({ inicio_protegido_at: null })] });
+  await s.registrar({ km: 3, recorded_at: '2026-08-28T08:00:00Z' });
+  assert.equal(s.fila('uc1').started_at, '2026-08-28T08:00:00Z');
+});
+
+test('inicio protegido previo: permite corregir inicio solo hasta la fecha protegida', async () => {
+  const s = montar({ ucs: [UC1({ inicio_protegido_at: '2026-08-25T00:00:00Z' })] });
+  await s.registrar({ km: 3, recorded_at: '2026-08-28T08:00:00Z' });
+  assert.equal(s.fila('uc1').started_at, '2026-08-28T08:00:00Z');
+  await s.registrar({ km: 4, recorded_at: '2026-08-24T08:00:00Z' });
+  assert.equal(s.fila('uc1').started_at, '2026-08-28T08:00:00Z');
+});
+
 test('started_at: una actividad anterior al inicio lo corre hacia atrás (máx. 30 días) y cuenta', async () => {
   const s = montar();
   const r = await s.registrar({ km: 4, recorded_at: '2026-08-20T08:00:00.000Z' });
@@ -257,7 +295,7 @@ test('started_at: una actividad anterior al inicio lo corre hacia atrás (máx. 
   assert.equal(s.fila('uc1').km_completed, 44);
   const lejos = montar();
   await lejos.registrar({ km: 4, recorded_at: '2026-06-01T08:00:00.000Z' });
-  assert.equal(new Date(lejos.fila('uc1').started_at).toISOString(), new Date(Date.parse('2026-09-01T00:00:00') - 30 * 24 * 3600 * 1000).toISOString());
+  assert.equal(new Date(lejos.fila('uc1').started_at).toISOString(), new Date(Date.parse('2026-09-01T00:00:00Z') - 30 * 24 * 3600 * 1000).toISOString());
   assert.equal(lejos.fila('uc1').km_completed, 40); // sigue fuera de la ventana
   // modo libre (sin challenge_id): no corre nada, pero suma a los activos
   const libre = montar();
@@ -325,7 +363,7 @@ test('fallan todos los intentos de recálculo: 200 con la actividad y "pendiente
   const s = montar({ fallar: (op) => op.tabla === 'activities' && op.tipo === 'select' && fallas++ < 3 });
   const r = await s.registrar({ km: 15 });
   assert.equal(r.status, 200);
-  assert.equal(r.body.mensaje, 'Actividad registrada y kilómetros sumados');
+  assert.equal(r.body.mensaje, 'Actividad registrada; los kilómetros se actualizarán cuando finalice el recálculo');
   assert.ok(r.body.actividad);
   assert.deepEqual([r.body.progreso.recalculo, r.body.progreso.recuperacion], ['pendiente', 'automatica']);
   assert.deepEqual(s.marcas(), ['uc1', 'uc2']);

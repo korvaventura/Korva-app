@@ -68,7 +68,7 @@ test('revivir: arranca centrado, acelera moderadamente y el seguimiento respeta 
 test('mapas registrados: comparten replay de 25 s, centro propio y seguimiento manual independiente',()=>{
   const {escenaParaConfig,clavesConEscena}=require('../services/mapa3d/escenas');
   const {duracionReplay,controlInicialReplay,seguirReplay}=require('../services/mapa3d/replayCamaraCore');
-  assert.deepEqual(clavesConEscena().sort(),['default','dubrovnik','islandia','monte_fuji','san_andres']);
+  assert.deepEqual(clavesConEscena().sort(),['camino_santiago','default','dubrovnik','islandia','monte_fuji','san_andres']);
   for(const clave of clavesConEscena()) {
     const {escena}=escenaParaConfig(clave);
     assert.equal(duracionReplay(escena.distanciaKm),25000);
@@ -135,4 +135,25 @@ test('frame GL: aplica cámara y atmósfera antes de publicar los checkpoints',(
   vm.runInContext(frame,context);
   assert.equal(camera.zoom,1);renderFrame();assert.deepEqual(events,['camara','atmosfera','puntos']);
   controlRef.current={zoom:1.4};renderFrame();assert.equal(camera.zoom,1.4);
+});
+
+test('Camino: el cierre espera el zoom completo y termina encuadrando la catedral',()=>{
+  const source=fs.readFileSync(require.resolve('../components/MapaRecorrido3D'),'utf8');
+  const start=source.indexOf("        if (completado && escena.id === 'camino_santiago')");
+  const end=source.indexOf('} else mostrarCierre();',start)+'} else mostrarCierre();'.length;
+  let now=0, frame, cierres=0, detalle=false;
+  const controlRef={current:{zoom:1,azimut:.4,elevacion:.2,objetivo:[0,0,0]}};
+  const context=vm.createContext({completado:true,escena:{id:'camino_santiago',distanciaKm:775,camara:{elevacionGrados:46}},mundo:{datos:{},conv:{}},
+    controlRef,playbackRef:{current:null},posicionEnKm:()=>({x:3,y:2,z:1}),
+    THREE:{MathUtils:{degToRad:v=>v*Math.PI/180}},Date:{now:()=>now},setCatedralFinal:v=>{detalle=v;},aplicarCamara:()=>{},
+    requestAnimationFrame:f=>{frame=f;return 1;},mostrarCierre:()=>{cierres++;}});
+  vm.runInContext(source.slice(start,end),context);
+  assert.equal(detalle,true);
+  for(let i=0;i<17;i++){now+=100;frame();assert.equal(cierres,0);}
+  now+=100;frame();
+  assert.equal(cierres,1);
+  assert(Math.abs(controlRef.current.zoom-.025)<1e-10);
+  assert.deepEqual(Array.from(controlRef.current.objetivo),[2.955,2.065,1]);
+  assert.equal(controlRef.current.azimut,0);
+  assert(Math.abs(controlRef.current.elevacion-(-19*Math.PI/180))<1e-12);
 });

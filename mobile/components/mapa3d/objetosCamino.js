@@ -4,7 +4,7 @@ import { base64ABytes } from '../../services/mapa3d/horneadoCore';
 export function crearObjetosCamino(posicionEnKm) {
   const grupo = new THREE.Group(), materiales = [], texturas = [];
   const modelos = [
-    [require('../../assets/mapa3d/camino-hitos/catedral'),require('../../assets/mapa3d/camino-hitos/catedral.jpg'),775,.18,-.045,Math.PI],
+    [require('../../assets/mapa3d/camino-hitos/catedral'),require('../../assets/mapa3d/camino-hitos/catedral.jpg'),775,.18,-.045,-26 * Math.PI / 180],
     [require('../../assets/mapa3d/camino-hitos/puente'),require('../../assets/mapa3d/camino-hitos/puente.jpg'),69,.20,.025,.4],
     [require('../../assets/mapa3d/camino-hitos/mojon'),require('../../assets/mapa3d/camino-hitos/mojon.jpg'),0,.09,-.025,Math.PI],
   ];

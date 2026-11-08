@@ -29,10 +29,25 @@ def pptx_a_pdf_base64(pptx_bytes, nombre_temp):
         pdf_path = os.path.join(tmpdir, f'{nombre_temp}.pdf')
         with open(pptx_path, 'wb') as f:
             f.write(pptx_bytes)
-        subprocess.run([
-            'libreoffice', '--headless', '--convert-to', 'pdf',
-            '--outdir', tmpdir, pptx_path
-        ], capture_output=True, timeout=60)
+        # Cada proceso necesita su propio perfil: la instancia compartida de
+        # LibreOffice puede aceptar la invocación sin generar el archivo.
+        perfil = os.path.join(tmpdir, 'libreoffice-profile')
+        comando = [
+            'libreoffice',
+            '-env:UserInstallation=' + 'file://' + perfil,
+            '--headless', '--convert-to', 'pdf',
+            '--outdir', tmpdir, pptx_path,
+        ]
+        resultado = subprocess.run(
+            comando, capture_output=True, text=True, timeout=60
+        )
+        if resultado.returncode != 0 or not os.path.isfile(pdf_path):
+            detalle = (resultado.stderr or resultado.stdout or '').strip()
+            raise RuntimeError(
+                'Falló la conversión de certificado a PDF '
+                f'(LibreOffice exit={resultado.returncode}, '
+                f'archivo_creado={os.path.isfile(pdf_path)}): {detalle[:1500]}'
+            )
         with open(pdf_path, 'rb') as f:
             return base64.b64encode(f.read()).decode('utf-8')
 

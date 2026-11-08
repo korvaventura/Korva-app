@@ -1,4 +1,4 @@
-// Escena 3D del Camino de Santiago (prototipo, todavía sin registrar en CONFIGS).
+// Escena 3D del Camino de Santiago, registrada para el desafío preparado.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const escena = require('../services/mapa3d/escenas/caminoSantiago');
@@ -91,11 +91,13 @@ test('[camino_santiago] la ruta nunca queda bajo el agua y la malla entra en pre
     const nivel = deco.campo.agua[indiceCercano(deco.campo, p.x, p.z)];
     assert.ok(!(nivel > -Infinity && p.h < nivel - 1), `km ${p.km.toFixed(1)} bajo el agua`);
   }
-  assert.ok(deco.campo.nx * deco.campo.nz < 90000, 'malla más pesada que Fin del Mundo');
+  assert.ok(deco.campo.nx * deco.campo.nz < 240000, 'presupuesto de acabado del Camino: 240 mil vértices');
 });
 
-test('[camino_santiago] coordinación: no está activada ni tiene UUID', () => {
-  assert.equal(escenaParaConfig('camino_santiago'), null);
+test('[camino_santiago] registro: usa la escena y el horneado aprobados', () => {
+  const cargado = escenaParaConfig('camino_santiago');
+  assert.equal(cargado.escena, escena);
+  assert.equal(cargado.horneado, horneado);
 });
 
 test('[camino_santiago] capítulos por comunidad: Irache en Navarra, O Cebreiro en Galicia', () => {

@@ -9,6 +9,8 @@ import { colors } from '../theme/korvaTheme';
 import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
 import { muestraGesto, avanzarGesto, seleccionarPin } from '../services/mapa3d/gestosCore';
 import { estadoJourney } from '../services/mapa3d/journeyCore';
+import { separarPinesCamino } from '../services/mapa3d/pinesCaminoCore';
+import { resolverGeneralCamino, limitarVistaCamino } from '../services/mapa3d/vistaCaminoCore';
 import { crearCorteRuta, crearFraccionRuta } from '../services/mapa3d/rutaPlaybackCore';
 import { AJUSTES_MAPA } from '../services/mapa3d/ajustesInteraccion';
 import { duracionReplay, controlInicialReplay, seguirReplay } from '../services/mapa3d/replayCamaraCore';
@@ -240,6 +242,7 @@ export default function MapaRecorrido3D({
   onInteraccionMapa,
 }) {
   const [detalleActivo, setDetalleActivo] = useState(false);
+  const [catedralFinal, setCatedralFinal] = useState(false);
   const [listo, setListo] = useState(cacheEscenas.has(escena.id));
   const [tam, setTam] = useState(null);
   const [estadoModelo, setEstadoModelo] = useState('cargando');
@@ -250,7 +253,8 @@ export default function MapaRecorrido3D({
   const [cierreVisible, setCierreVisible] = useState(false);
   const cierreOpacity = useRef(new Animated.Value(0)).current;
   const aparicion = useRef(new Animated.Value(0)).current;
-  const controlRef = useRef({ azimut: 0, elevacion: 0, zoom: 1 });
+  const controlRef = useRef({ azimut: 0, elevacion: 0, zoom: escena.camara.zoomGeneral ?? 1, objetivo: escena.camara.objetivoGeneral || escena.camara.objetivo });
+  const vistaGeneralRef = useRef(null);
   const r3fRef = useRef(null);
   const gestoRef = useRef(null);
   const wrapRef = useRef(null);
@@ -388,6 +392,9 @@ export default function MapaRecorrido3D({
       });
       controlRef.current = siguiente.control;
       if (siguiente.pan) moverObjetivo(siguiente.pan.dx, siguiente.pan.dy, controlRef.current.objetivo || escena.camara.objetivo);
+      if (escena.id === 'camino_santiago' && vistaGeneralRef.current) {
+        controlRef.current = limitarVistaCamino(controlRef.current, escena.camara, vistaGeneralRef.current);
+      }
       gestoRef.current = actual;
       aplicarCamara();
     },
@@ -415,6 +422,23 @@ export default function MapaRecorrido3D({
   }, [listo, escena, horneado]);
 
   const mundo = listo ? obtenerMundo(escena, horneado) : null;
+  const vistaGeneral = useMemo(() => {
+    if (escena.id !== 'camino_santiago' || !mundo || !tam?.w || !tam?.h) return null;
+    const puntos = [];
+    for (let km = 0; km <= escena.distanciaKm; km += 5) {
+      const p = posicionEnKm(mundo.datos, mundo.conv, km, 0);
+      puntos.push(p, p.clone().add(new THREE.Vector3(0, escena.alturaPinUnidades || 0, 0)));
+    }
+    const final = posicionEnKm(mundo.datos, mundo.conv, escena.distanciaKm, 0);
+    puntos.push(final, final.clone().add(new THREE.Vector3(0, escena.alturaPinUnidades || 0, 0)));
+    const camera = new THREE.PerspectiveCamera();
+    return resolverGeneralCamino(control => {
+      configurarCamara(camera, escena, tam.w / tam.h, control, mundo);
+      return puntos.map(p => p.clone().project(camera));
+    }, { azimut: 0, elevacion: 0, zoom: escena.camara.zoomGeneral ?? 1,
+      objetivo: escena.camara.objetivoGeneral || escena.camara.objetivo }, tam.w, tam.h);
+  }, [mundo, escena, tam?.w, tam?.h]);
+  vistaGeneralRef.current = vistaGeneral;
   const kmProgresoReal = kmDeProgreso(progreso, escena.distanciaKm, completado);
   const kmProgreso = kmPlayback == null ? kmProgresoReal : kmPlayback;
   // A completed challenge replays from zero: during that animation checkpoints
@@ -433,17 +457,23 @@ export default function MapaRecorrido3D({
   }), [checkpoints, kmProgreso, escena.distanciaKm, completadoEnJourney]);
 
   useEffect(() => {
-    if (!mundo || !focoMonumento || escena.id !== 'camino_santiago') return;
-    setDetalleActivo(!focoMonumento.general);
-    if (focoMonumento.general) {
-      controlRef.current = { azimut: 0, elevacion: 0, zoom: 1 };
+    if (!mundo || escena.id !== 'camino_santiago' || (!focoMonumento && !vistaGeneral)) return;
+    setCatedralFinal(false);
+    setDetalleActivo(!!focoMonumento && !focoMonumento.general);
+    if (!focoMonumento || focoMonumento.general) {
+      if (!vistaGeneral) return;
+      controlRef.current = { ...vistaGeneral, objetivo: [...vistaGeneral.objetivo] };
     } else {
       const p = posicionEnKm(mundo.datos, mundo.conv, focoMonumento.km, 0);
       const dx = focoMonumento.km === 775 ? -.045 : focoMonumento.km === 69 ? .025 : -.025;
-      controlRef.current = { azimut: 0, elevacion: 0, zoom: .025, objetivo: [p.x + dx, p.y + .065, p.z] };
+      controlRef.current = {
+        azimut: 0,
+        elevacion: focoMonumento.km === 775 ? THREE.MathUtils.degToRad(27 - escena.camara.elevacionGrados) : 0,
+        zoom: .025, objetivo: [p.x + dx, p.y + .065, p.z],
+      };
     }
     aplicarCamara();
-  }, [mundo, focoMonumento, escena.id, aplicarCamara]);
+  }, [mundo, focoMonumento, escena.id, aplicarCamara, vistaGeneral]);
 
   // Proyección de pines y etiquetas con la misma cámara que usa el Canvas.
   const overlay = useMemo(() => {
@@ -461,7 +491,7 @@ export default function MapaRecorrido3D({
       const visible = p.z > -1 && p.z < 1 && x > -20 && x < tam.w + 20 && y > -20 && y < tam.h + 20;
       return { x, y, visible };
     };
-    const pines = separarPinesCercanos(journey.checkpoints.map((cp, i) => {
+    let pines = separarPinesCercanos(journey.checkpoints.map((cp, i) => {
       const km = cp.kmJourney;
       return {
         cp,
@@ -474,6 +504,7 @@ export default function MapaRecorrido3D({
         estadoJourney: cp.estadoJourney,
       };
     }), escena.pinesSeparados, tam.w, tam.h);
+    if (escena.id === 'camino_santiago') pines = separarPinesCamino(pines, tam.w, tam.h);
     const pinesVisibles = pines.filter((p) => p.cabeza.visible && p.base.visible);
     const zonasHud = [
       { x: 0, y: 0, w: tam.w, h: 64 },
@@ -568,6 +599,7 @@ export default function MapaRecorrido3D({
     if (metaKm <= 0) { recenter(); return; }
     // El replay debe sentirse como un viaje, no como una barra de progreso.
     // Tiempo de lectura y cámara amortiguada en curvas cerradas.
+    setCatedralFinal(false);
     setDetalleActivo(false);
     const duracion = duracionReplay(metaKm, escena.id);
     let anterior = Date.now(); let transcurrido = 0; let ultimaFicha = -Infinity;
@@ -605,20 +637,47 @@ export default function MapaRecorrido3D({
       if (t < 1) {
         playbackRef.current = requestAnimationFrame(tick);
       } else {
-        playbackRef.current = null;
-        setKmPlayback(null);
-        setReproduciendo(false);
-        if (completado) {
-          setCierreVisible(true);
-          Animated.sequence([
-            Animated.timing(cierreOpacity, { toValue: 1, duration: 450, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-            Animated.delay(2200),
-            Animated.timing(cierreOpacity, { toValue: 0, duration: 650, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-          ]).start(({ finished }) => {
-            if (finished) setCierreVisible(false);
-          });
-        }
-        aplicarCamara();
+        const mostrarCierre = () => {
+          playbackRef.current = null;
+          setKmPlayback(null);
+          setReproduciendo(false);
+          if (completado) {
+            setCierreVisible(true);
+            Animated.sequence([
+              Animated.timing(cierreOpacity, { toValue: 1, duration: 450, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+              Animated.delay(2200),
+              Animated.timing(cierreOpacity, { toValue: 0, duration: 650, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+            ]).start(({ finished }) => {
+              if (finished) setCierreVisible(false);
+            });
+          }
+          aplicarCamara();
+        };
+        if (completado && escena.id === 'camino_santiago') {
+          const inicio = { ...controlRef.current, objetivo: [...controlRef.current.objetivo] };
+          const llegada = posicionEnKm(mundo.datos, mundo.conv, escena.distanciaKm, 0);
+          const destino = [llegada.x - .045, llegada.y + .065, llegada.z];
+          let tiempoZoom = 0;
+          let ultimoZoom = Date.now();
+          setCatedralFinal(true);
+          const acercarCatedral = () => {
+            const ahoraZoom = Date.now();
+            tiempoZoom += Math.min(250, Math.max(0, ahoraZoom - ultimoZoom));
+            ultimoZoom = ahoraZoom;
+            const avance = Math.min(1, tiempoZoom / 1800);
+            const suaveZoom = avance * avance * (3 - 2 * avance);
+            controlRef.current = {
+              azimut: (inicio.azimut || 0) * (1 - suaveZoom),
+              elevacion: (inicio.elevacion || 0) * (1 - suaveZoom) + THREE.MathUtils.degToRad(27 - escena.camara.elevacionGrados) * suaveZoom,
+              zoom: Math.exp(Math.log(inicio.zoom || 1) * (1 - suaveZoom) + Math.log(.025) * suaveZoom),
+              objetivo: inicio.objetivo.map((v, i) => v + (destino[i] - v) * suaveZoom),
+            };
+            aplicarCamara();
+            if (avance < 1) playbackRef.current = requestAnimationFrame(acercarCatedral);
+            else mostrarCierre();
+          };
+          playbackRef.current = requestAnimationFrame(acercarCatedral);
+        } else mostrarCierre();
       }
     };
     playbackRef.current = requestAnimationFrame(tick);
@@ -645,17 +704,28 @@ export default function MapaRecorrido3D({
   };
 
   const recenter = () => {
+    if (catedralFinal) {
+      if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
+      playbackRef.current = null;
+      setKmPlayback(null);
+      setReproduciendo(false);
+      cierreOpacity.stopAnimation();
+      setCierreVisible(false);
+    }
+    setCatedralFinal(false);
     setDetalleActivo(false);
     liberarGesto();
     camaraManualHastaRef.current=Date.now()+AJUSTES_MAPA.seguimientoEsperaManualMs;
-    controlRef.current = controlInicialReplay(escena.camara.objetivo);
+    controlRef.current = vistaGeneral
+      ? { ...vistaGeneral, objetivo: [...vistaGeneral.objetivo] }
+      : { ...controlInicialReplay(escena.camara.objetivo), zoom: escena.camara.zoomGeneral ?? 1, objetivo: escena.camara.objetivoGeneral || escena.camara.objetivo };
     ultimaPublicacionRef.current=0;
     aplicarCamara();
   };
 
   const totalTxt = Number(kmTotalUsuario) || escena.distanciaKm;
   const kmTxt = kmPlayback == null ? Math.min(Number(kmUsuario) || 0, totalTxt) : (kmPlayback / escena.distanciaKm) * totalTxt;
-  const inspeccion = detalleActivo && escena.id === 'camino_santiago' && focoMonumento && !focoMonumento.general && !reproduciendo;
+  const inspeccion = catedralFinal || (detalleActivo && escena.id === 'camino_santiago' && focoMonumento && !focoMonumento.general && !reproduciendo);
 
   const actividadesJourney = useMemo(() => {
     let acumulado = 0;
@@ -709,7 +779,7 @@ export default function MapaRecorrido3D({
       {overlay && !inspeccion && (
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: aparicion }]} pointerEvents="box-none">
           {overlay.aguas.map((e) => (
-            <Text key={e.id} pointerEvents="none" style={[styles.etiquetaAgua, e.tipo === 'region' && styles.etiquetaRegion, { left: e.x - 80, top: e.y - 7 }]}>{e.texto}</Text>
+            <Text key={e.id} pointerEvents="none" style={[styles.etiquetaAgua, e.tipo === 'region' && styles.etiquetaRegion, e.tipo === 'pais' && styles.etiquetaPais, { left: e.x - 80, top: e.y - 7 }]}>{e.texto}</Text>
           ))}
 
           <Svg pointerEvents="none" width={tam.w} height={tam.h} style={StyleSheet.absoluteFill}>
@@ -778,7 +848,7 @@ export default function MapaRecorrido3D({
 
       <View pointerEvents="none" style={styles.hud}>
         <Text numberOfLines={1} style={[styles.hudEyebrow, { maxWidth: Math.max(100, (tam?.w || 320) - 150) }]}>{escena.presentacion?.eyebrow || 'KORVA JOURNEY'}</Text>
-        <Text numberOfLines={1} style={styles.hudTitulo}>{inspeccion ? (focoMonumento.km === 775 ? 'Catedral de Santiago' : focoMonumento.km === 69 ? 'Puente la Reina' : 'Mojón del Camino') : (escena.presentacion?.titulo || 'Tu recorrido')}</Text>
+        <Text numberOfLines={1} style={styles.hudTitulo}>{inspeccion ? (catedralFinal || focoMonumento?.km === 775 ? 'Catedral de Santiago' : focoMonumento.km === 69 ? 'Puente la Reina' : 'Mojón del Camino') : (escena.presentacion?.titulo || 'Tu recorrido')}</Text>
         {!!escena.capitulos?.length && <Text numberOfLines={1} style={styles.hudCapitulo}>{inspeccion ? 'Vista de detalle · General para volver al mapa' : (escena.capitulos.find(c => kmProgreso <= c.hastaKm)?.nombre || 'Ruta completada')}</Text>}
       </View>
       <View pointerEvents="none" style={[styles.chip, completado && styles.chipCompleto]}>
@@ -795,7 +865,7 @@ export default function MapaRecorrido3D({
       )}
       {cierreVisible && (
         <Animated.View pointerEvents="none" style={[styles.cierreLogro, { opacity: cierreOpacity }]}>
-          <Text style={styles.cierreEyebrow}>RECORRIDO COMPLETADO</Text>
+          <Text style={styles.cierreEyebrow}>{escena.id === 'camino_santiago' ? 'DESAFÍO COMPLETADO' : 'RECORRIDO COMPLETADO'}</Text>
           <Text style={styles.cierreKm}>{textoKm(totalTxt)} KM</Text>
           <View style={styles.cierreLinea} />
           <Text style={styles.cierreTitulo}>{escena.presentacion?.titulo || 'Tu conquista'}</Text>
@@ -897,6 +967,7 @@ const styles = StyleSheet.create({
   etiquetaSel: { color: colors.brandOrangeSoft },
   etiquetaKm: { color: colors.textSoft, fontSize: 9, fontWeight: '600', ...sombraTexto },
 
+  etiquetaPais: { color: '#D7DFD2', fontSize: 9.5, fontStyle: 'normal', fontWeight: '700', letterSpacing: 2.8, opacity: .82 },
   etiquetaAgua: { position: 'absolute', width: 160, textAlign: 'center', color: '#9FD3EC', fontSize: 8.5, fontStyle: 'italic', letterSpacing: 2.4, opacity: 0.85, ...sombraTexto },
   etiquetaRegion: { color: '#C9D6E0', opacity: 0.5 },
 

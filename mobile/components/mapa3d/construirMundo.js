@@ -108,7 +108,7 @@ function geometriaTerreno(datos, conv, escena) {
   }
   for (let k = 0; k < nx * nz * 3; k += 1) col[k] = LUT_LINEAL[Math.round(colores[k] * 255)];
   // Suavizar sólo el color, conservando todas las alturas del MDT.
-  // El promedio local reduce el moteado al acercarse a los hitos.
+  // Mezcla leve: conserva el mosaico agrícola y el relieve cromático.
   if (escena.id === 'camino_santiago') {
     const original = col.slice();
     for (let j = 0; j < nz; j += 1) for (let i = 0; i < nx; i += 1) {
@@ -121,7 +121,7 @@ function geometriaTerreno(datos, conv, escena) {
         for (let c = 0; c < 3; c += 1) suma[c] += original[q + c];
         n += 1;
       }
-      for (let c = 0; c < 3; c += 1) col[k + c] = .2 * original[k + c] + .8 * suma[c] / n;
+      for (let c = 0; c < 3; c += 1) col[k + c] = .88 * original[k + c] + .12 * suma[c] / n;
     }
   }
   const piedraInterior = new THREE.Color('#A49E8C');
@@ -181,6 +181,19 @@ function crearAguas(datos, conv, escena) {
   const c = new THREE.Color();
 
   niveles.forEach((nivel) => {
+    if (escena.id === 'camino_santiago' && estilo.oceanoContinuo && nivel === 0) {
+      // El océano no termina con la grilla: el terreno emerge de este plano.
+      // Evita rectángulos de agua y elimina miles de triángulos submarinos.
+      const mar = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), new THREE.MeshStandardMaterial({
+        color: estilo.color || '#2B6079', roughness: Math.max(.38, estilo.rugosidad ?? .32),
+        metalness: 0, transparent: true, opacity: estilo.opacidad ?? .88, depthWrite: false,
+      }));
+      mar.rotation.x = -Math.PI / 2;
+      mar.position.y = conv.y(nivel + (estilo.elevacionM ?? 1.5));
+      mar.renderOrder = 2;
+      grupo.add(mar);
+      return;
+    }
     // Indexada: comparte vértices de grilla (un mar puede cubrir casi todo el mundo).
     const pos = [];
     const col = [];
@@ -624,6 +637,34 @@ function distanciaAlBorde(limites, ox, oz, dx, dz) {
   return Math.max(0, t);
 }
 
+// Profundidad de los bordes que entran en el frustum (Fog usa -viewPosition.z).
+// Recorta segmentos en coordenadas homogéneas para incluir también los cruces
+// con el cuadro, aunque sus esquinas estén fuera de pantalla.
+export function profundidadBordeVisible(mundo, camara) {
+  const l = mundo.limites;
+  const vp = new THREE.Matrix4().multiplyMatrices(camara.projectionMatrix, camara.matrixWorldInverse);
+  const esquinas = [[l.minX, l.minZ], [l.maxX, l.minZ], [l.maxX, l.maxZ], [l.minX, l.maxZ]];
+  const planos = [v => v.w + v.x, v => v.w - v.x, v => v.w + v.y, v => v.w - v.y, v => v.w + v.z, v => v.w - v.z];
+  let minimo = Infinity;
+  for (const y of [0, mundo.conv?.y(6000) || .4]) for (let i = 0; i < 4; i++) {
+    const a = new THREE.Vector3(esquinas[i][0], y, esquinas[i][1]);
+    const b = new THREE.Vector3(esquinas[(i + 1) % 4][0], y, esquinas[(i + 1) % 4][1]);
+    const ca = new THREE.Vector4(a.x, a.y, a.z, 1).applyMatrix4(vp);
+    const cb = new THREE.Vector4(b.x, b.y, b.z, 1).applyMatrix4(vp);
+    let inicio = 0, fin = 1, visible = true;
+    for (const plano of planos) {
+      const fa = plano(ca), fb = plano(cb);
+      if (fa < 0 && fb < 0) { visible = false; break; }
+      if (fa < 0) inicio = Math.max(inicio, fa / (fa - fb));
+      if (fb < 0) fin = Math.min(fin, fa / (fa - fb));
+    }
+    if (!visible || inicio > fin) continue;
+    const da = -a.applyMatrix4(camara.matrixWorldInverse).z, db = -b.applyMatrix4(camara.matrixWorldInverse).z;
+    minimo = Math.min(minimo, da + (db - da) * inicio, da + (db - da) * fin);
+  }
+  return minimo;
+}
+
 // Niebla relativa a la cámara, con una garantía: termina antes que la malla en
 // todo el campo visual. Así el mundo nunca muestra su borde, con cualquier
 // órbita o zoom, sin recortar la geografía cercana.
@@ -640,9 +681,15 @@ export function actualizarAtmosfera(mundo, escena, camara) {
     const ang = base + desvio;
     borde = Math.min(borde, distanciaAlBorde(mundo.limites, camara.position.x, camara.position.z, Math.cos(ang), Math.sin(ang)));
   }
-  const lejos = Math.min(d * (atm.lejos ?? 2.4), borde * 0.94);
+  // Camino protege el borde con la misma profundidad que usa el shader.
+  // Las otras escenas conservan su cálculo anterior.
+  const camino = escena.id === 'camino_santiago';
+  const alcanceBorde = camino ? profundidadBordeVisible(mundo, camara) : borde;
+  const lejos = Math.min(d * (atm.lejos ?? 2.4), camino
+    ? Math.max(.1, alcanceBorde - .3) * .98
+    : alcanceBorde * .94);
   mundo.niebla.far = lejos;
-  mundo.niebla.near = Math.min(d * (atm.cerca ?? 0.85), lejos * 0.55);
+  mundo.niebla.near = Math.min(d * (atm.cerca ?? 0.85), lejos * (camino ? 0.82 : 0.55));
 }
 
 // ── Ruta ──────────────────────────────────────────────────────────────────
