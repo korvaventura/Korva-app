@@ -1,30 +1,66 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MapaRecorrido from './MapaRecorrido';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, Alert } from 'react-native';
+import MapaRecorrido3D from '../components/MapaRecorrido3D';
 import DetalleScreen from './DetalleScreen';
+
+// Acceso únicamente desde la ruta de administrador en desarrollo.
+// No consulta ni escribe progreso, compras o desafíos.
+const { escenaParaConfig } = require('../services/mapa3d/escenas');
+const historia = require('../services/desafios/viaAppia');
 const { fichaPrueba } = require('../services/desafios/viaAppiaMapa');
+const paradas = historia.checkpoints.map(({ id, nombre, kmFisico }) => ({ id, nombre, km: kmFisico, kmFisico }));
+// Anclas de inspección: funcionan sin miniaturas cargadas.
+const anclas = [['Inicio', 'roma'], ['Benevento', 'benevento'], ['Brindisi', 'brindisi'], ['General', null]];
 
 export default function ViaAppiaPruebaScreen() {
-  const [progreso, setProgreso] = useState(0);
-  const [ficha, setFicha] = useState(false);
   const insets = useSafeAreaInsets();
+  const [mapa] = useState(() => escenaParaConfig('via_appia'));
+  const [foco, setFoco] = useState(null);
+  const [progreso, setProgreso] = useState(0);
+  const [seleccion, setSeleccion] = useState(null);
+  const [altura, setAltura] = useState(0);
+  const [error, setError] = useState('');
+  const [verFicha, setVerFicha] = useState(false);
   if (!__DEV__) return null;
-  if (ficha) return <DetalleScreen challenge={fichaPrueba} onVolver={() => setFicha(false)}
+  if (verFicha) return <DetalleScreen challenge={fichaPrueba} onVolver={() => setVerFicha(false)}
     onInscribir={() => Alert.alert('Prueba local', 'Compra deshabilitada: no abre Shopify ni crea una inscripción.')} />;
-  return <View style={{ flex: 1, paddingTop: insets.top + 8, paddingHorizontal: 12, backgroundColor: '#0a1a26' }}>
-    <Text style={{ color: '#fff', textAlign: 'center', marginBottom: 12 }}>Vía Appia · prueba local · no guarda kilómetros</Text>
-    <Text style={{ color: '#c6d3db', textAlign: 'center', marginBottom: 12 }}>Esquema de los hitos. El mapa 3D propio sigue pendiente.</Text>
-    <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 10 }}>
-      {[0, .5, 1].map(p => <TouchableOpacity key={p} accessibilityRole="button" onPress={() => setProgreso(p)}
-        style={{ backgroundColor: progreso === p ? '#e86400' : '#294351', padding: 14, borderRadius: 12 }}>
-        <Text style={{ color: '#fff' }}>{p * 100} %</Text>
-      </TouchableOpacity>)}
-      <TouchableOpacity accessibilityRole="button" onPress={() => setFicha(true)} style={{ padding: 14 }}>
-        <Text style={{ color: '#fff' }}>Ver ficha</Text>
-      </TouchableOpacity>
+  const abrir = (url) => Linking.openURL(url).catch(() => setError('No se pudo abrir el enlace.'));
+  return <View style={[styles.pantalla, { paddingTop: insets.top + 4, paddingBottom: Math.max(insets.bottom, 12) }]}>
+    <Text style={styles.texto}>Vía Appia · prueba local · no guarda kilómetros</Text>
+    <TouchableOpacity accessibilityRole="button" style={styles.boton} onPress={() => setVerFicha(true)}>
+      <Text style={styles.texto}>Ver ficha del desafío</Text>
+    </TouchableOpacity>
+    <View style={styles.controles}>{[0, 0.5, 1].map((valor) =>
+      <TouchableOpacity key={valor} accessibilityRole="button" accessibilityState={{ selected: progreso === valor }}
+        style={[styles.boton, progreso === valor && styles.activo]}
+        onPress={() => { setProgreso(valor); setSeleccion(null); setFoco(null); }}>
+        <Text style={styles.texto}>{valor * 100} %</Text>
+      </TouchableOpacity>)}</View>
+    <View style={styles.controles}>{anclas.map(([nombre, id]) =>
+      <TouchableOpacity key={nombre} accessibilityRole="button" style={styles.boton}
+        onPress={() => setFoco(id == null ? { general: true } : { id })}>
+        <Text style={styles.texto}>{nombre}</Text>
+      </TouchableOpacity>)}</View>
+    <View style={{ flex: 1 }} onLayout={(e) => setAltura(e.nativeEvent.layout.height)}>
+      {altura > 0 && <MapaRecorrido3D key={progreso} escena={mapa.escena} horneado={mapa.horneado}
+        focoMonumento={foco}
+        checkpoints={paradas} progreso={progreso} completado={progreso === 1}
+        kmUsuario={611 * progreso} kmTotalUsuario={611} altura={altura}
+        seleccionadoId={seleccion?.id} onSelect={setSeleccion} />}
     </View>
-    <MapaRecorrido key={progreso} challengeId={fichaPrueba.id} challengeTitle={fichaPrueba.title}
-      distanciaTotal={611} kmCompletados={611 * progreso} porcentaje={String(progreso * 100)} />
+    {seleccion && <Text style={styles.texto}>{seleccion.nombre} · {seleccion.kmFisico} km</Text>}
+    <Text style={styles.credito} onPress={() => abrir('https://doi.org/10.5281/zenodo.17122148')}>Traza: Itiner-e (de Soto, Pažout, Brughmans, Vahlstrup) · CC BY 4.0</Text>
+    <Text style={styles.credito} onPress={() => abrir('https://www.ncei.noaa.gov/products/etopo-global-relief-model')}>Relieve: NOAA NCEI DEM Global Mosaic</Text>
+    <Text style={styles.credito}>Costa y lagos: Natural Earth · Relieve exagerado ×3</Text>
+    {!!error && <Text style={styles.texto}>{error}</Text>}
   </View>;
 }
+const styles = StyleSheet.create({
+  pantalla: { flex: 1, backgroundColor: '#0a1a26', padding: 8, paddingBottom: 24 },
+  texto: { color: '#fff', textAlign: 'center', padding: 4 },
+  controles: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginVertical: 6 },
+  boton: { backgroundColor: '#294351', paddingHorizontal: 7, paddingVertical: 8, borderRadius: 8 },
+  activo: { backgroundColor: '#e86400' },
+  credito: { color: '#c6d3db', fontSize: 10, textAlign: 'center', paddingTop: 4 },
+});

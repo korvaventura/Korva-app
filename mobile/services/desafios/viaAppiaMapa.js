@@ -1,11 +1,38 @@
+// Respaldo 2D de la misma traza Itiner-e y los mismos km virtuales que la escena 3D.
 const historia = require('./viaAppia');
+const trazado = require('../mapa3d/escenas/viaAppia.trazado');
+
 const CHALLENGE_ID = '54865c93-6b1b-4d2b-8324-71d705133998';
-// Esquema de hitos: no representa la geometría de la vía antigua entre ciudades.
-// Mantener explícito este estado hasta incorporar una traza y relieve propios.
+const anclas = historia.checkpoints.map(cp => ({
+  indice: trazado.anclas[cp.id], kmReal: trazado.kmRealAnclas[cp.id], km: cp.kmFisico,
+}));
+const proyectar = (lat, lon) => ({
+  x: 40 + (lon - 12.45) / 5.55 * 720,
+  y: 230 - (lat - 40.4) / 1.55 * 180,
+});
+// Km real acumulado sobre la traza (misma aproximación local que la escena).
+const kmLon = 111.2 * Math.cos(41.2 * Math.PI / 180);
+const kmReal = [0];
+for (let i = 1; i < trazado.puntos.length; i++) {
+  const [a, b] = [trazado.puntos[i - 1], trazado.puntos[i]];
+  kmReal.push(kmReal[i - 1] + Math.hypot((b[0] - a[0]) * 111.2, (b[1] - a[1]) * kmLon));
+}
+function kmVirtual(indice) {
+  const exacta = anclas.find(a => a.indice === indice);
+  if (exacta) return exacta.km;
+  const siguiente = anclas.findIndex(a => a.indice >= indice);
+  if (siguiente <= 0) return siguiente === 0 ? 0 : historia.distanciaKm;
+  const a = anclas[siguiente - 1], b = anclas[siguiente];
+  return a.km + (b.km - a.km) * (kmReal[indice] - kmReal[a.indice]) / (kmReal[b.indice] - kmReal[a.indice]);
+}
+const indices = new Set(anclas.map(a => a.indice));
+for (let i = 0; i < trazado.puntos.length; i += 12) indices.add(i);
 const config = {
-  titulo: 'Vía Appia · recorrido esquemático', distanciaFisica: 611, clima: 'mixto',
-  segmentos: historia.checkpoints.map(cp => ({ km: cp.kmFisico, x: 40 + cp.kmFisico / 611 * 720, y: 130 })),
-  checkpoints: historia.checkpoints.map(cp => ({ ...cp, x: 40 + cp.kmFisico / 611 * 720, y: 130 })),
+  titulo: 'Vía Appia · Roma → Brindisi',
+  distanciaFisica: historia.distanciaKm,
+  clima: 'mixto',
+  segmentos: [...indices].sort((a, b) => a - b).map(i => ({ km: kmVirtual(i), ...proyectar(...trazado.puntos[i]) })),
+  checkpoints: historia.checkpoints.map(cp => ({ ...cp, ...proyectar(...trazado.puntos[trazado.anclas[cp.id]]) })),
   decoraciones: () => null,
 };
 const fichaPrueba = {

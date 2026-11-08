@@ -1,4 +1,4 @@
-# Herramientas del mapa 3D del Camino de Santiago
+# Herramientas de los mapas 3D (Camino de Santiago y Vía Appia)
 
 No forman parte de la app. Sirven para regenerar y revisar la escena.
 
@@ -35,3 +35,18 @@ No forman parte de la app. Sirven para regenerar y revisar la escena.
 
 Parámetros de URL: `km` (progreso), `sel` (hito), `foco` + `zoom`, `seguir`
 (simula el seguimiento del replay), `cam=azimut,elevacion,distancia`.
+
+## Vía Appia
+
+Fuentes, licencias y reglas: `docs/mapas-3d/via-appia-fuentes.md`.
+
+    python3 tools/mapa3d/preparar_appia.py --dem-contexto noaa-italia-contexto.tif --dem-corredor noaa-appia-corredor.tif
+    cd mobile && node scripts/hornearMapa3D.js viaAppia && npm run test:appia
+
+Revisión visual con el motor real (General, gestos, anclas, llegada):
+
+    cd tools/mapa3d/banco && npm install && npm run build:territorio
+    python3 capturaTerritorio.py '{"general":"escena=viaAppia&km=305&w=390&h=640","llegada":"escena=viaAppia&km=611&vista=llegada"}' /tmp
+
+Parámetros: `escena` (viaAppia, caminoSantiago), `w`, `h`, `km`, `sel`,
+`vista=general|ancla:<hito>|llegada|seguir:<km>`, `az`/`el` (grados), `zoom`, `pan=dx,dz`.

@@ -187,6 +187,7 @@ test('el agua es geografía: Fagnano y Beagle existen en el mundo y la ruta los 
 const { escenaParaConfig, clavesConEscena } = require('../services/mapa3d/escenas');
 const CHECKPOINTS_POR_ESCENA = {
   camino_santiago: [0, 44, 69, 94, 194, 269, 337, 456, 507, 562, 615, 679, 775],
+  via_appia: [0, 7, 25, 105, 150, 205, 265, 300, 395, 455, 530, 580, 611],
   san_andres: [0, 11, 21, 34, 44, 57],
   dubrovnik: [0, 4, 8, 12, 16, 19.4],
   default: [0, 20, 45, 80, 103],
@@ -198,8 +199,10 @@ for (const clave of clavesConEscena()) {
   const deco = deserializarDiorama(esc, horn);
 
   test(`[${esc.id}] horneado sincronizado con el generador`, () => {
-    const entrada = clave === 'camino_santiago'
-      ? require('../scripts/mapa3d/caminoSantiago.relieveReal').conRelieveReal(esc)
+    // Escenas con relieve real: se adjunta igual que en scripts/hornearMapa3D.js.
+    const relieveReal = { camino_santiago: 'caminoSantiago', via_appia: 'viaAppia' }[clave];
+    const entrada = relieveReal
+      ? require(`../scripts/mapa3d/${relieveReal}.relieveReal`).conRelieveReal(esc)
       : esc;
     const fresco = serializarDiorama(construirDatosDiorama(entrada));
     assert.equal(horn.alturas, fresco.alturas, 'regenerar con: node scripts/hornearMapa3D.js');
@@ -210,7 +213,8 @@ for (const clave of clavesConEscena()) {
   test(`[${esc.id}] ruta completa y checkpoints sobre sus anclas`, () => {
     assert.equal(deco.ruta[0].km, 0);
     assert.equal(deco.ruta.at(-1).km, esc.distanciaKm);
-    const { proy } = crearFuncionAltura(esc);
+    // Sólo la proyección: no requiere el relieve real de horneado (Appia).
+    const proy = require('../services/mapa3d/terrenoCore').crearProyeccion(esc.centro);
     for (const km of CHECKPOINTS_POR_ESCENA[clave]) {
       const ancla = esc.ruta.find((w) => w.km === km);
       assert.ok(ancla, `checkpoint km ${km} sin ancla en la escena`);
@@ -233,7 +237,7 @@ for (const clave of clavesConEscena()) {
     for (const p of deco.ruta) {
       assert.ok(Math.min(p.x - c.minX, c.maxX - p.x, p.z - c.minZ, c.maxZ - p.z) > (esc.mundo.extensionKm - 2));
     }
-    assert.ok(c.nx * c.nz < (clave === 'camino_santiago' ? 240000 : 200000), 'malla demasiado pesada para iPhone');
+    assert.ok(c.nx * c.nz < (['camino_santiago', 'via_appia'].includes(clave) ? 240000 : 200000), 'malla demasiado pesada para iPhone');
   });
 }
 

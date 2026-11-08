@@ -229,5 +229,5 @@ module.exports = {
       "capitulo": 4
     }
   ],
-  "estadoMapa": "esquema_pendiente_traza_3d"
+  "estadoMapa": "escena_3d"
 };

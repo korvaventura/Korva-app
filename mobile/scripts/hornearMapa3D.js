@@ -1,5 +1,5 @@
 // Genera el terreno horneado de los dioramas 3D (alturas, colores, sombras, ruta).
-// Uso: node scripts/hornearMapa3D.js monteFuji (o sanAndres; finDelMundo explícitamente)
+// Uso: node scripts/hornearMapa3D.js monteFuji (o sanAndres, caminoSantiago, viaAppia; finDelMundo explícitamente)
 // Volver a correrlo cada vez que cambie terrenoCore.js o una escena en services/mapa3d/escenas.
 
 const fs = require('fs');
@@ -10,12 +10,13 @@ const { serializarDiorama } = require('../services/mapa3d/horneadoCore');
 // Escenas con datos que sólo se usan al hornear (no viajan en la app).
 const PREPARAR = {
   caminoSantiago: (escena) => require('./mapa3d/caminoSantiago.relieveReal').conRelieveReal(escena),
+  viaAppia: (escena) => require('./mapa3d/viaAppia.relieveReal').conRelieveReal(escena),
 };
 
-const DISPONIBLES = ['finDelMundo', 'monteFuji', 'sanAndres', 'dubrovnik', 'caminoSantiago'];
+const DISPONIBLES = ['finDelMundo', 'monteFuji', 'sanAndres', 'dubrovnik', 'caminoSantiago', 'viaAppia'];
 const ESCENAS = process.argv.slice(2);
 if (!ESCENAS.length || ESCENAS.some((nombre) => !DISPONIBLES.includes(nombre))) {
-  throw new Error('Indicá una escena: node scripts/hornearMapa3D.js monteFuji (finDelMundo, sanAndres, dubrovnik o caminoSantiago)');
+  throw new Error('Indicá una escena: node scripts/hornearMapa3D.js monteFuji (finDelMundo, sanAndres, dubrovnik, caminoSantiago o viaAppia)');
 }
 
 for (const nombre of ESCENAS) {
