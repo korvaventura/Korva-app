@@ -412,6 +412,9 @@ export default function MapaRecorrido3D({
   const mundo = listo ? obtenerMundo(escena, horneado) : null;
   const kmProgresoReal = kmDeProgreso(progreso, escena.distanciaKm, completado);
   const kmProgreso = kmPlayback == null ? kmProgresoReal : kmPlayback;
+  // A completed challenge replays from zero: during that animation checkpoints
+  // must unlock progressively instead of remaining all conquered from the start.
+  const completadoEnJourney = completado && kmPlayback == null;
   if (!reproduciendo) progresoRef.current = { km: kmProgreso, animando: false };
   useEffect(() => {
     // También refresca una carga de actividad, sin esperar al siguiente gesto.
@@ -421,8 +424,8 @@ export default function MapaRecorrido3D({
     checkpoints,
     kmProgreso,
     distanciaKm: escena.distanciaKm,
-    completado,
-  }), [checkpoints, kmProgreso, escena.distanciaKm, completado]);
+    completado: completadoEnJourney,
+  }), [checkpoints, kmProgreso, escena.distanciaKm, completadoEnJourney]);
 
   // Proyección de pines y etiquetas con la misma cámara que usa el Canvas.
   const overlay = useMemo(() => {
