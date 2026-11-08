@@ -1018,53 +1018,1503 @@ app.get('/perfil/:userId', async (req, res) => {
         total_actividades: actividades?.length || 0,
         total_km: totalKm.toFixed(1),
         challenges_activos: activos,
-  …19265 tokens truncated…: seguroReintentarDeterminista,
-      ejecutar: async (ctx) => {
-        const c = contextoDe(ctx);
-        if (!serialPropio(ctx)) return { estado: RESULTADO.OMITIDO, motivo: 'certificado ya emitido por otro camino' };
-        if (!c.avisarConsolidado) return { estado: RESULTADO.OMITIDO, motivo: 'no tiene otros desafíos' };
-        if (!dentroDeVentana(ctx.previo, ctx.ahoraMs) && ctx.previo.ambiguo) return { estado: RESULTADO.INCIERTO, error: 'fuera de la ventana de idempotencia' };
-        const u = await leerUsuario(ctx.evento.user_id, 'name, email');
-        if (!u) return { estado: RESULTADO.DEFINITIVO, error: 'el usuario ya no existe' };
-        const payload = emails.construirEmailAdmin(
-          `📦 Envío consolidado — ${u.name}`,
-          `${u.name} (${u.email}) completó ${c.titulo} pero también tiene otros desafíos: ${c.otrosTitulos.join(', ')}.\n\nConsiderar esperar antes de despachar para consolidar el envío en un solo paquete.`,
+        medallas: completados,
+        racha_actual: racha,
+        mejor_racha: mejorRacha,
+        mejor_semana_km: mejorSemanaKm.toFixed(1),
+        promedio_semanal_km: promedioSemanal,
+        ritmo_run: ritmoRunMin !== null ? `${ritmoRunMin}:${String(ritmoRunSeg).padStart(2, '0')} /km` : null,
+        velocidad_ride: velocidadRide !== null ? `${velocidadRide.toFixed(1)} km/h` : null,
+      },
+      nivel,
+      insignias: insigniasGanadas,
+      insigniasProgreso,
+    });
+  } catch (error) {
+    res.json({ error: 'Error cargando perfil', detalle: error.message });
+  }
+});
+
+app.post('/actividades/manual', async (req, res) => {
+  const { user_id, challenge_id, sport_type, distance_km, recorded_at, evidencia_url, duration_seconds } = req.body;
+  const distanciaFloat = parseFloat(distance_km);
+
+  try {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const { count } = await supabase
+      .from('activities')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user_id)
+      .eq('source', 'manual')
+      .gte('created_at', hoy.toISOString());
+
+    if (count >= 5) {
+      return res.status(429).json({ error: 'Límite diario alcanzado. Podés registrar hasta 5 actividades manuales por día.' });
+    }
+  } catch (e) {
+    console.error('Error verificando rate limit:', e);
+  }
+
+  if (isNaN(distanciaFloat) || distanciaFloat <= 0 || distanciaFloat > 300) {
+    return res.status(400).json({ error: 'Distancia inválida. Debe ser entre 0.1 y 300 km.' });
+  }
+
+  // Si viene challenge_id, validar que sea del usuario
+  if (challenge_id) {
+    const { data: challengeValido } = await supabase
+      .from('user_challenges')
+      .select('id')
+      .eq('user_id', user_id)
+      .eq('challenge_id', challenge_id)
+      .maybeSingle();
+
+    if (!challengeValido) {
+      return res.status(400).json({ error: 'No tenés este desafío activo. Cerrá sesión y volvé a entrar para actualizar tu cuenta.' });
+    }
+  }
+  // Si no viene challenge_id → modo libre, se permite igual
+
+  // Etapa 4A-6: motor unificado, solo si MOTOR_PROGRESO_WRITERS incluye "actividad_manual" Y "efectos".
+  // Con la flag apagada (o sin "efectos") se ejecuta el código viejo de abajo, sin cambios.
+  if (writerMotorActivo('actividad_manual') && !efectosMotorActivos()) {
+    logMotor({ writer: 'actividad_manual', resultado: 'ignorado_sin_efectos', aviso: 'actividad_manual requiere efectos: se usa el camino viejo' });
+  }
+  if (actividadManualMotorActiva()) {
+    try {
+      // Para la notificación de progreso (checkpoints / hitos), igual que el camino viejo.
+      const { data: ucAntes } = challenge_id
+        ? await supabase
+          .from('user_challenges')
+          .select('km_completed, status, challenge_id, version, modalidad, challenges(title, modalidades, total_distance_km)')
+          .eq('user_id', user_id)
+          .eq('challenge_id', challenge_id)
+          .maybeSingle()
+        : { data: null };
+
+      const resultado = await registrarActividadManualConMotor({
+        repo: crearRepositorioSupabase(supabase),
+        userId: user_id,
+        challengeId: challenge_id || null,
+        recordedAt: recorded_at,
+        actividad: {
+          user_id,
+          challenge_id: challenge_id || null,
+          source: 'manual',
+          external_id: `manual_${user_id}_${Date.now()}`,
+          sport_type, distance_km: distanciaFloat,
+          duration_seconds: duration_seconds || null,
+          recorded_at: recorded_at || new Date().toISOString(),
+          evidencia_url: evidencia_url || null,
+        },
+        dispararEfectos: (ids) => procesadorEventos.disparar(ids),
+      });
+
+      if (resultado.status === 200) try {
+        // La actividad quedó registrada: racha como siempre.
+        await verificarYEnviarNotificacionRacha(user_id);
+        // Notificación de progreso del desafío elegido (no la de completitud: esa la manda el
+        // procesador de efectos del evento 'completado').
+        if (ucAntes && resultado.body.progreso && resultado.body.progreso.recalculo === 'ok') {
+          const { data: ucDespues } = await supabase
+            .from('user_challenges')
+            .select('km_completed, status')
+            .eq('user_id', user_id)
+            .eq('challenge_id', challenge_id)
+            .maybeSingle();
+          const quedoTerminal = ['completed', 'cargado', 'shipped'].includes(ucDespues?.status);
+          if (ucAntes.status !== 'completed' && !quedoTerminal) {
+            await enviarNotificacionProgreso(
+              supabase, user_id,
+              challenge_id, ucAntes.challenges?.title,
+              ucAntes.km_completed || 0, ucDespues?.km_completed || 0,
+              distanciaDeLaVersion(ucAntes, ucAntes.challenges)
+            );
+          }
+        }
+      } catch (e) {
+        // Las notificaciones no cambian el resultado: la actividad y el progreso ya están guardados.
+        console.error('[actividad_manual] notificaciones:', e.message);
+      }
+      return res.status(resultado.status).json(resultado.body);
+    } catch (error) {
+      return res.status(500).json({ error: 'Error registrando actividad', detalle: error.message });
+    }
+  }
+
+  try {
+    const { data: nuevaActividad, error: errorActividad } = await supabase
+      .from('activities')
+      .insert({
+        user_id,
+        challenge_id: challenge_id || null,
+        source: 'manual',
+        external_id: `manual_${user_id}_${Date.now()}`,
+        sport_type, distance_km: distanciaFloat,
+        duration_seconds: duration_seconds || null,
+        recorded_at: recorded_at || new Date().toISOString(),
+        evidencia_url: evidencia_url || null,
+      })
+      .select()
+      .single();
+
+    if (errorActividad) throw errorActividad;
+
+    const { data: ucAntes } = await supabase
+      .from('user_challenges')
+      .select('km_completed, status, challenge_id, version, modalidad, challenges(title, modalidades, total_distance_km)')
+      .eq('user_id', user_id)
+      .eq('challenge_id', challenge_id)
+      .maybeSingle();
+
+    const kmAntes = ucAntes?.km_completed || 0;
+
+    if (recorded_at) {
+      const { data: ucCorte } = await supabase
+        .from('user_challenges')
+        .select('id, started_at')
+        .eq('user_id', user_id)
+        .eq('challenge_id', challenge_id)
+        .maybeSingle();
+
+      if (ucCorte && recorded_at < ucCorte.started_at) {
+        const limiteMinimo = new Date(ucCorte.started_at);
+        limiteMinimo.setDate(limiteMinimo.getDate() - 30);
+        const nuevoCorte = new Date(recorded_at) < limiteMinimo
+          ? limiteMinimo.toISOString()
+          : recorded_at;
+        await supabase
+          .from('user_challenges')
+          .update({ started_at: nuevoCorte })
+          .eq('id', ucCorte.id);
+      }
+    }
+
+    // Recalcular TODOS los retos activos y no pausados del usuario —
+    // una actividad manual suma a todos los desafíos activos, no solo al elegido al cargarla.
+    await recalcularKmUsuario(user_id);
+    await verificarYEnviarNotificacionRacha(user_id);
+
+    if (ucAntes) {
+      const { data: ucDespues } = await supabase
+        .from('user_challenges')
+        .select('km_completed, status')
+        .eq('user_id', user_id)
+        .eq('challenge_id', challenge_id)
+        .maybeSingle();
+
+      const distanciaTotal = distanciaDeLaVersion(ucAntes, ucAntes.challenges);
+
+      // 4A-3e (convivencia): si el desafío quedó completado, el push de completitud ya lo mandó quien
+      // ganó la completitud (recalcularKmUsuario o el motor); acá no se repite.
+      const quedoTerminal = ['completed', 'cargado', 'shipped'].includes(ucDespues?.status);
+      if (ucAntes.status !== 'completed' && !quedoTerminal) {
+        await enviarNotificacionProgreso(
+          supabase, user_id,
+          challenge_id, ucAntes.challenges?.title,
+          kmAntes, ucDespues?.km_completed || 0,
+          distanciaTotal
         );
-        return enviarEmail({ ctx, paso: 'email_consolidado', payload, determinista: true });
-      },
-    },
+      }
+    }
 
-    // 6. Push de completado (a lo sumo una vez).
-    push_completado: {
-      alEncontrarEnCurso: () => 'incierto',
-      ejecutar: async (ctx) => {
-        const u = await leerUsuario(ctx.evento.user_id, 'push_token');
-        if (!u || !u.push_token) return { estado: RESULTADO.OMITIDO, motivo: 'sin token de push' };
-        const titulo = (ctx.evento.datos && ctx.evento.datos.challenge_titulo) || 'tu desafío';
-        await ctx.guardarIntencion({});
-        return enviarPushExpo({
-          fetchImpl, token: u.push_token, title: '🏅 ¡Lo lograste!',
-          body: `¡Lo lograste! 🎉 Completaste ${titulo}. Nuestro equipo procesará tu pedido en los próximos días hábiles.`,
-        });
-      },
-    },
+    res.json({ mensaje: 'Actividad registrada y kilómetros sumados', actividad: nuevaActividad });
+  } catch (error) {
+    res.status(500).json({ error: 'Error registrando actividad', detalle: error.message });
+  }
+});
 
-    // Evento cruce_75: aviso de cargar la dirección (solo si no la tiene).
-    push_aviso_direccion: {
-      alEncontrarEnCurso: () => 'incierto',
-      ejecutar: async (ctx) => {
-        const u = await leerUsuario(ctx.evento.user_id, 'push_token, shipping_address');
-        if (!u || !u.push_token) return { estado: RESULTADO.OMITIDO, motivo: 'sin token de push' };
-        if (u.shipping_address) return { estado: RESULTADO.OMITIDO, motivo: 'ya tiene dirección' };
-        await ctx.guardarIntencion({});
-        return enviarPushExpo({
-          fetchImpl, token: u.push_token, title: '📦 ¡Ya casi llegás!',
-          body: 'Acordate de cargar tu dirección de envío en el Perfil para que tu medalla salga sin demoras 🏅',
-        });
-      },
-    },
-  };
-  return efectos;
+const getUsersByIds = async (userIds) => {
+  if (!userIds || userIds.length === 0) return {};
+  const idsValidos = [...new Set(userIds)].filter(id => id && id !== 'null' && typeof id === 'string' && id.length > 10);
+  if (idsValidos.length === 0) return {};
+  const { data } = await supabase.from('users').select('id, name, email, avatar_url, shipping_address, push_token').in('id', idsValidos);
+  const map = {};
+  (data || []).forEach(u => { map[u.id] = u; });
+  return map;
 };
 
-module.exports = { crearEfectosCompletado, clasificarResend, enviarPushExpo, VENTANA_IDEMPOTENCIA_MS };
+const getChallengesByIds = async (challengeIds) => {
+  if (!challengeIds || challengeIds.length === 0) return {};
+  const { data } = await supabase.from('challenges').select('id, title, modalidades, total_distance_km').in('id', [...new Set(challengeIds)]);
+  const map = {};
+  (data || []).forEach(c => { map[c.id] = c; });
+  return map;
+};
+
+app.post('/admin/marcar-cargado', async (req, res) => {
+  const { user_challenge_id } = req.body;
+  try {
+    const { data: uc } = await supabase
+      .from('user_challenges')
+      .select('id, user_id, challenge_id, certificado_serial, status, version, modalidad, challenges(*), km_completed')
+      .eq('id', user_challenge_id)
+      .single();
+
+    if (!uc) return res.json({ error: 'No encontrado' });
+
+    const { error } = await supabase
+      .from('user_challenges')
+      .update({ status: 'cargado' })
+      .eq('id', user_challenge_id)
+      .in('status', ['completed', 'active']);
+
+    if (error) throw error;
+
+    // Si no tiene certificado, mandarlo ahora
+    if (!uc.certificado_serial) {
+      const distanciaTotal = distanciaDeLaVersion(uc, uc.challenges); // D-V1: distancia de la versión elegida
+      try {
+        await enviarCertificadoFinisher(uc.user_id, { ...uc, challenges: uc.challenges }, distanciaTotal);
+        console.log(`Certificado enviado al marcar cargado: ${user_challenge_id}`);
+      } catch (e) {
+        console.error('Error enviando certificado al marcar cargado:', e.message);
+      }
+    }
+
+    res.json({ mensaje: 'Marcado como cargado' });
+  } catch (error) {
+    res.json({ error: 'Error', detalle: error.message });
+  }
+});
+
+app.post('/admin/medalla-enviada', async (req, res) => {
+  const { user_challenge_id, tracking_number, notificar = true, reenviar = false } = req.body;
+  try {
+    let uc;
+
+    if (reenviar) {
+      // Solo leer el user_challenge sin modificar nada
+      const { data: ucExistente, error } = await supabase
+        .from('user_challenges')
+        .select('id, user_id, challenge_id, tracking_number')
+        .eq('id', user_challenge_id)
+        .single();
+      if (error) throw error;
+      uc = ucExistente;
+    } else {
+      // Comportamiento normal: actualizar status y tracking
+      const { data: ucActualizado, error } = await supabase
+        .from('user_challenges')
+        .update({ status: 'shipped', tracking_number })
+        .eq('id', user_challenge_id)
+        .select('id, user_id, challenge_id, tracking_number')
+        .single();
+      if (error) throw error;
+      uc = ucActualizado;
+    }
+
+    const trackingParaUsar = reenviar ? uc.tracking_number : tracking_number;
+
+    if (notificar) {
+      const usuarios = await getUsersByIds([uc.user_id]);
+      const challenges = await getChallengesByIds([uc.challenge_id]);
+      const usuario = usuarios[uc.user_id];
+      const challenge = challenges[uc.challenge_id];
+
+      await enviarEmailMedallaEnCamino(usuario?.email, usuario?.name, challenge?.title, trackingParaUsar);
+
+      if (usuario?.push_token) {
+        await enviarPushNotification(
+          usuario.push_token,
+          '📦 Tu medalla está en camino!',
+          `Tu medalla de ${challenge?.title} fue enviada. Pronto la tenés en casa 🏅`
+        );
+      }
+    }
+
+    res.json({ mensaje: reenviar ? 'Notificación reenviada' : notificar ? 'Medalla marcada como enviada y email enviado' : 'Tracking guardado sin notificar' });
+  } catch (error) {
+    res.json({ error: 'Error', detalle: error.message });
+  }
+});
+
+app.post('/admin/grupo-enviado', async (req, res) => {
+  const { user_challenge_ids, tracking_number } = req.body;
+  if (!Array.isArray(user_challenge_ids) || user_challenge_ids.length === 0) {
+    return res.json({ error: 'Faltan user_challenge_ids' });
+  }
+  try {
+    const { data: ucs, error } = await supabase
+      .from('user_challenges')
+      .update({ status: 'shipped', tracking_number })
+      .in('id', user_challenge_ids)
+      .eq('status', 'completed')
+      .select('id, user_id, challenge_id');
+
+    if (error) throw error;
+
+    const usuarios = await getUsersByIds(ucs.map(u => u.user_id));
+    const challenges = await getChallengesByIds(ucs.map(u => u.challenge_id));
+
+    for (const uc of ucs) {
+      const usuario = usuarios[uc.user_id];
+      const challenge = challenges[uc.challenge_id];
+      await enviarEmailMedallaEnCamino(usuario?.email, usuario?.name, challenge?.title, tracking_number);
+      if (usuario?.push_token) {
+        await enviarPushNotification(
+          usuario.push_token,
+          '📦 Tu medalla está en camino!',
+          `Tu medalla de ${challenge?.title} fue enviada. Pronto la tenés en casa 🏅`
+        );
+      }
+    }
+
+    res.json({ mensaje: `${ucs.length} medalla(s) marcadas como enviadas`, enviados: ucs.length });
+  } catch (error) {
+    res.json({ error: 'Error', detalle: error.message });
+  }
+});
+
+const traducirDireccion = async (direccion, indicaciones) => {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return { address: direccion || '', indications: indicaciones || '' };
+  }
+  try {
+    const prompt = `Translate the following shipping address fields from Spanish to English for an international courier. Keep proper nouns, street names, and numbers EXACTLY as written — only translate generic terms (e.g. "Avenida"->"Avenue", "Calle"->"Street", "Piso"->"Floor", "Depto"/"Departamento"->"Apt", "Edificio"->"Building", "Casa"->"House", "Entre calles"->"Between streets"). Respond ONLY with JSON, no markdown, no preamble:
+{"address": "...", "indications": "..."}
+
+Address: ${direccion || ''}
+Indications: ${indicaciones || ''}`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 500,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    const data = await response.json();
+    const text = data.content?.[0]?.text || '';
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    return { address: parsed.address || direccion || '', indications: parsed.indications || indicaciones || '' };
+  } catch (e) {
+    console.error('Error traduciendo dirección:', e.message);
+    return { address: direccion || '', indications: indicaciones || '' };
+  }
+};
+
+const csvEscape = (val) => {
+  const str = String(val ?? '');
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+};
+
+async function obtenerPedidosGrupales() {
+  const { data, error } = await supabase
+    .from('user_challenges')
+    .select('id, user_id, challenge_id, group_id, version, modalidad, km_completed, status, completed_at, tracking_number')
+    .in('status', ['active', 'completed'])
+    .not('group_id', 'is', null);
+
+  if (error) throw error;
+
+  const usuarios = await getUsersByIds(data.map(u => u.user_id));
+  const challenges = await getChallengesByIds(data.map(u => u.challenge_id));
+
+  const grupos = {};
+  for (const uc of data) {
+    const gid = uc.group_id;
+    if (!grupos[gid]) grupos[gid] = [];
+    grupos[gid].push(uc);
+  }
+
+  const DOS_SEMANAS_MS = 14 * 24 * 60 * 60 * 1000;
+  const ahora = Date.now();
+
+  const resultado = [];
+  for (const [groupId, miembros] of Object.entries(grupos)) {
+    const totalMiembros = miembros.length;
+    const completados = miembros.filter(m => m.status === 'completed');
+    const todosCompletados = completados.length === totalMiembros;
+
+    if (completados.length === 0) continue;
+
+    const primerCompletado = completados
+      .map(m => new Date(m.completed_at).getTime())
+      .sort((a, b) => a - b)[0];
+
+    const diasDesdeElPrimero = Math.floor((ahora - primerCompletado) / (1000 * 60 * 60 * 24));
+    const esEnvioParcial = !todosCompletados && (ahora - primerCompletado) >= DOS_SEMANAS_MS;
+
+    if (!todosCompletados && !esEnvioParcial) continue;
+
+    const comprador = miembros.find(m => m.user_id === groupId) || miembros[0];
+    const compradorUsuario = usuarios[comprador.user_id];
+
+    resultado.push({
+      group_id: groupId,
+      comprador: compradorUsuario?.name,
+      email: compradorUsuario?.email,
+      direccion: compradorUsuario?.shipping_address,
+      total_miembros: totalMiembros,
+      completados: completados.length,
+      envio_parcial: esEnvioParcial,
+      dias_desde_primero: diasDesdeElPrimero,
+      miembros: miembros.map(m => ({
+        id: m.id,
+        usuario: usuarios[m.user_id]?.name,
+        email: usuarios[m.user_id]?.email,
+        challenge: challenges[m.challenge_id]?.title,
+        version: versionDeInscripcion(m),
+        modalidad: m.modalidad, // legacy (espejo de version) para la app de admin publicada
+        km_completados: m.km_completed,
+        status: m.status,
+        completed_at: m.completed_at,
+        tracking_number: m.tracking_number,
+      })),
+    });
+  }
+
+  return resultado;
+}
+
+app.get('/admin/export-envios', async (req, res) => {
+  try {
+    const pedidos = await obtenerPedidosGrupales();
+
+    const filas = [];
+    for (const grupo of pedidos) {
+      const d = grupo.direccion;
+      const direccionTexto = d ? `${d.direccion || ''}, ${d.ciudad || ''}, ${d.codigo_postal || ''}, ${d.pais || ''}` : '';
+      const { address } = await traducirDireccion(direccionTexto, '');
+      const totalMedallas = grupo.miembros.filter(m => m.status === 'completed').length;
+      filas.push({
+        Name: grupo.comprador,
+        Units: totalMedallas,
+        Status: 'NEW ORDER',
+        'Mail address': grupo.email,
+        Address: address,
+        Country: d?.pais || '',
+        City: d?.ciudad || '',
+        'Postal code': d?.codigo_postal || '',
+        'Cel phone': d?.telefono || '',
+        Indications: '',
+        'Tracking Number': '',
+      });
+    }
+
+    const headers = ['Name', 'Units', 'Status', 'Mail address', 'Address', 'Country', 'City', 'Postal code', 'Cel phone', 'Indications', 'Tracking Number'];
+    const csvLines = [headers.join(',')];
+    for (const fila of filas) {
+      csvLines.push(headers.map(h => csvEscape(fila[h])).join(','));
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="korva_envios.csv"');
+    res.send('\uFEFF' + csvLines.join('\n'));
+  } catch (error) {
+    res.status(500).json({ error: 'Error exportando', detalle: error.message });
+  }
+});
+
+app.get('/admin/todos-inscriptos', async (req, res) => {
+  try {
+    const { data, error } = await supabase.rpc('get_todos_inscriptos');
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error) {
+    res.json({ error: 'Error', detalle: error.message });
+  }
+});
+
+// Evidencias de actividades manuales para AdminScreen. Reemplaza la lectura directa
+// que hacía la app sobre activities + users. Protegida solo esta ruta con requireAdmin.
+app.get('/admin/evidencias', requireAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('activities')
+      .select('id, user_id, distance_km, sport_type, recorded_at, evidencia_url, users(name, email)')
+      .eq('source', 'manual')
+      .not('evidencia_url', 'is', null)
+      .order('recorded_at', { ascending: false });
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error) {
+    console.error('Error en /admin/evidencias:', error.message);
+    res.status(500).json({ error: 'No se pudieron cargar las evidencias.' });
+  }
+});
+
+app.get('/admin/challenges-activos', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_challenges')
+      .select('id, user_id, challenge_id, version, modalidad, km_completed, tracking_number, completed_at, status')
+      .in('status', ['completed', 'shipped'])
+      .order('completed_at', { ascending: false });
+
+    if (error) throw error;
+
+    const usuarios = await getUsersByIds(data.map(u => u.user_id));
+    const challenges = await getChallengesByIds(data.map(u => u.challenge_id));
+
+    const resultado = await Promise.all(data.map(async (uc) => {
+      const { data: actividades } = await supabase
+        .from('activities')
+        .select('evidencia_url')
+        .eq('user_id', uc.user_id)
+        .eq('source', 'manual')
+        .not('evidencia_url', 'is', null)
+        .order('recorded_at', { ascending: false })
+        .limit(5);
+
+      const usuario = usuarios[uc.user_id];
+      return {
+        id: uc.id,
+        usuario: usuario?.name,
+        email: usuario?.email,
+        challenge: challenges[uc.challenge_id]?.title,
+        version: versionDeInscripcion(uc),
+        modalidad: uc.modalidad, // legacy
+        km_completados: uc.km_completed,
+        tracking_number: uc.tracking_number,
+        direccion: usuario?.shipping_address,
+        completed_at: uc.completed_at,
+        status: uc.status,
+        evidencias: actividades?.map(a => a.evidencia_url) || [],
+      };
+    }));
+
+    res.json(resultado);
+  } catch (error) {
+    res.json({ error: 'Error', detalle: error.message });
+  }
+});
+
+app.get('/admin/registro-grupos', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_challenges')
+      .select('id, user_id, challenge_id, group_id, version, modalidad, km_completed, status, completed_at, started_at')
+      .not('group_id', 'is', null)
+      .order('started_at', { ascending: false });
+
+    if (error) throw error;
+
+    const usuarios = await getUsersByIds(data.map(u => u.user_id));
+    const challenges = await getChallengesByIds(data.map(u => u.challenge_id));
+
+    const grupos = {};
+    for (const uc of data) {
+      const gid = uc.group_id;
+      if (!grupos[gid]) grupos[gid] = [];
+      grupos[gid].push(uc);
+    }
+
+    const resultado = [];
+    for (const [groupId, miembros] of Object.entries(grupos)) {
+      const comprador = miembros.find(m => m.user_id === groupId) || miembros[0];
+      const compradorUsuario = usuarios[comprador.user_id];
+      const completados = miembros.filter(m => m.status === 'completed' || m.status === 'shipped').length;
+
+      resultado.push({
+        group_id: groupId,
+        comprador: compradorUsuario?.name,
+        email: compradorUsuario?.email,
+        fecha_compra: comprador.started_at,
+        total_miembros: miembros.length,
+        completados,
+        miembros: miembros.map(m => ({
+          id: m.id,
+          usuario: usuarios[m.user_id]?.name,
+          email: usuarios[m.user_id]?.email,
+          challenge: challenges[m.challenge_id]?.title,
+          version: versionDeInscripcion(m),
+          modalidad: m.modalidad, // legacy
+          km_completados: m.km_completed,
+          status: m.status,
+          es_comprador: m.user_id === groupId,
+        })),
+      });
+    }
+
+    res.json(resultado);
+  } catch (error) {
+    res.json({ error: 'Error', detalle: error.message });
+  }
+});
+
+app.get('/admin/pedidos-grupales', async (req, res) => {
+  try {
+    const resultado = await obtenerPedidosGrupales();
+    res.json(resultado);
+  } catch (error) {
+    res.json({ error: 'Error', detalle: error.message });
+  }
+});
+
+app.post('/usuarios/perfil', async (req, res) => {
+  const { user_id, email, name } = req.body;
+  const emailNormalizado = (email || '').trim().toLowerCase();
+  try {
+    const { data: existentePorEmail } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', emailNormalizado)
+      .neq('id', user_id)
+      .maybeSingle();
+
+    if (existentePorEmail) {
+      const idViejo = existentePorEmail.id;
+      console.log('Fusionando usuario:', emailNormalizado, idViejo, '->', user_id);
+
+      try {
+        // Nullear invitations primero para evitar FK violation
+        await supabase.from('invitations').update({ created_by: null }).eq('created_by', idViejo);
+        await supabase.from('invitations').update({ used_by: null }).eq('used_by', idViejo);
+
+        await supabase.from('user_challenges').update({ user_id }).eq('user_id', idViejo);
+        await supabase.from('user_challenges').update({ group_id: user_id }).eq('group_id', idViejo);
+        await supabase.from('activities').update({ user_id }).eq('user_id', idViejo);
+
+        const { data: datosViejos } = await supabase
+          .from('users')
+          .select('bib_number, shipping_address, strava_token, strava_refresh_token, strava_token_expires_at, strava_athlete_id, strava_habilitado, avatar_url')
+          .eq('id', idViejo)
+          .single();
+
+        await supabase.from('users').delete().eq('id', idViejo);
+
+        const { data, error } = await supabase
+          .from('users')
+          .upsert({
+            id: user_id,
+            email: emailNormalizado,
+            name: name || email.split('@')[0],
+            ...datosViejos,
+          }, { onConflict: 'id' })
+          .select()
+          .single();
+
+        if (error) throw error;
+        console.log('Usuario fusionado OK:', emailNormalizado, idViejo, '->', user_id);
+        return res.json({ mensaje: 'Perfil fusionado con compra existente', usuario: data });
+      } catch (fusionError) {
+        console.error('Error en fusion automatica:', fusionError.message, emailNormalizado);
+
+        // Reintento automático después de 2 segundos
+        await new Promise(r => setTimeout(r, 2000));
+        try {
+          // Nullear invitations primero también en el reintento
+          await supabase.from('invitations').update({ created_by: null }).eq('created_by', idViejo);
+          await supabase.from('invitations').update({ used_by: null }).eq('used_by', idViejo);
+          await supabase.from('user_challenges').update({ user_id }).eq('user_id', idViejo);
+          await supabase.from('user_challenges').update({ group_id: user_id }).eq('group_id', idViejo);
+          await supabase.from('activities').update({ user_id }).eq('user_id', idViejo);
+
+          const { data: datosViejosRetry } = await supabase
+            .from('users')
+            .select('bib_number, shipping_address, strava_token, strava_refresh_token, strava_token_expires_at, strava_athlete_id, strava_habilitado, avatar_url')
+            .eq('id', idViejo)
+            .single();
+
+          await supabase.from('users').delete().eq('id', idViejo);
+
+          const { data: dataRetry, error: errorRetry } = await supabase
+            .from('users')
+            .upsert({ id: user_id, email: emailNormalizado, name: name || email.split('@')[0], ...datosViejosRetry }, { onConflict: 'id' })
+            .select()
+            .single();
+
+          if (errorRetry) throw errorRetry;
+          console.log('Usuario fusionado en reintento OK:', emailNormalizado);
+          return res.json({ mensaje: 'Perfil fusionado con compra existente', usuario: dataRetry });
+        } catch (retryError) {
+          console.error('Reintento de fusion fallido:', retryError.message, emailNormalizado);
+
+          // Mandar email a Korva
+          let emailEnviado = false;
+          try {
+            const { enviarEmailAdmin } = require('./routes/emails');
+            await enviarEmailAdmin(
+              `⚠️ Fusión fallida — ${emailNormalizado}`,
+              `Email: ${emailNormalizado}
+User ID nuevo: ${user_id}
+ID viejo: ${idViejo}
+Error: ${retryError.message}
+
+Al entrar al sistema fijate si este usuario tiene el reto activo.`
+            );
+            emailEnviado = true;
+          } catch (emailError) {
+            console.error('Error mandando email de fusión fallida:', emailError.message);
+          }
+
+          // Crear usuario básico para que pueda estar logueado
+          const { data, error } = await supabase
+            .from('users')
+            .upsert({ id: user_id, email: emailNormalizado, name: name || email.split('@')[0] }, { onConflict: 'id' })
+            .select()
+            .single();
+          if (error) throw error;
+
+          return res.json({
+            mensaje: emailEnviado ? 'fusion_fallida_notificada' : 'fusion_fallida_sin_notificar',
+            usuario: data
+          });
+        }
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .upsert({ id: user_id, email: emailNormalizado, name: name || email.split('@')[0] }, { onConflict: 'id' })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    const { data: huerfanos } = await supabase
+      .from('user_challenges')
+      .select('id, user_id')
+      .eq('email', emailNormalizado)
+      .neq('user_id', user_id);
+
+    if (huerfanos?.length > 0) {
+      for (const h of huerfanos) {
+        await supabase.from('user_challenges')
+          .update({ user_id: user_id, email: null })
+          .eq('id', h.id);
+        await supabase.from('activities')
+          .update({ user_id: user_id })
+          .eq('user_id', h.user_id);
+      }
+      console.log('User challenges huerfanos fusionados para:', emailNormalizado, '->', user_id);
+    }
+
+    res.json({ mensaje: 'Perfil creado', usuario: data });
+  } catch (error) {
+    res.json({ error: 'Error creando perfil', detalle: error.message });
+  }
+});
+
+app.post('/usuarios/direccion', async (req, res) => {
+  const { user_id, shipping_address, nombre_completo } = req.body;
+  try {
+    const updateData = { shipping_address };
+    // Si viene nombre_completo, actualizar también users.name
+    if (nombre_completo && nombre_completo.trim().split(' ').filter(Boolean).length >= 2) {
+      updateData.name = nombre_completo.trim();
+    }
+    // Actualizar pais desde la dirección
+    if (shipping_address?.pais) {
+      updateData.pais = shipping_address.pais;
+    }
+    const { data, error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', user_id)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ error: 'Usuario no encontrado', detalle: 'Tu sesión puede estar desactualizada. Cerrá sesión y volvé a entrar.' });
+    }
+    res.json({ mensaje: 'Direccion guardada exitosamente', usuario: data });
+  } catch (error) {
+    res.json({ error: 'Error guardando direccion', detalle: error.message });
+  }
+});
+
+app.get('/direcciones/autocomplete', async (req, res) => {
+  const { input } = req.query;
+  if (!input || input.trim().length < 3) return res.json({ predicciones: [] });
+  try {
+    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${process.env.GOOGLE_PLACES_API_KEY}&language=es`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      console.error('Error de Google Places Autocomplete:', data.status, data.error_message);
+      return res.json({ predicciones: [] });
+    }
+    const predicciones = (data.predictions || []).map(p => ({
+      place_id: p.place_id,
+      descripcion: p.description,
+    }));
+    res.json({ predicciones });
+  } catch (error) {
+    console.error('Error en autocomplete:', error.message);
+    res.json({ predicciones: [] });
+  }
+});
+
+app.get('/direcciones/detalle/:placeId', async (req, res) => {
+  const { placeId } = req.params;
+  try {
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&key=${process.env.GOOGLE_PLACES_API_KEY}&language=es&fields=address_component,formatted_address,geometry`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (data.status !== 'OK') {
+      console.error('Error de Google Places Details:', data.status, data.error_message);
+      return res.status(400).json({ error: 'No se pudo obtener el detalle de la dirección' });
+    }
+
+    const componentes = data.result?.address_components || [];
+    const buscar = (tipo) => componentes.find(c => c.types.includes(tipo))?.long_name || '';
+    const buscarCorto = (tipo) => componentes.find(c => c.types.includes(tipo))?.short_name || '';
+
+    const numero = buscar('street_number');
+    const calle = buscar('route');
+    const direccionCalle = [calle, numero].filter(Boolean).join(' ');
+
+    res.json({
+      direccion: direccionCalle || data.result?.formatted_address || '',
+      ciudad: buscar('locality') || buscar('administrative_area_level_2') || '',
+      codigo_postal: buscar('postal_code') || '',
+      pais: buscar('country') || '',
+      pais_codigo: buscarCorto('country') || '',
+      direccion_formateada: data.result?.formatted_address || '',
+      lat: data.result?.geometry?.location?.lat || null,
+      lng: data.result?.geometry?.location?.lng || null,
+    });
+  } catch (error) {
+    console.error('Error en detalle de direccion:', error.message);
+    res.status(500).json({ error: 'Error obteniendo detalle de la dirección' });
+  }
+});
+
+// Pausar desafío: confirmar la escritura y proteger solicitudes simultáneas.
+app.post('/challenges/pausar', async (req, res) => {
+  const { user_id, challenge_id } = req.body || {};
+  try {
+    const resultado = await pausarDesafio({ supabase, userId: user_id, challengeId: challenge_id });
+    return res.status(resultado.status).json(resultado.body);
+  } catch (error) {
+    console.error('Error pausando desafío:', error);
+    return res.status(500).json({ error: 'No se pudo pausar el desafío' });
+  }
+});
+
+// Reanudar desafío
+app.post('/challenges/reanudar', async (req, res) => {
+  const { user_id, challenge_id } = req.body;
+  try {
+    // Etapa 4A-3c: canario del motor unificado, solo si MOTOR_PROGRESO_WRITERS incluye "reanudar".
+    // Con la flag apagada se ejecuta el código viejo de abajo, sin cambios.
+    if (writerMotorActivo('reanudar')) {
+      const resultado = await reanudarDesafioConMotor({
+        repo: crearRepositorioSupabase(supabase),
+        userId: user_id,
+        challengeId: challenge_id,
+      });
+      return res.status(resultado.status).json(resultado.body);
+    }
+
+    const { data: uc } = await supabase
+      .from('user_challenges')
+      .select('id, pausado, pausado_at, periodos_pausados')
+      .eq('user_id', user_id)
+      .eq('challenge_id', challenge_id)
+      .single();
+
+    if (!uc) return res.status(404).json({ error: 'Desafío no encontrado' });
+    if (!uc.pausado) return res.json({ mensaje: 'No estaba pausado' });
+
+    // Guardar el período pausado
+    const periodos = uc.periodos_pausados || [];
+    periodos.push({ desde: uc.pausado_at, hasta: new Date().toISOString() });
+
+    await supabase.from('user_challenges').update({
+      pausado: false,
+      pausado_at: null,
+      periodos_pausados: periodos
+    }).eq('id', uc.id);
+
+    // Recalcular km excluyendo los períodos pausados
+    await recalcularKmConPausas(user_id, challenge_id, periodos);
+
+    res.json({ mensaje: 'Desafío reanudado y km recalculados' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Función auxiliar: recalcular km ignorando períodos pausados
+const recalcularKmConPausas = async (user_id, challenge_id, periodos) => {
+  try {
+    const { data: uc } = await supabase
+      .from('user_challenges')
+      .select('id, started_at, status, challenges(title, modalidades, total_distance_km), version, modalidad')
+      .eq('user_id', user_id)
+      .eq('challenge_id', challenge_id)
+      .single();
+
+    if (!uc) return;
+
+    const { data: actividades } = await supabase
+      .from('activities')
+      .select('distance_km, recorded_at')
+      .eq('user_id', user_id)
+      .eq('excluida', false)
+      .gte('recorded_at', uc.started_at);
+
+    // Filtrar actividades que caen en períodos pausados
+    const actividadesValidas = (actividades || []).filter(a => {
+      const fecha = new Date(a.recorded_at);
+      for (const p of (periodos || [])) {
+        if (fecha >= new Date(p.desde) && fecha <= new Date(p.hasta)) return false;
+      }
+      return true;
+    });
+
+    const totalKm = actividadesValidas.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0);
+
+    const distanciaTotal = distanciaDeLaVersion(uc, uc.challenges);
+    const porcentaje = (totalKm / distanciaTotal) * 100;
+    const nuevoStatus = porcentaje >= 100 ? 'completed' : uc.status;
+
+    // No tocar completados/shipped/cargado
+    if (!['completed', 'shipped', 'cargado'].includes(uc.status)) {
+      await supabase.from('user_challenges').update({
+        km_completed: totalKm,
+        status: nuevoStatus,
+      }).eq('id', uc.id);
+    } else {
+      // Solo actualizar km si son mayores
+      const kmActual = parseFloat(uc.km_completed || 0);
+      if (totalKm > kmActual) {
+        await supabase.from('user_challenges').update({ km_completed: totalKm }).eq('id', uc.id);
+      }
+    }
+  } catch (e) {
+    console.error('Error recalcularKmConPausas:', e.message);
+  }
+};
+
+// Ranking de países — finishers por país
+app.get('/ranking/paises/:challengeId', async (req, res) => {
+  const { challengeId } = req.params;
+  try {
+    // Obtener user_ids de finishers
+    const { data: ucs } = await supabase
+      .from('user_challenges')
+      .select('user_id')
+      .eq('challenge_id', challengeId)
+      .in('status', ['completed', 'shipped', 'cargado']);
+
+    if (!ucs || ucs.length === 0) return res.json([]);
+
+    const userIds = ucs.map(u => u.user_id);
+
+    // Obtener países en chunks de 100
+    const NORMALIZAR = {
+      'mexico': 'México', 'peru': 'Perú', 'panama': 'Panamá',
+      'republica dominicana': 'República Dominicana', 'espana': 'España',
+      'brasil': 'Brasil', 'brazil': 'Brasil', 'usa': 'Estados Unidos',
+      'united states': 'Estados Unidos', 'estados unidos': 'Estados Unidos',
+      'corea del sur': 'Corea del Sur',
+    };
+
+    const conteo = {};
+    for (let i = 0; i < userIds.length; i += 100) {
+      const chunk = userIds.slice(i, i + 100);
+      const { data: usuarios } = await supabase
+        .from('users')
+        .select('pais')
+        .in('id', chunk);
+
+      (usuarios || []).forEach(u => {
+        let pais = u.pais?.trim();
+        if (!pais) return;
+        const paisLower = pais.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        const normalizado = NORMALIZAR[paisLower];
+        if (normalizado) pais = normalizado;
+        conteo[pais] = (conteo[pais] || 0) + 1;
+      });
+    }
+
+    const resultado = Object.entries(conteo)
+      .sort((a, b) => b[1] - a[1])
+      .map(([pais, cantidad]) => ({ pais, cantidad }));
+
+    res.json(resultado);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/ranking/:challengeId', async (req, res) => {
+  const { challengeId } = req.params;
+  try {
+    const { data: ucsRaw, error } = await supabase
+      .from('user_challenges')
+      .select('user_id, km_completed, version, modalidad, status')
+      .eq('challenge_id', challengeId)
+      .in('status', ['active', 'completed', 'shipped', 'cargado'])
+      .order('km_completed', { ascending: false });
+
+    if (error) throw error;
+
+    // Deduplicar por user_id — quedarse con el de mayor km_completed
+    const vistos = new Set();
+    const ucs = (ucsRaw || []).filter(uc => {
+      if (vistos.has(uc.user_id)) return false;
+      vistos.add(uc.user_id);
+      return true;
+    });
+
+    const { data: challenge } = await supabase
+      .from('challenges')
+      .select('modalidades, total_distance_km')
+      .eq('id', challengeId)
+      .single();
+
+    // Traer usuarios en chunks de 100 para evitar límite del .in()
+    const userIds = ucs.map(u => u.user_id).filter(Boolean);
+    const usuariosMap = {};
+    for (let i = 0; i < userIds.length; i += 100) {
+      const chunk = userIds.slice(i, i + 100);
+      const { data: usuariosChunk } = await supabase.from('users').select('id, name, avatar_url').in('id', chunk);
+      (usuariosChunk || []).forEach(u => { usuariosMap[u.id] = u; });
+    }
+
+    const resultado = (ucs || []).map((uc, index) => {
+      const distancia = distanciaDeLaVersion(uc, challenge);
+      const usuario = usuariosMap[uc.user_id];
+
+      return {
+        posicion: index + 1,
+        nombre: (() => {
+          const n = usuario?.name || 'Anonimo';
+          const partes = n.trim().split(' ');
+          if (partes.length === 1) return partes[0];
+          return `${partes[0]} ${partes[1]?.charAt(0)}.`;
+        })(),
+        avatar: usuario?.avatar_url,
+        km_completados: uc.km_completed,
+        version: versionDeInscripcion(uc),
+        modalidad: uc.modalidad, // legacy: la app publicada filtra el ranking por run/ride (= estándar/extendida)
+        porcentaje: Math.min((uc.km_completed / distancia) * 100, 100).toFixed(1)
+      };
+    });
+
+    res.json(resultado);
+  } catch (error) {
+    res.json({ error: 'Error obteniendo ranking', detalle: error.message });
+  }
+});
+
+app.post('/usuarios/push-token', async (req, res) => {
+  const { user_id, push_token } = req.body;
+  try {
+    await supabase.from('users').update({ push_token }).eq('id', user_id);
+    res.json({ mensaje: 'Token guardado' });
+  } catch (error) {
+    res.json({ error: 'Error guardando token', detalle: error.message });
+  }
+});
+
+app.post('/admin/challenges', async (req, res) => {
+  const { title, description, historia, sport_type, price_usd, medal_image_url, link_mercadopago, link_shopify } = req.body;
+  // Versiones Estándar/Extendida: se guarda `version` + label nuevo y se mantiene `tipo` (run/ride)
+  // solo por compatibilidad con apps publicadas. La versión no es deporte.
+  const modalidades = Array.isArray(req.body.modalidades)
+    ? req.body.modalidades.map((m, i) => {
+      const v = versionesDelDesafio({ modalidades: [m] })[0];
+      const version = v ? v.version : VERSIONES.ESTANDAR;
+      return { ...m, tipo: version === VERSIONES.EXTENDIDA ? 'ride' : 'run', version, label: etiquetaVersion(version) };
+    })
+    : req.body.modalidades;
+  const estandar = Array.isArray(modalidades) ? (modalidades.find((m) => m.version === VERSIONES.ESTANDAR) || modalidades[0]) : null;
+  try {
+    const { data, error } = await supabase
+      .from('challenges')
+      .insert({
+        title, description, historia,
+        sport_type: sport_type || 'multi', // cualquier deporte suma
+        price_usd, medal_image_url, link_mercadopago, link_shopify, modalidades,
+        is_active: true,
+        total_distance_km: estandar?.distancia_km || 0
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ mensaje: 'Reto creado exitosamente', challenge: data });
+  } catch (error) {
+    res.json({ error: 'Error creando reto', detalle: error.message });
+  }
+});
+
+app.get('/actividades', require('./middleware/requireUser'), async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('activities')
+      .select('*')
+      .eq('user_id', req.userId)
+      .eq('excluida', false)
+      .order('recorded_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error) {
+    res.status(500).json({ error: 'Error obteniendo actividades', detalle: error.message });
+  }
+});
+
+app.get('/actividades/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const { data: inscripciones } = await supabase
+      .from('user_challenges')
+      .select('started_at')
+      .eq('user_id', userId)
+      .in('status', ['active', 'completed', 'shipped'])
+      .order('started_at', { ascending: true })
+      .limit(1);
+
+    const fechaCorte = inscripciones?.[0]?.started_at || null;
+
+    let query = supabase
+      .from('activities')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('excluida', false)
+      .order('recorded_at', { ascending: false })
+      .limit(100);
+
+    if (fechaCorte) {
+      query = query.gte('recorded_at', fechaCorte);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.json({ error: 'Error obteniendo actividades', detalle: error.message });
+  }
+});
+
+app.put('/admin/challenges/:id', async (req, res) => {
+  const { id } = req.params;
+  const { title, description, historia, price_usd, price_ars, medal_image_url, imagen_portada, galeria, link_mercadopago, link_shopify, oferta_texto, checkpoints } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('challenges')
+      .update({ title, description, historia, price_usd, price_ars, medal_image_url, imagen_portada, galeria, link_mercadopago, link_shopify, oferta_texto, checkpoints })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    res.json({ mensaje: 'Reto actualizado', challenge: data });
+  } catch (error) {
+    res.json({ error: 'Error actualizando reto', detalle: error.message });
+  }
+});
+
+app.put('/usuarios/modalidad', async (req, res) => {
+  const { user_id, challenge_id } = req.body;
+  // Cambia la VERSIÓN (estandar/extendida). La app vieja manda modalidad run/ride (= estándar/extendida).
+  const version = versionDesdePedido(req.body);
+  if (!version) {
+    return res.status(400).json({ error: 'Versión inválida' });
+  }
+
+  try {
+    // Etapa 4A-3e: motor unificado, solo si MOTOR_PROGRESO_WRITERS incluye "modalidad" Y "efectos".
+    // Con la flag apagada (o sin "efectos") se ejecuta el código viejo de abajo, sin cambios.
+    if (writerMotorActivo('modalidad') && !efectosMotorActivos()) {
+      logMotor({ writer: 'modalidad', resultado: 'ignorado_sin_efectos', aviso: 'modalidad requiere efectos: se usa el camino viejo' });
+    }
+    if (modalidadMotorActiva()) {
+      const resultado = await cambiarModalidadConMotor({
+        repo: crearRepositorioSupabase(supabase),
+        userId: user_id,
+        challengeId: challenge_id,
+        version,
+        dispararEfectos: (ids) => procesadorEventos.disparar(ids),
+      });
+      return res.status(resultado.status).json(resultado.body);
+    }
+
+    const { data, error } = await supabase
+      .from('user_challenges')
+      .update({ version }) // modalidad la sincroniza el trigger de la base
+      .eq('user_id', user_id)
+      .eq('challenge_id', challenge_id)
+      .in('status', ['active', 'pending'])
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ error: 'No tenés este desafío activo', detalle: 'Tu sesión puede estar desactualizada. Cerrá sesión y volvé a entrar.' });
+    }
+
+    await recalcularKmUsuario(user_id, challenge_id);
+    res.json({ mensaje: 'Modalidad actualizada y kilómetros recalculados', data });
+  } catch (error) {
+    res.status(500).json({ error: 'Error actualizando modalidad', detalle: error.message });
+  }
+});
+
+app.delete('/actividades/:actividadId', async (req, res) => {
+  const { actividadId } = req.params;
+  const { user_id } = req.body;
+  try {
+    // Etapa 4A-3d: motor unificado, solo si MOTOR_PROGRESO_WRITERS incluye "eliminar_actividad".
+    // Con la flag apagada se ejecuta el código viejo de abajo, sin cambios.
+    if (writerMotorActivo('eliminar_actividad')) {
+      const resultado = await eliminarActividadConMotor({
+        repo: crearRepositorioSupabase(supabase),
+        userId: user_id,
+        actividadId,
+      });
+      return res.status(resultado.status).json(resultado.body);
+    }
+
+    // Solo bloquear si TODOS los retos están finalizados (no hay ninguno activo)
+    const { data: retosActivos } = await supabase
+      .from('user_challenges')
+      .select('id, status')
+      .eq('user_id', user_id)
+      .in('status', ['active', 'pending']);
+
+    // Si no hay retos activos, no tiene sentido borrar actividades
+    // Pero si tiene alguno activo, puede borrar
+
+    const { error } = await supabase
+      .from('activities')
+      .update({ excluida: true })
+      .eq('id', actividadId)
+      .eq('user_id', user_id);
+
+    if (error) throw error;
+    // Recalcular km sin protección de Math.max (borrado intencional)
+    const { data: ucs } = await supabase
+      .from('user_challenges')
+      .select('id, challenge_id, started_at, status')
+      .eq('user_id', user_id)
+      .not('status', 'in', '("shipped","cargado")');
+
+    for (const uc of (ucs || [])) {
+      const { data: acts } = await supabase
+        .from('activities')
+        .select('distance_km')
+        .eq('user_id', user_id)
+        .eq('excluida', false)
+        .gte('recorded_at', uc.started_at);
+      const totalKm = acts?.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
+      await supabase.from('user_challenges').update({ km_completed: totalKm }).eq('id', uc.id);
+    }
+
+    res.json({ mensaje: 'Actividad eliminada y km recalculados' });
+  } catch (error) {
+    res.json({ error: 'Error eliminando actividad', detalle: error.message });
+  }
+});
+
+app.get('/admin/metricas', async (req, res) => {
+  try {
+    const { count: totalUsuarios } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true });
+
+    const { data: inscripciones } = await supabase
+      .from('user_challenges')
+      .select('status, challenge_id, user_id, km_completed, started_at, challenges(title)');
+
+    const activos = inscripciones?.filter(i => i.status === 'active').length || 0;
+    const completados = inscripciones?.filter(i => i.status === 'completed').length || 0;
+    const enviados = inscripciones?.filter(i => i.status === 'shipped').length || 0;
+
+    const fechaCortePorUsuario = {};
+    inscripciones?.forEach(i => {
+      if (!['active', 'completed', 'shipped', 'cargado'].includes(i.status)) return;
+      const actual = fechaCortePorUsuario[i.user_id];
+      if (!actual || new Date(i.started_at) < new Date(actual)) {
+        fechaCortePorUsuario[i.user_id] = i.started_at;
+      }
+    });
+
+    const { data: todasActividades } = await supabase
+      .from('activities')
+      .select('user_id, distance_km, sport_type, source, recorded_at');
+
+    const actividades = todasActividades?.filter(a => {
+      const corte = fechaCortePorUsuario[a.user_id];
+      if (!corte) return false;
+      return new Date(a.recorded_at) >= new Date(corte);
+    });
+
+    const kmTotales = actividades?.reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
+    const kmStrava = actividades?.filter(a => a.source === 'strava').reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
+    const kmManual = actividades?.filter(a => a.source === 'manual').reduce((sum, a) => sum + (parseFloat(a.distance_km) || 0), 0) || 0;
+    const totalActividades = actividades?.length || 0;
+
+    const kmReales = inscripciones?.reduce((sum, i) => sum + (parseFloat(i.km_completed) || 0), 0) || 0;
+
+    const { count: conStrava } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .not('strava_token', 'is', null);
+
+    const porChallenge = {};
+    inscripciones?.forEach(i => {
+      const titulo = i.challenges?.title || 'Sin título';
+      if (!porChallenge[titulo]) {
+        porChallenge[titulo] = { activos: 0, completados: 0, enviados: 0, kmTotales: 0 };
+      }
+      if (i.status === 'active') porChallenge[titulo].activos++;
+      if (i.status === 'completed') porChallenge[titulo].completados++;
+      if (i.status === 'shipped') porChallenge[titulo].enviados++;
+      porChallenge[titulo].kmTotales += parseFloat(i.km_completed) || 0;
+    });
+
+    res.json({
+      totalUsuarios,
+      conStrava,
+      activos,
+      completados,
+      enviados,
+      kmTotales: kmReales.toFixed(1),
+      kmTotalesActividades: kmTotales.toFixed(1),
+      kmStrava: kmStrava.toFixed(1),
+      kmManual: kmManual.toFixed(1),
+      totalActividades,
+      porChallenge,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error cargando métricas', detalle: error.message });
+  }
+});
+
+// ── CRON: recordatorio de dirección cada 24hs ─────────────────
+const recordarDireccion = async () => {
+  try {
+    console.log('Cron: verificando usuarios completados sin dirección...');
+    const { data: sinDir } = await supabase
+      .from('user_challenges')
+      .select('user_id, challenges(title)')
+      .in('status', ['completed'])
+      .not('user_id', 'is', null);
+
+    if (!sinDir?.length) return;
+
+    const userIds = [...new Set(sinDir.map(u => u.user_id))];
+    const { data: usuarios } = await supabase
+      .from('users')
+      .select('id, push_token, shipping_address')
+      .in('id', userIds)
+      .is('shipping_address', null);
+
+    let enviados = 0;
+    for (const usuario of (usuarios || [])) {
+      if (usuario.push_token) {
+        const reto = sinDir.find(r => r.user_id === usuario.id);
+        await enviarPushNotification(
+          usuario.push_token,
+          '📦 Falta tu dirección de envío',
+          `¡Completaste ${reto?.challenges?.title || 'tu desafío'}! Cargá tu dirección en el Perfil para que podamos enviarte tu medalla 🏅`
+        );
+        enviados++;
+      }
+    }
+    console.log(`Cron dirección: ${enviados} recordatorios enviados`);
+  } catch (error) {
+    console.error('Error en cron de dirección:', error.message);
+  }
+};
+
+// Correr cada 24 horas
+setInterval(recordarDireccion, 24 * 60 * 60 * 1000);
+// También correr al iniciar (después de 1 minuto para que el servidor esté listo)
+setTimeout(recordarDireccion, 60 * 1000);
+
+// ── ELIMINAR CUENTA ────────────────────────────────────────────
+app.delete('/usuarios/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    // 1. Anonimizar datos personales en users (no borrar para conservar historial)
+    await supabase.from('users').update({
+      name: 'Usuario eliminado',
+      email: `deleted_${userId}@korva.deleted`,
+      shipping_address: null,
+      avatar_url: null,
+      strava_token: null,
+      strava_refresh_token: null,
+      strava_athlete_id: null,
+      strava_habilitado: false,
+      push_token: null,
+      dorsal_url: null,
+      postal_url: null,
+    }).eq('id', userId);
+
+    // 2. Anonimizar invitaciones (no borrar para no romper grupos)
+    await supabase.from('invitations').update({ created_by: null }).eq('created_by', userId);
+    await supabase.from('invitations').update({ used_by: null }).eq('used_by', userId);
+
+    // 3. Borrar actividades (datos personales de movimiento)
+    await supabase.from('activities').delete().eq('user_id', userId);
+
+    // 3b. Borrar movimiento diario (Apple Health / Health Connect)
+    await supabase.from('daily_movement').delete().eq('user_id', userId);
+
+    // 4. Eliminar usuario de Auth de Supabase (requiere service role)
+    const { createClient } = require('@supabase/supabase-js');
+    const adminClient = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SECRET,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+    const { error: authError } = await adminClient.auth.admin.deleteUser(userId);
+    if (authError) {
+      console.error('Error eliminando de Auth:', authError.message);
+      // Continuar aunque falle Auth — los datos ya están anonimizados
+    }
+
+    console.log('Cuenta eliminada/anonimizada:', userId);
+    res.json({ mensaje: 'Cuenta eliminada correctamente' });
+  } catch (error) {
+    console.error('Error eliminando cuenta:', error.message);
+    res.status(500).json({ error: 'Error eliminando cuenta', detalle: error.message });
+  }
+});
+
+// Red de contención: si algo falla fuera de un try/catch, lo logueamos
+// pero NO apagamos el servidor entero (por default Node mata el proceso).
+process.on('uncaughtException', (err) => {
+  console.error('uncaughtException:', err);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('unhandledRejection:', err);
+});
+
+app.listen(PORT, () => {
+  console.log(`Servidor Korva corriendo en puerto ${PORT}`);
+});
+
+// Etapa 4A-3c/4A-3d: recuperación de recálculos marcados como pendientes
+// (user_challenges.recalculo_pendiente_desde). Con ALGÚN writer del motor encendido
+// (MOTOR_PROGRESO_WRITERS) corre al arrancar (+30 s) y cada 10 min. Con todos apagados hace UNA
+// consulta al arrancar: si no hay marcas no queda ningún timer; si quedaron marcas, las drena y se
+// detiene sola. Timers con unref(): no frenan el apagado. Con "efectos" encendido, también procesa los
+// efectos pendientes de progreso_eventos (4A-3e).
+iniciarRecuperacion({
+  crearRepo: () => crearRepositorioSupabase(supabase),
+  motorActivo: algunWriterMotorActivo(),
+  // 4A-3e: con "efectos" encendido, cada ronda también procesa los efectos de progreso_eventos.
+  procesarEventos: efectosMotorActivos() ? ({ repo, ids }) => procesadorEventos.ronda({ repo, ids }) : undefined,
+}).catch((e) => console.error('Error iniciando recuperación de progreso:', e.message));
+
+// Etapa 4A-8: con "strava_webhook" + "efectos", los eventos del webhook de Strava quedan en una bandeja
+// persistente (strava_webhook_eventos). Esta recuperación (al arrancar +5 s y cada minuto) procesa los
+// que quedaron pendientes o cuyo proceso murió. Con la flag apagada no corre.
+if (stravaWebhookMotorActiva()) {
+  stravaRoutes.iniciarRecuperacionWebhook({
+    intervaloMs: Number(process.env.STRAVA_WEBHOOK_RECUPERACION_MS) || undefined,
+    demoraInicialMs: Number(process.env.STRAVA_WEBHOOK_RECUPERACION_INICIAL_MS) || undefined,
+  });
+}

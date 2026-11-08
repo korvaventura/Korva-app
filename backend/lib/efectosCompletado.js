@@ -21,6 +21,7 @@
 //  - email_usuario: el PDF adjunto se regenera y no es idéntico byte a byte, así que la clave no
 //    protege un reenvío: solo se reintenta si el fallo fue seguro (no salió). Dudoso → 'incierto'.
 //  - push: Expo no tiene idempotencia. Intención antes de enviar; dudoso → 'incierto'. A lo sumo una vez.
+const { leerDorsal, formatearDorsal } = require('./dorsalDesafio');
 const { pedirSerial, leerSerial, reservarSerialCAS } = require('./certificadoSerial');
 const { objetivoDeInscripcion } = require('./versionDesafio');
 
@@ -159,7 +160,7 @@ const crearEfectosCompletado = ({ supabase, generarCertificado, emails, obtenerR
         const ev = ctx.evento;
         const { data: uc, error: e1 } = await supabase
           .from('user_challenges')
-          .select('id, user_id, challenge_id, group_id, completed_at, status, version, modalidad, challenges(title, modalidades, total_distance_km)')
+          .select('id, user_id, challenge_id, numero_bib, group_id, completed_at, status, version, modalidad, challenges(title, modalidades, total_distance_km)')
           .eq('id', ev.user_challenge_id)
           .maybeSingle();
         if (e1) throw e1;
@@ -194,6 +195,7 @@ const crearEfectosCompletado = ({ supabase, generarCertificado, emails, obtenerR
           estado: RESULTADO.OK,
           datos: {
             titulo,
+            numero_bib: uc.numero_bib ?? null,
             // D-V1: distancia de la versión elegida (la que fijó el motor al completar; si faltara, se recalcula).
             distancia_km: datos.objetivo_km ?? objetivoDeInscripcion(uc, uc.challenges).objetivo_km,
             fecha_completado: formatearFecha(uc.completed_at || ev.creado_at),
@@ -243,7 +245,8 @@ const crearEfectosCompletado = ({ supabase, generarCertificado, emails, obtenerR
         const u = await leerUsuario(ctx.evento.user_id, 'name, email, bib_number');
         if (!u) return { estado: RESULTADO.DEFINITIVO, error: 'el usuario ya no existe' };
         if (!u.email) return { estado: RESULTADO.DEFINITIVO, error: 'el usuario no tiene email' };
-        const pdf = await generarCertificado(supabase, u.name, c.titulo, c.distancia_km, u.bib_number || '---', c.fecha_completado, ctx.efectos.serial.serial);
+        const numeroBib = Object.hasOwn(c, 'numero_bib') ? c.numero_bib : await leerDorsal(supabase, ctx.evento.user_challenge_id);
+        const pdf = await generarCertificado(supabase, u.name, c.titulo, c.distancia_km, formatearDorsal(numeroBib), c.fecha_completado, ctx.efectos.serial.serial);
         if (!pdf) return { estado: RESULTADO.ERROR, error: 'no se pudo generar el PDF del certificado' };
         let opciones;
         if (c.esGrupo && !c.esComprador) {
