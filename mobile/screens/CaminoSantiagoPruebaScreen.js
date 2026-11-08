@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import MapaRecorrido3D from '../components/MapaRecorrido3D';
 
@@ -16,6 +17,7 @@ const paradas = [
 ].map(([id, nombre, km]) => ({ id, nombre, km, kmFisico: km }));
 
 export default function CaminoSantiagoPruebaScreen() {
+  const insets = useSafeAreaInsets();
   const [foco, setFoco] = useState(null);
   const [progreso, setProgreso] = useState(0);
   const [seleccion, setSeleccion] = useState(null);
@@ -23,7 +25,7 @@ export default function CaminoSantiagoPruebaScreen() {
   const [error, setError] = useState('');
   if (!__DEV__) return null;
   const abrir = (url) => Linking.openURL(url).catch(() => setError('No se pudo abrir el enlace.'));
-  return <View style={styles.pantalla}>
+  return <View style={[styles.pantalla, { paddingTop: insets.top + 4, paddingBottom: Math.max(insets.bottom, 12) }]}>
     <Text style={styles.texto}>Prueba local · no guarda kilómetros</Text>
     <View style={styles.controles}>{[0, 0.5, 1].map((valor) =>
       <TouchableOpacity key={valor} accessibilityRole="button" accessibilityState={{ selected: progreso === valor }}

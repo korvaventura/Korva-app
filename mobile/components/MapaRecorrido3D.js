@@ -161,13 +161,13 @@ function Ruta({ mundo, escena, progresoRef }) {
 }
 
 // El overlay nativo puede cambiar sin reconfigurar el contexto GL ni su árbol.
-const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3fRef, progresoRef, alCrear, onModeloEstado, onCamaraAplicada }) {
+const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3fRef, progresoRef, alCrear, onModeloEstado, onCamaraAplicada, inspeccion }) {
   const camaraInicial = useMemo(() => ({ fov: escena.camara.fov, near: 0.05, far: 200, position: [0, 6, -10] }), [escena]);
   const opcionesGL = useMemo(() => ({ alpha: true, antialias: true }), []);
   return (
     <Canvas style={styles.canvas} frameloop="demand" dpr={mundo.modeloMeshy ? 1.5 : 2} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
       <Montaje mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} onModeloEstado={onModeloEstado} onCamaraAplicada={onCamaraAplicada} />
-      <Ruta mundo={mundo} escena={escena} progresoRef={progresoRef} />
+      <group visible={!inspeccion}><Ruta mundo={mundo} escena={escena} progresoRef={progresoRef} /></group>
     </Canvas>
   );
 });
@@ -648,7 +648,8 @@ export default function MapaRecorrido3D({
   };
 
   const totalTxt = Number(kmTotalUsuario) || escena.distanciaKm;
-  const kmTxt = Math.min(Number(kmUsuario) || 0, totalTxt);
+  const kmTxt = kmPlayback == null ? Math.min(Number(kmUsuario) || 0, totalTxt) : (kmPlayback / escena.distanciaKm) * totalTxt;
+  const inspeccion = escena.id === 'camino_santiago' && focoMonumento && !focoMonumento.general && !reproduciendo;
 
   const actividadesJourney = useMemo(() => {
     let acumulado = 0;
@@ -687,7 +688,7 @@ export default function MapaRecorrido3D({
       <Fondo />
       {mundo && (
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: aparicion }]}>
-          <EscenaCanvas mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} progresoRef={progresoRef} alCrear={alCrear} onModeloEstado={setEstadoModelo} onCamaraAplicada={onCamaraAplicada} />
+          <EscenaCanvas mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} progresoRef={progresoRef} inspeccion={!!inspeccion} alCrear={alCrear} onModeloEstado={setEstadoModelo} onCamaraAplicada={onCamaraAplicada} />
         </Animated.View>
       )}
 
@@ -699,7 +700,7 @@ export default function MapaRecorrido3D({
         </Text>
       )}
 
-      {overlay && (
+      {overlay && !inspeccion && (
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: aparicion }]} pointerEvents="box-none">
           {overlay.aguas.map((e) => (
             <Text key={e.id} pointerEvents="none" style={[styles.etiquetaAgua, e.tipo === 'region' && styles.etiquetaRegion, { left: e.x - 80, top: e.y - 7 }]}>{e.texto}</Text>
@@ -771,8 +772,8 @@ export default function MapaRecorrido3D({
 
       <View pointerEvents="none" style={styles.hud}>
         <Text numberOfLines={1} style={[styles.hudEyebrow, { maxWidth: Math.max(100, (tam?.w || 320) - 150) }]}>{escena.presentacion?.eyebrow || 'KORVA JOURNEY'}</Text>
-        <Text numberOfLines={1} style={styles.hudTitulo}>{escena.presentacion?.titulo || 'Tu recorrido'}</Text>
-        {!!escena.capitulos?.length && <Text numberOfLines={1} style={styles.hudCapitulo}>{escena.capitulos.find(c => kmProgreso <= c.hastaKm)?.nombre || 'Ruta completada'}</Text>}
+        <Text numberOfLines={1} style={styles.hudTitulo}>{inspeccion ? (focoMonumento.km === 775 ? 'Catedral de Santiago' : focoMonumento.km === 69 ? 'Puente la Reina' : 'Mojón del Camino') : (escena.presentacion?.titulo || 'Tu recorrido')}</Text>
+        {!!escena.capitulos?.length && <Text numberOfLines={1} style={styles.hudCapitulo}>{inspeccion ? 'Vista de detalle · General para volver al mapa' : (escena.capitulos.find(c => kmProgreso <= c.hastaKm)?.nombre || 'Ruta completada')}</Text>}
       </View>
       <View pointerEvents="none" style={[styles.chip, completado && styles.chipCompleto]}>
         <Text style={[styles.chipTxt, completado && styles.chipTxtCompleto]}>
