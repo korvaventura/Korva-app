@@ -109,7 +109,9 @@ function geometriaTerreno(datos, conv, escena) {
   for (let k = 0; k < nx * nz * 3; k += 1) col[k] = LUT_LINEAL[Math.round(colores[k] * 255)];
   // Suavizar sólo el color, conservando todas las alturas del MDT.
   // Mezcla leve: conserva el mosaico agrícola y el relieve cromático.
-  if (escena.id === 'camino_santiago') {
+  // Opcional por escena (`suavizadoColor`, p. ej. 0.12 en Camino y Appia).
+  if (escena.suavizadoColor) {
+    const peso = escena.suavizadoColor;
     const original = col.slice();
     for (let j = 0; j < nz; j += 1) for (let i = 0; i < nx; i += 1) {
       const k = (j * nx + i) * 3;
@@ -121,7 +123,7 @@ function geometriaTerreno(datos, conv, escena) {
         for (let c = 0; c < 3; c += 1) suma[c] += original[q + c];
         n += 1;
       }
-      for (let c = 0; c < 3; c += 1) col[k + c] = .88 * original[k + c] + .12 * suma[c] / n;
+      for (let c = 0; c < 3; c += 1) col[k + c] = (1 - peso) * original[k + c] + peso * suma[c] / n;
     }
   }
   const piedraInterior = new THREE.Color('#A49E8C');
@@ -181,7 +183,7 @@ function crearAguas(datos, conv, escena) {
   const c = new THREE.Color();
 
   niveles.forEach((nivel) => {
-    if (escena.id === 'camino_santiago' && estilo.oceanoContinuo && nivel === 0) {
+    if (estilo.oceanoContinuo && nivel === 0) {
       // El océano no termina con la grilla: el terreno emerge de este plano.
       // Evita rectángulos de agua y elimina miles de triángulos submarinos.
       const mar = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), new THREE.MeshStandardMaterial({
@@ -681,9 +683,9 @@ export function actualizarAtmosfera(mundo, escena, camara) {
     const ang = base + desvio;
     borde = Math.min(borde, distanciaAlBorde(mundo.limites, camara.position.x, camara.position.z, Math.cos(ang), Math.sin(ang)));
   }
-  // Camino protege el borde con la misma profundidad que usa el shader.
-  // Las otras escenas conservan su cálculo anterior.
-  const camino = escena.id === 'camino_santiago';
+  // Camino y Appia protegen el borde con la misma profundidad que usa el
+  // shader (`bordePorProfundidad`). Las otras escenas conservan su cálculo.
+  const camino = !!atm.bordePorProfundidad;
   const alcanceBorde = camino ? profundidadBordeVisible(mundo, camara) : borde;
   const lejos = Math.min(d * (atm.lejos ?? 2.4), camino
     ? Math.max(.1, alcanceBorde - .3) * .98

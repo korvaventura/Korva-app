@@ -40,20 +40,24 @@ function resolverGeneralCamino(proyectar, inicial, ancho, alto) {
   }
   return centrar(hi * 1.025);
 }
+// Límites por defecto: los aprobados para el Camino. Cada escena puede
+// declarar los suyos en territorio.limitesGestos (unidades de escena).
+const LIMITES_CAMINO = { caja: { minX: -10.5, maxX: 16, minZ: -12, maxZ: 12 }, radio: { x: [2.2, 12], z: [2, 11] } };
 // Sólo para gestos manuales. Replay y cámaras de monumentos no se recalculan.
-function limitarVistaCamino(control, camara, general) {
+function limitarVistaCamino(control, camara, general, limites = LIMITES_CAMINO) {
+  const { caja, radio: elipse } = limites;
   const c = copiar({ ...control, objetivo: control.objetivo || general.objetivo });
   c.zoom = clamp(c.zoom || 1, camara.zoomMin, Math.max(camara.zoomExploracionMax ?? camara.zoomMax, general.zoom));
   const detalle = c.zoom < .1;
   const base = camara.elevacionGrados * Math.PI / 180;
   c.elevacion = clamp(c.elevacion || 0, (detalle ? 20 : 35) * Math.PI / 180 - base, 70 * Math.PI / 180 - base);
   const amplitud = clamp((.9 - c.zoom) / .7, 0, 1);
-  const rx = 2.2 + amplitud * 12, rz = 2 + amplitud * 11;
+  const rx = elipse.x[0] + amplitud * elipse.x[1], rz = elipse.z[0] + amplitud * elipse.z[1];
   const dx = c.objetivo[0] - general.objetivo[0], dz = c.objetivo[2] - general.objetivo[2];
   const radio = Math.hypot(dx / rx, dz / rz);
   if (radio > 1) { c.objetivo[0] = general.objetivo[0] + dx / radio; c.objetivo[2] = general.objetivo[2] + dz / radio; }
-  c.objetivo[0] = clamp(c.objetivo[0], -10.5, 16);
-  c.objetivo[2] = clamp(c.objetivo[2], -12, 12);
+  c.objetivo[0] = clamp(c.objetivo[0], caja.minX, caja.maxX);
+  c.objetivo[2] = clamp(c.objetivo[2], caja.minZ, caja.maxZ);
   return c;
 }
-module.exports = { resolverGeneralCamino, limitarVistaCamino };
+module.exports = { resolverGeneralCamino, limitarVistaCamino, LIMITES_CAMINO };

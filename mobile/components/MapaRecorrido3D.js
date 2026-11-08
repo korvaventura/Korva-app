@@ -11,6 +11,7 @@ import { muestraGesto, avanzarGesto, seleccionarPin } from '../services/mapa3d/g
 import { estadoJourney } from '../services/mapa3d/journeyCore';
 import { separarPinesCamino } from '../services/mapa3d/pinesCaminoCore';
 import { resolverGeneralCamino, limitarVistaCamino } from '../services/mapa3d/vistaCaminoCore';
+import { buscarAncla, anclaLlegada, controlAncla, interpolarLlegada, tituloAncla } from '../services/mapa3d/anclasCore';
 import { crearCorteRuta, crearFraccionRuta } from '../services/mapa3d/rutaPlaybackCore';
 import { AJUSTES_MAPA } from '../services/mapa3d/ajustesInteraccion';
 import { duracionReplay, controlInicialReplay, seguirReplay } from '../services/mapa3d/replayCamaraCore';
@@ -30,6 +31,10 @@ import {
 // El terreno horneado se extiende cientos de km más allá del encuadre y se
 // funde con el horizonte por atmósfera; la ruta se apoya en el valle y los
 // pines son vistas nativas proyectadas desde 3D. Render bajo demanda.
+//
+// `escena.territorio` activa el modo desafío de territorio (Camino, Appia):
+// General automático, límites de gestos, separación de pines, cámaras de
+// inspección por ancla y acercamiento de llegada. Sin él, nada cambia.
 
 const ALTURA_PIN_M = 380; // altura del pin sobre la ruta (m reales)
 const cacheEscenas = new Map();
@@ -108,7 +113,7 @@ function Ruta({ mundo, escena, progresoRef, detalle = false }) {
     configurarRutaContinua(mats.hecho, avanceContinuo, true);
   }
   const estaticos = useMemo(() => {
-    if(!datos.visualModeloMeshy && escena.id !== 'camino_santiago')return null;
+    if(!datos.visualModeloMeshy && !escena.territorio?.rutaEstatica)return null;
     const pendiente=geometriaTramo(datos,conv,0,total,.013*grosor);
     const hecho=geometriaTramo(datos,conv,0,total,.019*grosor);
     return {pendiente,hecho,brillo:null,fraccion:crearFraccionRuta(datos.ruta,conv),cortar:crearCorteRuta(datos.ruta,conv,hecho.parameters.tubularSegments)};
@@ -169,7 +174,7 @@ const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3f
   const camaraInicial = useMemo(() => ({ fov: escena.camara.fov, near: 0.05, far: 200, position: [0, 6, -10] }), [escena]);
   const opcionesGL = useMemo(() => ({ alpha: true, antialias: true }), []);
   return (
-    <Canvas style={styles.canvas} frameloop="demand" dpr={escena.id === 'camino_santiago' ? 2 : mundo.modeloMeshy ? 1.5 : 2} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
+    <Canvas style={styles.canvas} frameloop="demand" dpr={escena.territorio?.dpr ?? (mundo.modeloMeshy ? 1.5 : 2)} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
       <Montaje mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} onModeloEstado={onModeloEstado} onCamaraAplicada={onCamaraAplicada} />
       <Ruta mundo={mundo} escena={escena} progresoRef={progresoRef} detalle={!!inspeccion} />
     </Canvas>
@@ -242,7 +247,7 @@ export default function MapaRecorrido3D({
   onInteraccionMapa,
 }) {
   const [detalleActivo, setDetalleActivo] = useState(false);
-  const [catedralFinal, setCatedralFinal] = useState(false);
+  const [llegadaFinal, setLlegadaFinal] = useState(false);
   const [listo, setListo] = useState(cacheEscenas.has(escena.id));
   const [tam, setTam] = useState(null);
   const [estadoModelo, setEstadoModelo] = useState('cargando');
@@ -392,8 +397,8 @@ export default function MapaRecorrido3D({
       });
       controlRef.current = siguiente.control;
       if (siguiente.pan) moverObjetivo(siguiente.pan.dx, siguiente.pan.dy, controlRef.current.objetivo || escena.camara.objetivo);
-      if (escena.id === 'camino_santiago' && vistaGeneralRef.current) {
-        controlRef.current = limitarVistaCamino(controlRef.current, escena.camara, vistaGeneralRef.current);
+      if (escena.territorio && vistaGeneralRef.current) {
+        controlRef.current = limitarVistaCamino(controlRef.current, escena.camara, vistaGeneralRef.current, escena.territorio.limitesGestos);
       }
       gestoRef.current = actual;
       aplicarCamara();
@@ -423,7 +428,7 @@ export default function MapaRecorrido3D({
 
   const mundo = listo ? obtenerMundo(escena, horneado) : null;
   const vistaGeneral = useMemo(() => {
-    if (escena.id !== 'camino_santiago' || !mundo || !tam?.w || !tam?.h) return null;
+    if (!escena.territorio || !mundo || !tam?.w || !tam?.h) return null;
     const puntos = [];
     for (let km = 0; km <= escena.distanciaKm; km += 5) {
       const p = posicionEnKm(mundo.datos, mundo.conv, km, 0);
@@ -456,24 +461,29 @@ export default function MapaRecorrido3D({
     completado: completadoEnJourney,
   }), [checkpoints, kmProgreso, escena.distanciaKm, completadoEnJourney]);
 
+  // Cámara de un ancla (monumento futuro o hito) en su km, con la dirección de
+  // marcha para el desplazamiento lateral. No depende de que haya modelo.
+  const controlInspeccion = useCallback((ancla, km = ancla.km) => {
+    const p = posicionEnKm(mundo.datos, mundo.conv, km, 0);
+    const a = posicionEnKm(mundo.datos, mundo.conv, Math.max(0, km - 1), 0);
+    const b = posicionEnKm(mundo.datos, mundo.conv, Math.min(escena.distanciaKm, km + 1), 0);
+    return controlAncla(ancla, p, escena.camara, { x: b.x - a.x, z: b.z - a.z }, escena.kmPorUnidad);
+  }, [mundo, escena]);
+
   useEffect(() => {
-    if (!mundo || escena.id !== 'camino_santiago' || (!focoMonumento && !vistaGeneral)) return;
-    setCatedralFinal(false);
+    if (!mundo || !escena.territorio || (!focoMonumento && !vistaGeneral)) return;
+    setLlegadaFinal(false);
     setDetalleActivo(!!focoMonumento && !focoMonumento.general);
     if (!focoMonumento || focoMonumento.general) {
       if (!vistaGeneral) return;
       controlRef.current = { ...vistaGeneral, objetivo: [...vistaGeneral.objetivo] };
     } else {
-      const p = posicionEnKm(mundo.datos, mundo.conv, focoMonumento.km, 0);
-      const dx = focoMonumento.km === 775 ? -.045 : focoMonumento.km === 69 ? .025 : -.025;
-      controlRef.current = {
-        azimut: 0,
-        elevacion: focoMonumento.km === 775 ? THREE.MathUtils.degToRad(27 - escena.camara.elevacionGrados) : 0,
-        zoom: .025, objetivo: [p.x + dx, p.y + .065, p.z],
-      };
+      const ancla = buscarAncla(escena.territorio, focoMonumento);
+      if (!ancla) return;
+      controlRef.current = controlInspeccion(ancla, focoMonumento.km ?? ancla.km);
     }
     aplicarCamara();
-  }, [mundo, focoMonumento, escena.id, aplicarCamara, vistaGeneral]);
+  }, [mundo, focoMonumento, escena, aplicarCamara, vistaGeneral, controlInspeccion]);
 
   // Proyección de pines y etiquetas con la misma cámara que usa el Canvas.
   const overlay = useMemo(() => {
@@ -504,7 +514,7 @@ export default function MapaRecorrido3D({
         estadoJourney: cp.estadoJourney,
       };
     }), escena.pinesSeparados, tam.w, tam.h);
-    if (escena.id === 'camino_santiago') pines = separarPinesCamino(pines, tam.w, tam.h);
+    if (escena.territorio?.separarCabezasPin) pines = separarPinesCamino(pines, tam.w, tam.h);
     const pinesVisibles = pines.filter((p) => p.cabeza.visible && p.base.visible);
     const zonasHud = [
       { x: 0, y: 0, w: tam.w, h: 64 },
@@ -599,7 +609,7 @@ export default function MapaRecorrido3D({
     if (metaKm <= 0) { recenter(); return; }
     // El replay debe sentirse como un viaje, no como una barra de progreso.
     // Tiempo de lectura y cámara amortiguada en curvas cerradas.
-    setCatedralFinal(false);
+    setLlegadaFinal(false);
     setDetalleActivo(false);
     const duracion = duracionReplay(metaKm, escena.id);
     let anterior = Date.now(); let transcurrido = 0; let ultimaFicha = -Infinity;
@@ -653,30 +663,27 @@ export default function MapaRecorrido3D({
           }
           aplicarCamara();
         };
-        if (completado && escena.id === 'camino_santiago') {
+        // Llegada: acercamiento al ancla final y, al terminar el movimiento,
+        // el mensaje de desafío completado. Funciona sin miniatura cargada.
+        const ancla = completado ? anclaLlegada(escena.territorio) : null;
+        if (ancla) {
           const inicio = { ...controlRef.current, objetivo: [...controlRef.current.objetivo] };
-          const llegada = posicionEnKm(mundo.datos, mundo.conv, escena.distanciaKm, 0);
-          const destino = [llegada.x - .045, llegada.y + .065, llegada.z];
+          const destino = controlInspeccion(ancla);
+          const duracionLlegada = escena.territorio.duracionLlegadaMs ?? 1800;
           let tiempoZoom = 0;
           let ultimoZoom = Date.now();
-          setCatedralFinal(true);
-          const acercarCatedral = () => {
+          setLlegadaFinal(true);
+          const acercarLlegada = () => {
             const ahoraZoom = Date.now();
             tiempoZoom += Math.min(250, Math.max(0, ahoraZoom - ultimoZoom));
             ultimoZoom = ahoraZoom;
-            const avance = Math.min(1, tiempoZoom / 1800);
-            const suaveZoom = avance * avance * (3 - 2 * avance);
-            controlRef.current = {
-              azimut: (inicio.azimut || 0) * (1 - suaveZoom),
-              elevacion: (inicio.elevacion || 0) * (1 - suaveZoom) + THREE.MathUtils.degToRad(27 - escena.camara.elevacionGrados) * suaveZoom,
-              zoom: Math.exp(Math.log(inicio.zoom || 1) * (1 - suaveZoom) + Math.log(.025) * suaveZoom),
-              objetivo: inicio.objetivo.map((v, i) => v + (destino[i] - v) * suaveZoom),
-            };
+            const avance = Math.min(1, tiempoZoom / duracionLlegada);
+            controlRef.current = interpolarLlegada(inicio, destino, avance);
             aplicarCamara();
-            if (avance < 1) playbackRef.current = requestAnimationFrame(acercarCatedral);
+            if (avance < 1) playbackRef.current = requestAnimationFrame(acercarLlegada);
             else mostrarCierre();
           };
-          playbackRef.current = requestAnimationFrame(acercarCatedral);
+          playbackRef.current = requestAnimationFrame(acercarLlegada);
         } else mostrarCierre();
       }
     };
@@ -704,7 +711,7 @@ export default function MapaRecorrido3D({
   };
 
   const recenter = () => {
-    if (catedralFinal) {
+    if (llegadaFinal) {
       if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
       playbackRef.current = null;
       setKmPlayback(null);
@@ -712,7 +719,7 @@ export default function MapaRecorrido3D({
       cierreOpacity.stopAnimation();
       setCierreVisible(false);
     }
-    setCatedralFinal(false);
+    setLlegadaFinal(false);
     setDetalleActivo(false);
     liberarGesto();
     camaraManualHastaRef.current=Date.now()+AJUSTES_MAPA.seguimientoEsperaManualMs;
@@ -725,7 +732,7 @@ export default function MapaRecorrido3D({
 
   const totalTxt = Number(kmTotalUsuario) || escena.distanciaKm;
   const kmTxt = kmPlayback == null ? Math.min(Number(kmUsuario) || 0, totalTxt) : (kmPlayback / escena.distanciaKm) * totalTxt;
-  const inspeccion = catedralFinal || (detalleActivo && escena.id === 'camino_santiago' && focoMonumento && !focoMonumento.general && !reproduciendo);
+  const inspeccion = llegadaFinal || (detalleActivo && !!escena.territorio && focoMonumento && !focoMonumento.general && !reproduciendo);
 
   const actividadesJourney = useMemo(() => {
     let acumulado = 0;
@@ -848,7 +855,7 @@ export default function MapaRecorrido3D({
 
       <View pointerEvents="none" style={styles.hud}>
         <Text numberOfLines={1} style={[styles.hudEyebrow, { maxWidth: Math.max(100, (tam?.w || 320) - 150) }]}>{escena.presentacion?.eyebrow || 'KORVA JOURNEY'}</Text>
-        <Text numberOfLines={1} style={styles.hudTitulo}>{inspeccion ? (catedralFinal || focoMonumento?.km === 775 ? 'Catedral de Santiago' : focoMonumento.km === 69 ? 'Puente la Reina' : 'Mojón del Camino') : (escena.presentacion?.titulo || 'Tu recorrido')}</Text>
+        <Text numberOfLines={1} style={styles.hudTitulo}>{inspeccion ? tituloAncla(llegadaFinal ? anclaLlegada(escena.territorio) : buscarAncla(escena.territorio, focoMonumento), checkpoints) : (escena.presentacion?.titulo || 'Tu recorrido')}</Text>
         {!!escena.capitulos?.length && <Text numberOfLines={1} style={styles.hudCapitulo}>{inspeccion ? 'Vista de detalle · General para volver al mapa' : (escena.capitulos.find(c => kmProgreso <= c.hastaKm)?.nombre || 'Ruta completada')}</Text>}
       </View>
       <View pointerEvents="none" style={[styles.chip, completado && styles.chipCompleto]}>
@@ -865,7 +872,7 @@ export default function MapaRecorrido3D({
       )}
       {cierreVisible && (
         <Animated.View pointerEvents="none" style={[styles.cierreLogro, { opacity: cierreOpacity }]}>
-          <Text style={styles.cierreEyebrow}>{escena.id === 'camino_santiago' ? 'DESAFÍO COMPLETADO' : 'RECORRIDO COMPLETADO'}</Text>
+          <Text style={styles.cierreEyebrow}>{escena.territorio?.textoCierre || 'RECORRIDO COMPLETADO'}</Text>
           <Text style={styles.cierreKm}>{textoKm(totalTxt)} KM</Text>
           <View style={styles.cierreLinea} />
           <Text style={styles.cierreTitulo}>{escena.presentacion?.titulo || 'Tu conquista'}</Text>

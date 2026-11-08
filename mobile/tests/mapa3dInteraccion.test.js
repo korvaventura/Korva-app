@@ -139,13 +139,18 @@ test('frame GL: aplica cámara y atmósfera antes de publicar los checkpoints',(
 
 test('Camino: el cierre espera el zoom completo y termina encuadrando la catedral',()=>{
   const source=fs.readFileSync(require.resolve('../components/MapaRecorrido3D'),'utf8');
-  const start=source.indexOf("        if (completado && escena.id === 'camino_santiago')");
+  // La llegada se configura en escena.territorio (ancla 'catedral'); mismos tiempos y cámara final.
+  const start=source.indexOf('        const ancla = completado ? anclaLlegada(escena.territorio) : null;');
+  assert(start>0);
   const end=source.indexOf('} else mostrarCierre();',start)+'} else mostrarCierre();'.length;
   let now=0, frame, cierres=0, detalle=false;
   const controlRef={current:{zoom:1,azimut:.4,elevacion:.2,objetivo:[0,0,0]}};
-  const context=vm.createContext({completado:true,escena:{id:'camino_santiago',distanciaKm:775,camara:{elevacionGrados:46}},mundo:{datos:{},conv:{}},
-    controlRef,playbackRef:{current:null},posicionEnKm:()=>({x:3,y:2,z:1}),
-    THREE:{MathUtils:{degToRad:v=>v*Math.PI/180}},Date:{now:()=>now},setCatedralFinal:v=>{detalle=v;},aplicarCamara:()=>{},
+  const anclas=require('../services/mapa3d/anclasCore');
+  const escena=require('../services/mapa3d/escenas/caminoSantiago');
+  const context=vm.createContext({completado:true,escena,controlRef,playbackRef:{current:null},
+    anclaLlegada:anclas.anclaLlegada,interpolarLlegada:anclas.interpolarLlegada,
+    controlInspeccion:a=>anclas.controlAncla(a,{x:3,y:2,z:1},escena.camara),
+    Date:{now:()=>now},setLlegadaFinal:v=>{detalle=v;},aplicarCamara:()=>{},
     requestAnimationFrame:f=>{frame=f;return 1;},mostrarCierre:()=>{cierres++;}});
   vm.runInContext(source.slice(start,end),context);
   assert.equal(detalle,true);

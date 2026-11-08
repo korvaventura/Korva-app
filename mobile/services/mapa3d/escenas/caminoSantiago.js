@@ -213,6 +213,8 @@ const caminoSantiago = {
       paleta: { estepa: '#4F7A3E', turba: '#4A6A38', vega: '#5E8C45', bosque: '#355E36', bosqueClaro: '#43703F' },
       parcelas: { colores: ['#5B8A43', '#4C7A3A', '#6A9550', '#3F6B35'], tamanoKm: 2.2, mezcla: 0.08, orientacion: 0.6 } },
   ],
+  // Suavizado leve del color por vértice (antes fijo para esta escena).
+  suavizadoColor: 0.12,
 
   luz: {
     // Sol bajo del oeste-suroeste: los peregrinos caminan hacia el atardecer.
@@ -237,8 +239,26 @@ const caminoSantiago = {
     cenit: '#102C46',
     cerca: 3.2,
     lejos: 7.5,
+    bordePorProfundidad: true,
   },
   agua: { color: '#2F6C88', oceanoContinuo: true },
+
+  // Modo desafío (antes condiciones por id en MapaRecorrido3D). Valores idénticos
+  // a la versión aprobada: encuadre, límites, pines, cámaras y llegada.
+  territorio: {
+    rutaEstatica: true,
+    dpr: 2,
+    separarCabezasPin: true,
+    limitesGestos: { caja: { minX: -10.5, maxX: 16, minZ: -12, maxZ: 12 }, radio: { x: [2.2, 12], z: [2, 11] } },
+    anclas: [
+      { id: 'mojon', hito: 'roncesvalles', km: 0, titulo: 'Mojón del Camino', camara: { desplazamiento: [-0.025, 0.065, 0], zoom: 0.025 } },
+      { id: 'puente', hito: 'puente_la_reina', km: 69, titulo: 'Puente la Reina', camara: { desplazamiento: [0.025, 0.065, 0], zoom: 0.025 } },
+      { id: 'catedral', hito: 'santiago', km: 775, titulo: 'Catedral de Santiago', camara: { desplazamiento: [-0.045, 0.065, 0], elevacionGrados: 27, zoom: 0.025 } },
+    ],
+    inspeccionPorDefecto: 'mojon',
+    llegada: 'catedral',
+    textoCierre: 'DESAFÍO COMPLETADO',
+  },
 
   etiquetas: [
     { id: 'pais_espana', texto: 'ESPAÑA', lat: 40.25, lon: -4.0, tipo: 'pais' },

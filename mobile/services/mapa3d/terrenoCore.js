@@ -224,6 +224,8 @@ function crearFuncionAltura(escena) {
   let zonaActual = 0;
   const montana = (x, z) => {
     zonaActual = 0;
+    // Escenas de relieve real sin respaldo inventado: calcular alturas sin él es un error.
+    if (relieve.requiereReal && !real) throw new Error(`${escena.id}: falta el relieve real (hornear con scripts/hornearMapa3D.js)`);
     if (real) {
       const r = real.muestrear(x, z);
       aguaReal = r.agua;
@@ -334,6 +336,7 @@ function crearFuncionAltura(escena) {
 
   const altura = (x, z) => {
     let h = montana(x, z);
+    const hReal = h;
     let zona = zonaActual;
     const aguaRealCelda = aguaReal;
 
@@ -347,6 +350,10 @@ function crearFuncionAltura(escena) {
     const exceso = Math.max(0, cr.d - corredor.planoKm);
     const valle = piso + corredor.paredM * Math.pow(exceso, corredor.potencia);
     if (!nautico) h = smin(h, valle, corredor.suavizadoM);
+    // `respetarAgua` (vías costeras y llanuras bajas): el mínimo suave rebaja
+    // hasta suavizadoM/4; nunca convierte tierra real en mar (Agro Pontino).
+    const eraAgua = corredor.respetarAgua && ((aguaRealCelda > -Infinity && hReal < aguaRealCelda) || (mar && hReal < mar.nivelM));
+    if (corredor.respetarAgua && mar && !eraAgua) h = Math.max(h, Math.min(hReal, mar.nivelM + 2));
 
     // Cuerpos de agua: cuencas talladas + costas que suben desde el nivel.
     let nivelAgua = -Infinity;
@@ -385,8 +392,9 @@ function crearFuncionAltura(escena) {
     if (real && aguaRealCelda > -Infinity) nivelAgua = Math.max(nivelAgua, aguaRealCelda);
     if (mar && h < mar.nivelM) nivelAgua = Math.max(nivelAgua, mar.nivelM);
 
-    // Los cruces marítimos no construyen un terraplén en el fondo.
-    if (!nautico && cr.d < corredor.planoKm * 1.6) {
+    // Los cruces marítimos no construyen un terraplén en el fondo. Con
+    // `respetarAgua`, una vía costera tampoco rellena el mar o un puerto vecino.
+    if (!nautico && !eraAgua && cr.d < corredor.planoKm * 1.6) {
       const t = smoothstep(corredor.planoKm * 1.6, corredor.planoKm * 0.6, cr.d);
       h = lerp(h, Math.max(h, piso), t);
     }
