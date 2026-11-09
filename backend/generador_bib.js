@@ -3,6 +3,8 @@ const path = require('path');
 
 // Mapa de plantillas por challenge_id
 const PLANTILLAS = {
+  '54865c93-6b1b-4d2b-8324-71d705133998': { dorsal: 'Dorsales_ViaAppia.pptx', postal: 'Postales_ViaAppia.pptx' }, // Vía Appia 611km: plantillas propias
+  'e6424df6-3949-4503-8af0-69408b4b34a2': { dorsal: 'Dorsales_CaminoSantiago.pptx', postal: 'Postales_CaminoSantiago.pptx' }, // Camino de Santiago 775km
   'ae54af78-dc6f-4cf5-af31-2c077ba58048': { dorsal: 'Dorsales.pptx',           postal: 'Postales.pptx' },           // Fin del Mundo
   '85a362a5-eee7-456d-9027-358d44446004': { dorsal: 'Dorsales_SanAndres.pptx', postal: 'Postales_SanAndres.pptx' }, // San Andrés
   '64442b1d-12b8-4a58-a951-50ea10cb2131': { dorsal: 'Dorsales_Dubrovnik.pptx', postal: 'Postales_Dubrovnik.pptx' }, // Dubrovnik

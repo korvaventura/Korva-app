@@ -4,12 +4,15 @@ const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
 const { enviarEmailInscripcionConBib, enviarEmailInscripcion, enviarEmailInvitacion, enviarEmailAdmin } = require('../routes/emails');
-const { generarBibYPostal, asignarBibNumber } = require('../generador_bib');
+const { generarBibYPostal } = require('../generador_bib');
+const { asignarDorsal } = require('../lib/dorsalDesafio');
 
 const SHOPIFY_WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET;
 
 // Mapa product_id de Shopify → challenge_id en Supabase
 const PRODUCT_CHALLENGE_MAP = {
+  '15473077780658': '54865c93-6b1b-4d2b-8324-71d705133998', // Vía Appia 611km
+  '15473077878962': 'e6424df6-3949-4503-8af0-69408b4b34a2', // Camino de Santiago 775km
   '8780043288754': 'ae54af78-dc6f-4cf5-af31-2c077ba58048', // Fin del Mundo 103km
   '8908019957938': '85a362a5-eee7-456d-9027-358d44446004', // San Andrés 57km
   '8908019466418': '64442b1d-12b8-4a58-a951-50ea10cb2131', // Dubrovnik 19.4km
@@ -34,6 +37,10 @@ const verificarFirmaShopify = (rawBody, hmacHeader) => {
 
 // Función centralizada para activar un challenge y enviar bib+postal
 const activarChallengeYEnviarBib = async (supabase, user, pendiente, enviarBib = true) => {
+  // La RPC conserva el dorsal existente o reserva uno por desafío en una transacción.
+  const bibNumber = await asignarDorsal(supabase, pendiente.id);
+  pendiente.numero_bib = bibNumber;
+
   // 1. Activar el challenge
   await supabase
     .from('user_challenges')
@@ -41,13 +48,6 @@ const activarChallengeYEnviarBib = async (supabase, user, pendiente, enviarBib =
     .eq('id', pendiente.id);
 
   console.log('Challenge activado para:', user.email, '-', pendiente.challenges?.title);
-
-  // 2. Usar numero_bib del challenge específico, fallback a bib_number global
-  let bibNumber = pendiente.numero_bib || user.bib_number;
-  if (!bibNumber) {
-    bibNumber = await asignarBibNumber(supabase, user.id);
-    user.bib_number = bibNumber;
-  }
 
   // 3. Si no hay que enviar bib (flag), salir acá
   if (!enviarBib) {
@@ -224,21 +224,6 @@ router.post('/webhook/order', express.raw({ type: 'application/json' }), async (
       }
 
       if (!pendiente) continue;
-
-      // Asignar numero_bib específico del challenge si no lo tiene
-      if (!pendiente.numero_bib) {
-        const { data: maxBib } = await supabase
-          .from('user_challenges')
-          .select('numero_bib')
-          .eq('challenge_id', challengeIdFromProduct)
-          .not('numero_bib', 'is', null)
-          .order('numero_bib', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        const nextBib = (maxBib?.numero_bib || 0) + 1;
-        await supabase.from('user_challenges').update({ numero_bib: nextBib }).eq('id', pendiente.id);
-        pendiente.numero_bib = nextBib;
-      }
 
       // Activar challenge y enviar bib — uno por cada desafío distinto
       await activarChallengeYEnviarBib(supabase, user, pendiente, true);

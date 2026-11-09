@@ -1,0 +1,226 @@
+{
+  "title": "Camino de Santiago 775K",
+  "description": "Recorre virtualmente el Camino Francés desde Roncesvalles hasta Santiago de Compostela. Acumula 775 km a tu ritmo y descubre 13 hitos entre los Pirineos, la Meseta y Galicia.",
+  "sport_type": "multi",
+  "total_distance_km": 775,
+  "price_usd": 34.4,
+  "is_active": false,
+  "modalidades": [
+    {
+      "tipo": "run",
+      "label": "Estándar",
+      "version": "estandar",
+      "distancia_km": 775
+    }
+  ],
+  "historia": "Desde la acogida medieval de Roncesvalles hasta la plaza del Obradoiro, el Camino une lugares, historias y personas. Tu recorrido virtual sigue trece hitos del Camino Francés. Cada actividad suma a una misma aventura, sin fecha límite: avanzar, descubrir y llegar a Santiago a tu propio ritmo.",
+  "link_shopify": "https://korva.run/products/desafio-virtual-775km-camino-de-santiago-espana",
+  "checkpoints": [
+    {
+      "id": "roncesvalles",
+      "nombre": "Roncesvalles",
+      "kmFisico": 0,
+      "emoji": "🐚",
+      "lat": 43.00866,
+      "lon": -1.31975,
+      "pista": "Un hospital de montaña que se convirtió en puerta del Camino.",
+      "desc": "Tu recorrido comienza entre los bosques del Pirineo navarro. La historia de la colegiata está ligada a la acogida de quienes cruzaban las montañas: su origen se remonta a un hospital-monasterio del siglo XII. Desde este punto, cada actividad que sumes te acercará virtualmente a Santiago.",
+      "datoRaro": "La asistencia a los peregrinos estaba en el origen del conjunto: antes de ser una visita monumental, fue un lugar donde encontrar refugio tras el paso por los Pirineos.",
+      "fuentes": [
+        "https://www.visitnavarra.es/es/roncesvalles"
+      ],
+      "capitulo": 1
+    },
+    {
+      "id": "pamplona",
+      "nombre": "Pamplona",
+      "kmFisico": 44,
+      "emoji": "🏰",
+      "lat": 42.81811,
+      "lon": -1.64424,
+      "pista": "Una fachada clásica esconde una catedral gótica.",
+      "desc": "Llegas a Pamplona, primera gran ciudad de este recorrido. Su catedral reúne épocas distintas: tras la fachada neoclásica diseñada por Ventura Rodríguez aparece un templo gótico construido entre finales del siglo XIV y comienzos del XVI. El Camino también se puede leer en esas capas de historia.",
+      "datoRaro": "El claustro gótico comenzó a levantarse antes que la catedral actual. Exterior, templo y claustro no pertenecen a una única campaña de construcción.",
+      "fuentes": [
+        "https://www.catedraldepamplona.com/historia/"
+      ],
+      "capitulo": 1
+    },
+    {
+      "id": "puente_la_reina",
+      "nombre": "Puente la Reina",
+      "kmFisico": 69,
+      "emoji": "🌉",
+      "lat": 42.67223,
+      "lon": -1.81389,
+      "pista": "Dos entradas a la península se encuentran en una misma ruta.",
+      "desc": "Aquí confluyen las ramas del Camino Francés que llegan por Roncesvalles y por Somport. El puente románico del siglo XI cruza el río Arga y recuerda que la peregrinación también necesitó obras capaces de hacer más seguro el viaje. Has unido tus primeros kilómetros a un lugar de encuentro.",
+      "datoRaro": "El puente tuvo torres defensivas. Su silueta actual conserva la obra medieval, pero no todos los elementos que protegían el paso del río.",
+      "fuentes": [
+        "https://www.cultura.gob.es/consejo-jacobeo/camino-de-santiago/camino-frances/recorrido.html",
+        "https://www.visitnavarra.es/es/romanico-zona-media-olite"
+      ],
+      "capitulo": 1
+    },
+    {
+      "id": "irache",
+      "nombre": "Irache",
+      "kmFisico": 94,
+      "emoji": "🍇",
+      "lat": 42.65048,
+      "lon": -2.04393,
+      "pista": "Un monasterio que tuvo muchas vidas.",
+      "desc": "Entre los viñedos próximos a Estella aparece el monasterio de Irache. Su historia combina la vida monástica con la atención a peregrinos y la enseñanza. El edificio reúne partes medievales, renacentistas y barrocas: una parada para descubrir cómo un mismo lugar se transforma sin perder su relación con el Camino.",
+      "datoRaro": "Irache también albergó una universidad y fue hospital de guerra. Sus dependencias tuvieron usos muy distintos a lo largo de los siglos.",
+      "fuentes": [
+        "https://turismo.navarra.com/item/monasterio-de-irache-ayegui/"
+      ],
+      "capitulo": 1
+    },
+    {
+      "id": "santo_domingo",
+      "nombre": "Santo Domingo de la Calzada",
+      "kmFisico": 194,
+      "emoji": "🐓",
+      "lat": 42.44086,
+      "lon": -2.95355,
+      "pista": "Una catedral con un gallinero en su interior.",
+      "desc": "En Santo Domingo de la Calzada, la arquitectura y la tradición peregrina comparten espacio. Su catedral combina un ábside románico, naves góticas y añadidos posteriores. Dentro se conserva un gallinero vivo, uno de los detalles más inesperados de esta ruta.",
+      "datoRaro": "La presencia de las aves mantiene una tradición vinculada a la leyenda del gallo y la gallina. Es una leyenda del Camino, no un episodio histórico demostrado.",
+      "fuentes": [
+        "https://www.catedralsantodomingo.org/monumentos/catedral"
+      ],
+      "capitulo": 2
+    },
+    {
+      "id": "burgos",
+      "nombre": "Burgos",
+      "kmFisico": 269,
+      "emoji": "⛪",
+      "lat": 42.35026,
+      "lon": -3.6755,
+      "pista": "Una catedral cuya construcción atravesó varios siglos.",
+      "desc": "Las agujas de la catedral marcan tu llegada a Burgos. Su construcción comenzó en 1221 siguiendo modelos góticos franceses y continuó incorporando aportaciones posteriores. El conjunto fue inscrito en la Lista del Patrimonio Mundial de la UNESCO en 1984.",
+      "datoRaro": "La inscripción de la UNESCO corresponde a la propia catedral. Su valor patrimonial se reconoce de forma independiente del conjunto histórico de la ciudad.",
+      "fuentes": [
+        "https://whc.unesco.org/en/list/316",
+        "https://www.cultura.gob.es/cultura/areas/patrimonio/mc/patrimoniomundial/bienes-declarados/por-ano-de-inscripcion/1984/catedralburgos.html"
+      ],
+      "capitulo": 3
+    },
+    {
+      "id": "fromista",
+      "nombre": "Frómista",
+      "kmFisico": 337,
+      "emoji": "🪨",
+      "lat": 42.26615,
+      "lon": -4.40537,
+      "pista": "Un edificio pequeño con historias talladas por todas partes.",
+      "desc": "En la Meseta, San Martín de Frómista invita a mirar los detalles. La iglesia románica combina torres cilíndricas, capiteles esculpidos y bandas de decoración geométrica. Animales, figuras humanas y escenas bíblicas convierten la piedra en un relato visual.",
+      "datoRaro": "Bajo los aleros aparecen más de trescientos canecillos: pequeñas piezas esculpidas que sostienen la cornisa y forman una galería de personajes y criaturas.",
+      "fuentes": [
+        "https://palenciaturismo.es/visitar/lugares-interes/san-martin-tours-fromista"
+      ],
+      "capitulo": 3
+    },
+    {
+      "id": "leon",
+      "nombre": "León",
+      "kmFisico": 456,
+      "emoji": "🌈",
+      "lat": 42.60008,
+      "lon": -5.57056,
+      "pista": "Una parada donde la luz también cuenta historias.",
+      "desc": "La catedral de León cambia la piedra por luz de colores. Sus vidrieras representan santos y reyes, pero también motivos vegetales, escudos y labores de la vida cotidiana. Después de la Meseta, llegas a una ciudad donde merece la pena detenerse a observar.",
+      "datoRaro": "Las vidrieras no cuentan únicamente escenas religiosas: también conservan imágenes de trabajos y actividades de la sociedad que las creó.",
+      "fuentes": [
+        "https://turisleon.com/lugares/catedral-de-leon/"
+      ],
+      "capitulo": 3
+    },
+    {
+      "id": "astorga",
+      "nombre": "Astorga",
+      "kmFisico": 507,
+      "emoji": "🏛️",
+      "lat": 42.45754,
+      "lon": -6.05677,
+      "pista": "Gaudí también dejó su huella en el Camino.",
+      "desc": "Astorga reúne la ruta jacobea y una obra singular de Antoni Gaudí: el Palacio Episcopal. La primera piedra se colocó en 1889. El proyecto llevó hasta esta ciudad una arquitectura que combina la imagen de un palacio con formas que recuerdan a un castillo.",
+      "datoRaro": "Mientras trabajaba desde Barcelona, Gaudí recibía fotografías periódicas de la obra y viajaba a Astorga para comprobar su avance.",
+      "fuentes": [
+        "https://www.diocesisastorga.es/la-diocesis/palacio-episcopal"
+      ],
+      "capitulo": 3
+    },
+    {
+      "id": "ponferrada",
+      "nombre": "Ponferrada",
+      "kmFisico": 562,
+      "emoji": "🛡️",
+      "lat": 42.54798,
+      "lon": -6.59563,
+      "pista": "Un castillo con más de una época detrás de sus murallas.",
+      "desc": "El Bierzo te recibe en Ponferrada, junto al castillo asociado a los templarios. La villa pasó a depender de la Orden del Temple en 1178. La fortaleza que vemos reúne construcciones y ampliaciones de distintas épocas, no una única obra templaria.",
+      "datoRaro": "Cuando llegaron los templarios ya existía una pequeña fortaleza. El castillo continuó transformándose después de la presencia de la orden.",
+      "fuentes": [
+        "https://www.ponferrada.org/turismo/es/monumentos/castillo-templarios",
+        "https://www.turismocastillayleon.com/cm/turismocyl/connector?alias=turismocyl&formatType=printable-pdf&idContent=26536&locale=es_ES&ownerIso=es_ES"
+      ],
+      "capitulo": 4
+    },
+    {
+      "id": "o_cebreiro",
+      "nombre": "O Cebreiro",
+      "kmFisico": 615,
+      "emoji": "⛰️",
+      "lat": 42.70765,
+      "lon": -7.0425,
+      "pista": "La entrada a Galicia conserva otra forma de habitar la montaña.",
+      "desc": "Llegas a O Cebreiro, puerta del Camino Francés en Galicia. Las pallozas y el santuario forman uno de los paisajes más reconocibles de la ruta. Tras los Montes de León, esta parada abre el último capítulo de tu recorrido hacia Compostela.",
+      "datoRaro": "Las pallozas son una de las señas de identidad de O Cebreiro. Junto al santuario, permiten reconocer el pueblo incluso antes de ver su nombre en el mapa.",
+      "fuentes": [
+        "https://turismo.deputacionlugo.gal/es/conece/caminosantiago/caminofrances"
+      ],
+      "capitulo": 5
+    },
+    {
+      "id": "portomarin",
+      "nombre": "Portomarín",
+      "kmFisico": 679,
+      "emoji": "🏞️",
+      "lat": 42.80614,
+      "lon": -7.61659,
+      "pista": "Un pueblo salvó parte de su historia trasladándola piedra a piedra.",
+      "desc": "El antiguo Portomarín quedó bajo las aguas del embalse de Belesar. Para conservar sus monumentos, varios edificios se desmontaron y reconstruyeron en el nuevo emplazamiento. La iglesia de San Nicolás es uno de los testimonios de esa mudanza extraordinaria.",
+      "datoRaro": "Las piedras se numeraron para volver a colocarlas en su sitio. En el templo reconstruido todavía pueden reconocerse marcas de aquel traslado.",
+      "fuentes": [
+        "https://turismo.deputacionlugo.gal/es/conece/cidades/portomarin",
+        "https://www.cidadedacultura.gal/es/noticias/galiverso-o-vello-portomarin-ofrece-paseos-virtuales-por-la-antigua-villa-lucense-antes-de"
+      ],
+      "capitulo": 5
+    },
+    {
+      "id": "santiago",
+      "nombre": "Santiago de Compostela",
+      "kmFisico": 775,
+      "emoji": "🏆",
+      "lat": 42.88049,
+      "lon": -8.54575,
+      "pista": "La llegada al Obradoiro reúne siglos de camino y tus propios kilómetros.",
+      "desc": "Has completado los 775 km del desafío. Frente a la catedral de Santiago termina este recorrido virtual, construido actividad a actividad. El templo comenzó a levantarse hacia 1075 y fue consagrado en 1211. Hoy tu propia historia también llega a esta plaza: cada kilómetro que sumaste forma parte de la conquista.",
+      "datoRaro": "La catedral conserva su historia medieval bajo transformaciones posteriores. La fachada del Obradoiro es barroca: la imagen de llegada pertenece a una época distinta de la construcción inicial del templo.",
+      "fuentes": [
+        "https://catedraldesantiago.es/catedral/"
+      ],
+      "capitulo": 5
+    }
+  ],
+  "medal_image_url": null,
+  "imagen_portada": null,
+  "galeria": [],
+  "medal_code": "1001-ry-005",
+  "latitude": 43.00866,
+  "longitude": -1.31975,
+  "id": "e6424df6-3949-4503-8af0-69408b4b34a2"
+}

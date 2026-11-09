@@ -1,0 +1,223 @@
+{
+  "id": "54865c93-6b1b-4d2b-8324-71d705133998",
+  "title": "Vía Appia 611K",
+  "historia": "La vía Appia nació para conectar Roma con Capua y se prolongó después hacia el puerto de Brindisi. En este desafío virtual, el recorrido de referencia sigue el corredor de la Appia Antica, pasando por Benevento, Venosa y Taranto. Sus 611 km se acumulan actividad a actividad, sin fecha límite.",
+  "latitude": 41.8865,
+  "is_active": false,
+  "longitude": 12.4913,
+  "medal_code": "1001-ry-006",
+  "checkpoints": [
+    {
+      "id": "roma",
+      "lat": 41.8865,
+      "lon": 12.4913,
+      "desc": "Tu recorrido comienza en Roma, junto al lugar donde estuvo Porta Capena. La vía Appia nació en 312 a. C. como conexión estratégica hacia Capua y después se prolongó hasta Brindisi. En este desafío, cada actividad suma a un viaje virtual de 611 km por el sur de Italia.",
+      "emoji": "🏛️",
+      "pista": "Aquí comienza la Reina de los Caminos.",
+      "nombre": "Roma · Porta Capena",
+      "fuentes": [
+        "https://whc.unesco.org/en/list/1708",
+        "https://cultura.gov.it/luogo/parco-archeologico-dell-appia-antica-tratto-demaniale-della-via-appia-con-annessi-monumenti-e-mausolei"
+      ],
+      "capitulo": 1,
+      "datoRaro": "La primera Appia se construyó durante la República romana, mucho antes del Imperio. Su nombre recuerda al censor Appio Claudio Cieco.",
+      "kmFisico": 0
+    },
+    {
+      "id": "cecilia_metella",
+      "lat": 41.852,
+      "lon": 12.5195,
+      "desc": "Al salir de Roma aparece uno de los símbolos de la Appia Antica: el mausoleo de Cecilia Metella. Su construcción se sitúa entre los años 30 y 20 a. C. La gran estructura circular recuerda que las vías romanas también eran lugares de memoria, con monumentos funerarios a sus lados.",
+      "emoji": "🪨",
+      "pista": "Una tumba monumental que cambió de función.",
+      "nombre": "Mausoleo de Cecilia Metella",
+      "fuentes": [
+        "https://cultura.gov.it/luogo/parco-archeologico-dell-appia-antica-mausoleo-di-cecilia-metella-e-chiesa-di-san-nicola",
+        "https://www.parcoarcheologicoappiaantica.it/luoghi/via-appia-antica/mausoleo-di-cecilia-metella-e-castrum-caetani/"
+      ],
+      "capitulo": 1,
+      "datoRaro": "El nombre de Cecilia Metella sobrevivió en la inscripción de su tumba. El conjunto se integró después en el Castrum Caetani medieval.",
+      "kmFisico": 7
+    },
+    {
+      "id": "albano",
+      "lat": 41.731,
+      "lon": 12.6598,
+      "desc": "El recorrido alcanza los Colli Albani. En Albano, los Cisternoni muestran otra cara de la ingeniería romana: una gran cisterna construida para abastecer el campamento de la II Legión Pártica y sus alrededores. Un ejército también dependía del agua que podía almacenar.",
+      "emoji": "💧",
+      "pista": "Bajo la ciudad, una reserva de agua para una legión.",
+      "nombre": "Albano Laziale",
+      "fuentes": [
+        "https://comune.albanolaziale.rm.it/vivere-il-comune/luoghi/i-cisternoni/"
+      ],
+      "capitulo": 1,
+      "datoRaro": "La cisterna todavía recibe agua a través de conductos de época romana vinculados a las fuentes de las laderas del lago de Albano.",
+      "kmFisico": 25
+    },
+    {
+      "id": "terracina",
+      "lat": 41.2895,
+      "lon": 13.2488,
+      "desc": "En Terracina, la Appia se encuentra con la costa. El corte del Pisco Montano permitió facilitar el paso junto al mar en época de Trajano. La pared de roca es una huella visible del esfuerzo por adaptar la montaña a una vía de comunicación.",
+      "emoji": "⛰️",
+      "pista": "Una carretera abierta entre la roca y el mar.",
+      "nombre": "Terracina",
+      "fuentes": [
+        "https://terracinaturismo.it/contenuti/48996/storia-terracina-origini-eta-romana"
+      ],
+      "capitulo": 1,
+      "datoRaro": "La cara vertical del Pisco Montano no es solo un accidente natural: también conserva la intervención realizada para hacer pasar la carretera.",
+      "kmFisico": 105
+    },
+    {
+      "id": "formia",
+      "lat": 41.2561,
+      "lon": 13.6067,
+      "desc": "Formia conserva junto a la Appia el mausoleo conocido como Tumba de Cicerón. El nombre conecta este paisaje con uno de los grandes oradores de Roma, aunque la atribución del monumento no está demostrada. El Camino también se descubre distinguiendo la tradición de lo que sabemos con certeza.",
+      "emoji": "📜",
+      "pista": "Una tumba famosa y una atribución que sigue abierta.",
+      "nombre": "Formia",
+      "fuentes": [
+        "https://cultura.gov.it/luogo/tomba-di-cicerone"
+      ],
+      "capitulo": 1,
+      "datoRaro": "Cicerón murió en Formia en el año 43 a. C., pero eso no permite asegurar que el mausoleo que lleva su nombre sea su sepultura.",
+      "kmFisico": 150
+    },
+    {
+      "id": "capua",
+      "lat": 41.0856,
+      "lon": 14.2505,
+      "desc": "La Capua antigua se encuentra en la actual Santa Maria Capua Vetere. Fue el destino inicial de la carretera que partía de Roma. Su anfiteatro y las huellas de la vida urbana permiten imaginar la importancia que tuvo esta ciudad en la Campania romana.",
+      "emoji": "🛡️",
+      "pista": "La primera gran meta de la vía Appia.",
+      "nombre": "Capua antigua",
+      "fuentes": [
+        "https://whc.unesco.org/en/list/1708",
+        "https://museicampania.cultura.gov.it/wp-content/uploads/Carta_Servizi_Anfiteatro_Campano_CE.pdf"
+      ],
+      "capitulo": 2,
+      "datoRaro": "El gran anfiteatro imperial que se conserva sustituyó a una arena anterior, relacionada con la escuela de gladiadores de la que salió Espartaco. No son el mismo edificio.",
+      "kmFisico": 205
+    },
+    {
+      "id": "benevento",
+      "lat": 41.1332,
+      "lon": 14.7782,
+      "desc": "Benevento conecta el recorrido con el arco dedicado a Trajano en 114 d. C. El monumento señala el inicio de la vía Traiana, una alternativa para llegar a Brindisi. Nuestro recorrido de referencia continúa por el corredor de la Appia Antica hacia el interior.",
+      "emoji": "🏛️",
+      "pista": "Un arco señala una bifurcación de la historia.",
+      "nombre": "Benevento",
+      "fuentes": [
+        "https://cultura.gov.it/evento/benevento-arco-di-traiano-avvio-dellintervento-di-restauro-e-conservazione-delle-superfici-lapidee"
+      ],
+      "capitulo": 2,
+      "datoRaro": "La vía Traiana pasaba por Canosa, Bari y Egnazia. Por eso, sus lugares no deben mezclarse con el recorrido de la Appia Antica por Venosa y Taranto.",
+      "kmFisico": 265
+    },
+    {
+      "id": "aeclanum",
+      "lat": 41.0455,
+      "lon": 15.0105,
+      "desc": "Entre las colinas de Irpinia aparece Aeclanum, en el territorio de Mirabella Eclano. El parque arqueológico conserva la memoria de una ciudad vinculada al corredor de la Appia. Los restos urbanos recuerdan que esta carretera conectaba lugares habitados, mercados y servicios.",
+      "emoji": "🏺",
+      "pista": "Una ciudad romana que se puede leer en sus restos.",
+      "nombre": "Aeclanum",
+      "fuentes": [
+        "https://cultura.gov.it/luogo/parco-archeologico-di-aeclanum",
+        "https://catalogo.cultura.gov.it/detail/ArchaeologicalProperty/1500875187"
+      ],
+      "capitulo": 2,
+      "datoRaro": "El catálogo del patrimonio italiano identifica en Aeclanum un macellum, el edificio de mercado de la ciudad romana.",
+      "kmFisico": 300
+    },
+    {
+      "id": "venosa",
+      "lat": 40.9664,
+      "lon": 15.8217,
+      "desc": "En Venosa, el parque arqueológico conserva termas, casas y otras huellas de la ciudad romana. Cerca se alzan los muros de la iglesia Incompiuta, una ampliación medieval que nunca se terminó. El viaje cambia de época sin salir del mismo lugar.",
+      "emoji": "🏛️",
+      "pista": "Un lugar donde Roma y la Edad Media comparten espacio.",
+      "nombre": "Venosa",
+      "fuentes": [
+        "https://cultura.gov.it/luogo/musei-e-parchi-archeologici-di-melfi-e-venosa-parco-archeologico-di-venosa"
+      ],
+      "capitulo": 3,
+      "datoRaro": "La Incompiuta permanece sin cubierta. Sus muros permiten observar un proyecto monumental que quedó detenido antes de completarse.",
+      "kmFisico": 395
+    },
+    {
+      "id": "gravina",
+      "lat": 40.8193,
+      "lon": 16.4204,
+      "desc": "El recorrido entra en Puglia por la zona de Gravina. Su puente-acueducto es uno de los emblemas de la ciudad y permite descubrir un paisaje distinto antes de continuar hacia Taranto. Este hito suma otra época al viaje, además de la historia romana de la Appia.",
+      "emoji": "🌉",
+      "pista": "La llegada a Puglia tiene un puente como símbolo.",
+      "nombre": "Gravina in Puglia",
+      "fuentes": [
+        "https://www.comune.gravina.ba.it/comunicati-stampa/-/asset_publisher/JIR7VlbjSyYH/content/il-ponte-acquedotto-torna-a-splendere-in-tutta-la-sua-bellezza",
+        "https://aret.regione.puglia.it/documents/34206/0/SWG_Aret%2BPuglia_Executive%2Bsummary_DEF%2B%281%29.pdf/0e612529-fe8e-6fb4-282f-486df5ebd6c6"
+      ],
+      "capitulo": 4,
+      "datoRaro": "El nombre puente-acueducto recuerda su relación con el agua. No lo presentamos como una construcción de la antigua vía Appia: forma parte del patrimonio de una ciudad del recorrido.",
+      "kmFisico": 455
+    },
+    {
+      "id": "taranto",
+      "lat": 40.4735,
+      "lon": 17.2296,
+      "desc": "Taranto abre el recorrido al mar Jónico y a la historia de la Magna Grecia. En la ciudad antigua se conservan columnas de un templo dórico. El viaje por una carretera romana también atraviesa las huellas de culturas anteriores.",
+      "emoji": "🌊",
+      "pista": "Antes de Roma, este paisaje ya hablaba griego.",
+      "nombre": "Taranto",
+      "fuentes": [
+        "https://museotaranto.cultura.gov.it/it/cosa-vedere-a-taranto/"
+      ],
+      "capitulo": 4,
+      "datoRaro": "El templo suele llamarse de Poseidón, pero esa dedicación no es segura. El museo de Taranto señala que probablemente se dedicó a una divinidad femenina.",
+      "kmFisico": 530
+    },
+    {
+      "id": "oria",
+      "lat": 40.4995,
+      "lon": 17.6405,
+      "desc": "Oria se levanta sobre una colina de la llanura salentina. Su castillo reúne ampliaciones de distintas épocas, entre ellas las impulsadas por Federico II. Antes de llegar al puerto, el recorrido vuelve a detenerse ante una fortaleza que domina el paisaje.",
+      "emoji": "🏰",
+      "pista": "Un castillo domina la última parte del recorrido.",
+      "nombre": "Oria",
+      "fuentes": [
+        "https://catalogo.cultura.gov.it/approfondimento/puglia-provincia-brindisi/castello-federico-ii-oria"
+      ],
+      "capitulo": 4,
+      "datoRaro": "La planta del castillo tiene forma de triángulo isósceles. Su silueta le valió la comparación con una nave suspendida en el aire.",
+      "kmFisico": 580
+    },
+    {
+      "id": "brindisi",
+      "lat": 40.6414,
+      "lon": 17.9458,
+      "desc": "Has completado los 611 km del desafío. Las columnas romanas de Brindisi, tradicionalmente asociadas al final de la Appia, marcan tu llegada junto al puerto. Cada actividad que sumaste forma ahora parte de este viaje desde Roma hasta el Adriático.",
+      "emoji": "🏆",
+      "pista": "El final del recorrido mira hacia el puerto.",
+      "nombre": "Brindisi · Columnas romanas",
+      "fuentes": [
+        "https://www.comune.brindisi.it/vivere-il-comune/luoghi/colonne-romane-e-scalinata-virgiliana/"
+      ],
+      "capitulo": 4,
+      "datoRaro": "Una de las columnas cayó en 1528. Parte de sus piezas se entregó después a Lecce para levantar un monumento a san Oronzo; por eso hoy el conjunto no conserva las dos columnas completas.",
+      "kmFisico": 611
+    }
+  ],
+  "description": "Un recorrido virtual de 611 km desde Roma hasta Brindisi, inspirado en la Appia Antica. Descubre 13 hitos entre el Lazio, Campania, Basilicata y Puglia mientras sumas actividades a tu propio ritmo.",
+  "modalidades": [
+    {
+      "tipo": "run",
+      "label": "Estándar",
+      "version": "estandar",
+      "distancia_km": 611
+    }
+  ],
+  "link_shopify": "https://korva.run/products/desafio-virtual-611km-via-appia-roma",
+  "route_geojson": null,
+  "total_distance_km": 611
+}
