@@ -13,6 +13,8 @@ Después de la actualización se verificaron historia e hitos contra el fixture 
 
 ## Validación
 
+Al ejecutar manualmente `Backend - pruebas de progreso` sobre esta rama, el workflow también descarga las cuatro plantillas públicas y genera los PDF con el programa real del backend. Usa exclusivamente `Prueba Korva` y `0001`, comprueba nombre, número y ausencia de campos sin completar, y publica el archivo descargable `PDF-prueba-Santiago-y-Appia` en Artifacts durante siete días. Es una prueba de documentos: no crea inscripciones, no reserva números, no envía correos ni publica desafíos. La revisión visual de esos PDF corresponde después de descargarlos.
+
 - Suite completa del backend: 464/464.
 - Pruebas Python del certificado: 4/4.
 - Las 14 pruebas específicas de Camino/Appia simulan compra firmada, reintentos, inscripción, progreso, finalización, selección de plantillas y efectos con base y servicios de correo falsos. No envían correos reales.

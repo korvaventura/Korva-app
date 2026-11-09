@@ -56,7 +56,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends libreoffice-impress
           python3 -m venv .venv-certificados
-          .venv-certificados/bin/pip install python-pptx
+          .venv-certificados/bin/pip install python-pptx pypdf==6.1.1
       - name: Generar PDF real de prueba (sin datos de clientes)
         run: |
           .venv-certificados/bin/python - <<'PY'
@@ -75,3 +75,12 @@ jobs:
           assert pdf.startswith(b'%PDF-') and len(pdf) > 1000, 'PDF inválido o vacío'
           print(f'Conversión real OK: PDF de {len(pdf)} bytes')
           PY
+      - name: Generar dorsales y postales reales con datos ficticios
+        run: .venv-certificados/bin/python tests/generar_pdfs_desafios_prueba.py
+      - name: Descargar PDF para revisión visual
+        uses: actions/upload-artifact@v4
+        with:
+          name: PDF-prueba-Santiago-y-Appia
+          path: backend/output/pdf-prueba-desafios/*.pdf
+          if-no-files-found: error
+          retention-days: 7
