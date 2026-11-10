@@ -126,9 +126,13 @@ export default function GpsTrackerScreen({ navigation }) {
       setPrecision(null);
       await escucharUbicacion();
     } catch (e) {
-      await detenerWatcher();
+      // KORVA_GPS_START_DIAGNOSTICO: conservar el error original aunque falle la limpieza.
+      try { await detenerWatcher(); } catch (limpieza) { console.warn('GPS: fallo al detener', limpieza); }
       setEstadoGps('error');
-      Alert.alert('GPS no disponible', 'No pudimos iniciar el GPS. Intentá nuevamente.');
+      const codigo = String(e?.code || 'sin_codigo').slice(0, 100);
+      const detalle = String(e?.message || e || 'Sin detalle disponible').slice(0, 450);
+      console.warn('KORVA_GPS_START_DIAGNOSTICO', codigo, detalle);
+      Alert.alert('GPS no disponible', 'No pudimos iniciar el GPS.\n\nCódigo: ' + codigo + '\nDetalle: ' + detalle + '\n\nEnviá una captura a soporte.');
     }
   };
 
