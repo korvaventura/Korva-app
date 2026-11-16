@@ -1,0 +1,117 @@
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import MapaRecorrido3D from './MapaRecorrido3D';
+import { supabase } from '../supabase';
+import { colors } from '../theme/korvaTheme';
+import { distanciaDeInscripcion } from '../utils/versionDesafio';
+import { mapa3DDeDesafio } from '../screens/MapaRecorrido';
+import { desafiosParaAventura, kmAventura } from '../services/gps/aventuraGpsCore';
+
+// Segunda pantalla del GPS: el mapa 3D del desafío con el marcador avanzando
+// en vivo y la cámara detrás. Arriba, los datos de la actividad en chico.
+// No escribe nada: los km se suman recién al confirmar la actividad.
+export default function GpsAventura({ kmSesion = 0, distanciaTxt, tiempoTxt, ritmoTxt, ritmoLabel, onInteraccionMapa }) {
+  const [estado, setEstado] = useState('cargando');
+  const [desafios, setDesafios] = useState([]);
+  const [elegidoId, setElegidoId] = useState(null);
+  const [alto, setAlto] = useState(0);
+
+  useEffect(() => {
+    let activo = true;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user?.id) { if (activo) setEstado('sesion'); return; }
+        const { data, error } = await supabase
+          .from('user_challenges')
+          .select('challenge_id, status, pausado, km_completed, version, modalidad, challenges(id, title, total_distance_km, modalidades)')
+          .eq('user_id', session.user.id)
+          .eq('status', 'active');
+        if (error) throw error;
+        if (!activo) return;
+        const lista = desafiosParaAventura(data || []);
+        setDesafios(lista);
+        setElegidoId(lista[0]?.challenge_id || null);
+        setEstado(lista.length ? 'listo' : 'vacio');
+      } catch {
+        if (activo) setEstado('error');
+      }
+    })();
+    return () => { activo = false; };
+  }, []);
+
+  const elegido = desafios.find((d) => d.challenge_id === elegidoId) || null;
+  const mapa = useMemo(() => (elegido ? mapa3DDeDesafio(elegido.challenge_id, elegido.challenges?.title) : null), [elegido?.challenge_id]);
+  const total = elegido ? (distanciaDeInscripcion(elegido, elegido.challenges) || Number(elegido.challenges?.total_distance_km) || 0) : 0;
+  const avance = kmAventura({ kmPrevio: elegido?.km_completed, kmSesion, total });
+
+  return (
+    <View style={styles.wrap}>
+      <View style={styles.datos}>
+        <Dato valor={distanciaTxt} etiqueta="KM" grande />
+        <Dato valor={tiempoTxt} etiqueta="TIEMPO" />
+        <Dato valor={ritmoTxt} etiqueta={ritmoLabel} />
+      </View>
+
+      {desafios.length > 1 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          {desafios.map((d) => (
+            <TouchableOpacity key={d.challenge_id} onPress={() => setElegidoId(d.challenge_id)}
+              style={[styles.chip, d.challenge_id === elegidoId && styles.chipActivo]}>
+              <Text numberOfLines={1} style={styles.chipTxt}>{d.challenges?.title}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
+      <View style={styles.mapa} onLayout={(e) => setAlto(e.nativeEvent.layout.height)}>
+        {estado === 'cargando' && <ActivityIndicator color={colors.brandOrange} style={styles.centro} />}
+        {estado === 'sesion' && <Text style={styles.aviso}>Iniciá sesión para ver tu desafío mientras te movés.</Text>}
+        {estado === 'error' && <Text style={styles.aviso}>No pudimos cargar tus desafíos. Tus datos siguen grabándose.</Text>}
+        {estado === 'vacio' && <Text style={styles.aviso}>Cuando tengas un desafío activo, acá vas a verte avanzar por su mapa mientras te movés.</Text>}
+        {estado === 'listo' && mapa && alto > 0 && (
+          <MapaRecorrido3D
+            key={mapa.escena.id}
+            altura={alto}
+            escena={mapa.escena}
+            horneado={mapa.horneado}
+            checkpoints={mapa.checkpoints}
+            progreso={avance.progreso}
+            completado={avance.completado}
+            kmUsuario={avance.km}
+            kmTotalUsuario={total}
+            seguirMarcador
+            onInteraccionMapa={onInteraccionMapa}
+          />
+        )}
+      </View>
+      {estado === 'listo' && <Text style={styles.nota}>Vista previa · los km se suman al confirmar la actividad</Text>}
+    </View>
+  );
+}
+
+function Dato({ valor, etiqueta, grande }) {
+  return (
+    <View style={styles.dato}>
+      <Text style={[styles.datoValor, grande && styles.datoGrande]} numberOfLines={1}>{valor}</Text>
+      <Text style={styles.datoEtiqueta}>{etiqueta}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrap: { flex: 1 },
+  datos: { flexDirection: 'row', backgroundColor: colors.background, borderRadius: 16, paddingVertical: 10, marginTop: 14 },
+  dato: { flex: 1, alignItems: 'center' },
+  datoValor: { color: colors.text, fontSize: 18, fontWeight: '700' },
+  datoGrande: { fontSize: 22 },
+  datoEtiqueta: { color: colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 1.2, marginTop: 3 },
+  chips: { gap: 8, paddingVertical: 10 },
+  chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.borderSoft, maxWidth: 200 },
+  chipActivo: { borderColor: colors.brandOrange, backgroundColor: colors.surfaceRaised },
+  chipTxt: { color: colors.text, fontSize: 12, fontWeight: '700' },
+  mapa: { flex: 1, marginTop: 10, borderRadius: 18, overflow: 'hidden', backgroundColor: colors.background, justifyContent: 'center' },
+  centro: { alignSelf: 'center' },
+  aviso: { color: colors.textSoft, fontSize: 13, lineHeight: 19, textAlign: 'center', paddingHorizontal: 24 },
+  nota: { color: colors.textMuted, fontSize: 10, textAlign: 'center', marginTop: 6 },
+});

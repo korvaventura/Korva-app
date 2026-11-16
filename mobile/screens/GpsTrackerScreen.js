@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, AppState, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import gpsCore from '../services/gps/gpsCore';
@@ -14,6 +14,7 @@ import { iniciarGpsBackground, detenerGpsBackground } from '../services/gps/gpsB
 import { sincronizarActividadGps } from '../services/gps/gpsLiveActivity';
 import { confirmarActividadGps } from '../services/gps/gpsApi';
 import { colors, radius } from '../theme/korvaTheme';
+import GpsAventura from '../components/GpsAventura';
 
 const {
   crearSesionGps,
@@ -44,6 +45,13 @@ export default function GpsTrackerScreen({ navigation }) {
   const [ahoraMs, setAhoraMs] = useState(Date.now());
   const [deporte, setDeporte] = useState('run');
   const [confirmando, setConfirmando] = useState(false);
+  // Dos pantallas: 0 = sólo datos, 1 = mapa del desafío con los datos en chico.
+  const { width: anchoVentana } = useWindowDimensions();
+  const anchoPagina = anchoVentana - 44;
+  const [pagina, setPagina] = useState(0);
+  const [mapaTocado, setMapaTocado] = useState(false);
+  const paginasRef = useRef(null);
+  const irAPagina = (n) => { setMapaTocado(false); setPagina(n); paginasRef.current?.scrollTo({ x: n * anchoPagina, animated: true }); };
 
   const publicar = (s, { persistir = true } = {}) => {
     sesionRef.current = s;
@@ -272,6 +280,16 @@ export default function GpsTrackerScreen({ navigation }) {
         <View style={styles.back} />
       </View>
 
+      <ScrollView
+        ref={paginasRef}
+        style={styles.paginas}
+        horizontal
+        pagingEnabled
+        scrollEnabled={!mapaTocado}
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(e) => { setMapaTocado(false); setPagina(Math.round(e.nativeEvent.contentOffset.x / Math.max(1, anchoPagina))); }}
+      >
+      <ScrollView style={{ width: anchoPagina }} showsVerticalScrollIndicator={false}>
       {!sesion && (
         <View style={styles.sportRow}>
           {[
@@ -322,6 +340,29 @@ export default function GpsTrackerScreen({ navigation }) {
             ? 'El GPS sigue registrando si bloqueás la pantalla o usás otra app.'
             : 'Al finalizar vas a revisar y confirmar la actividad. Recién al confirmarla suma a tus desafíos activos.'}
         </Text>
+      </View>
+      </ScrollView>
+
+      <View style={{ width: anchoPagina }}>
+        {pagina === 1 && (
+          <GpsAventura
+            kmSesion={resumenBase.distancia_km}
+            distanciaTxt={resumenBase.distancia_km.toFixed(2)}
+            tiempoTxt={formatearTiempo(segundosVista)}
+            ritmoTxt={deporte === 'ride' ? (velocidadKmh > 0 ? velocidadKmh.toFixed(1) : '--') : ritmoTexto.replace(' /km', '')}
+            ritmoLabel={deporte === 'ride' ? 'KM/H' : 'RITMO /KM'}
+            onInteraccionMapa={setMapaTocado}
+          />
+        )}
+      </View>
+      </ScrollView>
+
+      <View style={styles.puntos}>
+        {['Datos', 'Mapa'].map((nombre, i) => (
+          <TouchableOpacity key={nombre} onPress={() => irAPagina(i)} style={[styles.puntoBoton, pagina === i && styles.puntoBotonActivo]} accessibilityRole="button">
+            <Text style={[styles.puntoTxt, pagina === i && styles.puntoTxtActivo]}>{nombre}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <View style={styles.controls}>
@@ -441,7 +482,13 @@ const styles = StyleSheet.create({
   summaryItem: { flex: 1 },
   summaryValue: { color: colors.text, fontSize: 17, fontWeight: '700' },
   summaryLabel: { color: colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 1, marginTop: 4 },
-  controls: { marginTop: 'auto', paddingBottom: 38 },
+  controls: { paddingBottom: 38, paddingTop: 10 },
+  paginas: { flex: 1 },
+  puntos: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingTop: 8 },
+  puntoBoton: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.background },
+  puntoBotonActivo: { backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.brandOrange },
+  puntoTxt: { color: colors.textMuted, fontSize: 11, fontWeight: '700' },
+  puntoTxtActivo: { color: colors.text },
   primary: { height: 58, borderRadius: 18, backgroundColor: colors.brandOrange, flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center' },
   primaryText: { color: colors.text, fontSize: 16, fontWeight: '700' },
   controlRow: { flexDirection: 'row', gap: 12 },

@@ -11,6 +11,7 @@ import { colors } from '../theme/korvaTheme';
 import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
 import { muestraGesto, avanzarGesto, seleccionarPin } from '../services/mapa3d/gestosCore';
 import { avanzarTope, avanzarBloqueoPan, bordeDeRuta, fueraDeBorde } from '../services/globoKorvaCore';
+import { controlPersecucion } from '../services/gps/aventuraGpsCore';
 import { estadoJourney } from '../services/mapa3d/journeyCore';
 import { crearReplayHitos, kmEnReplay, rotulosReplay } from '../services/mapa3d/replayHitosCore';
 import { separarPinesCamino } from '../services/mapa3d/pinesCaminoCore';
@@ -258,6 +259,8 @@ export default function MapaRecorrido3D({
   onAlejarAlGlobo,
   umbralAlejar,
   recentrarSenal,
+  // Modo aventura del GPS: la cámara sigue al marcador desde atrás.
+  seguirMarcador = false,
 }) {
   const [detalleActivo, setDetalleActivo] = useState(false);
   const [llegadaFinal, setLlegadaFinal] = useState(false);
@@ -488,12 +491,12 @@ export default function MapaRecorrido3D({
   vistaGeneralRef.current = vistaGeneral;
   // Centro y radio de la ruta: sólo hace falta si este mapa puede abrir el globo.
   const bordeRuta = useMemo(() => {
-    if (!onAlejarAlGlobo || !mundo) return null;
+    if ((!onAlejarAlGlobo && !seguirMarcador) || !mundo) return null;
     const puntos = [];
     for (let km = 0; km <= escena.distanciaKm; km += Math.max(1, escena.distanciaKm / 80)) puntos.push(posicionEnKm(mundo.datos, mundo.conv, km, 0));
     puntos.push(posicionEnKm(mundo.datos, mundo.conv, escena.distanciaKm, 0));
     return bordeDeRuta(puntos);
-  }, [!!onAlejarAlGlobo, mundo, escena]);
+  }, [!!onAlejarAlGlobo, seguirMarcador, mundo, escena]);
   bordeRutaRef.current = bordeRuta;
   const kmProgresoReal = kmDeProgreso(progreso, escena.distanciaKm, completado);
   const kmProgreso = kmPlayback == null ? kmProgresoReal : kmPlayback;
@@ -769,6 +772,42 @@ export default function MapaRecorrido3D({
     setReproduciendo(false);
     recenter();
   };
+
+  // Cámara de persecución: cada poco tiempo se acomoda detrás del marcador,
+  // salvo mientras el usuario mueve el mapa (respeta la pausa manual).
+  const kmActualRef = useRef(0);
+  kmActualRef.current = journey.kmActual;
+  const persecucionAnimRef = useRef(null);
+  const ultimaPersecucionRef = useRef(null);
+  useEffect(() => {
+    if (!seguirMarcador || !mundo) return undefined;
+    const acomodar = () => {
+      if (Date.now() < camaraManualHastaRef.current || arrastrandoRef.current) { ultimaPersecucionRef.current = null; return; }
+      const km = kmActualRef.current;
+      if (ultimaPersecucionRef.current != null && Math.abs(ultimaPersecucionRef.current - km) < 0.005) return;
+      ultimaPersecucionRef.current = km;
+      const total = escena.distanciaKm;
+      const paso = Math.max(0.2, total / 400);
+      const p = posicionEnKm(mundo.datos, mundo.conv, km, 0);
+      const a = posicionEnKm(mundo.datos, mundo.conv, Math.max(0, km - paso), 0);
+      const b = posicionEnKm(mundo.datos, mundo.conv, Math.min(total, km + paso), 0);
+      const destino = controlPersecucion({ p, a, b, radioRuta: bordeRutaRef.current?.radio, camara: escena.camara });
+      const inicio = { ...controlRef.current, objetivo: [...(controlRef.current.objetivo || destino.objetivo)] };
+      if (persecucionAnimRef.current) cancelAnimationFrame(persecucionAnimRef.current);
+      const t0 = Date.now();
+      const avanzar = () => {
+        if (arrastrandoRef.current) { persecucionAnimRef.current = null; return; }
+        const t = Math.min(1, (Date.now() - t0) / 700);
+        controlRef.current = interpolarLlegada(inicio, destino, t);
+        ultimaPublicacionRef.current = 0; aplicarCamara();
+        persecucionAnimRef.current = t < 1 ? requestAnimationFrame(avanzar) : null;
+      };
+      persecucionAnimRef.current = requestAnimationFrame(avanzar);
+    };
+    acomodar();
+    const id = setInterval(acomodar, 1200);
+    return () => { clearInterval(id); if (persecucionAnimRef.current) cancelAnimationFrame(persecucionAnimRef.current); };
+  }, [seguirMarcador, mundo, escena, aplicarCamara]);
 
   const enfocarPosicion = () => {
     if (!mundo) return;

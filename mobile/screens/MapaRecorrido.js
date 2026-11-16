@@ -289,6 +289,15 @@ const getConfig = (challengeId, challengeTitle) => {
   return CONFIGS.default;
 };
 
+// Escena 3D y checkpoints de un desafío (la misma que muestra su mapa).
+// La usa el modo aventura del GPS para dibujar el desafío en vivo.
+export function mapa3DDeDesafio(challengeId, challengeTitle) {
+  const config = getConfig(challengeId, challengeTitle);
+  const clave = Object.keys(CONFIGS).find((k) => CONFIGS[k] === config);
+  const mapa = escenaParaConfig(clave);
+  return mapa ? { ...mapa, checkpoints: config.checkpoints, distanciaFisica: config.distanciaFisica } : null;
+}
+
 const getPuntoEnRuta = (segmentos, kmFisicos, distanciaFisica) => {
   if (kmFisicos <= 0) return segmentos[0];
   if (kmFisicos >= distanciaFisica) return segmentos[segmentos.length - 1];
