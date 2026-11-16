@@ -98,8 +98,20 @@ function Marker({ destino, onSelect, seleccionado }) {
   );
 }
 
-function GlobeScene({ destinos, giroX, giroY, zoom, onSelect, seleccionadoId }) {
-  const worldScale = 1.72 * Math.max(0.72, Math.min(2.35, zoom));
+const escalaMundo = (zoom) => 1.72 * Math.max(0.72, Math.min(2.35, zoom));
+
+function GlobeScene({ destinos, giroX, giroY, zoom, onSelect, seleccionadoId, controlRef }) {
+  const worldScale = escalaMundo(zoom);
+  const grupoRef = useRef(null);
+  // Con controlRef el giro y el zoom se aplican dentro del cuadro de GL,
+  // sin volver a renderizar React en cada movimiento del dedo.
+  useFrame(() => {
+    const c = controlRef?.current;
+    const g = grupoRef.current;
+    if (!c || !g) return;
+    g.rotation.set(c.x, c.y, 0);
+    g.scale.setScalar(escalaMundo(c.zoom));
+  });
 
   return (
     <>
@@ -108,7 +120,7 @@ function GlobeScene({ destinos, giroX, giroY, zoom, onSelect, seleccionadoId }) 
       <directionalLight color="#C5EAFF" intensity={1.7} position={[-2.5, 2.2, 4.5]} />
       <pointLight color="#FF6B20" intensity={0.38} distance={8} position={[3, 1.5, 3]} />
 
-      <group rotation={[giroX, giroY, 0]} scale={worldScale}>
+      <group ref={grupoRef} rotation={[giroX, giroY, 0]} scale={worldScale}>
         <mesh>
           <sphereGeometry args={[1, 96, 96]} />
           <meshStandardMaterial color="#061A29" emissive="#03111C" emissiveIntensity={0.5} roughness={0.8} metalness={0.04} />
@@ -134,7 +146,7 @@ function GlobeScene({ destinos, giroX, giroY, zoom, onSelect, seleccionadoId }) 
   );
 }
 
-export default function KorvaGlobe3D({ destinos = [], giroX = -0.08, giroY = 0, zoom = 1, onSelect, seleccionadoId }) {
+export default function KorvaGlobe3D({ destinos = [], giroX = -0.08, giroY = 0, zoom = 1, onSelect, seleccionadoId, controlRef }) {
   return (
     <View style={styles.wrap}>
       <Canvas
@@ -143,7 +155,7 @@ export default function KorvaGlobe3D({ destinos = [], giroX = -0.08, giroY = 0, 
         dpr={1.5}
         onCreated={({ gl }) => gl.setClearColor('#000000', 0)}
       >
-        <GlobeScene destinos={destinos} giroX={giroX} giroY={giroY} zoom={zoom} onSelect={onSelect} seleccionadoId={seleccionadoId} />
+        <GlobeScene destinos={destinos} giroX={giroX} giroY={giroY} zoom={zoom} onSelect={onSelect} seleccionadoId={seleccionadoId} controlRef={controlRef} />
       </Canvas>
     </View>
   );

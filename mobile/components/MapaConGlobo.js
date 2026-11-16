@@ -26,10 +26,8 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
   const [seleccionado, setSeleccionado] = useState(null);
   const [recentrar, setRecentrar] = useState(null);
   const inicial = useMemo(() => giroHacia(destinoActual?.latitude ?? 0, destinoActual?.longitude ?? 0), [destinoActual?.latitude, destinoActual?.longitude]);
-  const [giro, setGiro] = useState({ x: inicial.giroX, y: inicial.giroY });
-  const [zoom, setZoom] = useState(GLOBO_ZOOM_MAX);
-  const giroRef = useRef({ x: inicial.giroX, y: inicial.giroY });
-  const zoomRef = useRef(GLOBO_ZOOM_MAX);
+  // Giro y zoom del globo viven en un ref que el globo lee en cada cuadro de GL.
+  const controlRef = useRef({ x: inicial.giroX, y: inicial.giroY, zoom: GLOBO_ZOOM_MAX });
   const animRef = useRef(null);
   const opacidad = useRef(new Animated.Value(0)).current;
   const gesto = useRef({ giro: null, zoom: null, distancia: null, ultima: null, tope: 1 });
@@ -57,7 +55,7 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
 
   const animar = useCallback((destino, duracion) => {
     if (animRef.current) cancelAnimationFrame(animRef.current);
-    const desde = { ...giroRef.current, zoom: zoomRef.current };
+    const desde = { ...controlRef.current };
     const inicio = Date.now();
     const paso = () => {
       const t = clamp((Date.now() - inicio) / duracion, 0, 1);
@@ -65,8 +63,7 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
       const x = desde.x + (destino.x - desde.x) * e;
       const y = desde.y + (destino.y - desde.y) * e;
       const z = destino.zoom == null ? desde.zoom : desde.zoom + (destino.zoom - desde.zoom) * e;
-      giroRef.current = { x, y }; zoomRef.current = z;
-      setGiro({ x, y }); setZoom(z);
+      controlRef.current = { x, y, zoom: z };
       if (t < 1) animRef.current = requestAnimationFrame(paso);
     };
     animRef.current = requestAnimationFrame(paso);
@@ -78,9 +75,8 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
     if (vista === 'globo') return;
     if (!catalogo && !cargando) cargar();
     // Arranca pegado a la ruta y se aleja hasta ver el planeta.
-    const g = giroHacia(destinoActual?.latitude ?? 0, destinoActual?.longitude ?? 0, giroRef.current.y);
-    giroRef.current = { x: g.giroX, y: g.giroY }; zoomRef.current = GLOBO_ZOOM_MAX;
-    setGiro({ ...giroRef.current }); setZoom(GLOBO_ZOOM_MAX);
+    const g = giroHacia(destinoActual?.latitude ?? 0, destinoActual?.longitude ?? 0, controlRef.current.y);
+    controlRef.current = { x: g.giroX, y: g.giroY, zoom: GLOBO_ZOOM_MAX };
     setSeleccionado(null);
     setVista('globo');
     Animated.timing(opacidad, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
@@ -89,7 +85,7 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
 
   const volverARuta = useCallback(() => {
     if (vista !== 'globo') return;
-    const g = giroHacia(destinoActual?.latitude ?? 0, destinoActual?.longitude ?? 0, giroRef.current.y);
+    const g = giroHacia(destinoActual?.latitude ?? 0, destinoActual?.longitude ?? 0, controlRef.current.y);
     animar({ x: g.giroX, y: g.giroY, zoom: GLOBO_ZOOM_MAX }, 520);
     setSeleccionado(null);
     setRecentrar(Date.now());
@@ -102,7 +98,7 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
 
   const seleccionar = useCallback((d) => {
     setSeleccionado(d);
-    const g = giroHacia(d.latitude, d.longitude, giroRef.current.y);
+    const g = giroHacia(d.latitude, d.longitude, controlRef.current.y);
     animar({ x: g.giroX, y: g.giroY }, 520);
   }, [animar]);
 
@@ -113,16 +109,16 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
     onPanResponderTerminationRequest: () => false,
     onPanResponderGrant: () => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
-      gesto.current = { giro: { ...giroRef.current }, zoom: zoomRef.current, distancia: null, ultima: null, tope: 1 };
+      gesto.current = { giro: { ...controlRef.current }, zoom: controlRef.current.zoom, distancia: null, ultima: null, tope: 1 };
     },
     onPanResponderMove: (e, g) => {
       const t = e.nativeEvent.touches || [];
       if (t.length >= 2) {
         const d = Math.hypot(t[0].pageX - t[1].pageX, t[0].pageY - t[1].pageY);
-        if (!gesto.current.distancia) { gesto.current.distancia = d; gesto.current.zoom = zoomRef.current; gesto.current.ultima = d; return; }
-        const antes = zoomRef.current;
+        if (!gesto.current.distancia) { gesto.current.distancia = d; gesto.current.zoom = controlRef.current.zoom; gesto.current.ultima = d; return; }
+        const antes = controlRef.current.zoom;
         const z = clamp(gesto.current.zoom * (d / gesto.current.distancia), GLOBO_ZOOM_MIN, GLOBO_ZOOM_MAX);
-        zoomRef.current = z; setZoom(z);
+        controlRef.current = { ...controlRef.current, zoom: z };
         const tope = avanzarTope(gesto.current.tope, {
           n: 2, distanciaAnterior: gesto.current.ultima, distanciaActual: d, zoomAntes: antes, zoomDespues: z,
           enTope: antes >= GLOBO_ZOOM_MAX - 1e-6 && z >= GLOBO_ZOOM_MAX - 1e-6,
@@ -132,11 +128,13 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
         if (tope.cambiar) volverRef.current();
         return;
       }
-      gesto.current.distancia = null;
+      if (gesto.current.distancia) { gesto.current.distancia = null; gesto.current.giro = { ...controlRef.current }; gesto.current.dx0 = g.dx; gesto.current.dy0 = g.dy; }
       const base = gesto.current.giro;
-      const y = base.y - g.dx * 0.0044 / Math.max(0.8, zoomRef.current);
-      const x = clamp(base.x - g.dy * 0.0032 / Math.max(0.8, zoomRef.current), -0.72, 0.72);
-      giroRef.current = { x, y }; setGiro({ x, y });
+      const dx = g.dx - (gesto.current.dx0 || 0);
+      const dy = g.dy - (gesto.current.dy0 || 0);
+      const y = base.y - dx * 0.0044 / Math.max(0.8, controlRef.current.zoom);
+      const x = clamp(base.x - dy * 0.0032 / Math.max(0.8, controlRef.current.zoom), -0.72, 0.72);
+      controlRef.current = { ...controlRef.current, x, y };
     },
     onPanResponderRelease: () => { gesto.current.distancia = null; },
     onPanResponderTerminate: () => { gesto.current.distancia = null; },
@@ -150,7 +148,7 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
       {vista === 'globo' && (
         <Animated.View style={[StyleSheet.absoluteFill, styles.globo, { opacity: opacidad }]}>
           <View style={StyleSheet.absoluteFill} {...pan.panHandlers}>
-            <KorvaGlobe3D destinos={destinos} giroX={giro.x} giroY={giro.y} zoom={zoom}
+            <KorvaGlobe3D destinos={destinos} controlRef={controlRef}
               onSelect={seleccionar} seleccionadoId={seleccionado?.id || destinoActual?.id} />
           </View>
           <View pointerEvents="none" style={styles.titulo}>

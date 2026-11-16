@@ -88,3 +88,10 @@ test('el mapa del Camino pide más recorrido de pellizco (umbral 0.5) antes del 
   assert.match(leer('components/MapaConGlobo.js'), /const UMBRAL_ALEJAR = 0\.5;/);
   assert.match(leer('components/MapaConGlobo.js'), /memo\(MapaRecorrido3D\)/);
 });
+
+test('girar el globo desde la ruta no re-renderiza React en cada movimiento', () => {
+  const src = leer('components/MapaConGlobo.js');
+  assert.doesNotMatch(src, /setGiro|setZoom/);
+  assert.match(src, /<KorvaGlobe3D destinos=\{destinos\} controlRef=\{controlRef\}/);
+  assert.match(leer('components/KorvaGlobe3D.js'), /const c = controlRef\?\.current;/);
+});
