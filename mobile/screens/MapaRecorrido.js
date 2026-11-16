@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, Animated, Dimensions } from 'react-native';
 import Svg, { Path, Circle, Rect, Text as SvgText, Defs, LinearGradient, Stop, Mask, Ellipse, Polygon, G } from 'react-native-svg';
-import MapaRecorrido3D from '../components/MapaRecorrido3D';
+import MapaConGlobo from '../components/MapaConGlobo';
 import { escenaParaConfig } from '../services/mapa3d/escenas';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -616,6 +616,8 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
 
   const altoMapaModal = Math.max(455, altoModal - 88);
   const config = getConfig(challengeId, challengeTitle);
+  // Desafío que el globo Korva marca como "estás acá" al alejarse del mapa.
+  const destinoGlobo = useMemo(() => ({ id: challengeId, title: challengeTitle }), [challengeId, challengeTitle]);
   const { titulo, distanciaFisica, clima, segmentos, checkpoints, decoraciones } = config;
 
   const factor = (distanciaTotal || distanciaFisica) / distanciaFisica;
@@ -802,8 +804,9 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
       {!ocultarTitulo && <Text style={styles.titulo}>{titulo}</Text>}
       {mapa3D ? (
         <View style={styles.mapa3DWrapper}>
-          <MapaRecorrido3D
+          <MapaConGlobo
             key={mapa3D.escena.id}
+            destinoActual={destinoGlobo}
             altura={alturaMapa}
             escena={mapa3D.escena}
             horneado={mapa3D.horneado}

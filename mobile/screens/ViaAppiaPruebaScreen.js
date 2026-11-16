@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, TouchableOpacity, StyleSheet, Linking, Alert } from 'react-native';
-import MapaRecorrido3D from '../components/MapaRecorrido3D';
+import MapaConGlobo from '../components/MapaConGlobo';
+const { DESTINOS_PRUEBA } = require('../services/korvaMundiCore');
+const destinoAppia = DESTINOS_PRUEBA.find((d) => d.pantallaPrueba === 'ViaAppiaPrueba');
 import DetalleScreen from './DetalleScreen';
 
 // Acceso únicamente desde la ruta de administrador en desarrollo.
@@ -13,7 +15,7 @@ const paradas = historia.checkpoints.map(({ id, nombre, kmFisico }) => ({ id, no
 // Anclas de inspección: funcionan sin miniaturas cargadas.
 const anclas = [['Inicio', 'brindisi'], ['Oria', 'oria'], ['Gravina', 'gravina'], ['Benevento', 'benevento'], ['Cecilia', 'cecilia_metella'], ['Roma', 'roma'], ['General', null]];
 
-export default function ViaAppiaPruebaScreen() {
+export default function ViaAppiaPruebaScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [mapa] = useState(() => escenaParaConfig('via_appia'));
   const [foco, setFoco] = useState(null);
@@ -43,7 +45,9 @@ export default function ViaAppiaPruebaScreen() {
         <Text style={styles.texto}>{nombre}</Text>
       </TouchableOpacity>)}</View>
     <View style={{ flex: 1 }} onLayout={(e) => setAltura(e.nativeEvent.layout.height)}>
-      {altura > 0 && <MapaRecorrido3D key={progreso} escena={mapa.escena} horneado={mapa.horneado}
+      {altura > 0 && <MapaConGlobo key={progreso} escena={mapa.escena} horneado={mapa.horneado}
+        destinoActual={destinoAppia} esAdmin
+        onAbrirDestino={(d) => navigation?.navigate(d.pantallaPrueba || 'KorvaMundi')}
         focoMonumento={foco}
         checkpoints={paradas} progreso={progreso} completado={progreso === 1}
         kmUsuario={611 * progreso} kmTotalUsuario={611} altura={altura}

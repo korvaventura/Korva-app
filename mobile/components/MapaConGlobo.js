@@ -4,7 +4,8 @@ import MapaRecorrido3D from './MapaRecorrido3D';
 import KorvaGlobe3D from './KorvaGlobe3D';
 import { colors } from '../theme/korvaTheme';
 import { conUbicacion, destinosPrueba } from '../services/korvaMundiCore';
-import { GLOBO_ZOOM_MAX, GLOBO_ZOOM_MIN, avanzarTope, destinosParaGlobo, giroHacia } from '../services/globoKorvaCore';
+import { GLOBO_ZOOM_MAX, GLOBO_ZOOM_MIN, avanzarTope, destinosParaGlobo, giroHacia, resolverActual } from '../services/globoKorvaCore';
+import { ISLANDIA_MUNDI } from '../services/rutaLibreMundiCore';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 const ZOOM_VISTA_GLOBO = 1.05;
@@ -29,7 +30,11 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
   // la GPU (es la escena pesada). Al volver se monta otra vez desde la caché.
   const [rutaMontada, setRutaMontada] = useState(true);
   const rutaMontadaRef = useRef(true);
-  const inicial = useMemo(() => giroHacia(destinoActual?.latitude ?? 0, destinoActual?.longitude ?? 0), [destinoActual?.latitude, destinoActual?.longitude]);
+  // El desafío actual con coordenadas (locales o del catálogo, cuando llega).
+  const actual = useMemo(() => resolverActual(destinoActual, catalogo || []), [destinoActual, catalogo]);
+  const tieneUbicacion = actual?.latitude != null && actual?.longitude != null;
+  const introPendienteRef = useRef(false);
+  const inicial = useMemo(() => giroHacia(actual?.latitude ?? 0, actual?.longitude ?? 0), [actual?.latitude, actual?.longitude]);
   // Giro y zoom del globo viven en un ref que el globo lee en cada cuadro de GL.
   const controlRef = useRef({ x: inicial.giroX, y: inicial.giroY, zoom: GLOBO_ZOOM_MAX });
   const animRef = useRef(null);
@@ -53,9 +58,10 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
   const destinos = useMemo(() => {
     const lista = catalogo || [];
     const prueba = destinosPrueba({ esAdmin, desarrollo: __DEV__, catalogo: lista });
-    const todos = [...conUbicacion(lista), ...prueba].map((d) => ({ ...d, estado: d.estado || 'por_conquistar' }));
-    return destinosParaGlobo(todos, destinoActual);
-  }, [catalogo, esAdmin, destinoActual]);
+    const islandia = lista.some((d) => d.id === ISLANDIA_MUNDI.id) ? [] : [ISLANDIA_MUNDI];
+    const todos = [...conUbicacion(lista), ...prueba, ...islandia].map((d) => ({ ...d, estado: d.estado || 'por_conquistar' }));
+    return destinosParaGlobo(todos, actual);
+  }, [catalogo, esAdmin, actual]);
 
   const animar = useCallback((destino, duracion) => {
     if (animRef.current) cancelAnimationFrame(animRef.current);
@@ -79,26 +85,40 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
     if (vista === 'globo') return;
     if (!catalogo && !cargando) cargar();
     // Arranca pegado a la ruta y se aleja hasta ver el planeta.
-    const g = giroHacia(destinoActual?.latitude ?? 0, destinoActual?.longitude ?? 0, controlRef.current.y);
+    const g = giroHacia(actual?.latitude ?? 0, actual?.longitude ?? 0, controlRef.current.y);
     controlRef.current = { x: g.giroX, y: g.giroY, zoom: GLOBO_ZOOM_MAX };
     setSeleccionado(null);
     setVista('globo');
+    propsMapa.onInteraccionMapa?.(false);
+    introPendienteRef.current = !tieneUbicacion;
     Animated.timing(opacidad, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: true })
       .start(({ finished }) => { if (finished) { rutaMontadaRef.current = false; setRutaMontada(false); } });
-    animar({ x: g.giroX, y: g.giroY, zoom: ZOOM_VISTA_GLOBO }, 1300);
-  }, [vista, catalogo, cargando, cargar, destinoActual, opacidad, animar]);
+    if (tieneUbicacion) animar({ x: g.giroX, y: g.giroY, zoom: ZOOM_VISTA_GLOBO }, 1300);
+    else animar({ x: controlRef.current.x, y: controlRef.current.y, zoom: ZOOM_VISTA_GLOBO }, 1300);
+  }, [vista, catalogo, cargando, cargar, actual, tieneUbicacion, opacidad, animar, propsMapa.onInteraccionMapa]);
+
+  // Si la ubicación del desafío llegó con el catálogo después de abrir el globo, girar hacia él.
+  useEffect(() => {
+    if (vista !== 'globo' || !introPendienteRef.current || !tieneUbicacion) return;
+    introPendienteRef.current = false;
+    const g = giroHacia(actual.latitude, actual.longitude, controlRef.current.y);
+    animar({ x: g.giroX, y: g.giroY, zoom: ZOOM_VISTA_GLOBO }, 900);
+  }, [vista, tieneUbicacion, actual, animar]);
 
   const volverARuta = useCallback(() => {
     if (vista !== 'globo') return;
-    const g = giroHacia(destinoActual?.latitude ?? 0, destinoActual?.longitude ?? 0, controlRef.current.y);
+    const g = giroHacia(actual?.latitude ?? 0, actual?.longitude ?? 0, controlRef.current.y);
     animar({ x: g.giroX, y: g.giroY, zoom: GLOBO_ZOOM_MAX }, 520);
     setSeleccionado(null);
     const remontar = !rutaMontadaRef.current;
     if (remontar) { rutaMontadaRef.current = true; setRecentrar(null); setRutaMontada(true); } else setRecentrar(Date.now());
     Animated.timing(opacidad, { toValue: 0, duration: 380, delay: remontar ? 650 : 360, easing: Easing.in(Easing.cubic), useNativeDriver: true })
       .start(() => setVista('ruta'));
-  }, [vista, destinoActual, opacidad, animar]);
+  }, [vista, actual, opacidad, animar]);
 
+  // La página que contiene el mapa deja de hacer scroll mientras se gira el globo.
+  const bloquearRef = useRef(propsMapa.onInteraccionMapa);
+  bloquearRef.current = propsMapa.onInteraccionMapa;
   const volverRef = useRef(volverARuta);
   volverRef.current = volverARuta;
 
@@ -114,6 +134,7 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
     onMoveShouldSetPanResponder: (e, g) => (e.nativeEvent.touches || []).length >= 2 || Math.abs(g.dx) > 4 || Math.abs(g.dy) > 4,
     onPanResponderTerminationRequest: () => false,
     onPanResponderGrant: () => {
+      bloquearRef.current?.(true);
       if (animRef.current) cancelAnimationFrame(animRef.current);
       gesto.current = { giro: { ...controlRef.current }, zoom: controlRef.current.zoom, distancia: null, ultima: null, tope: 1 };
     },
@@ -142,12 +163,12 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
       const x = clamp(base.x - dy * 0.0032 / Math.max(0.8, controlRef.current.zoom), -0.72, 0.72);
       controlRef.current = { ...controlRef.current, x, y };
     },
-    onPanResponderRelease: () => { gesto.current.distancia = null; },
-    onPanResponderTerminate: () => { gesto.current.distancia = null; },
+    onPanResponderRelease: () => { gesto.current.distancia = null; bloquearRef.current?.(false); },
+    onPanResponderTerminate: () => { gesto.current.distancia = null; bloquearRef.current?.(false); },
   }), []);
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, Number(propsMapa.altura) > 0 && { flex: 0, height: Number(propsMapa.altura) }]}>
       <View style={StyleSheet.absoluteFill} pointerEvents={vista === 'globo' ? 'none' : 'auto'}>
         {rutaMontada && <MapaRuta {...propsMapa} onAlejarAlGlobo={abrirGlobo} umbralAlejar={UMBRAL_ALEJAR} recentrarSenal={recentrar} />}
       </View>
@@ -155,7 +176,7 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
         <Animated.View style={[StyleSheet.absoluteFill, styles.globo, { opacity: opacidad }]}>
           <View style={StyleSheet.absoluteFill} {...pan.panHandlers}>
             <KorvaGlobe3D destinos={destinos} controlRef={controlRef} dpr={1.25}
-              onSelect={seleccionar} seleccionadoId={seleccionado?.id || destinoActual?.id} />
+              onSelect={seleccionar} seleccionadoId={seleccionado?.id || actual?.id} />
           </View>
           <View pointerEvents="none" style={styles.titulo}>
             <Text style={styles.eyebrow}>KORVA MUNDI</Text>

@@ -38,13 +38,37 @@ function avanzarTope(acumulado, muestra, { direccion = 'alejar', umbral = UMBRAL
   return siguiente <= umbral ? { acumulado: 1, cambiar: true } : { acumulado: siguiente, cambiar: false };
 }
 
+// Coordenadas conocidas en la app (llegada) para abrir el globo sin esperar al catálogo.
+function ubicacionLocal(id) {
+  const { DESTINOS_PRUEBA } = require('./korvaMundiCore');
+  const { ISLANDIA_MUNDI } = require('./rutaLibreMundiCore');
+  const d = [...DESTINOS_PRUEBA, ISLANDIA_MUNDI].find((x) => x.id === id);
+  return d ? { latitude: d.latitude, longitude: d.longitude, lugar: d.lugar } : null;
+}
+
+// Completa el desafío actual con coordenadas: primero las locales, si no, las del catálogo.
+function resolverActual(actual, catalogo = []) {
+  if (!actual?.id) return actual || null;
+  if (Number.isFinite(Number(actual.latitude)) && Number.isFinite(Number(actual.longitude))
+    && actual.latitude !== null && actual.longitude !== null) return actual;
+  const local = ubicacionLocal(actual.id);
+  if (local) return { ...actual, ...local };
+  const c = (catalogo || []).find((x) => x?.id === actual.id);
+  if (c && c.latitude != null && c.longitude != null && Number.isFinite(Number(c.latitude)) && Number.isFinite(Number(c.longitude))) {
+    return { ...c, ...actual, latitude: Number(c.latitude), longitude: Number(c.longitude) };
+  }
+  return { ...actual, latitude: null, longitude: null };
+}
+
 // Destinos del globo vistos desde un desafío: el actual va primero y resaltado.
 function destinosParaGlobo(destinos = [], actual) {
-  const lista = destinos.filter((d) => d && Number.isFinite(Number(d.latitude)) && Number.isFinite(Number(d.longitude)));
-  if (!actual || !Number.isFinite(Number(actual.latitude)) || !Number.isFinite(Number(actual.longitude))) return lista;
+  const { coordenadasValidas } = require('./korvaMundiCore');
+  const lista = destinos.filter((d) => d && coordenadasValidas(d.latitude, d.longitude));
+  if (!actual || actual.latitude == null || actual.longitude == null
+    || !Number.isFinite(Number(actual.latitude)) || !Number.isFinite(Number(actual.longitude))) return lista;
   const resto = lista.filter((d) => d.id !== actual.id);
   const base = lista.find((d) => d.id === actual.id) || {};
   return [{ ...base, ...actual, estado: 'en_curso', esActual: true }, ...resto];
 }
 
-module.exports = { GLOBO_ZOOM_MIN, GLOBO_ZOOM_MAX, UMBRAL_TOPE, giroHacia, avanzarTope, destinosParaGlobo };
+module.exports = { GLOBO_ZOOM_MIN, GLOBO_ZOOM_MAX, UMBRAL_TOPE, giroHacia, avanzarTope, destinosParaGlobo, ubicacionLocal, resolverActual };

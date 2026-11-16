@@ -68,13 +68,28 @@ test('destinosParaGlobo pone primero el desafío actual y no lo duplica', () => 
   assert.equal(lista.some((d) => d.id === 'malo'), false);
 });
 
-test('el globo sólo se activa en el mapa que lo pide (Camino de prueba)', () => {
+test('todos los mapas 3D de desafíos pasan por el globo Korva', () => {
   const mapa = leer('components/MapaRecorrido3D.js');
   assert.match(mapa, /if \(onAlejarAlGlobo && anteriorGesto/);
   assert.match(mapa, /\{!!onAlejarAlGlobo && \(/);
   assert.match(leer('screens/CaminoSantiagoPruebaScreen.js'), /<MapaConGlobo /);
-  assert.doesNotMatch(leer('screens/MapaRecorrido.js'), /MapaConGlobo|onAlejarAlGlobo/);
-  assert.doesNotMatch(leer('screens/ViaAppiaPruebaScreen.js'), /MapaConGlobo|onAlejarAlGlobo/);
+  assert.match(leer('screens/ViaAppiaPruebaScreen.js'), /<MapaConGlobo /);
+  const recorrido = leer('screens/MapaRecorrido.js');
+  assert.match(recorrido, /<MapaConGlobo\s+key=\{mapa3D\.escena\.id\}\s+destinoActual=\{destinoGlobo\}/);
+  assert.doesNotMatch(recorrido, /<MapaRecorrido3D/);
+});
+
+test('resolverActual: coordenadas locales, del catálogo o ninguna', () => {
+  const { resolverActual } = require('../services/globoKorvaCore');
+  const { ISLANDIA_MUNDI } = require('../services/rutaLibreMundiCore');
+  const santiago = resolverActual({ id: DESTINOS_PRUEBA[0].id, title: 'x' });
+  assert.equal(santiago.latitude, DESTINOS_PRUEBA[0].latitude);
+  assert.equal(resolverActual({ id: ISLANDIA_MUNDI.id }).latitude, 65);
+  const fuji = resolverActual({ id: 'fuji', title: 'Monte Fuji' }, [{ id: 'fuji', latitude: '35.36', longitude: 138.72, title: 'Monte Fuji 68K' }]);
+  assert.deepEqual([fuji.latitude, fuji.longitude, fuji.title], [35.36, 138.72, 'Monte Fuji']);
+  const sinDatos = resolverActual({ id: 'nada' }, [{ id: 'nada', latitude: null, longitude: null }]);
+  assert.equal(sinDatos.latitude, null);
+  assert.equal(destinosParaGlobo([{ id: 'a', latitude: 1, longitude: 1 }], sinDatos).length, 1);
 });
 
 test('el mapa del Camino pide más recorrido de pellizco (umbral 0.5) antes del globo', () => {
