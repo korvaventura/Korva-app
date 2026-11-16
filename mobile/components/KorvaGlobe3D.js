@@ -23,8 +23,11 @@ function ringsFromGeometry(geometry) {
   return [];
 }
 
+// Las costas se calculan una sola vez por sesión: abrir el globo otra vez no las recalcula.
+let costasCache = null;
 function LandLines() {
   const positions = useMemo(() => {
+    if (costasCache) return costasCache;
     const values = [];
     for (const feature of landGeoJson.features || []) {
       for (const ring of ringsFromGeometry(feature.geometry)) {
@@ -36,7 +39,8 @@ function LandLines() {
         }
       }
     }
-    return new Float32Array(values);
+    costasCache = new Float32Array(values);
+    return costasCache;
   }, []);
 
   return (

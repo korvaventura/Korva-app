@@ -76,3 +76,15 @@ test('el globo sólo se activa en el mapa que lo pide (Camino de prueba)', () =>
   assert.doesNotMatch(leer('screens/MapaRecorrido.js'), /MapaConGlobo|onAlejarAlGlobo/);
   assert.doesNotMatch(leer('screens/ViaAppiaPruebaScreen.js'), /MapaConGlobo|onAlejarAlGlobo/);
 });
+
+test('el mapa del Camino pide más recorrido de pellizco (umbral 0.5) antes del globo', () => {
+  let acc = 1; let d = 200; let cambio = false;
+  while (!cambio && d > 10) {
+    const r = avanzarTope(acc, muestra(d, d - 5, 1.15, 1.15), { direccion: 'alejar', umbral: 0.5 });
+    acc = r.acumulado; cambio = r.cambiar; d -= 5;
+  }
+  assert.equal(cambio, true);
+  assert.ok(d / 200 <= 0.52 && d / 200 > 0.4);
+  assert.match(leer('components/MapaConGlobo.js'), /const UMBRAL_ALEJAR = 0\.5;/);
+  assert.match(leer('components/MapaConGlobo.js'), /memo\(MapaRecorrido3D\)/);
+});

@@ -256,6 +256,7 @@ export default function MapaRecorrido3D({
   onInteraccionMapa,
   // Opcionales: sólo los mapas que los pasan pueden abrir el globo Korva.
   onAlejarAlGlobo,
+  umbralAlejar,
   recentrarSenal,
 }) {
   const [detalleActivo, setDetalleActivo] = useState(false);
@@ -423,7 +424,7 @@ export default function MapaRecorrido3D({
         const tope = avanzarTope(topeAlejarRef.current, {
           n: actual.n, distanciaAnterior: anteriorGesto.distancia, distanciaActual: actual.distancia,
           zoomAntes, zoomDespues: controlRef.current.zoom,
-        }, { direccion: 'alejar' });
+        }, { direccion: 'alejar', umbral: umbralAlejar });
         topeAlejarRef.current = tope.acumulado;
         if (tope.cambiar) { liberarGesto(); onAlejarAlGlobo(); }
       }

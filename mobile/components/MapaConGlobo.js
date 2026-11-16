@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapaRecorrido3D from './MapaRecorrido3D';
 import KorvaGlobe3D from './KorvaGlobe3D';
@@ -8,6 +8,11 @@ import { GLOBO_ZOOM_MAX, GLOBO_ZOOM_MIN, avanzarTope, destinosParaGlobo, giroHac
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 const ZOOM_VISTA_GLOBO = 1.05;
+// Hay que seguir juntando los dedos ~50 % contra el tope del mapa para pasar al globo.
+const UMBRAL_ALEJAR = 0.5;
+// El mapa de la ruta queda montado debajo; memo evita volver a dibujarlo
+// en cada cuadro mientras se gira el globo.
+const MapaRuta = memo(MapaRecorrido3D);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // Mapa de un desafío que se puede alejar hasta el globo Korva.
@@ -79,7 +84,7 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
     setSeleccionado(null);
     setVista('globo');
     Animated.timing(opacidad, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-    animar({ x: g.giroX, y: g.giroY, zoom: ZOOM_VISTA_GLOBO }, 900);
+    animar({ x: g.giroX, y: g.giroY, zoom: ZOOM_VISTA_GLOBO }, 1300);
   }, [vista, catalogo, cargando, cargar, destinoActual, opacidad, animar]);
 
   const volverARuta = useCallback(() => {
@@ -140,7 +145,7 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
   return (
     <View style={styles.wrap}>
       <View style={StyleSheet.absoluteFill} pointerEvents={vista === 'globo' ? 'none' : 'auto'}>
-        <MapaRecorrido3D {...propsMapa} onAlejarAlGlobo={abrirGlobo} recentrarSenal={recentrar} />
+        <MapaRuta {...propsMapa} onAlejarAlGlobo={abrirGlobo} umbralAlejar={UMBRAL_ALEJAR} recentrarSenal={recentrar} />
       </View>
       {vista === 'globo' && (
         <Animated.View style={[StyleSheet.absoluteFill, styles.globo, { opacity: opacidad }]}>
