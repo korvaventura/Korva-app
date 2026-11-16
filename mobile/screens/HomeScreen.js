@@ -13,6 +13,7 @@ import MapaRecorrido from './MapaRecorrido';
 import { Ionicons } from '@expo/vector-icons';
 import { etiquetaDeInscripcion } from '../utils/versionDesafio';
 import { listarMisActividades } from '../services/actividadesApi';
+import { leerSesionGpsLocal } from '../services/gps/gpsPersistence';
 import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
@@ -83,7 +84,13 @@ export default function HomeScreen({ navigation }) {
   const [modalModalidadVisible, setModalModalidadVisible] = useState(false);
   const [actividadReciente, setActividadReciente] = useState(null);
   const [movimientoY, setMovimientoY] = useState(null);
+  const [estadoSesionGps, setEstadoSesionGps] = useState(null);
   const viewShotRefs = useRef([]);
+  const tituloGps = {
+    grabando: 'Actividad en curso',
+    pausada: 'Actividad pausada',
+    finalizada: 'Actividad por confirmar',
+  }[estadoSesionGps];
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -105,6 +112,16 @@ export default function HomeScreen({ navigation }) {
       }
     });
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      let enFoco = true;
+      leerSesionGpsLocal().then((sesion) => {
+        if (enFoco) setEstadoSesionGps(sesion?.estado ?? null);
+      });
+      return () => { enFoco = false; };
+    }, [])
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -804,20 +821,20 @@ export default function HomeScreen({ navigation }) {
                 cargandoBib={cargandoBib}
               />
 
-              <TouchableOpacity style={styles.gpsHeroAction} onPress={() => navigation.navigate('GpsTracker')} activeOpacity={0.88}>
+              <TouchableOpacity style={styles.gpsHeroAction} accessibilityLabel={tituloGps ? `Ver ${tituloGps.toLowerCase()}` : 'Iniciar actividad'} onPress={() => navigation.navigate('GpsTracker')} activeOpacity={0.88}>
                 <View style={styles.gpsHeroTop}>
                   <View>
                     <Text style={styles.gpsHeroEyebrow}>KORVA GPS</Text>
-                    <Text style={styles.gpsHeroTitulo}>Registrar actividad</Text>
+                    <Text style={styles.gpsHeroTitulo}>{tituloGps ?? 'Registrar actividad'}</Text>
                   </View>
                   <View style={styles.gpsHeroStart}>
-                    <Ionicons name="play" size={14} color="#FFFFFF" />
-                    <Text style={styles.gpsHeroStartText}>INICIAR</Text>
+                    <Ionicons name={tituloGps ? "chevron-forward" : "play"} size={14} color="#FFFFFF" />
+                    <Text style={styles.gpsHeroStartText}>{tituloGps ? 'VER' : 'INICIAR'}</Text>
                   </View>
                 </View>
                 <Text style={styles.gpsHeroDesc}>Correr · caminar · bici</Text>
                 <View style={styles.gpsHeroDivider} />
-                <Text style={styles.gpsHeroHint}>Distancia y tiempo con el GPS del teléfono · confirmás al finalizar</Text>
+                <Text style={styles.gpsHeroHint}>{tituloGps ? 'Volvé al registro GPS' : 'Distancia y tiempo con el GPS del teléfono · confirmás al finalizar'}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
