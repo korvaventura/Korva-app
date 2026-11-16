@@ -70,7 +70,7 @@ test('destinosParaGlobo pone primero el desafío actual y no lo duplica', () => 
 
 test('todos los mapas 3D de desafíos pasan por el globo Korva', () => {
   const mapa = leer('components/MapaRecorrido3D.js');
-  assert.match(mapa, /if \(onAlejarAlGlobo && anteriorGesto/);
+  assert.match(mapa, /if \(onAlejarRef\.current && anteriorGesto/);
   assert.match(mapa, /\{!!onAlejarAlGlobo && \(/);
   assert.match(leer('screens/CaminoSantiagoPruebaScreen.js'), /<MapaConGlobo /);
   assert.match(leer('screens/ViaAppiaPruebaScreen.js'), /<MapaConGlobo /);
@@ -116,4 +116,19 @@ test('con el globo visible el mapa pesado de la ruta se desmonta y vuelve al reg
   assert.match(src, /\{rutaMontada && <MapaRuta /);
   assert.match(src, /if \(finished\) \{ rutaMontadaRef\.current = false; setRutaMontada\(false\); \}/);
   assert.match(src, /if \(remontar\) \{ rutaMontadaRef\.current = true; setRecentrar\(null\); setRutaMontada\(true\); \}/);
+});
+
+test('arrastrar fuera de la ruta: borde por radio y empuje contra el límite', () => {
+  const { bordeDeRuta, fueraDeBorde, avanzarBloqueoPan, UMBRAL_BORDE_PX } = require('../services/globoKorvaCore');
+  const borde = bordeDeRuta([{ x: -2, z: 0 }, { x: 2, z: 0 }, { x: 0, z: 1 }]);
+  assert.deepEqual([borde.cx, borde.cz, borde.radio], [0, 0.5, Math.hypot(2, 0.5)]);
+  assert.equal(fueraDeBorde([1, 0, 0.5], borde), false);
+  assert.equal(fueraDeBorde([borde.radio * 1.6, 0, 0.5], borde), true);
+  assert.equal(fueraDeBorde([0, 0, 0], null), false);
+  let acc = 0; let cambio = false; let pasos = 0;
+  while (!cambio) { const r = avanzarBloqueoPan(acc, { bloqueado: true, px: 20 }); acc = r.acumulado; cambio = r.cambiar; pasos += 1; }
+  assert.equal(pasos, Math.ceil(UMBRAL_BORDE_PX / 20));
+  assert.equal(avanzarBloqueoPan(100, { bloqueado: false, px: 20 }).acumulado, 0);
+  const mapa = leer('components/MapaRecorrido3D.js');
+  assert.match(mapa, /if \(empuje\.cambiar \|\| \(!escena\.territorio && fueraDeBorde\(final, bordeRutaRef\.current\)\)\)/);
 });

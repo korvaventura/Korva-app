@@ -38,6 +38,33 @@ function avanzarTope(acumulado, muestra, { direccion = 'alejar', umbral = UMBRAL
   return siguiente <= umbral ? { acumulado: 1, cambiar: true } : { acumulado: siguiente, cambiar: false };
 }
 
+// Borde de la ruta en el plano del mapa (x, z): centro y radio que cubre todos los puntos.
+function bordeDeRuta(puntos = []) {
+  const ps = puntos.filter((p) => p && Number.isFinite(p.x) && Number.isFinite(p.z));
+  if (!ps.length) return null;
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const p of ps) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); }
+  const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
+  const radio = Math.max(...ps.map((p) => Math.hypot(p.x - cx, p.z - cz)), 0.5);
+  return { cx, cz, radio };
+}
+
+// Factor sobre el radio de la ruta a partir del cual arrastrar el mapa lleva al globo.
+const FACTOR_BORDE = 1.5;
+function fueraDeBorde(objetivo, borde, factor = FACTOR_BORDE) {
+  if (!borde || !objetivo) return false;
+  return Math.hypot(objetivo[0] - borde.cx, objetivo[2] - borde.cz) > borde.radio * factor;
+}
+
+// Mapas con límites (Camino, Appia): si el arrastre choca contra el borde y el
+// usuario sigue empujando ~160 px, se pasa al globo.
+const UMBRAL_BORDE_PX = 160;
+function avanzarBloqueoPan(acumulado, { bloqueado, px }, umbral = UMBRAL_BORDE_PX) {
+  if (!bloqueado || !(px > 0)) return { acumulado: 0, cambiar: false };
+  const siguiente = acumulado + px;
+  return siguiente >= umbral ? { acumulado: 0, cambiar: true } : { acumulado: siguiente, cambiar: false };
+}
+
 // Coordenadas conocidas en la app (llegada) para abrir el globo sin esperar al catálogo.
 function ubicacionLocal(id) {
   const { DESTINOS_PRUEBA } = require('./korvaMundiCore');
@@ -71,4 +98,4 @@ function destinosParaGlobo(destinos = [], actual) {
   return [{ ...base, ...actual, estado: 'en_curso', esActual: true }, ...resto];
 }
 
-module.exports = { GLOBO_ZOOM_MIN, GLOBO_ZOOM_MAX, UMBRAL_TOPE, giroHacia, avanzarTope, destinosParaGlobo, ubicacionLocal, resolverActual };
+module.exports = { FACTOR_BORDE, UMBRAL_BORDE_PX, bordeDeRuta, fueraDeBorde, avanzarBloqueoPan, GLOBO_ZOOM_MIN, GLOBO_ZOOM_MAX, UMBRAL_TOPE, giroHacia, avanzarTope, destinosParaGlobo, ubicacionLocal, resolverActual };

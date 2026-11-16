@@ -10,7 +10,7 @@ import { configurarRutaContinua } from './mapa3d/rutaContinua';
 import { colors } from '../theme/korvaTheme';
 import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
 import { muestraGesto, avanzarGesto, seleccionarPin } from '../services/mapa3d/gestosCore';
-import { avanzarTope } from '../services/globoKorvaCore';
+import { avanzarTope, avanzarBloqueoPan, bordeDeRuta, fueraDeBorde } from '../services/globoKorvaCore';
 import { estadoJourney } from '../services/mapa3d/journeyCore';
 import { crearReplayHitos, kmEnReplay, rotulosReplay } from '../services/mapa3d/replayHitosCore';
 import { separarPinesCamino } from '../services/mapa3d/pinesCaminoCore';
@@ -288,10 +288,15 @@ export default function MapaRecorrido3D({
   const etiquetasPreviasRef = useRef({});
   const camaraManualHastaRef = useRef(0);
   const topeAlejarRef = useRef(1);
+  const bloqueoPanRef = useRef(0);
+  const bordeRutaRef = useRef(null);
+  // Los handlers se memorizan una vez: leen siempre la versión actual del callback.
+  const onAlejarRef = useRef(onAlejarAlGlobo);
+  onAlejarRef.current = onAlejarAlGlobo;
   const liberarGesto = useCallback(() => {
     if(arrastrandoRef.current)ultimoArrastreRef.current=Date.now();
     inicioToqueRef.current=null;gestoRef.current=null;arrastrandoRef.current=false;
-    topeAlejarRef.current=1;
+    topeAlejarRef.current=1;bloqueoPanRef.current=0;
     onInteraccionMapa?.(false);
   },[onInteraccionMapa]);
   const seleccionarCheckpoint = useCallback(cp => {
@@ -415,18 +420,29 @@ export default function MapaRecorrido3D({
       });
       controlRef.current = siguiente.control;
       if (siguiente.pan) moverObjetivo(siguiente.pan.dx, siguiente.pan.dy, controlRef.current.objetivo || escena.camara.objetivo);
+      const deseado = siguiente.pan && controlRef.current.objetivo ? [...controlRef.current.objetivo] : null;
       if (escena.territorio && vistaGeneralRef.current) {
         controlRef.current = limitarVistaCamino(controlRef.current, escena.camara, vistaGeneralRef.current, escena.territorio.limitesGestos);
       }
+      // Arrastrar el mapa fuera de la ruta (o seguir empujando contra el límite) lleva al globo.
+      if (onAlejarRef.current && deseado) {
+        const final = controlRef.current.objetivo || deseado;
+        const bloqueado = Math.hypot(deseado[0] - final[0], deseado[2] - final[2]) > 1e-4;
+        const empuje = avanzarBloqueoPan(bloqueoPanRef.current, { bloqueado, px: Math.hypot(siguiente.pan.dx, siguiente.pan.dy) });
+        bloqueoPanRef.current = empuje.acumulado;
+        if (empuje.cambiar || (!escena.territorio && fueraDeBorde(final, bordeRutaRef.current))) {
+          gestoRef.current = actual; aplicarCamara(); liberarGesto(); onAlejarRef.current(); return;
+        }
+      }
       gestoRef.current = actual;
       aplicarCamara();
-      if (onAlejarAlGlobo && anteriorGesto && anteriorGesto.ids === actual.ids && anteriorGesto.n === actual.n) {
+      if (onAlejarRef.current && anteriorGesto && anteriorGesto.ids === actual.ids && anteriorGesto.n === actual.n) {
         const tope = avanzarTope(topeAlejarRef.current, {
           n: actual.n, distanciaAnterior: anteriorGesto.distancia, distanciaActual: actual.distancia,
           zoomAntes, zoomDespues: controlRef.current.zoom,
         }, { direccion: 'alejar', umbral: umbralAlejar });
         topeAlejarRef.current = tope.acumulado;
-        if (tope.cambiar) { liberarGesto(); onAlejarAlGlobo(); }
+        if (tope.cambiar) { liberarGesto(); onAlejarRef.current(); }
       }
     },
     onResponderRelease: liberarGesto,
@@ -470,6 +486,15 @@ export default function MapaRecorrido3D({
       objetivo: escena.camara.objetivoGeneral || escena.camara.objetivo }, tam.w, tam.h);
   }, [mundo, escena, tam?.w, tam?.h]);
   vistaGeneralRef.current = vistaGeneral;
+  // Centro y radio de la ruta: sólo hace falta si este mapa puede abrir el globo.
+  const bordeRuta = useMemo(() => {
+    if (!onAlejarAlGlobo || !mundo) return null;
+    const puntos = [];
+    for (let km = 0; km <= escena.distanciaKm; km += Math.max(1, escena.distanciaKm / 80)) puntos.push(posicionEnKm(mundo.datos, mundo.conv, km, 0));
+    puntos.push(posicionEnKm(mundo.datos, mundo.conv, escena.distanciaKm, 0));
+    return bordeDeRuta(puntos);
+  }, [!!onAlejarAlGlobo, mundo, escena]);
+  bordeRutaRef.current = bordeRuta;
   const kmProgresoReal = kmDeProgreso(progreso, escena.distanciaKm, completado);
   const kmProgreso = kmPlayback == null ? kmProgresoReal : kmPlayback;
   // A completed challenge replays from zero: during that animation checkpoints
