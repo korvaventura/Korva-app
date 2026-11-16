@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking, TextInput, Alert, Modal, Dimensions, KeyboardAvoidingView, Platform, DeviceEventEmitter } from 'react-native';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
+import { leerSesionGpsLocal } from '../services/gps/gpsPersistence';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
@@ -964,16 +965,29 @@ function KorvaMundiTeaser({ conquistados, enCurso, onPress }) {
 }
 
 function GpsHomeAction({ navigation }) {
+  const [estadoGps, setEstadoGps] = useState(null);
+  useFocusEffect(useCallback(() => {
+    let enFoco = true;
+    leerSesionGpsLocal().then((sesion) => {
+      if (enFoco) setEstadoGps(sesion?.estado ?? null);
+    });
+    return () => { enFoco = false; };
+  }, []));
+  const tituloGps = {
+    grabando: 'Actividad en curso',
+    pausada: 'Actividad pausada',
+    finalizada: 'Actividad por confirmar',
+  }[estadoGps];
   return (
     <TouchableOpacity style={styles.gpsHeroAction} onPress={() => navigation.navigate('GpsTracker')} activeOpacity={0.88}>
       <View style={styles.gpsHeroTop}>
         <View style={{ flex: 1 }}>
           <Text style={styles.gpsHeroEyebrow}>KORVA GPS</Text>
-          <Text style={styles.gpsHeroTitulo}>Iniciar actividad</Text>
+          <Text style={styles.gpsHeroTitulo}>{tituloGps ?? 'Iniciar actividad'}</Text>
         </View>
         <View style={styles.gpsHeroStart}>
           <Ionicons name="play" size={14} color={colors.text} />
-          <Text style={styles.gpsHeroStartText}>INICIAR</Text>
+          <Text style={styles.gpsHeroStartText}>{tituloGps ? 'VER' : 'INICIAR'}</Text>
         </View>
       </View>
 
