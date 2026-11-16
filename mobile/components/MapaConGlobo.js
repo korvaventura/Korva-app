@@ -25,6 +25,10 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
   const [error, setError] = useState(false);
   const [seleccionado, setSeleccionado] = useState(null);
   const [recentrar, setRecentrar] = useState(null);
+  // Mientras se ve el globo, el mapa 3D de la ruta se desmonta para liberar
+  // la GPU (es la escena pesada). Al volver se monta otra vez desde la caché.
+  const [rutaMontada, setRutaMontada] = useState(true);
+  const rutaMontadaRef = useRef(true);
   const inicial = useMemo(() => giroHacia(destinoActual?.latitude ?? 0, destinoActual?.longitude ?? 0), [destinoActual?.latitude, destinoActual?.longitude]);
   // Giro y zoom del globo viven en un ref que el globo lee en cada cuadro de GL.
   const controlRef = useRef({ x: inicial.giroX, y: inicial.giroY, zoom: GLOBO_ZOOM_MAX });
@@ -79,7 +83,8 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
     controlRef.current = { x: g.giroX, y: g.giroY, zoom: GLOBO_ZOOM_MAX };
     setSeleccionado(null);
     setVista('globo');
-    Animated.timing(opacidad, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    Animated.timing(opacidad, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: true })
+      .start(({ finished }) => { if (finished) { rutaMontadaRef.current = false; setRutaMontada(false); } });
     animar({ x: g.giroX, y: g.giroY, zoom: ZOOM_VISTA_GLOBO }, 1300);
   }, [vista, catalogo, cargando, cargar, destinoActual, opacidad, animar]);
 
@@ -88,8 +93,9 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
     const g = giroHacia(destinoActual?.latitude ?? 0, destinoActual?.longitude ?? 0, controlRef.current.y);
     animar({ x: g.giroX, y: g.giroY, zoom: GLOBO_ZOOM_MAX }, 520);
     setSeleccionado(null);
-    setRecentrar(Date.now());
-    Animated.timing(opacidad, { toValue: 0, duration: 380, delay: 360, easing: Easing.in(Easing.cubic), useNativeDriver: true })
+    const remontar = !rutaMontadaRef.current;
+    if (remontar) { rutaMontadaRef.current = true; setRecentrar(null); setRutaMontada(true); } else setRecentrar(Date.now());
+    Animated.timing(opacidad, { toValue: 0, duration: 380, delay: remontar ? 650 : 360, easing: Easing.in(Easing.cubic), useNativeDriver: true })
       .start(() => setVista('ruta'));
   }, [vista, destinoActual, opacidad, animar]);
 
@@ -143,12 +149,12 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
   return (
     <View style={styles.wrap}>
       <View style={StyleSheet.absoluteFill} pointerEvents={vista === 'globo' ? 'none' : 'auto'}>
-        <MapaRuta {...propsMapa} onAlejarAlGlobo={abrirGlobo} umbralAlejar={UMBRAL_ALEJAR} recentrarSenal={recentrar} />
+        {rutaMontada && <MapaRuta {...propsMapa} onAlejarAlGlobo={abrirGlobo} umbralAlejar={UMBRAL_ALEJAR} recentrarSenal={recentrar} />}
       </View>
       {vista === 'globo' && (
         <Animated.View style={[StyleSheet.absoluteFill, styles.globo, { opacity: opacidad }]}>
           <View style={StyleSheet.absoluteFill} {...pan.panHandlers}>
-            <KorvaGlobe3D destinos={destinos} controlRef={controlRef}
+            <KorvaGlobe3D destinos={destinos} controlRef={controlRef} dpr={1.25}
               onSelect={seleccionar} seleccionadoId={seleccionado?.id || destinoActual?.id} />
           </View>
           <View pointerEvents="none" style={styles.titulo}>

@@ -95,3 +95,10 @@ test('girar el globo desde la ruta no re-renderiza React en cada movimiento', ()
   assert.match(src, /<KorvaGlobe3D destinos=\{destinos\} controlRef=\{controlRef\}/);
   assert.match(leer('components/KorvaGlobe3D.js'), /const c = controlRef\?\.current;/);
 });
+
+test('con el globo visible el mapa pesado de la ruta se desmonta y vuelve al regresar', () => {
+  const src = leer('components/MapaConGlobo.js');
+  assert.match(src, /\{rutaMontada && <MapaRuta /);
+  assert.match(src, /if \(finished\) \{ rutaMontadaRef\.current = false; setRutaMontada\(false\); \}/);
+  assert.match(src, /if \(remontar\) \{ rutaMontadaRef\.current = true; setRecentrar\(null\); setRutaMontada\(true\); \}/);
+});

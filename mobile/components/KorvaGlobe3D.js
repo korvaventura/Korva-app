@@ -146,13 +146,13 @@ function GlobeScene({ destinos, giroX, giroY, zoom, onSelect, seleccionadoId, co
   );
 }
 
-export default function KorvaGlobe3D({ destinos = [], giroX = -0.08, giroY = 0, zoom = 1, onSelect, seleccionadoId, controlRef }) {
+export default function KorvaGlobe3D({ destinos = [], giroX = -0.08, giroY = 0, zoom = 1, onSelect, seleccionadoId, controlRef, dpr = 1.5 }) {
   return (
     <View style={styles.wrap}>
       <Canvas
         style={styles.canvas}
         gl={{ alpha: true, antialias: true }}
-        dpr={1.5}
+        dpr={dpr}
         onCreated={({ gl }) => gl.setClearColor('#000000', 0)}
       >
         <GlobeScene destinos={destinos} giroX={giroX} giroY={giroY} zoom={zoom} onSelect={onSelect} seleccionadoId={seleccionadoId} controlRef={controlRef} />
