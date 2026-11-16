@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapaRecorrido3D from './MapaRecorrido3D';
+import MapaLinea from './MapaLinea';
 import { supabase } from '../supabase';
 import { colors } from '../theme/korvaTheme';
 import { distanciaDeInscripcion } from '../utils/versionDesafio';
@@ -15,6 +16,8 @@ export default function GpsAventura({ kmSesion = 0, distanciaTxt, tiempoTxt, rit
   const [desafios, setDesafios] = useState([]);
   const [elegidoId, setElegidoId] = useState(null);
   const [alto, setAlto] = useState(0);
+  // Estilo del mapa: 'linea' (oscuro premium, por defecto) o 'relieve' (el 3D geográfico).
+  const [estilo, setEstilo] = useState('linea');
 
   useEffect(() => {
     let activo = true;
@@ -64,12 +67,33 @@ export default function GpsAventura({ kmSesion = 0, distanciaTxt, tiempoTxt, rit
         </ScrollView>
       )}
 
+      {estado === 'listo' && (
+        <View style={styles.estilos}>
+          {[['linea', 'Línea'], ['relieve', 'Relieve']].map(([valor, nombre]) => (
+            <TouchableOpacity key={valor} onPress={() => setEstilo(valor)} style={[styles.estilo, estilo === valor && styles.estiloActivo]} accessibilityRole="button">
+              <Text style={[styles.estiloTxt, estilo === valor && styles.estiloTxtActivo]}>{nombre}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       <View style={styles.mapa} onLayout={(e) => setAlto(e.nativeEvent.layout.height)}>
         {estado === 'cargando' && <ActivityIndicator color={colors.brandOrange} style={styles.centro} />}
         {estado === 'sesion' && <Text style={styles.aviso}>Iniciá sesión para ver tu desafío mientras te movés.</Text>}
         {estado === 'error' && <Text style={styles.aviso}>No pudimos cargar tus desafíos. Tus datos siguen grabándose.</Text>}
         {estado === 'vacio' && <Text style={styles.aviso}>Cuando tengas un desafío activo, acá vas a verte avanzar por su mapa mientras te movés.</Text>}
-        {estado === 'listo' && mapa && alto > 0 && (
+        {estado === 'listo' && mapa && alto > 0 && estilo === 'linea' && (
+          <MapaLinea
+            key={`linea-${mapa.escena.id}`}
+            escena={mapa.escena}
+            horneado={mapa.horneado}
+            checkpoints={mapa.checkpoints}
+            km={avance.completado ? mapa.escena.distanciaKm : avance.progreso * mapa.escena.distanciaKm}
+            factorKm={total > 0 ? total / mapa.escena.distanciaKm : 1}
+            onInteraccionMapa={onInteraccionMapa}
+          />
+        )}
+        {estado === 'listo' && mapa && alto > 0 && estilo === 'relieve' && (
           <MapaRecorrido3D
             key={mapa.escena.id}
             altura={alto}
@@ -110,7 +134,12 @@ const styles = StyleSheet.create({
   chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.borderSoft, maxWidth: 200 },
   chipActivo: { borderColor: colors.brandOrange, backgroundColor: colors.surfaceRaised },
   chipTxt: { color: colors.text, fontSize: 12, fontWeight: '700' },
-  mapa: { flex: 1, marginTop: 10, borderRadius: 18, overflow: 'hidden', backgroundColor: colors.background, justifyContent: 'center' },
+  estilos: { flexDirection: 'row', gap: 6, marginTop: 10 },
+  estilo: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: colors.borderSoft },
+  estiloActivo: { backgroundColor: colors.brandOrange, borderColor: colors.brandOrange },
+  estiloTxt: { color: colors.textSoft, fontSize: 12, fontWeight: '700' },
+  estiloTxtActivo: { color: colors.text },
+  mapa: { flex: 1, marginTop: 8, borderRadius: 18, overflow: 'hidden', backgroundColor: colors.background, justifyContent: 'center' },
   centro: { alignSelf: 'center' },
   aviso: { color: colors.textSoft, fontSize: 13, lineHeight: 19, textAlign: 'center', paddingHorizontal: 24 },
   nota: { color: colors.textMuted, fontSize: 10, textAlign: 'center', marginTop: 6 },
