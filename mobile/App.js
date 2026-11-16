@@ -230,7 +230,9 @@ export default function App() {
         <Stack.Screen name="GpsTracker" component={GpsTrackerScreen} />
         <Stack.Screen name="MisActividades" component={MisActividadesScreen} />
         <Stack.Screen name="DetalleActividad" component={DetalleActividadScreen} />
-        <Stack.Screen name="KorvaMundi" component={KorvaMundiScreen} />
+        <Stack.Screen name="KorvaMundi">
+          {(props) => <KorvaMundiScreen {...props} esAdmin={esAdmin} />}
+        </Stack.Screen>
         <Stack.Screen name="RutaLibre" component={RutaLibreScreen} options={{ title: 'Islandia', headerShown: true, headerStyle: { backgroundColor: colors.background }, headerTintColor: colors.text }} />
         {esAdmin && __DEV__ && <Stack.Screen name="CaminoSantiagoPrueba" component={CaminoSantiagoPruebaScreen} options={{ title: 'Camino · prueba local' }} />}
         {esAdmin && __DEV__ && <Stack.Screen name="ViaAppiaPrueba" component={ViaAppiaPruebaScreen} options={{ title: 'Vía Appia · prueba local' }} />}

@@ -7,6 +7,7 @@ import { supabase } from '../supabase';
 import { colors } from '../theme/korvaTheme';
 import { distanciaDeInscripcion } from '../utils/versionDesafio';
 import KorvaGlobe3D from '../components/KorvaGlobe3D';
+import { conUbicacion, destinosPrueba } from '../services/korvaMundiCore';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 const COMPLETADOS = new Set(['completed', 'shipped', 'cargado']);
@@ -33,7 +34,7 @@ const formatFecha = (value) => {
 };
 
 
-export default function KorvaMundiScreen({ navigation }) {
+export default function KorvaMundiScreen({ navigation, esAdmin = false }) {
   const { estado: rutaLibre } = useRutaLibre();
   const [catalogo, setCatalogo] = useState([]);
   const [inscripciones, setInscripciones] = useState([]);
@@ -85,9 +86,9 @@ export default function KorvaMundiScreen({ navigation }) {
 
   const destinos = useMemo(() => {
     const porChallenge = new Map(inscripciones.map((x) => [x.challenge_id, x]));
-    const pagos = catalogo
-      .filter(c => c.id !== ISLANDIA_MUNDI.id)
-      .filter((c) => Number.isFinite(Number(c.latitude)) && Number.isFinite(Number(c.longitude)))
+    // Pines de prueba interna (Camino, Appia): sólo admin en build de desarrollo.
+    const prueba = destinosPrueba({ esAdmin, desarrollo: __DEV__, catalogo });
+    const pagos = [...conUbicacion(catalogo.filter(c => c.id !== ISLANDIA_MUNDI.id)), ...prueba]
       .map((challenge) => {
         const uc = porChallenge.get(challenge.id);
         const objetivo = distanciaDeInscripcion(uc || {}, challenge) || Number(challenge.total_distance_km) || 0;
@@ -100,7 +101,7 @@ export default function KorvaMundiScreen({ navigation }) {
         return { ...challenge, ...uc, objetivo, km, porcentaje, estado };
       });
     return [...pagos, destinoRutaLibre(rutaLibre.datos?.participacion)];
-  }, [catalogo, inscripciones, rutaLibre.datos]);
+  }, [catalogo, inscripciones, rutaLibre.datos, esAdmin]);
 
   const resumen = useMemo(() => ({
     conquistados: destinos.filter((d) => d.estado === 'conquistado').length,
@@ -256,7 +257,7 @@ export default function KorvaMundiScreen({ navigation }) {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.destinationState}>{estadoTexto(seleccionado).toUpperCase()}</Text>
                       <Text style={styles.destinationTitle}>{seleccionado.title}</Text>
-                      {!!editorial?.lugar && <Text style={styles.destinationPlace}>{editorial.lugar}</Text>}
+                      {!!(editorial?.lugar || seleccionado.lugar) && <Text style={styles.destinationPlace}>{editorial?.lugar || seleccionado.lugar}</Text>}
                     </View>
                     <TouchableOpacity style={styles.closeSheet} onPress={() => setSeleccionado(null)} accessibilityLabel="Cerrar">
                       <Ionicons name="close" size={20} color={colors.textSoft} />
@@ -275,7 +276,11 @@ export default function KorvaMundiScreen({ navigation }) {
                     <Text style={styles.progressText}>{conquistado ? (fecha ? `Conquistado · ${fecha}` : 'Desafío completado') : `${formatKm(Math.max(0, seleccionado.objetivo - seleccionado.km))} restantes`}</Text>
                   </View>
                   <Text style={styles.destinationCopy} numberOfLines={4}>{editorial?.copy || seleccionado.historia || seleccionado.description}</Text>
-                  {seleccionado.gratuita ? (
+                  {seleccionado.pruebaInterna ? (
+                    <TouchableOpacity style={styles.cta} onPress={() => { const pantalla = seleccionado.pantallaPrueba; setSeleccionado(null); navigation.navigate(pantalla); }}>
+                      <Text style={styles.ctaText}>Ver ficha y mapa · prueba interna</Text><Ionicons name="arrow-forward" size={16} color={colors.text} />
+                    </TouchableOpacity>
+                  ) : seleccionado.gratuita ? (
                     <TouchableOpacity style={styles.cta} onPress={() => { setSeleccionado(null); navigation.navigate('RutaLibre'); }}>
                       <Text style={styles.ctaText}>{seleccionado.estado === 'por_conquistar' ? 'Explorar ruta gratuita' : 'Ver mi viaje'}</Text><Ionicons name="arrow-forward" size={16} color={colors.text} />
                     </TouchableOpacity>
