@@ -33,8 +33,8 @@ test('handlers reales: tap no bloquea scroll; arrastre, release y cancel liberan
   const releases=source.slice(source.indexOf('  const liberarGesto ='),source.indexOf('  const seleccionarCheckpoint ='));
   const handlers=source.slice(source.indexOf('  const touchHandlers ='),source.indexOf('  // Decodificar el horneado'));
   const locks=[];
-  const refs=Object.fromEntries(['inicioToqueRef','gestoRef','arrastrandoRef','ultimoArrastreRef','playbackRef','r3fRef','wrapRef','overlayRef','ultimaPublicacionRef','camaraManualHastaRef'].map(k=>[k,{current:k==='ultimoArrastreRef'?0:null}]));
-  const context=vm.createContext({...refs,...gestos,AJUSTES_MAPA,useCallback:f=>f,useMemo:f=>f(),onInteraccionMapa:v=>locks.push(v),aplicarCamara:()=>{},seleccionarCheckpoint:()=>{},escena:{},cancelAnimationFrame:()=>{},setKmPlayback:()=>{},setReproduciendo:()=>{}});
+  const refs=Object.fromEntries(['inicioToqueRef','gestoRef','arrastrandoRef','ultimoArrastreRef','playbackRef','r3fRef','wrapRef','overlayRef','ultimaPublicacionRef','camaraManualHastaRef','topeAlejarRef'].map(k=>[k,{current:k==='ultimoArrastreRef'?0:null}]));
+  const context=vm.createContext({...refs,...gestos,AJUSTES_MAPA,useCallback:f=>f,useMemo:f=>f(),onInteraccionMapa:v=>locks.push(v),aplicarCamara:()=>{},seleccionarCheckpoint:()=>{},escena:{},cancelAnimationFrame:()=>{},setKmPlayback:()=>{},setReproduciendo:()=>{},onAlejarAlGlobo:undefined});
   const h=vm.runInContext(releases+handlers+'\ntouchHandlers',context);
   refs.playbackRef.current=71;
   context.cancelAnimationFrame=()=>{throw Error('A gesture must not stop replay');};

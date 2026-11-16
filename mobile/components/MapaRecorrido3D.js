@@ -10,6 +10,7 @@ import { configurarRutaContinua } from './mapa3d/rutaContinua';
 import { colors } from '../theme/korvaTheme';
 import { kmDeProgreso } from '../services/mapa3d/terrenoCore';
 import { muestraGesto, avanzarGesto, seleccionarPin } from '../services/mapa3d/gestosCore';
+import { avanzarTope } from '../services/globoKorvaCore';
 import { estadoJourney } from '../services/mapa3d/journeyCore';
 import { crearReplayHitos, kmEnReplay, rotulosReplay } from '../services/mapa3d/replayHitosCore';
 import { separarPinesCamino } from '../services/mapa3d/pinesCaminoCore';
@@ -253,6 +254,9 @@ export default function MapaRecorrido3D({
   escena,
   horneado,
   onInteraccionMapa,
+  // Opcionales: sólo los mapas que los pasan pueden abrir el globo Korva.
+  onAlejarAlGlobo,
+  recentrarSenal,
 }) {
   const [detalleActivo, setDetalleActivo] = useState(false);
   const [llegadaFinal, setLlegadaFinal] = useState(false);
@@ -282,9 +286,11 @@ export default function MapaRecorrido3D({
   const ultimaSeleccionRef = useRef({id:null,tiempo:0});
   const etiquetasPreviasRef = useRef({});
   const camaraManualHastaRef = useRef(0);
+  const topeAlejarRef = useRef(1);
   const liberarGesto = useCallback(() => {
     if(arrastrandoRef.current)ultimoArrastreRef.current=Date.now();
     inicioToqueRef.current=null;gestoRef.current=null;arrastrandoRef.current=false;
+    topeAlejarRef.current=1;
     onInteraccionMapa?.(false);
   },[onInteraccionMapa]);
   const seleccionarCheckpoint = useCallback(cp => {
@@ -399,6 +405,8 @@ export default function MapaRecorrido3D({
       ultimoArrastreRef.current = Date.now();
       const estado = r3fRef.current;
       if (!estado) return;
+      const anteriorGesto = gestoRef.current;
+      const zoomAntes = controlRef.current.zoom;
       const siguiente = avanzarGesto(controlRef.current, gestoRef.current, actual, {
         zoomMin: escena.camara.zoomMin, zoomMax: escena.camara.zoomMax,
         ancho: estado.size.width, alto: estado.size.height,
@@ -411,6 +419,14 @@ export default function MapaRecorrido3D({
       }
       gestoRef.current = actual;
       aplicarCamara();
+      if (onAlejarAlGlobo && anteriorGesto && anteriorGesto.ids === actual.ids && anteriorGesto.n === actual.n) {
+        const tope = avanzarTope(topeAlejarRef.current, {
+          n: actual.n, distanciaAnterior: anteriorGesto.distancia, distanciaActual: actual.distancia,
+          zoomAntes, zoomDespues: controlRef.current.zoom,
+        }, { direccion: 'alejar' });
+        topeAlejarRef.current = tope.acumulado;
+        if (tope.cambiar) { liberarGesto(); onAlejarAlGlobo(); }
+      }
     },
     onResponderRelease: liberarGesto,
     onResponderTerminate: liberarGesto,
@@ -740,6 +756,12 @@ export default function MapaRecorrido3D({
     aplicarCamara();
   };
 
+  const recentrarRef = useRef(null);
+  useEffect(() => {
+    if (recentrarSenal == null) return;
+    recentrarRef.current?.();
+  }, [recentrarSenal]);
+
   const recenter = () => {
     if (llegadaFinal || (reproduciendo && replayPorHitos)) {
       if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
@@ -759,6 +781,7 @@ export default function MapaRecorrido3D({
     ultimaPublicacionRef.current=0;
     aplicarCamara();
   };
+  recentrarRef.current = recenter;
 
   const totalTxt = Number(kmTotalUsuario) || escena.distanciaKm;
   const kmTxt = kmPlayback == null ? Math.min(Number(kmUsuario) || 0, totalTxt) : (kmPlayback / escena.distanciaKm) * totalTxt;
@@ -925,6 +948,11 @@ export default function MapaRecorrido3D({
       <TouchableOpacity activeOpacity={0.82} onPress={recenter} accessibilityRole="button" accessibilityLabel="Recentrar mapa" style={styles.recentrar}>
         <Text style={styles.recentrarTxt}>⌖</Text>
       </TouchableOpacity>
+      {!!onAlejarAlGlobo && (
+        <TouchableOpacity activeOpacity={0.82} onPress={() => { liberarGesto(); onAlejarAlGlobo(); }} accessibilityRole="button" accessibilityLabel="Ver globo Korva" style={[styles.recentrar, styles.globoBoton]}>
+          <Text style={styles.recentrarTxt}>🌍</Text>
+        </TouchableOpacity>
+      )}
       {!completado && journey.siguiente && (
         <View pointerEvents="none" style={styles.proximoHud}>
           <Text style={styles.proximoEyebrow}>PRÓXIMO DESTINO</Text>
@@ -977,6 +1005,7 @@ const styles = StyleSheet.create({
   playJourneyTxt: { color: '#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   estoyAca: { position: 'absolute', left: 14, top: 100, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 999, backgroundColor: 'rgba(9,23,37,0.82)', borderWidth: 1, borderColor: 'rgba(243,107,10,0.55)' },
   estoyAcaTxt: { color: colors.brandOrangeSoft, fontSize: 9, fontWeight: '900', letterSpacing: 0.7 },
+  globoBoton: { right: 50 },
   recentrar: { position: 'absolute', right: 12, bottom: 42, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(9,23,37,0.82)', borderWidth: 1, borderColor: 'rgba(168,207,255,0.28)' },
   recentrarTxt: { color: colors.text, fontSize: 18, fontWeight: '700' },
   proximoHud: { position: 'absolute', left: 14, bottom: 46, maxWidth: 170, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, backgroundColor: 'rgba(9,23,37,0.78)', borderWidth: 1, borderColor: 'rgba(255,176,120,0.3)' },

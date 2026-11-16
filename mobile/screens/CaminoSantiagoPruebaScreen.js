@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Text, TouchableOpacity, StyleSheet, Linking, Alert } from 'react-native';
-import MapaRecorrido3D from '../components/MapaRecorrido3D';
+import MapaConGlobo from '../components/MapaConGlobo';
 import DetalleScreen from './DetalleScreen';
 
 // Acceso únicamente desde la ruta de administrador en desarrollo.
@@ -10,6 +10,8 @@ const escena = require('../services/mapa3d/escenas/caminoSantiago');
 const horneado = require('../services/mapa3d/escenas/caminoSantiago.horneado');
 const historia = require('../services/desafios/caminoSantiago');
 const { CHALLENGE_ID } = require('../services/desafios/caminoSantiagoMapa');
+const { DESTINOS_PRUEBA } = require('../services/korvaMundiCore');
+const destinoActual = DESTINOS_PRUEBA.find((d) => d.id === CHALLENGE_ID);
 const fichaPrueba = {
   id: CHALLENGE_ID, title: 'Camino de Santiago 775K', is_active: false,
   total_distance_km: 775, price_usd: 34.4, medal_code: '1001-ry-005',
@@ -27,7 +29,7 @@ const paradas = [
   ['portomarin', 'Portomarín', 679], ['santiago', 'Santiago de Compostela', 775],
 ].map(([id, nombre, km]) => ({ id, nombre, km, kmFisico: km }));
 
-export default function CaminoSantiagoPruebaScreen() {
+export default function CaminoSantiagoPruebaScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [foco, setFoco] = useState(null);
   const [progreso, setProgreso] = useState(0);
@@ -56,7 +58,9 @@ export default function CaminoSantiagoPruebaScreen() {
         <Text style={styles.texto}>{nombre}</Text>
       </TouchableOpacity>)}</View>
     <View style={{ flex: 1 }} onLayout={(e) => setAltura(e.nativeEvent.layout.height)}>
-      {altura > 0 && <MapaRecorrido3D key={progreso} escena={escena} horneado={horneado}
+      {altura > 0 && <MapaConGlobo key={progreso} escena={escena} horneado={horneado}
+        destinoActual={destinoActual} esAdmin
+        onAbrirDestino={(d) => navigation?.navigate(d.pantallaPrueba || 'KorvaMundi')}
         focoMonumento={foco}
         checkpoints={paradas} progreso={progreso} completado={progreso === 1}
         kmUsuario={775 * progreso} kmTotalUsuario={775} altura={altura}
