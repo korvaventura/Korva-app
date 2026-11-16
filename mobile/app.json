@@ -18,6 +18,7 @@
       "bundleIdentifier": "com.korva.mobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "NSSupportsLiveActivities": true,
         "NSHealthUpdateUsageDescription": "Korva usa la integración con Salud para consultar tu movimiento diario. Esta versión no solicita guardar ni modificar datos en Salud."
       },
       "buildNumber": "19"
@@ -41,6 +42,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "@bacons/apple-targets",
       "expo-web-browser",
       "expo-secure-store",
       [

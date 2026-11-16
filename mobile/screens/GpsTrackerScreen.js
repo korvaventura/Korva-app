@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import gpsCore from '../services/gps/gpsCore';
@@ -11,6 +11,7 @@ import {
   recuperarSesionGpsLocal,
 } from '../services/gps/gpsPersistence';
 import { iniciarGpsBackground, detenerGpsBackground } from '../services/gps/gpsBackgroundTask';
+import { sincronizarActividadGps } from '../services/gps/gpsLiveActivity';
 import { confirmarActividadGps } from '../services/gps/gpsApi';
 import { colors, radius } from '../theme/korvaTheme';
 
@@ -35,6 +36,7 @@ const formatearTiempo = (segundos) => {
 
 export default function GpsTrackerScreen({ navigation }) {
   const sesionRef = useRef(null);
+  const arrancandoGpsRef = useRef(false);
   const timerRef = useRef(null);
   const [sesion, setSesion] = useState(null);
   const [estadoGps, setEstadoGps] = useState('listo');
@@ -76,7 +78,7 @@ export default function GpsTrackerScreen({ navigation }) {
   useEffect(() => {
     const id = setInterval(async () => {
       const actual = await leerSesionGpsLocal();
-      if (!actual) return;
+      if (!actual || arrancandoGpsRef.current) return;
       sesionRef.current = actual;
       setSesion(actual);
       if (actual.estado === 'grabando' && actual.ultimoPunto) {
@@ -98,11 +100,17 @@ export default function GpsTrackerScreen({ navigation }) {
   }, [sesion?.estado]);
 
   const escucharUbicacion = async () => {
-    setEstadoGps('buscando');
+    if (Platform.OS === 'android' && AppState.currentState !== 'active') {
+      throw Object.assign(new Error('Volvé a Korva y tocá el botón de nuevo.'), { code: 'KORVA_GPS_APP_INACTIVA' });
+    }
     await iniciarGpsBackground();
+    setEstadoGps('buscando');
   };
 
   const iniciar = async () => {
+    if (arrancandoGpsRef.current || sesionRef.current) return;
+    arrancandoGpsRef.current = true;
+    let intentoGuardado = false;
     try {
       const servicios = await Location.hasServicesEnabledAsync();
       if (!servicios) {
@@ -121,20 +129,25 @@ export default function GpsTrackerScreen({ navigation }) {
       }
       const nueva = crearSesionGps({ deporte, ahoraMs: Date.now() });
       await guardarSesionGpsLocal(nueva);
+      intentoGuardado = true;
+      await escucharUbicacion();
       publicar(nueva, { persistir: false });
+      sincronizarActividadGps(nueva, { transition: true });
       setAhoraMs(Date.now());
       setPrecision(null);
-      await escucharUbicacion();
     } catch (e) {
-      // KORVA_GPS_START_DIAGNOSTICO: conservar el error original aunque falle la limpieza.
-      try { await detenerWatcher(); } catch (limpieza) { console.warn('GPS: fallo al detener', limpieza); }
+      if (intentoGuardado) {
+        await detenerWatcher().catch(error => console.warn('GPS: error al detener', error));
+        await borrarSesionGpsLocal().catch(error => console.warn('GPS: error al limpiar el intento', error));
+      }
       setEstadoGps('error');
-      const codigo = String(e?.code || 'sin_codigo').slice(0, 100);
-      const detalle = String(e?.message || e || 'Sin detalle disponible').slice(0, 450);
-      console.warn('KORVA_GPS_START_DIAGNOSTICO', codigo, detalle);
-      Alert.alert('GPS no disponible', 'No pudimos iniciar el GPS.\n\nCódigo: ' + codigo + '\nDetalle: ' + detalle + '\n\nEnviá una captura a soporte.');
+      console.warn('KORVA_GPS_START_DIAGNOSTICO', e?.code, e?.message);
+      Alert.alert('GPS no disponible', e?.message || 'No pudimos iniciar el GPS. Intentá nuevamente.');
+    } finally {
+      arrancandoGpsRef.current = false;
     }
   };
+
 
   const pausar = async () => {
     await detenerWatcher();
@@ -142,30 +155,46 @@ export default function GpsTrackerScreen({ navigation }) {
     const pausada = pausarSesionGps(ultima, Date.now());
     await guardarSesionGpsLocal(pausada);
     publicar(pausada, { persistir: false });
+    sincronizarActividadGps(pausada, { transition: true });
     setEstadoGps('pausado');
   };
 
   const reanudar = async () => {
-    const ultima = (await leerSesionGpsLocal()) || sesionRef.current;
-    const reanudada = reanudarSesionGps(ultima, Date.now());
-    await guardarSesionGpsLocal(reanudada);
-    publicar(reanudada, { persistir: false });
-    setAhoraMs(Date.now());
+    if (arrancandoGpsRef.current) return;
+    arrancandoGpsRef.current = true;
+    let pausada;
+    let intentoGuardado = false;
     try {
+      pausada = (await leerSesionGpsLocal()) || sesionRef.current;
+      if (pausada?.estado !== 'pausada') return;
+      const reanudada = reanudarSesionGps(pausada, Date.now());
+      await guardarSesionGpsLocal(reanudada);
+      intentoGuardado = true;
       await escucharUbicacion();
+      publicar(reanudada, { persistir: false });
+      sincronizarActividadGps(reanudada, { transition: true });
+      setAhoraMs(Date.now());
     } catch (e) {
-      publicar(pausarSesionGps(sesionRef.current, Date.now()));
-      setEstadoGps('error');
-      Alert.alert('GPS no disponible', 'No pudimos reanudar la ubicación.');
+      if (intentoGuardado) {
+        await detenerWatcher().catch(error => console.warn('GPS: error al detener', error));
+        await guardarSesionGpsLocal(pausada).catch(error => console.warn('GPS: error al recuperar la pausa', error));
+      }
+      setEstadoGps('pausado');
+      console.warn('KORVA_GPS_RESUME_DIAGNOSTICO', e?.code, e?.message);
+      Alert.alert('GPS no disponible', e?.message || 'No pudimos reanudar la ubicación.');
+    } finally {
+      arrancandoGpsRef.current = false;
     }
   };
 
   const finalizar = async () => {
+    if (arrancandoGpsRef.current) return;
     await detenerWatcher();
     const ultima = (await leerSesionGpsLocal()) || sesionRef.current;
     const fin = finalizarSesionGps(ultima, Date.now());
     await guardarSesionGpsLocal(fin);
     publicar(fin, { persistir: false });
+    sincronizarActividadGps(fin, { transition: true });
     setEstadoGps('finalizado');
   };
 

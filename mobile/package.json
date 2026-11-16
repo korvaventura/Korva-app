@@ -13,6 +13,7 @@
     "test:appia": "node --test tests/viaAppia.test.js tests/mapa3dViaAppia.test.js tests/replayHitos.test.js tests/monumentosAppia.test.js"
   },
   "dependencies": {
+    "@bacons/apple-targets": "5.0.0",
     "@kingstinct/react-native-healthkit": "16.0.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/bottom-tabs": "^7.15.11",
