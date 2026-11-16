@@ -10,7 +10,7 @@ import KorvaGroups from '../components/KorvaGroups';
 import { ESTANDAR, versionDeInscripcion, versionesDelDesafio, iconoVersion } from '../utils/versionDesafio';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
-const BANDERAS = {"Argentina": "🇦🇷", "Colombia": "🇨🇴", "Uruguay": "🇺🇾", "España": "🇪🇸", "Ecuador": "🇪🇨", "México": "🇲🇽", "Mexico": "🇲🇽", "Costa Rica": "🇨🇷", "Chile": "🇨🇱", "Estados Unidos": "🇺🇸", "Perú": "🇵🇪", "Peru": "🇵🇪", "Puerto Rico": "🇵🇷", "Venezuela": "🇻🇪", "República Dominicana": "🇩🇴", "Republica Dominicana": "🇩🇴", "Panamá": "🇵🇦", "Panama": "🇵🇦", "Brasil": "🇧🇷", "Australia": "🇦🇺", "El Salvador": "🇸🇻", "Guatemala": "🇬🇹", "Paraguay": "🇵🇾", "Bolivia": "🇧🇴", "Cuba": "🇨🇺", "Honduras": "🇭🇳", "Nicaragua": "🇳🇮", "Alemania": "🇩🇪", "Italia": "🇮🇹", "Francia": "🇫🇷", "Aruba": "🇦🇼", "Curacao": "🇨🇼", "Corea del Sur": "🇰🇷"};
+const { banderaDe, unirPaises } = require('../services/paisesComunidadCore');
 const TOP_VISIBLE = 10;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -192,7 +192,7 @@ export default function RankingScreen({ navigation, route }) {
         || data.paises.reduce((s, p) => s + p.cantidad, 0) !== data.completados_con_pais
         || data.completados_con_pais + data.sin_pais !== data.total_completados) throw new Error('No se pudieron consultar los países');
       if (turno !== paisesPeticion.current) return;
-      setRankingPaises(data.paises);
+      setRankingPaises(unirPaises(data.paises));
       setResumenPaises(data);
       setEstadoPaises('listo');
     } catch {
@@ -753,9 +753,9 @@ export default function RankingScreen({ navigation, route }) {
           ) : rankingPaises.length === 0 ? (
             <Text style={styles.statusNote}>Todavía no hay desafíos completados por país.</Text>
           ) : (
-            rankingPaises.map((item, i) => (
-              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSoft, borderRadius: 12, padding: 14, marginBottom: 8 }}>
-                <Text style={{ fontSize: 28, marginRight: 12 }}>{BANDERAS[item.pais] || '🏳️'}</Text>
+            rankingPaises.map((item) => (
+              <View key={item.pais} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSoft, borderRadius: 12, padding: 14, marginBottom: 8 }}>
+                <Text style={{ fontSize: 28, marginRight: 12 }}>{banderaDe(item.pais)}</Text>
                 <Text style={{ flex: 1, color: colors.text, fontSize: 15, fontWeight: 'bold' }}>{item.pais}</Text>
                 <View style={{ backgroundColor: colors.backgroundDeep, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 }}>
                   <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 14 }}>{item.cantidad}</Text>
