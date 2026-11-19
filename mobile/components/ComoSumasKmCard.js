@@ -45,22 +45,31 @@ export default function ComoSumasKmCard({ userId, movimiento, onActualizarMovimi
         </TouchableOpacity>
       </View>
 
-      <View style={styles.fila}>
+      <View style={[styles.fila, !salud && styles.filaUltima]}>
         <View style={[styles.icono, styles.iconoActividad]}><Ionicons name="walk" size={18} color={colors.brandOrange} /></View>
         <View style={styles.filaTexto}>
           <Text style={styles.filaTitulo}>Actividades</Text>
           <Text style={styles.filaDetalle}>GPS Korva, Strava o manual · suman a todos tus desafíos</Text>
+          <TouchableOpacity onPress={() => setOtraApp(true)} accessibilityRole="button" hitSlop={8} style={styles.filaLink}>
+            <Ionicons name="watch-outline" size={13} color={colors.actionBlue} />
+            <Text style={styles.filaLinkTxt}>¿Usás Garmin u otro reloj? ›</Text>
+          </TouchableOpacity>
         </View>
         <Text style={styles.km}>{hoy ? `${fmt(hoy.actividades)} km` : '—'}</Text>
       </View>
 
       {!!salud && (
-        <View style={styles.fila}>
+        <View style={[styles.fila, styles.filaUltima]}>
           <View style={[styles.icono, styles.iconoSalud]}><Ionicons name="heart" size={17} color="#8ACBF1" /></View>
           <View style={styles.filaTexto}>
             <Text style={styles.filaTitulo}>Movimiento del día <Text style={styles.opcional}>Salud · opcional</Text></Text>
             <Text style={styles.filaDetalle}>{salud.texto}</Text>
             {conectada && hoy && <Text style={styles.filaNota}>{textoPasos(hoy.pasos)}</Text>}
+            {!!salud.accion && (
+              <TouchableOpacity onPress={() => setDetalle('aportes')} accessibilityRole="button" hitSlop={8} style={styles.filaLink}>
+                <Text style={styles.filaLinkTxt}>{salud.accion.texto} ›</Text>
+              </TouchableOpacity>
+            )}
           </View>
           <Text style={[styles.km, !conectada && styles.kmApagado]}>{conectada && hoy ? `+${fmt(hoy.salud)} km` : ''}</Text>
         </View>
@@ -68,17 +77,6 @@ export default function ComoSumasKmCard({ userId, movimiento, onActualizarMovimi
       {!!salud?.activos.length && hoy?.salud > 0 && (
         <Text style={styles.aclaracion}>La distancia de Salud se confirma 48 h después y nunca repite una actividad.</Text>
       )}
-
-      <View style={styles.pie}>
-        <TouchableOpacity onPress={() => setOtraApp(true)} accessibilityRole="button" hitSlop={8}>
-          <Text style={styles.pieLink}>¿Usás Garmin u otro reloj?</Text>
-        </TouchableOpacity>
-        {!!salud?.accion && (
-          <TouchableOpacity onPress={() => setDetalle('aportes')} accessibilityRole="button" hitSlop={8}>
-            <Text style={[styles.pieLink, styles.pieAccion]}>{salud.accion.texto} ›</Text>
-          </TouchableOpacity>
-        )}
-      </View>
 
       <Modal visible={otraApp} transparent animationType="fade" onRequestClose={() => setOtraApp(false)}>
         <View style={styles.velo}>
@@ -142,9 +140,9 @@ const styles = StyleSheet.create({
   km: { color: colors.text, fontSize: 16, fontWeight: '800', minWidth: 54, textAlign: 'right' },
   kmApagado: { color: colors.textMuted },
   aclaracion: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 8 },
-  pie: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, gap: 12 },
-  pieLink: { color: colors.textSoft, fontSize: 12, fontWeight: '600' },
-  pieAccion: { color: colors.actionBlue, fontWeight: '800' },
+  filaUltima: { borderBottomWidth: 0, paddingBottom: 2 },
+  filaLink: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6, alignSelf: 'flex-start' },
+  filaLinkTxt: { color: colors.actionBlue, fontSize: 12, fontWeight: '800' },
   velo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24 },
   aviso: { backgroundColor: colors.surface, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: colors.borderSoft },
   avisoTitulo: { color: colors.text, fontSize: 18, fontWeight: '800', marginBottom: 6 },

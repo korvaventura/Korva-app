@@ -54,3 +54,12 @@ test('la tarjeta queda liviana: sin fila de fuentes ni botón grande, con ayuda 
   const { OPCIONES_REGISTRO } = require('../services/comoSumasCore');
   assert.deepEqual(OPCIONES_REGISTRO.map((o) => o.id), ['strava', 'manual', 'gps']);
 });
+
+test('cada link vive en su fila: Garmin en Actividades, Salud en Movimiento del día', () => {
+  const src = leer('components/ComoSumasKmCard.js');
+  const garmin = src.indexOf('¿Usás Garmin u otro reloj? ›');
+  const filaSalud = src.indexOf('Movimiento del día');
+  assert.ok(garmin > 0 && garmin < filaSalud);
+  assert.ok(src.indexOf('{salud.accion.texto} ›') > filaSalud);
+  assert.doesNotMatch(src, /styles\.pie\b/);
+});
