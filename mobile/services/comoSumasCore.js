@@ -43,11 +43,17 @@ const OPCIONES_REGISTRO = [
   { id: 'strava', titulo: 'Conectala a Strava', texto: 'Strava es una app gratuita para registrar entrenamientos. Garmin, Coros, Polar, Suunto y la mayoría de los relojes y apps se conectan con Strava, y desde ahí tus salidas llegan solas a Korva. ¿No la tenés? Bajala gratis y conectá tu reloj o app.' },
   { id: 'manual', titulo: 'O cargala a mano', texto: 'Seguí usando tu reloj o app de siempre y, al terminar, cargá la salida en Registrar → Manual con los km y el tiempo.' },
   { id: 'gps', titulo: '¿No usás ninguna?', texto: 'Grabá con Korva GPS desde Iniciar.' },
+  { id: 'catalogo', titulo: '¿Todavía no te anotaste a un desafío?', texto: 'Empezá descubriendo el catálogo: elegí tu aventura y tus km empiezan a sumar. Islandia es gratis.' },
 ];
+
+// La opción del catálogo sólo aparece si la persona no tiene desafíos.
+function opcionesRegistro({ tieneDesafios = true } = {}) {
+  return OPCIONES_REGISTRO.filter((o) => o.id !== 'catalogo' || !tieneDesafios);
+}
 
 function textoPasos(pasos) {
   if (pasos == null) return 'Sin lectura de pasos hoy';
   return `${fmt(pasos, 0)} pasos hoy · los pasos no se convierten en km`;
 }
 
-module.exports = { OPCIONES_REGISTRO, fmt, listaNombres, estadoSaludTarjeta, numerosHoy, textoPasos };
+module.exports = { opcionesRegistro, OPCIONES_REGISTRO, fmt, listaNombres, estadoSaludTarjeta, numerosHoy, textoPasos };

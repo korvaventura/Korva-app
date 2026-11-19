@@ -7,12 +7,12 @@ import MovimientoPersonalCard from './MovimientoPersonalCard';
 import { plataformaSoportada } from '../services/health/healthkitLectura';
 import { autoSyncActivado } from '../services/health/syncAutomatico';
 import { consultarAportesHealth } from '../services/health/aportesDesafios';
-import { OPCIONES_REGISTRO, estadoSaludTarjeta, fmt, numerosHoy, textoPasos } from '../services/comoSumasCore';
+import { opcionesRegistro, estadoSaludTarjeta, fmt, numerosHoy, textoPasos } from '../services/comoSumasCore';
 
 // Tarjeta "Cómo sumás km": de dónde salen los km de hoy y a qué suma cada fuente.
 // Reemplaza al resumen "Tu movimiento · hoy" del Home. No cambia ningún cálculo:
 // sólo muestra lo que ya existe y lleva directo a la configuración de Salud.
-export default function ComoSumasKmCard({ userId, movimiento, onActualizarMovimiento, stravaConectado, onStrava, navigation }) {
+export default function ComoSumasKmCard({ userId, movimiento, onActualizarMovimiento, stravaConectado, onStrava, navigation, tieneDesafios = true }) {
   const [conectada, setConectada] = useState(false);
   const [aportes, setAportes] = useState(null);
   const [detalle, setDetalle] = useState(null); // null | 'resumen' | 'aportes'
@@ -82,7 +82,7 @@ export default function ComoSumasKmCard({ userId, movimiento, onActualizarMovimi
         <View style={styles.velo}>
           <View style={styles.aviso}>
             <Text style={styles.avisoTitulo}>Seguí usando tu reloj o app</Text>
-            {OPCIONES_REGISTRO.map((o, n) => (
+            {opcionesRegistro({ tieneDesafios }).map((o, n) => (
               <View key={o.id} style={styles.opcion}>
                 <Text style={styles.opcionNumero}>{n + 1}</Text>
                 <View style={{ flex: 1 }}>
@@ -92,6 +92,7 @@ export default function ComoSumasKmCard({ userId, movimiento, onActualizarMovimi
                     ? <Text style={styles.opcionOk}>✓ Strava conectado</Text>
                     : <TouchableOpacity onPress={() => { setOtraApp(false); onStrava?.(); }}><Text style={styles.opcionLink}>Conectar Strava ›</Text></TouchableOpacity>)}
                   {o.id === 'manual' && <TouchableOpacity onPress={() => { setOtraApp(false); navigation?.navigate('Registrar'); }}><Text style={styles.opcionLink}>Ir a Registrar ›</Text></TouchableOpacity>}
+                  {o.id === 'catalogo' && <TouchableOpacity onPress={() => { setOtraApp(false); navigation?.navigate('Catalogo'); }}><Text style={styles.opcionLink}>Ver catálogo ›</Text></TouchableOpacity>}
                   {o.id === 'gps' && <TouchableOpacity onPress={() => { setOtraApp(false); navigation?.navigate('GpsTracker'); }}><Text style={styles.opcionLink}>Abrir Korva GPS ›</Text></TouchableOpacity>}
                 </View>
               </View>

@@ -752,7 +752,7 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.movimientoResumen}>
           <ComoSumasKmCard userId={userId} movimiento={movimientoPersonal} onActualizarMovimiento={actualizarMovimiento}
             stravaConectado={stravaConectado} onStrava={stravaConectado ? () => setModalStravaVisible(true) : conectarStrava}
-            navigation={navigation} />
+            navigation={navigation} tieneDesafios={challengesActivos.length > 0} />
         </View>
       )}
 
