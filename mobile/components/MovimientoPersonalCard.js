@@ -15,7 +15,7 @@ const estados = {
   error: 'No pudimos cargar tu movimiento. Intentá nuevamente.',
 };
 
-export default function MovimientoPersonalCard({ estado, onActualizar, compacto = false }) {
+export default function MovimientoPersonalCard({ estado, onActualizar, compacto = false, abrirAportes = false }) {
   const [detalleAbierto, setDetalleAbierto] = useState(false);
   const [desgloseAbierto, setDesgloseAbierto] = useState(false);
   const listo = estado.status === 'disponible';
@@ -130,7 +130,7 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
         </>
       )}
       {estado.userId && <ObjetivoDiarioCard key={estado.userId} userId={estado.userId} pasos={listo ? r.hoy.pasos : null} integrado />}
-      <SaludConfiguracion key={estado.userId} userId={estado.userId} />
+      <SaludConfiguracion key={estado.userId} userId={estado.userId} abrirAportes={abrirAportes} />
     </View>
   );
 }

@@ -19,7 +19,7 @@ import { distanciaDeInscripcion } from '../utils/versionDesafio';
 import { listarMisActividades } from '../services/actividadesApi';
 import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
 import { colors } from '../theme/korvaTheme';
-import MovimientoPersonalCard from '../components/MovimientoPersonalCard';
+import ComoSumasKmCard from '../components/ComoSumasKmCard';
 import useMovimientoPersonal from '../services/useMovimientoPersonal';
 import KorvaCompletedShare from '../components/KorvaCompletedShare';
 
@@ -604,15 +604,7 @@ export default function HomeScreen({ navigation }) {
           <TouchableOpacity style={styles.ayudaBtn} onPress={() => setModalAyudaVisible(true)}>
             <Text style={styles.ayudaBtnText}>?</Text>
           </TouchableOpacity>
-          {stravaConectado ? (
-            <TouchableOpacity style={styles.stravaConectadoBadge} onPress={() => setModalStravaVisible(true)}>
-              <Text style={styles.stravaConectadoBadgeText}>✓ Strava</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.stravaProximoBtn} onPress={conectarStrava}>
-              <Text style={styles.stravaProximoBtnText}>🔗 Strava</Text>
-            </TouchableOpacity>
-          )}
+          {/* Strava ahora vive en la tarjeta "Cómo sumás km". */}
         </View>
       </View>
 
@@ -758,7 +750,8 @@ export default function HomeScreen({ navigation }) {
 
       {userId && (
         <View style={styles.movimientoResumen}>
-          <MovimientoPersonalCard compacto estado={movimientoPersonal} onActualizar={actualizarMovimiento} />
+          <ComoSumasKmCard userId={userId} movimiento={movimientoPersonal} onActualizarMovimiento={actualizarMovimiento}
+            stravaConectado={stravaConectado} onStrava={stravaConectado ? () => setModalStravaVisible(true) : conectarStrava} />
         </View>
       )}
 
@@ -866,8 +859,8 @@ export default function HomeScreen({ navigation }) {
       )}
 
       {!error && (
-        <TouchableOpacity style={styles.actualizarBtn} onPress={cargarProgreso}>
-          <Text style={styles.actualizarBtnText}>↻ Actualizar progreso</Text>
+        <TouchableOpacity style={styles.actualizarLink} onPress={cargarProgreso} accessibilityRole="button">
+          <Text style={styles.actualizarLinkText}>Tu progreso se actualiza solo · <Text style={styles.actualizarLinkAccion}>Actualizar ahora</Text></Text>
         </TouchableOpacity>
       )}
 
@@ -1331,6 +1324,9 @@ const styles = StyleSheet.create({
   gpsInicioDesc: { color: '#8FAECC', fontSize: 10, lineHeight: 14 },
   gpsInicioAccion: { height: 34, borderRadius: 17, backgroundColor: colors.brandOrange, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
   gpsInicioAccionText: { color: colors.text, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  actualizarLink: { alignItems: 'center', paddingVertical: 18 },
+  actualizarLinkText: { color: colors.textMuted, fontSize: 12 },
+  actualizarLinkAccion: { color: colors.actionBlue, fontWeight: '700' },
   actualizarBtn: { marginTop: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center' },
   actualizarBtnText: { color: colors.textSoft, fontSize: 14 },
   metaCard: { backgroundColor: colors.surfaceStrong, borderRadius: 16, padding: 18, marginBottom: 8, borderWidth: 1, borderColor: colors.brandOrange },

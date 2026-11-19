@@ -3,11 +3,13 @@ import { Alert, DeviceEventEmitter, StyleSheet, Text, TouchableOpacity, View } f
 import { consultarAportesHealth } from '../services/health/aportesDesafios';
 import { colors } from '../theme/korvaTheme';
 
-export default function SaludAportesDesafios({ userId, conectado }) {
+export default function SaludAportesDesafios({ userId, conectado, abiertoInicial = false }) {
   const [abierto, setAbierto] = useState(false), [estado, setEstado] = useState(null);
   const [ocupado, setOcupado] = useState(false), [error, setError] = useState('');
   const vivo = useRef(true), bloqueado = useRef(false);
   useEffect(() => { vivo.current = true; return () => { vivo.current = false; }; }, []);
+  // Desde la tarjeta del Home ("Elegir a qué desafíos suma Salud") se abre ya desplegado.
+  useEffect(() => { if (abiertoInicial) { setAbierto(true); operar(cargar); } }, []);
   const cargar = async () => {
     const datos = await consultarAportesHealth(userId);
     if (vivo.current) setEstado(datos);

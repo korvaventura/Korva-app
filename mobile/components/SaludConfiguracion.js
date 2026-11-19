@@ -6,11 +6,11 @@ import { autoSyncActivado, setAutoSyncActivado, ejecutarSyncAutomatico } from '.
 import { colors } from '../theme/korvaTheme';
 import SaludAportesDesafios from './SaludAportesDesafios';
 
-export default function SaludConfiguracion({ userId }) {
+export default function SaludConfiguracion({ userId, abrirAportes = false }) {
   const [abierto,setAbierto]=useState(false),[activo,setActivo]=useState(false),[ocupado,setOcupado]=useState(false),[mensaje,setMensaje]=useState(''),[info,setInfo]=useState(false);
   const vivo=useRef(false),bloqueado=useRef(false);
   const nombre=Platform.OS==='android'?'Health Connect':'Apple Health';
-  useEffect(()=>{vivo.current=true;let vigente=true;setActivo(false);setAbierto(false);setMensaje('');autoSyncActivado(userId).then(v=>{if(vigente)setActivo(v);});return()=>{vigente=false;vivo.current=false;};},[userId]);
+  useEffect(()=>{vivo.current=true;let vigente=true;setActivo(false);setAbierto(!!abrirAportes);setMensaje('');autoSyncActivado(userId).then(v=>{if(vigente)setActivo(v);});return()=>{vigente=false;vivo.current=false;};},[userId]);
   if(!userId || !plataformaSoportada)return null;
   const actualizar=async()=>{
     const r=await ejecutarSyncAutomatico(userId,{forzar:true});
@@ -39,7 +39,7 @@ export default function SaludConfiguracion({ userId }) {
       {!activo && <Text style={styles.copy}>Leé tus pasos y distancia diaria desde Salud.</Text>}
       <TouchableOpacity style={[styles.button,activo && styles.syncButton]} disabled={ocupado} onPress={activo?()=>operar(actualizar):conectarResumen} accessibilityRole="button"><Text style={[styles.buttonText,activo && styles.syncText]}>{ocupado?'Procesando…':activo?'Sincronizar ahora':'Conectar Salud'}</Text></TouchableOpacity>
       {!!mensaje && <Text accessibilityLiveRegion="polite" style={styles.copy}>{mensaje}</Text>}
-      <SaludAportesDesafios key={userId} userId={userId} conectado={activo}/>
+      <SaludAportesDesafios key={userId} userId={userId} conectado={activo} abiertoInicial={abrirAportes}/>
       <TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:info}} onPress={()=>setInfo(v=>!v)}><Text style={styles.link}>{info?'Cerrar opciones':'Opciones de conexión'}</Text></TouchableOpacity>
       {info && <View style={{gap:8}}><Text style={styles.copy}>Se sincroniza al abrir la app, como máximo cada 3 horas. Korva solo lee Salud; no modifica sus datos.</Text>
         {activo && <TouchableOpacity disabled={ocupado} onPress={desconectar} accessibilityRole="button"><Text style={styles.link}>Desconectar Salud</Text></TouchableOpacity>}
