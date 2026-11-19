@@ -29,6 +29,7 @@ test('Inicio y Catálogo muestran la invitación; el link viejo del fondo ya no 
   assert.match(comp, /lugar === 'inicio' && \(/);
   assert.match(comp, /tus próximas salidas suman/);
   assert.match(comp, /RUTA LIBRE · SIN COSTO/);
-  assert.match(comp, /La medalla todavía está en preparación\. Cuando esté lista vas a poder comprarla con tu recorrido validado\./);
+  assert.match(comp, /Por ahora no tiene medalla\. En el futuro va a existir una, y vas a poder comprarla con tu recorrido validado\./);
+  assert.doesNotMatch(comp, /en preparación/);
   assert.doesNotMatch(comp, /GRATIS|Empezar gratis|Animated\.loop/);
 });

@@ -27,7 +27,7 @@ export default function IslandiaInvitacion({ navigation, userId, participacion, 
 
   return (
     <TouchableOpacity activeOpacity={0.9} style={styles.card} onPress={() => navigation.navigate('RutaLibre')} accessibilityRole="button"
-      accessibilityLabel="Islandia, ruta libre sin costo. La medalla todavía está en preparación. Empezar la ruta">
+      accessibilityLabel="Islandia, ruta libre sin costo. Por ahora sin medalla. Empezar la ruta">
       <View style={styles.fila}>
         <View style={styles.etiqueta}>
           <Text style={styles.etiquetaTxt}>RUTA LIBRE · SIN COSTO</Text>
@@ -36,7 +36,7 @@ export default function IslandiaInvitacion({ navigation, userId, participacion, 
       </View>
       <Text style={styles.titulo}>Islandia · Ring Road</Text>
       <Text style={styles.texto}>Cascadas, glaciares y volcanes. Es nuestra primera ruta que podés empezar sin comprar: tus próximas salidas suman.</Text>
-      <Text style={styles.medalla}>La medalla todavía está en preparación. Cuando esté lista vas a poder comprarla con tu recorrido validado.</Text>
+      <Text style={styles.medalla}>Por ahora no tiene medalla. En el futuro va a existir una, y vas a poder comprarla con tu recorrido validado.</Text>
       <View style={styles.acciones}>
         <View style={styles.boton}><Text style={styles.botonTxt}>Empezar la ruta</Text></View>
         {lugar === 'inicio' && (
