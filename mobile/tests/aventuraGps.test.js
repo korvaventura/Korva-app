@@ -78,3 +78,12 @@ test('Islandia (ruta gratuita) aparece en el GPS si la estás haciendo', () => {
   assert.deepEqual(lista.map((x) => x.challenge_id), [ISLANDIA_MUNDI.id, 'fuji']);
   assert.match(leer('components/GpsAventura.js'), /consultarRutaLibre\(\)/);
 });
+
+test('el GPS aclara que la salida suma a todos los desafíos activos', () => {
+  const src = leer('components/GpsAventura.js');
+  const fuente = src.slice(src.indexOf('export function notaSuma'), src.indexOf('function Dato'));
+  const notaSuma = new Function(`${fuente.replace('export ', '')}; return notaSuma;`)();
+  assert.match(notaSuma(2), /suma a tus 2 desafíos activos\. El mapa es sólo para verte\./);
+  assert.match(notaSuma(1), /suma a tu desafío activo/);
+  assert.match(src, /Elegí en qué mapa verte · la salida suma a todos/);
+});

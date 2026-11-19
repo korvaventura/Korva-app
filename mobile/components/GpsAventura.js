@@ -68,6 +68,9 @@ export default function GpsAventura({ kmSesion = 0, distanciaTxt, tiempoTxt, rit
       </View>
 
       {desafios.length > 1 && (
+        <Text style={styles.chipsTitulo}>Elegí en qué mapa verte · la salida suma a todos</Text>
+      )}
+      {desafios.length > 1 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsFila} contentContainerStyle={styles.chips}>
           {desafios.map((d) => (
             <TouchableOpacity key={d.challenge_id} onPress={() => setElegidoId(d.challenge_id)}
@@ -120,9 +123,15 @@ export default function GpsAventura({ kmSesion = 0, distanciaTxt, tiempoTxt, rit
           />
         )}
       </View>
-      {estado === 'listo' && <Text style={styles.nota}>Vista previa · los km se suman al confirmar la actividad</Text>}
+      {estado === 'listo' && <Text style={styles.nota}>{notaSuma(desafios.length)}</Text>}
     </View>
   );
+}
+
+// Aclara que la actividad suma a todos los desafíos activos, no sólo al del mapa.
+export function notaSuma(cantidad) {
+  if (cantidad > 1) return `Al confirmar, esta salida suma a tus ${cantidad} desafíos activos. El mapa es sólo para verte.`;
+  return 'Vista previa · al confirmar, esta salida suma a tu desafío activo';
 }
 
 function Dato({ valor, etiqueta, grande }) {
@@ -143,7 +152,8 @@ const styles = StyleSheet.create({
   datoEtiqueta: { color: colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 1.2, marginTop: 3 },
   // flexGrow 0: sin esto el ScrollView horizontal se estira y se come el mapa.
   chipsFila: { flexGrow: 0, flexShrink: 0 },
-  chips: { gap: 8, paddingVertical: 10, alignItems: 'center' },
+  chipsTitulo: { color: colors.textMuted, fontSize: 11, marginTop: 10 },
+  chips: { gap: 8, paddingTop: 6, paddingBottom: 4, alignItems: 'center' },
   chip: { alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.borderSoft, maxWidth: 200 },
   chipActivo: { borderColor: colors.brandOrange, backgroundColor: colors.surfaceRaised },
   chipTxt: { color: colors.text, fontSize: 12, fontWeight: '700' },
@@ -155,5 +165,5 @@ const styles = StyleSheet.create({
   mapa: { flex: 1, marginTop: 8, borderRadius: 18, overflow: 'hidden', backgroundColor: colors.background, justifyContent: 'center' },
   centro: { alignSelf: 'center' },
   aviso: { color: colors.textSoft, fontSize: 13, lineHeight: 19, textAlign: 'center', paddingHorizontal: 24 },
-  nota: { color: colors.textMuted, fontSize: 10, textAlign: 'center', marginTop: 6 },
+  nota: { color: colors.textSoft, fontSize: 11, textAlign: 'center', marginTop: 6, paddingHorizontal: 8 },
 });
