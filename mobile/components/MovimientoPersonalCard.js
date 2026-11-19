@@ -129,8 +129,8 @@ export default function MovimientoPersonalCard({ estado, onActualizar, compacto 
           </View>
         </>
       )}
-      {estado.userId && <ObjetivoDiarioCard key={estado.userId} userId={estado.userId} pasos={listo ? r.hoy.pasos : null} integrado />}
-      <SaludConfiguracion key={estado.userId} userId={estado.userId} abrirAportes={abrirAportes} />
+      {estado.userId && <ObjetivoDiarioCard key={`objetivo-${estado.userId}`} userId={estado.userId} pasos={listo ? r.hoy.pasos : null} integrado />}
+      <SaludConfiguracion key={`salud-${estado.userId}`} userId={estado.userId} abrirAportes={abrirAportes} />
     </View>
   );
 }

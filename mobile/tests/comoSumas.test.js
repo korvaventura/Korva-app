@@ -39,3 +39,9 @@ test('el Home usa la tarjeta nueva, sin la píldora de Strava ni el botón grand
   assert.match(home, /Tu progreso se actualiza solo/);
   assert.match(leer('components/SaludAportesDesafios.js'), /if \(abiertoInicial\) \{ setAbierto\(true\); operar\(cargar\); \}/);
 });
+
+test('el detalle de movimiento no repite la misma key en dos hermanos', () => {
+  const src = leer('components/MovimientoPersonalCard.js');
+  assert.match(src, /<ObjetivoDiarioCard key=\{`objetivo-\$\{estado\.userId\}`\}/);
+  assert.match(src, /<SaludConfiguracion key=\{`salud-\$\{estado\.userId\}`\}/);
+});
