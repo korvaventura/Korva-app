@@ -27,10 +27,10 @@ export default function IslandiaInvitacion({ navigation, userId, participacion, 
 
   return (
     <TouchableOpacity activeOpacity={0.9} style={styles.card} onPress={() => navigation.navigate('RutaLibre')} accessibilityRole="button"
-      accessibilityLabel="Islandia, ruta piloto sin costo. La medalla todavía está en preparación. Empezar la ruta">
+      accessibilityLabel="Islandia, ruta libre sin costo. La medalla todavía está en preparación. Empezar la ruta">
       <View style={styles.fila}>
         <View style={styles.etiqueta}>
-          <Text style={styles.etiquetaTxt}>RUTA PILOTO · SIN COSTO</Text>
+          <Text style={styles.etiquetaTxt}>RUTA LIBRE · SIN COSTO</Text>
         </View>
         <Text style={styles.km}>1.400 km</Text>
       </View>
