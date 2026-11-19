@@ -1,7 +1,7 @@
 import KorvaSheet from '../components/KorvaSheet';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Image, Linking, Alert } from 'react-native';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../supabase';
 import DetalleScreen from './DetalleScreen';
@@ -9,9 +9,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { ESTANDAR, distanciaDeVersion, modalidadLegacy } from '../utils/versionDesafio';
 import { precioReferencia } from '../utils/precioCatalogo';
 import { colors } from '../theme/korvaTheme';
+import IslandiaInvitacion from '../components/IslandiaInvitacion';
+import useRutaLibre from '../services/useRutaLibre';
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
 export default function CatalogoScreen() {
+  // Islandia, la ruta gratuita, fija arriba del catálogo para quien no la empezó.
+  const { estado: rutaLibre } = useRutaLibre();
+  const navigation = useNavigation();
   const [challenges, setChallenges] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(false);
@@ -102,6 +107,9 @@ export default function CatalogoScreen() {
         <Text style={styles.eyebrow}>TU PRÓXIMA AVENTURA</Text>
         <Text style={styles.title}>Catálogo</Text>
         <Text style={styles.subtitle}>Elegí una ruta. Completala a tu ritmo.</Text>
+        {!rutaLibre.cargando && !!rutaLibre.datos && (
+          <IslandiaInvitacion navigation={navigation} userId={rutaLibre.datos.userId} participacion={rutaLibre.datos.participacion} lugar="catalogo" />
+        )}
         <View style={styles.purchaseNote}>
           <Ionicons name="medal-outline" size={20} color={colors.brandOrangeSoft} />
           <Text style={styles.noteText}>Desafíos con medalla física · compra necesaria</Text>

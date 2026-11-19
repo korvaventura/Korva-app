@@ -20,6 +20,7 @@ import { listarMisActividades } from '../services/actividadesApi';
 import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
 import { colors } from '../theme/korvaTheme';
 import ComoSumasKmCard from '../components/ComoSumasKmCard';
+import IslandiaInvitacion from '../components/IslandiaInvitacion';
 import useMovimientoPersonal from '../services/useMovimientoPersonal';
 import KorvaCompletedShare from '../components/KorvaCompletedShare';
 
@@ -669,6 +670,9 @@ export default function HomeScreen({ navigation }) {
             </View>
           ))}
 
+          {challengesActivos.length === 0 && userId && (
+            <IslandiaInvitacion navigation={navigation} userId={userId} participacion={participacionLibre} />
+          )}
           {challengesActivos.length === 0 ? (tieneRutaLibre ? null :
             <View style={styles.emptyCard}>
               <Text style={styles.emptyEmoji}>🏅</Text>
@@ -746,6 +750,10 @@ export default function HomeScreen({ navigation }) {
         </>
       )}
 
+      {userId && challengesActivos.length > 0 && (
+        <IslandiaInvitacion navigation={navigation} userId={userId} participacion={participacionLibre} />
+      )}
+
       {userId && <GpsHomeAction navigation={navigation} />}
 
       {userId && (
@@ -806,7 +814,6 @@ export default function HomeScreen({ navigation }) {
         />
       )}
 
-      {userId && !tieneRutaLibre && <TouchableOpacity style={styles.actividadesInicioCard} onPress={() => navigation.navigate('RutaLibre')}><Text style={styles.actividadesInicioTitulo}>Descubrir Islandia · ruta gratuita</Text><Ionicons name="arrow-forward" size={18} color="#78DEC5" /></TouchableOpacity>}
 
       {/* Retos completados — solo lectura */}
       {!error && challengesCompletados.length > 0 && (
