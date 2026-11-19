@@ -12,8 +12,8 @@ function listaNombres(nombres) {
 function estadoSaludTarjeta({ soportada, conectada, aportes }) {
   if (!soportada) return null;
   if (!conectada) {
-    return { texto: 'Sin conectar · sumá tu caminata del día', activos: [],
-      accion: { tipo: 'conectarSalud', texto: 'Sumar distancia de Salud (opcional)' } };
+    return { texto: 'Lo que caminás sin grabar una actividad', activos: [],
+      accion: { tipo: 'conectarSalud', texto: 'Conectar Salud' } };
   }
   if (!aportes || aportes.disponible === false) {
     return { texto: 'Conectada · sólo para tu resumen', activos: [], accion: null };
@@ -22,7 +22,7 @@ function estadoSaludTarjeta({ soportada, conectada, aportes }) {
   if (!activos.length) {
     const hay = (aportes.desafios || []).length > 0;
     return { texto: 'Conectada · no suma a desafíos', activos,
-      accion: hay ? { tipo: 'elegirDesafios', texto: 'Elegir a qué desafíos suma Salud' } : null };
+      accion: hay ? { tipo: 'elegirDesafios', texto: 'Elegir desafíos' } : null };
   }
   return { texto: `Suma a ${listaNombres(activos)}`, activos, accion: null };
 }
@@ -38,9 +38,16 @@ function numerosHoy(movimiento) {
   };
 }
 
+// Cómo registrar si ya usás otra app o reloj: de lo más cómodo a lo menos.
+const OPCIONES_REGISTRO = [
+  { id: 'strava', titulo: 'Conectala a Strava', texto: 'Garmin, Coros, Polar, Suunto y la mayoría de los relojes se conectan con Strava. Tus salidas llegan solas a Korva.' },
+  { id: 'manual', titulo: 'O cargala a mano', texto: 'Seguí usando tu app de siempre y, al terminar, cargá la salida en Registrar → Manual con los km y el tiempo.' },
+  { id: 'gps', titulo: '¿No usás ninguna?', texto: 'Grabá con Korva GPS desde Iniciar.' },
+];
+
 function textoPasos(pasos) {
   if (pasos == null) return 'Sin lectura de pasos hoy';
   return `${fmt(pasos, 0)} pasos hoy · los pasos no se convierten en km`;
 }
 
-module.exports = { fmt, listaNombres, estadoSaludTarjeta, numerosHoy, textoPasos };
+module.exports = { OPCIONES_REGISTRO, fmt, listaNombres, estadoSaludTarjeta, numerosHoy, textoPasos };

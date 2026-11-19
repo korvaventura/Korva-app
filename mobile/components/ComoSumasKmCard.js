@@ -7,15 +7,16 @@ import MovimientoPersonalCard from './MovimientoPersonalCard';
 import { plataformaSoportada } from '../services/health/healthkitLectura';
 import { autoSyncActivado } from '../services/health/syncAutomatico';
 import { consultarAportesHealth } from '../services/health/aportesDesafios';
-import { estadoSaludTarjeta, fmt, numerosHoy, textoPasos } from '../services/comoSumasCore';
+import { OPCIONES_REGISTRO, estadoSaludTarjeta, fmt, numerosHoy, textoPasos } from '../services/comoSumasCore';
 
 // Tarjeta "Cómo sumás km": de dónde salen los km de hoy y a qué suma cada fuente.
 // Reemplaza al resumen "Tu movimiento · hoy" del Home. No cambia ningún cálculo:
 // sólo muestra lo que ya existe y lleva directo a la configuración de Salud.
-export default function ComoSumasKmCard({ userId, movimiento, onActualizarMovimiento, stravaConectado, onStrava }) {
+export default function ComoSumasKmCard({ userId, movimiento, onActualizarMovimiento, stravaConectado, onStrava, navigation }) {
   const [conectada, setConectada] = useState(false);
   const [aportes, setAportes] = useState(null);
   const [detalle, setDetalle] = useState(null); // null | 'resumen' | 'aportes'
+  const [otraApp, setOtraApp] = useState(false);
   const vivo = useRef(true);
 
   const leerSalud = useCallback(async () => {
@@ -57,7 +58,7 @@ export default function ComoSumasKmCard({ userId, movimiento, onActualizarMovimi
         <View style={styles.fila}>
           <View style={[styles.icono, styles.iconoSalud]}><Ionicons name="heart" size={17} color="#8ACBF1" /></View>
           <View style={styles.filaTexto}>
-            <Text style={styles.filaTitulo}>Distancia de Salud <Text style={styles.opcional}>opcional</Text></Text>
+            <Text style={styles.filaTitulo}>Movimiento del día <Text style={styles.opcional}>Salud · opcional</Text></Text>
             <Text style={styles.filaDetalle}>{salud.texto}</Text>
             {conectada && hoy && <Text style={styles.filaNota}>{textoPasos(hoy.pasos)}</Text>}
           </View>
@@ -68,17 +69,41 @@ export default function ComoSumasKmCard({ userId, movimiento, onActualizarMovimi
         <Text style={styles.aclaracion}>La distancia de Salud se confirma 48 h después y nunca repite una actividad.</Text>
       )}
 
-      <View style={styles.fuentes}>
-        <Fuente nombre="GPS Korva" ok />
-        <Fuente nombre="Strava" ok={stravaConectado} onPress={onStrava} />
-        {!!salud && <Fuente nombre="Salud" ok={conectada} onPress={() => setDetalle('aportes')} />}
+      <View style={styles.pie}>
+        <TouchableOpacity onPress={() => setOtraApp(true)} accessibilityRole="button" hitSlop={8}>
+          <Text style={styles.pieLink}>¿Usás Garmin u otro reloj?</Text>
+        </TouchableOpacity>
+        {!!salud?.accion && (
+          <TouchableOpacity onPress={() => setDetalle('aportes')} accessibilityRole="button" hitSlop={8}>
+            <Text style={[styles.pieLink, styles.pieAccion]}>{salud.accion.texto} ›</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      {!!salud?.accion && (
-        <TouchableOpacity style={styles.boton} onPress={() => setDetalle('aportes')} accessibilityRole="button">
-          <Text style={styles.botonTxt}>{salud.accion.texto}</Text>
-        </TouchableOpacity>
-      )}
+      <Modal visible={otraApp} transparent animationType="fade" onRequestClose={() => setOtraApp(false)}>
+        <View style={styles.velo}>
+          <View style={styles.aviso}>
+            <Text style={styles.avisoTitulo}>Seguí usando tu app</Text>
+            {OPCIONES_REGISTRO.map((o, n) => (
+              <View key={o.id} style={styles.opcion}>
+                <Text style={styles.opcionNumero}>{n + 1}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.opcionTitulo}>{o.titulo}</Text>
+                  <Text style={styles.opcionTexto}>{o.texto}</Text>
+                  {o.id === 'strava' && (stravaConectado
+                    ? <Text style={styles.opcionOk}>✓ Strava conectado</Text>
+                    : <TouchableOpacity onPress={() => { setOtraApp(false); onStrava?.(); }}><Text style={styles.opcionLink}>Conectar Strava ›</Text></TouchableOpacity>)}
+                  {o.id === 'manual' && <TouchableOpacity onPress={() => { setOtraApp(false); navigation?.navigate('Registrar'); }}><Text style={styles.opcionLink}>Ir a Registrar ›</Text></TouchableOpacity>}
+                  {o.id === 'gps' && <TouchableOpacity onPress={() => { setOtraApp(false); navigation?.navigate('GpsTracker'); }}><Text style={styles.opcionLink}>Abrir Korva GPS ›</Text></TouchableOpacity>}
+                </View>
+              </View>
+            ))}
+            <TouchableOpacity style={styles.avisoCerrar} onPress={() => setOtraApp(false)} accessibilityRole="button">
+              <Text style={styles.avisoCerrarTxt}>Entendido</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={!!detalle} animationType="slide" presentationStyle="pageSheet" allowSwipeDismissal
         onRequestClose={cerrar} onDismiss={cerrar}>
@@ -100,16 +125,6 @@ export default function ComoSumasKmCard({ userId, movimiento, onActualizarMovimi
   );
 }
 
-function Fuente({ nombre, ok, onPress }) {
-  const Contenedor = onPress ? TouchableOpacity : View;
-  return (
-    <Contenedor onPress={onPress} style={[styles.fuente, ok ? styles.fuenteOk : styles.fuentePendiente]} accessibilityRole={onPress ? 'button' : undefined}>
-      <Ionicons name={ok ? 'checkmark' : 'add'} size={13} color={ok ? '#7FD49A' : colors.textSoft} />
-      <Text style={[styles.fuenteTxt, ok ? styles.fuenteTxtOk : null]}>{ok ? nombre : `Conectar ${nombre}`}</Text>
-    </Contenedor>
-  );
-}
-
 const styles = StyleSheet.create({
   card: { backgroundColor: colors.surface, borderRadius: radius.xl || 22, borderWidth: 1, borderColor: colors.borderSoft, padding: 18 },
   cabecera: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
@@ -127,14 +142,20 @@ const styles = StyleSheet.create({
   km: { color: colors.text, fontSize: 16, fontWeight: '800', minWidth: 54, textAlign: 'right' },
   kmApagado: { color: colors.textMuted },
   aclaracion: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 8 },
-  fuentes: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 14 },
-  fuente: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
-  fuenteOk: { backgroundColor: 'rgba(127,212,154,0.10)', borderColor: 'rgba(127,212,154,0.35)' },
-  fuentePendiente: { borderColor: colors.borderSoft },
-  fuenteTxt: { color: colors.textSoft, fontSize: 11, fontWeight: '700' },
-  fuenteTxtOk: { color: '#7FD49A' },
-  boton: { marginTop: 14, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.brandOrange, alignItems: 'center' },
-  botonTxt: { color: colors.brandOrange, fontSize: 14, fontWeight: '800' },
+  pie: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, gap: 12 },
+  pieLink: { color: colors.textSoft, fontSize: 12, fontWeight: '600' },
+  pieAccion: { color: colors.actionBlue, fontWeight: '800' },
+  velo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24 },
+  aviso: { backgroundColor: colors.surface, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: colors.borderSoft },
+  avisoTitulo: { color: colors.text, fontSize: 18, fontWeight: '800', marginBottom: 6 },
+  opcion: { flexDirection: 'row', gap: 12, paddingVertical: 10 },
+  opcionNumero: { width: 24, height: 24, borderRadius: 12, textAlign: 'center', lineHeight: 24, overflow: 'hidden', backgroundColor: colors.background, color: colors.brandOrange, fontWeight: '800', fontSize: 12 },
+  opcionTitulo: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  opcionTexto: { color: colors.textSoft, fontSize: 12, lineHeight: 17, marginTop: 2 },
+  opcionLink: { color: colors.actionBlue, fontSize: 12, fontWeight: '800', marginTop: 6 },
+  opcionOk: { color: '#7FD49A', fontSize: 12, fontWeight: '700', marginTop: 6 },
+  avisoCerrar: { marginTop: 10, paddingVertical: 12, borderRadius: 12, backgroundColor: colors.background, alignItems: 'center' },
+  avisoCerrarTxt: { color: colors.text, fontSize: 14, fontWeight: '700' },
   hoja: { flex: 1, backgroundColor: colors.background },
   hojaCabecera: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 },
   hojaTitulo: { color: colors.text, fontSize: 20, fontWeight: '800' },

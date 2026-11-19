@@ -10,7 +10,7 @@ test('Salud: cada estado dice qué pasa y ofrece una sola acción', () => {
   assert.equal(estadoSaludTarjeta({ soportada: false }), null);
   const sin = estadoSaludTarjeta({ soportada: true, conectada: false, aportes: null });
   assert.equal(sin.accion.tipo, 'conectarSalud');
-  assert.match(sin.texto, /Sin conectar/);
+  assert.match(sin.texto, /sin grabar una actividad/);
   const noDisp = estadoSaludTarjeta({ soportada: true, conectada: true, aportes: { disponible: false, desafios: [] } });
   assert.equal(noDisp.accion, null);
   const ninguno = estadoSaludTarjeta({ soportada: true, conectada: true, aportes: { disponible: true, desafios: [{ titulo: 'Islandia', activo: false }] } });
@@ -44,4 +44,13 @@ test('el detalle de movimiento no repite la misma key en dos hermanos', () => {
   const src = leer('components/MovimientoPersonalCard.js');
   assert.match(src, /<ObjetivoDiarioCard key=\{`objetivo-\$\{estado\.userId\}`\}/);
   assert.match(src, /<SaludConfiguracion key=\{`salud-\$\{estado\.userId\}`\}/);
+});
+
+test('la tarjeta queda liviana: sin fila de fuentes ni botón grande, con ayuda para otras apps', () => {
+  const src = leer('components/ComoSumasKmCard.js');
+  assert.doesNotMatch(src, /function Fuente|styles\.fuentes|styles\.boton\b/);
+  assert.match(src, /¿Usás Garmin u otro reloj\?/);
+  assert.match(src, /navigation\?\.navigate\('Registrar'\)/);
+  const { OPCIONES_REGISTRO } = require('../services/comoSumasCore');
+  assert.deepEqual(OPCIONES_REGISTRO.map((o) => o.id), ['strava', 'manual', 'gps']);
 });
