@@ -6,7 +6,9 @@ import { supabase } from '../supabase';
 import { colors } from '../theme/korvaTheme';
 import { distanciaDeInscripcion } from '../utils/versionDesafio';
 import { mapa3DDeDesafio } from '../screens/MapaRecorrido';
-import { desafiosParaAventura, kmAventura } from '../services/gps/aventuraGpsCore';
+import { desafiosParaAventura, entradaRutaLibre, kmAventura } from '../services/gps/aventuraGpsCore';
+import { consultarRutaLibre } from '../services/rutasLibresApi';
+import { ISLANDIA_MUNDI } from '../services/rutaLibreMundiCore';
 
 // Segunda pantalla del GPS: el mapa 3D del desafío con el marcador avanzando
 // en vivo y la cámara detrás. Arriba, los datos de la actividad en chico.
@@ -31,8 +33,16 @@ export default function GpsAventura({ kmSesion = 0, distanciaTxt, tiempoTxt, rit
           .eq('user_id', session.user.id)
           .eq('status', 'active');
         if (error) throw error;
+        // Islandia es una ruta gratuita aparte: se agrega si la estás haciendo.
+        let islandia = null;
+        try {
+          const libre = await consultarRutaLibre();
+          if (libre?.userId === session.user.id) islandia = entradaRutaLibre(libre.participacion, ISLANDIA_MUNDI);
+        } catch {
+          islandia = null;
+        }
         if (!activo) return;
-        const lista = desafiosParaAventura(data || []);
+        const lista = desafiosParaAventura([...(data || []), ...(islandia ? [islandia] : [])]);
         setDesafios(lista);
         setElegidoId(lista[0]?.challenge_id || null);
         setEstado(lista.length ? 'listo' : 'vacio');
@@ -45,7 +55,8 @@ export default function GpsAventura({ kmSesion = 0, distanciaTxt, tiempoTxt, rit
 
   const elegido = desafios.find((d) => d.challenge_id === elegidoId) || null;
   const mapa = useMemo(() => (elegido ? mapa3DDeDesafio(elegido.challenge_id, elegido.challenges?.title) : null), [elegido?.challenge_id]);
-  const total = elegido ? (distanciaDeInscripcion(elegido, elegido.challenges) || Number(elegido.challenges?.total_distance_km) || 0) : 0;
+  const total = elegido ? (elegido.libre ? Number(elegido.challenges?.total_distance_km) || 0
+    : (distanciaDeInscripcion(elegido, elegido.challenges) || Number(elegido.challenges?.total_distance_km) || 0)) : 0;
   const avance = kmAventura({ kmPrevio: elegido?.km_completed, kmSesion, total });
 
   return (

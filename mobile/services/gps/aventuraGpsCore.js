@@ -42,4 +42,16 @@ function controlPersecucion({ p, a, b, radioRuta, camara }) {
   return { azimut: az - rad(c.azimutGrados || 0), elevacion, zoom, objetivo: [p.x, p.y, p.z] };
 }
 
-module.exports = { desafiosParaAventura, kmAventura, controlPersecucion, ELEVACION_PERSECUCION };
+// Islandia (ruta gratuita) no está en user_challenges: se suma desde su participación
+// si está en curso (no abandonada, no pausada, no completada).
+function entradaRutaLibre(participacion, islandia) {
+  const p = participacion;
+  if (!p || p.abandonado || p.pausado || p.estado === 'completada' || !islandia?.id) return null;
+  return {
+    challenge_id: islandia.id, status: 'active', pausado: false, libre: true,
+    km_completed: Number(p.km) || 0,
+    challenges: { id: islandia.id, title: islandia.title, total_distance_km: islandia.total_distance_km },
+  };
+}
+
+module.exports = { entradaRutaLibre, desafiosParaAventura, kmAventura, controlPersecucion, ELEVACION_PERSECUCION };

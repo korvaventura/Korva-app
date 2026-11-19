@@ -65,3 +65,16 @@ test('el GPS tiene pantalla de datos y pantalla de mapa sin tocar cómo se graba
   assert.doesNotMatch(aventura, /\.update\(|\.insert\(|\.upsert\(|confirmarActividadGps/);
   assert.match(leer('components/MapaRecorrido3D.js'), /seguirMarcador = false,/);
 });
+
+test('Islandia (ruta gratuita) aparece en el GPS si la estás haciendo', () => {
+  const { entradaRutaLibre } = require('../services/gps/aventuraGpsCore');
+  const { ISLANDIA_MUNDI } = require('../services/rutaLibreMundiCore');
+  const e = entradaRutaLibre({ km: 120.5, estado: 'en_curso' }, ISLANDIA_MUNDI);
+  assert.equal(e.challenge_id, ISLANDIA_MUNDI.id);
+  assert.equal(e.km_completed, 120.5);
+  assert.equal(e.challenges.total_distance_km, 1400);
+  for (const p of [null, { abandonado: true }, { pausado: true }, { estado: 'completada' }]) assert.equal(entradaRutaLibre(p, ISLANDIA_MUNDI), null);
+  const lista = desafiosParaAventura([{ challenge_id: 'fuji', status: 'active', km_completed: 30, challenges: { id: 'fuji' } }, e]);
+  assert.deepEqual(lista.map((x) => x.challenge_id), [ISLANDIA_MUNDI.id, 'fuji']);
+  assert.match(leer('components/GpsAventura.js'), /consultarRutaLibre\(\)/);
+});
