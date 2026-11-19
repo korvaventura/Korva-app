@@ -157,7 +157,32 @@ function camaraLinea(p, dir, distancia, elevacionGrados = 34) {
   };
 }
 
+// Rayitas perpendiculares a la ruta cada `pasoKm` (en km de escena), para
+// sentir el avance. Si serían demasiadas, se agranda el paso.
+function marcasKm(puntos, totalKm, pasoKm, largo, maximo = 1500) {
+  if (!(pasoKm > 0) || !(totalKm > 0)) return { segmentos: new Float32Array(0), paso: pasoKm };
+  let paso = pasoKm;
+  while (totalKm / paso > maximo) paso *= 5;
+  const out = [];
+  const h = largo / 2;
+  for (let km = paso; km < totalKm; km += paso) {
+    const p = puntoEnRuta(puntos, km);
+    const d = direccionEnRuta(puntos, km, paso * 0.5);
+    out.push(p.x - d.dz * h, p.z + d.dx * h, p.x + d.dz * h, p.z - d.dx * h);
+  }
+  return { segmentos: new Float32Array(out), paso };
+}
+
+// Hito alcanzado entre dos lecturas de km (sólo avanzando). Devuelve el último cruzado.
+function hitoCruzado(checkpoints = [], kmAntes, kmAhora) {
+  if (!Number.isFinite(kmAntes) || !Number.isFinite(kmAhora) || kmAhora <= kmAntes) return null;
+  const cruzados = checkpoints.filter((c) => Number.isFinite(c?.kmFisico) && c.kmFisico > kmAntes && c.kmFisico <= kmAhora)
+    .sort((a, b) => a.kmFisico - b.kmFisico);
+  return cruzados[cruzados.length - 1] || null;
+}
+
 module.exports = {
+  marcasKm, hitoCruzado,
   rutaLinea, rutaDesdeHitos, puntoEnRuta, direccionEnRuta, radioDeRuta, cintaRuta,
   contorno, lineasDeTerreno, proximoHito, camaraLinea, clamp,
 };

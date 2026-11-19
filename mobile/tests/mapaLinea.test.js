@@ -72,3 +72,29 @@ test('la fila de desafíos no se estira y las etiquetas no se amontonan', () => 
   assert.ok(r.some((e) => e.id === 'c'));
   assert.equal(r.filter((e) => e.id === 'a' || e.id === 'b').length, 1);
 });
+
+test('marcas cada km y hito alcanzado durante la salida', () => {
+  const puntos = [{ x: 0, z: 0, km: 0 }, { x: 10, z: 0, km: 10 }];
+  const m = L.marcasKm(puntos, 10, 1, 0.5);
+  assert.equal(m.segmentos.length, 9 * 4);
+  const [x1, z1, x2, z2] = m.segmentos;
+  assert.ok(Math.abs(x1 - 1) < 1e-9 && Math.abs(x2 - 1) < 1e-9 && Math.abs(Math.abs(z1 - z2) - 0.5) < 1e-9);
+  assert.equal(L.marcasKm(puntos, 10000, 1, 0.5).paso, 25);
+  const cps = [{ id: 'a', kmFisico: 5 }, { id: 'b', kmFisico: 8 }];
+  assert.equal(L.hitoCruzado(cps, 4.9, 5.1).id, 'a');
+  assert.equal(L.hitoCruzado(cps, 4, 9).id, 'b');
+  assert.equal(L.hitoCruzado(cps, 5.1, 5.2), null);
+  assert.equal(L.hitoCruzado(cps, null, 6), null);
+  assert.equal(L.hitoCruzado(cps, 6, 4), null);
+});
+
+test('el mapa Línea celebra hitos, separa lo de hoy y deja mirar el próximo hito', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'components', 'MapaLinea.js'), 'utf8');
+  assert.match(src, /¡Llegaste a \{celebracion\.hito\.nombre\}!/);
+  assert.match(src, /Vibration\.vibrate/);
+  assert.match(src, /km hoy/);
+  assert.match(src, /onPress=\{mirarProximo\}/);
+  assert.match(src, /COLOR\.hechoAntes/);
+  const aventura = fs.readFileSync(path.join(__dirname, '..', 'components', 'GpsAventura.js'), 'utf8');
+  assert.match(aventura, /kmHoy=\{kmSesion\}/);
+});

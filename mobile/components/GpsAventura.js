@@ -103,6 +103,8 @@ export default function GpsAventura({ kmSesion = 0, distanciaTxt, tiempoTxt, rit
             horneado={mapa.horneado}
             checkpoints={mapa.checkpoints}
             km={avance.completado ? mapa.escena.distanciaKm : avance.progreso * mapa.escena.distanciaKm}
+            kmInicio={kmAventura({ kmPrevio: elegido?.km_completed, kmSesion: 0, total }).progreso * mapa.escena.distanciaKm}
+            kmHoy={kmSesion}
             factorKm={total > 0 ? total / mapa.escena.distanciaKm : 1}
             onInteraccionMapa={onInteraccionMapa}
           />
