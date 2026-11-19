@@ -5,6 +5,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../supabase';
 import { colors } from '../theme/korvaTheme';
+import useRutaLibre from '../services/useRutaLibre';
+import { consultarRutaLibre } from '../services/rutasLibresApi';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -35,6 +37,12 @@ export default function RegistroManualScreen({ navigation }) {
   const generacion = useRef(0);
   const cambioPendiente = useRef(false);
   const activos = desafios.filter((reto) => !reto.pausado);
+  // Islandia es una ruta libre (fuera de user_challenges): también se lista y se puede pausar acá.
+  const { estado: rutaLibre, actualizar: actualizarRutaLibre } = useRutaLibre();
+  const participacionLibre = userId && rutaLibre.datos?.userId === userId ? rutaLibre.datos.participacion : null;
+  const islandia = participacionLibre && !participacionLibre.abandonado && participacionLibre.estado !== 'completada' ? participacionLibre : null;
+  const totalDesafios = desafios.length + (islandia ? 1 : 0);
+  const totalActivos = activos.length + (islandia && !islandia.pausado ? 1 : 0);
   const challengeId = activos[0]?.challenge_id || null;
 
   const [evidenciaUri, setEvidenciaUri] = useState(null);
@@ -80,6 +88,21 @@ export default function RegistroManualScreen({ navigation }) {
     consultarDesafios();
     return () => { generacion.current += 1; };
   }, [consultarDesafios]));
+
+  const cambiarPausaIslandia = async () => {
+    if (cambioPendiente.current || cargando || !userId || !islandia) return;
+    cambioPendiente.current = true;
+    setCambiandoDesafio('islandia');
+    try {
+      await consultarRutaLibre({ userId, accion: islandia.pausado ? 'reanudar' : 'pausar' });
+      await actualizarRutaLibre({ conservarDatos: true });
+    } catch (error) {
+      Alert.alert('Revisá Islandia', error?.message || 'No pudimos cambiar el estado de la ruta. Intentá nuevamente.');
+    } finally {
+      cambioPendiente.current = false;
+      setCambiandoDesafio(null);
+    }
+  };
 
   const cambiarPausa = async (reto) => {
     if (cambioPendiente.current || cargando || !userId) return;
@@ -304,10 +327,10 @@ export default function RegistroManualScreen({ navigation }) {
         ))}
       </View>
 
-      {estadoDesafios === 'listo' && activos.length === 0 && (
+      {estadoDesafios === 'listo' && totalActivos === 0 && (
         <View style={styles.freeMode}>
           <Text style={styles.challengeTitle}>Modo libre</Text>
-          <Text style={styles.challengeExplanation}>{desafios.length > 0
+          <Text style={styles.challengeExplanation}>{totalDesafios > 0
             ? 'Tus desafíos están pausados. Podés seguir registrando movimiento y consultar tu historial personal.'
             : 'Tus kilómetros quedan guardados en tu historial personal. Podés empezar ahora y elegir un desafío cuando quieras.'}</Text>
           <TouchableOpacity style={styles.freeLink} onPress={() => navigation.navigate('Catalogo')} accessibilityRole="button">
@@ -506,7 +529,7 @@ export default function RegistroManualScreen({ navigation }) {
           <View style={{ flex: 1 }}>
             <Text style={styles.challengeTitle}>Tus desafíos</Text>
             <Text style={styles.challengeHint}>
-              {estadoDesafios === 'listo' ? (desafios.length ? `${activos.length} activos · Gestionar pausas` : 'Sin desafíos activos · Podés registrar igual')
+              {estadoDesafios === 'listo' ? (totalDesafios ? `${totalActivos} activos · Gestionar pausas` : 'Sin desafíos activos · Podés registrar igual')
                 : estadoDesafios === 'cargando' ? 'Consultando desafíos…' : 'No pudimos consultar tus desafíos'}
             </Text>
           </View>
@@ -533,7 +556,21 @@ export default function RegistroManualScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
             ))}
-            {desafios.length > 0 && <Text style={styles.challengeExplanation}>¿Querés hacer tus desafíos uno a la vez? Dejá activo el que estás haciendo y pausá los demás: tus nuevas actividades no sumarán en ellos. Conservás el progreso y podés reanudarlos cuando quieras. Si cargás una actividad de otro día, cuenta si el desafío estaba activo cuando la hiciste.</Text>}
+            {!!islandia && (
+              <View key="islandia-libre" style={styles.challengeRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.challengeName}>Islandia · Ring Road</Text>
+                  <Text style={styles.challengeHint}>{islandia.pausado ? 'Pausado' : 'Activo'} · ruta libre</Text>
+                </View>
+                <TouchableOpacity style={styles.challengeAction} onPress={cambiarPausaIslandia}
+                  disabled={!!cambiandoDesafio || cargando} accessibilityRole="button"
+                  accessibilityLabel={`${islandia.pausado ? 'Reanudar' : 'Pausar'} Islandia`}>
+                  {cambiandoDesafio === 'islandia' ? <ActivityIndicator size="small" color={colors.actionBlue} />
+                    : <Text style={[styles.challengeActionText, (cambiandoDesafio || cargando) && { opacity: 0.4 }]}>{islandia.pausado ? 'Reanudar' : 'Pausar'}</Text>}
+                </TouchableOpacity>
+              </View>
+            )}
+            {totalDesafios > 0 && <Text style={styles.challengeExplanation}>¿Querés hacer tus desafíos uno a la vez? Dejá activo el que estás haciendo y pausá los demás: tus nuevas actividades no sumarán en ellos. Conservás el progreso y podés reanudarlos cuando quieras. Si cargás una actividad de otro día, cuenta si el desafío estaba activo cuando la hiciste.</Text>}
           </>
         )}
       </View>

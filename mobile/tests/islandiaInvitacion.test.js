@@ -33,3 +33,11 @@ test('Inicio y Catálogo muestran la invitación; el link viejo del fondo ya no 
   assert.doesNotMatch(comp, /en preparación/);
   assert.doesNotMatch(comp, /GRATIS|Empezar gratis|Animated\.loop/);
 });
+
+test('Registrar lista Islandia entre tus desafíos y permite pausarla', () => {
+  const src = leer('screens/RegistroManualScreen.js');
+  assert.match(src, /Islandia · Ring Road/);
+  assert.match(src, /accion: islandia\.pausado \? 'reanudar' : 'pausar'/);
+  assert.match(src, /`\$\{totalActivos\} activos · Gestionar pausas`/);
+  assert.match(src, /totalActivos === 0 &&/);
+});
