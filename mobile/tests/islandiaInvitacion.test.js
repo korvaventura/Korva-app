@@ -41,3 +41,14 @@ test('Registrar lista Islandia entre tus desafíos y permite pausarla', () => {
   assert.match(src, /`\$\{totalActivos\} activos · Gestionar pausas`/);
   assert.match(src, /totalActivos === 0 &&/);
 });
+
+test('Islandia se puede empezar desde Registrar sin salir, con el mismo texto que en su pantalla', () => {
+  const { TEXTO_ACEPTAR } = require('../services/islandiaInvitacionCore');
+  assert.match(TEXTO_ACEPTAR, /Por ahora no tiene medalla: en el futuro va a existir una/);
+  assert.match(TEXTO_ACEPTAR, /Lo anterior no cuenta/);
+  const registrar = leer('screens/RegistroManualScreen.js');
+  assert.match(registrar, /accion: 'aceptar', body: \{ acepto: true, version: rutaLibre\.datos\?\.ruta\?\.aceptacion_version \}/);
+  assert.match(registrar, /Ruta libre, sin costo\. Por ahora sin medalla\./);
+  assert.match(registrar, /\{invitarIslandia && totalActivos > 0 && filaInvitacionIslandia\}/);
+  assert.match(leer('screens/RutaLibreScreen.js'), /Alert\.alert\('Empezar Islandia', TEXTO_ACEPTAR,/);
+});

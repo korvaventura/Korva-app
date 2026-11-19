@@ -5,6 +5,7 @@ import MapaRecorrido from './MapaRecorrido';
 import useRutaLibre from '../services/useRutaLibre';
 import { consultarRutaLibre } from '../services/rutasLibresApi';
 import { colors, spacing } from '../theme/korvaTheme';
+import { TEXTO_ACEPTAR } from '../services/islandiaInvitacionCore';
 const ID = '3b211caf-ee16-54c8-a93c-343a5eb2d57e';
 export default function RutaLibreScreen({ navigation, route }) {
   const { estado, actualizar } = useRutaLibre();
@@ -24,8 +25,7 @@ export default function RutaLibreScreen({ navigation, route }) {
     } catch (e) { if (vivo.current) setError(e.message); }
     finally { pendiente.current = false; if (vivo.current) setGuardando(false); }
   };
-  const aceptar = () => Alert.alert('Empezar Islandia',
-    'Esta ruta es gratuita y no incluye medalla. Cuenta movimiento realizado desde tu aceptación y puede avanzar junto a tus desafíos activos. El recorrido comienza con la primera actividad válida posterior, de GPS, Manual o Strava. Podés pausarla o dejarla cuando quieras.',
+  const aceptar = () => Alert.alert('Empezar Islandia', TEXTO_ACEPTAR,
     [{ text: 'Cancelar', style: 'cancel' }, { text: 'Aceptar y empezar', onPress: () => actuar('aceptar') }]);
   const bloquearMapa = useCallback((activo) => { setScrollEnabled(!activo); scroll.current?.setNativeProps?.({ scrollEnabled: !activo }); }, []);
   const mostrarHistoria = useCallback((historia) => {

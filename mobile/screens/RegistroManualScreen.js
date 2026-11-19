@@ -7,6 +7,7 @@ import { supabase } from '../supabase';
 import { colors } from '../theme/korvaTheme';
 import useRutaLibre from '../services/useRutaLibre';
 import { consultarRutaLibre } from '../services/rutasLibresApi';
+import { TEXTO_ACEPTAR } from '../services/islandiaInvitacionCore';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -43,6 +44,8 @@ export default function RegistroManualScreen({ navigation }) {
   const islandia = participacionLibre && !participacionLibre.abandonado && participacionLibre.estado !== 'completada' ? participacionLibre : null;
   const totalDesafios = desafios.length + (islandia ? 1 : 0);
   const totalActivos = activos.length + (islandia && !islandia.pausado ? 1 : 0);
+  // Invitar a Islandia a quien no la empezó (o la dejó). Se acepta acá mismo, sin salir de Registrar.
+  const invitarIslandia = !!userId && rutaLibre.datos?.userId === userId && (!participacionLibre || participacionLibre.abandonado);
   const challengeId = activos[0]?.challenge_id || null;
 
   const [evidenciaUri, setEvidenciaUri] = useState(null);
@@ -103,6 +106,38 @@ export default function RegistroManualScreen({ navigation }) {
       setCambiandoDesafio(null);
     }
   };
+
+  const empezarIslandia = () => Alert.alert('Empezar Islandia', TEXTO_ACEPTAR, [
+    { text: 'Cancelar', style: 'cancel' },
+    { text: 'Aceptar y empezar', onPress: async () => {
+      if (cambioPendiente.current || !userId) return;
+      cambioPendiente.current = true;
+      setCambiandoDesafio('islandia');
+      try {
+        await consultarRutaLibre({ userId, accion: 'aceptar', body: { acepto: true, version: rutaLibre.datos?.ruta?.aceptacion_version } });
+        await actualizarRutaLibre({ conservarDatos: true });
+      } catch (error) {
+        Alert.alert('Islandia', error?.message || 'No pudimos empezar la ruta. Intentá nuevamente.');
+      } finally {
+        cambioPendiente.current = false;
+        setCambiandoDesafio(null);
+      }
+    } },
+  ]);
+
+  const filaInvitacionIslandia = (
+    <View style={[styles.challengeRow, styles.invitacionIslandia]}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.challengeName}>Islandia · Ring Road</Text>
+        <Text style={styles.challengeHint}>Ruta libre, sin costo. Por ahora sin medalla.</Text>
+      </View>
+      <TouchableOpacity style={styles.challengeAction} onPress={empezarIslandia} disabled={!!cambiandoDesafio || cargando}
+        accessibilityRole="button" accessibilityLabel="Empezar Islandia, ruta libre sin costo">
+        {cambiandoDesafio === 'islandia' ? <ActivityIndicator size="small" color={colors.actionBlue} />
+          : <Text style={styles.challengeActionText}>Empezar ›</Text>}
+      </TouchableOpacity>
+    </View>
+  );
 
   const cambiarPausa = async (reto) => {
     if (cambioPendiente.current || cargando || !userId) return;
@@ -333,6 +368,12 @@ export default function RegistroManualScreen({ navigation }) {
           <Text style={styles.challengeExplanation}>{totalDesafios > 0
             ? 'Tus desafíos están pausados. Podés seguir registrando movimiento y consultar tu historial personal.'
             : 'Tus kilómetros quedan guardados en tu historial personal. Podés empezar ahora y elegir un desafío cuando quieras.'}</Text>
+          {invitarIslandia && (
+            <>
+              <Text style={[styles.challengeExplanation, { marginTop: 8 }]}>¿Querés que tus km sumen a una ruta? Islandia es libre y sin costo, por ahora sin medalla.</Text>
+              {filaInvitacionIslandia}
+            </>
+          )}
           <TouchableOpacity style={styles.freeLink} onPress={() => navigation.navigate('Catalogo')} accessibilityRole="button">
             <Text style={styles.challengeActionText}>Explorar desafíos</Text>
             <Ionicons name="arrow-forward" size={15} color={colors.actionBlue} />
@@ -535,6 +576,7 @@ export default function RegistroManualScreen({ navigation }) {
           </View>
           <Ionicons name={desafiosVisibles ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSoft} />
         </TouchableOpacity>
+        {invitarIslandia && totalActivos > 0 && filaInvitacionIslandia}
         {(estadoDesafios === 'error' || estadoDesafios === 'sesion') && (
           <TouchableOpacity style={styles.retryChallenges} onPress={consultarDesafios} disabled={!!cambiandoDesafio}>
             <Text style={styles.challengeActionText}>Reintentar</Text>
@@ -585,6 +627,7 @@ const styles = StyleSheet.create({
   challengeHeading: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 16, minHeight: 60 },
   challengeTitle: { color: colors.textSoft, fontSize: 14, fontWeight: '700' },
   challengeHint: { color: colors.textMuted, fontSize: 11, lineHeight: 17, marginTop: 4 },
+  invitacionIslandia: { borderTopWidth: 0, paddingTop: 4 },
   challengeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
   challengeName: { color: colors.text, fontSize: 13, fontWeight: '600' },
   challengeAction: { minWidth: 82, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
