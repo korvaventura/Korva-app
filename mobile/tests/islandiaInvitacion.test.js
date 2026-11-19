@@ -28,4 +28,7 @@ test('Inicio y Catálogo muestran la invitación; el link viejo del fondo ya no 
   assert.match(comp, /navigation\.navigate\('RutaLibre'\)/);
   assert.match(comp, /lugar === 'inicio' && \(/);
   assert.match(comp, /tus próximas salidas suman/);
+  assert.match(comp, /RUTA LIBRE · SIN COSTO/);
+  assert.match(comp, /Por ahora no incluye medalla\. Más adelante vas a poder comprarla con tu recorrido validado\./);
+  assert.doesNotMatch(comp, /GRATIS|Empezar gratis|Animated\.loop/);
 });

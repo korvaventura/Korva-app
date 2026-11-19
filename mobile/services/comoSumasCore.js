@@ -43,7 +43,7 @@ const OPCIONES_REGISTRO = [
   { id: 'strava', titulo: 'Conectala a Strava', texto: 'Strava es una app gratuita para registrar entrenamientos. Garmin, Coros, Polar, Suunto y la mayoría de los relojes y apps se conectan con Strava, y desde ahí tus salidas llegan solas a Korva. ¿No la tenés? Bajala gratis y conectá tu reloj o app.' },
   { id: 'manual', titulo: 'O cargala a mano', texto: 'Seguí usando tu reloj o app de siempre y, al terminar, cargá la salida en Registrar → Manual con los km y el tiempo.' },
   { id: 'gps', titulo: '¿No usás ninguna?', texto: 'Grabá con Korva GPS desde Iniciar.' },
-  { id: 'catalogo', titulo: '¿Todavía no te anotaste a un desafío?', texto: 'Empezá descubriendo el catálogo: elegí tu aventura y tus km empiezan a sumar. Islandia es gratis.' },
+  { id: 'catalogo', titulo: '¿Todavía no te anotaste a un desafío?', texto: 'Empezá descubriendo el catálogo: elegí tu aventura y tus km empiezan a sumar. Islandia es una ruta libre, sin costo (por ahora sin medalla).' },
 ];
 
 // La opción del catálogo sólo aparece si la persona no tiene desafíos.
