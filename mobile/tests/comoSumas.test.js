@@ -73,3 +73,8 @@ test('el explicativo dice qué es Strava para quien no la conoce', () => {
   assert.match(OPCIONES_REGISTRO[0].texto, /^Strava es una app gratuita/);
   assert.match(OPCIONES_REGISTRO[0].texto, /¿No la tenés\? Bajala gratis/);
 });
+
+test('la ayuda de "otro reloj o app" no habla de Islandia', () => {
+  const { OPCIONES_REGISTRO } = require('../services/comoSumasCore');
+  assert.ok(OPCIONES_REGISTRO.every((o) => !/Islandia/.test(o.texto)));
+});
