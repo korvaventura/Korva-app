@@ -68,7 +68,7 @@ export default function GpsAventura({ kmSesion = 0, distanciaTxt, tiempoTxt, rit
       </View>
 
       {desafios.length > 1 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsFila} contentContainerStyle={styles.chips}>
           {desafios.map((d) => (
             <TouchableOpacity key={d.challenge_id} onPress={() => setElegidoId(d.challenge_id)}
               style={[styles.chip, d.challenge_id === elegidoId && styles.chipActivo]}>
@@ -141,8 +141,10 @@ const styles = StyleSheet.create({
   datoValor: { color: colors.text, fontSize: 18, fontWeight: '700' },
   datoGrande: { fontSize: 22 },
   datoEtiqueta: { color: colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 1.2, marginTop: 3 },
-  chips: { gap: 8, paddingVertical: 10 },
-  chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.borderSoft, maxWidth: 200 },
+  // flexGrow 0: sin esto el ScrollView horizontal se estira y se come el mapa.
+  chipsFila: { flexGrow: 0, flexShrink: 0 },
+  chips: { gap: 8, paddingVertical: 10, alignItems: 'center' },
+  chip: { alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.borderSoft, maxWidth: 200 },
   chipActivo: { borderColor: colors.brandOrange, backgroundColor: colors.surfaceRaised },
   chipTxt: { color: colors.text, fontSize: 12, fontWeight: '700' },
   estilos: { flexDirection: 'row', gap: 6, marginTop: 10 },

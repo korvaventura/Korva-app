@@ -113,14 +113,14 @@ function Escena({ datos, kmObjetivoRef, zoomRef, giroRef, distanciaBase, etiquet
     // Etiquetas de hitos proyectadas a pantalla, ~8 veces por segundo.
     if (clock.elapsedTime - e.ultimaEtiqueta > 0.12) {
       e.ultimaEtiqueta = clock.elapsedTime;
-      const etiquetas = [];
+      const candidatas = [];
       for (const h of hitos) {
         v.set(h.x, 0, h.z).project(camera);
         if (v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1) {
-          etiquetas.push({ id: h.id, nombre: h.nombre, x: (v.x + 1) / 2 * size.width, y: (1 - v.y) / 2 * size.height, proximo: h.id === siguiente?.id });
+          candidatas.push({ id: h.id, nombre: h.nombre, x: (v.x + 1) / 2 * size.width, y: (1 - v.y) / 2 * size.height, proximo: h.id === siguiente?.id });
         }
       }
-      etiquetasRef.current = etiquetas;
+      etiquetasRef.current = elegirEtiquetas(candidatas, size.height);
     }
   });
 
@@ -140,6 +140,21 @@ function Escena({ datos, kmObjetivoRef, zoomRef, giroRef, distanciaBase, etiquet
       </mesh>
     </group>
   );
+}
+
+// Etiquetas sin amontonarse: el próximo hito siempre; el resto sólo si no
+// está pegado al horizonte y no se pisa con otra ya puesta.
+function elegirEtiquetas(candidatas, alto) {
+  const orden = [...candidatas].sort((a, b) => (b.proximo - a.proximo) || (b.y - a.y));
+  const puestas = [];
+  for (const c of orden) {
+    if (!c.proximo && c.y < alto * 0.24) continue;
+    const ancho = Math.min(150, c.nombre.length * (c.proximo ? 7.5 : 6.5));
+    const caja = { x0: c.x + 10, x1: c.x + 10 + ancho, y0: c.y - 10, y1: c.y + 8 };
+    if (puestas.some((p) => caja.x0 < p.caja.x1 + 6 && caja.x1 + 6 > p.caja.x0 && caja.y0 < p.caja.y1 + 4 && caja.y1 + 4 > p.caja.y0)) continue;
+    puestas.push({ ...c, caja });
+  }
+  return puestas;
 }
 
 // Las etiquetas se re-renderizan solas (~8 por segundo) sin tocar el Canvas.
@@ -223,7 +238,7 @@ export default function MapaLinea({ escena, horneado, checkpoints = [], km = 0, 
         {!!terreno && <Segmentos datos={terreno.curvas} color={COLOR.curvas} opacidad={0.55} />}
         {!!terreno && <Segmentos datos={terreno.costa} color={COLOR.costa} opacidad={0.95} />}
         <Cinta puntos={datos.puntos} desde={0} hasta={escena.distanciaKm} ancho={ancho * 0.6} color={COLOR.pendiente} opacidad={0.9} orden={2} />
-        {kmPintado > 0 && <Cinta puntos={datos.puntos} desde={0} hasta={kmPintado} ancho={ancho * 3.2} color={COLOR.hecho} opacidad={0.18} orden={3} aditivo />}
+        {kmPintado > 0 && <Cinta puntos={datos.puntos} desde={0} hasta={kmPintado} ancho={ancho * 2} color={COLOR.hecho} opacidad={0.12} orden={3} aditivo />}
         {kmPintado > 0 && <Cinta puntos={datos.puntos} desde={0} hasta={kmPintado} ancho={ancho} color={COLOR.hecho} orden={4} />}
         {hitos.map((h) => (
           h.id === siguiente?.id

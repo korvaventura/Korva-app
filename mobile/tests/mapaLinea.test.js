@@ -54,3 +54,21 @@ test('el GPS ofrece Línea (por defecto) y Relieve', () => {
   assert.match(src, /\[\['linea', 'Línea'\], \['relieve', 'Relieve'\]\]/);
   assert.match(src, /<MapaLinea/);
 });
+
+test('la fila de desafíos no se estira y las etiquetas no se amontonan', () => {
+  const aventura = fs.readFileSync(path.join(__dirname, '..', 'components', 'GpsAventura.js'), 'utf8');
+  assert.match(aventura, /chipsFila: \{ flexGrow: 0, flexShrink: 0 \}/);
+  assert.match(aventura, /style=\{styles\.chipsFila\}/);
+  const linea = fs.readFileSync(path.join(__dirname, '..', 'components', 'MapaLinea.js'), 'utf8');
+  const fuente = linea.slice(linea.indexOf('function elegirEtiquetas'), linea.indexOf('// Las etiquetas se re-renderizan'));
+  const elegirEtiquetas = new Function(`${fuente}; return elegirEtiquetas;`)();
+  const r = elegirEtiquetas([
+    { id: 'a', nombre: 'Reykjavík', x: 100, y: 400, proximo: false },
+    { id: 'b', nombre: 'Reykjavík · Meta', x: 102, y: 402, proximo: false },
+    { id: 'c', nombre: 'Hveragerði', x: 200, y: 50, proximo: true },
+    { id: 'd', nombre: 'Seljalandsfoss', x: 300, y: 40, proximo: false },
+  ], 600);
+  assert.equal(r.length, 2);
+  assert.ok(r.some((e) => e.id === 'c'));
+  assert.equal(r.filter((e) => e.id === 'a' || e.id === 'b').length, 1);
+});
