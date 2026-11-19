@@ -60,7 +60,6 @@ export default function CaminoSantiagoPruebaScreen({ navigation }) {
     <View style={{ flex: 1 }} onLayout={(e) => setAltura(e.nativeEvent.layout.height)}>
       {altura > 0 && <MapaConGlobo key={progreso} escena={escena} horneado={horneado}
         destinoActual={destinoActual} esAdmin
-        onAbrirDestino={(d) => navigation?.navigate(d.pantallaPrueba || 'KorvaMundi')}
         focoMonumento={foco}
         checkpoints={paradas} progreso={progreso} completado={progreso === 1}
         kmUsuario={775 * progreso} kmTotalUsuario={775} altura={altura}

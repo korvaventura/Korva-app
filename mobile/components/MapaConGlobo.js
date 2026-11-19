@@ -1,10 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StackActions, useNavigation } from '@react-navigation/native';
+import { supabase } from '../supabase';
+import { distanciaDeInscripcion } from '../utils/versionDesafio';
 import MapaRecorrido3D from './MapaRecorrido3D';
 import KorvaGlobe3D from './KorvaGlobe3D';
 import { colors } from '../theme/korvaTheme';
 import { conUbicacion, destinosPrueba } from '../services/korvaMundiCore';
-import { GLOBO_ZOOM_MAX, GLOBO_ZOOM_MIN, avanzarTope, destinosParaGlobo, giroHacia, resolverActual } from '../services/globoKorvaCore';
+import { GLOBO_ZOOM_MAX, GLOBO_ZOOM_MIN, accionDestino, avanzarTope, destinosParaGlobo, estadoInscripcion, giroHacia, resolverActual } from '../services/globoKorvaCore';
 import { ISLANDIA_MUNDI } from '../services/rutaLibreMundiCore';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
@@ -41,6 +44,11 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
   const opacidad = useRef(new Animated.Value(0)).current;
   const gesto = useRef({ giro: null, zoom: null, distancia: null, ultima: null, tope: 1 });
 
+  const navigation = useNavigation();
+  // Desafíos del usuario: colorean el globo y permiten ir a la tarjeta de cada uno.
+  const [inscripciones, setInscripciones] = useState([]);
+  const [userId, setUserId] = useState(null);
+
   const cargar = useCallback(async () => {
     setCargando(true); setError(false);
     try {
@@ -48,6 +56,19 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
       const data = await res.json();
       if (!res.ok || !Array.isArray(data)) throw new Error('catalogo');
       setCatalogo(data);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const uid = session?.user?.id;
+        if (uid) {
+          const { data: ucs } = await supabase.from('user_challenges')
+            .select('challenge_id, status, pausado, km_completed, version, modalidad, started_at, completed_at, meta_fecha, challenges(id, title, total_distance_km, modalidades)')
+            .eq('user_id', uid);
+          setUserId(uid);
+          setInscripciones(Array.isArray(ucs) ? ucs : []);
+        }
+      } catch {
+        // Sin inscripciones el globo funciona igual: sólo no colorea ni abre "mi desafío".
+      }
     } catch {
       setError(true);
     } finally {
@@ -59,9 +80,30 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
     const lista = catalogo || [];
     const prueba = destinosPrueba({ esAdmin, desarrollo: __DEV__, catalogo: lista });
     const islandia = lista.some((d) => d.id === ISLANDIA_MUNDI.id) ? [] : [ISLANDIA_MUNDI];
-    const todos = [...conUbicacion(lista), ...prueba, ...islandia].map((d) => ({ ...d, estado: d.estado || 'por_conquistar' }));
+    const porId = new Map(inscripciones.map((uc) => [uc.challenge_id, uc]));
+    const todos = [...conUbicacion(lista), ...prueba, ...islandia].map((d) => {
+      const uc = porId.get(d.id);
+      const objetivo = uc ? (distanciaDeInscripcion(uc, uc.challenges || d) || Number(d.total_distance_km) || 0) : 0;
+      return { ...d, estado: uc ? estadoInscripcion(uc, objetivo) : (d.estado || 'por_conquistar') };
+    });
     return destinosParaGlobo(todos, actual);
-  }, [catalogo, esAdmin, actual]);
+  }, [catalogo, esAdmin, actual, inscripciones]);
+
+  // Ir a la tarjeta y el mapa del destino tocado en el globo.
+  const accion = useMemo(() => {
+    if (!seleccionado) return null;
+    const uc = inscripciones.find((x) => x.challenge_id === seleccionado.id);
+    const objetivo = uc ? (distanciaDeInscripcion(uc, uc.challenges || seleccionado) || Number(seleccionado.total_distance_km) || 0) : 0;
+    return accionDestino(seleccionado, uc, { islandiaId: ISLANDIA_MUNDI.id, objetivo });
+  }, [seleccionado, inscripciones]);
+  const irADestino = useCallback(() => {
+    if (!accion) return;
+    if (onAbrirDestino) { onAbrirDestino(seleccionado); return; }
+    if (accion.tipo === 'prueba') navigation.navigate(accion.pantalla);
+    else if (accion.tipo === 'rutaLibre') navigation.navigate('RutaLibre');
+    else if (accion.tipo === 'miDesafio') navigation.dispatch(StackActions.push('DetalleReto', { item: accion.item, userId, abrirRuta: true }));
+    else navigation.navigate('HomeTabs', { screen: 'Catalogo' });
+  }, [accion, onAbrirDestino, seleccionado, navigation, userId]);
 
   const animar = useCallback((destino, duracion) => {
     if (animRef.current) cancelAnimationFrame(animRef.current);
@@ -194,9 +236,9 @@ export default function MapaConGlobo({ destinoActual, esAdmin = false, onAbrirDe
               {!!seleccionado.lugar && <Text numberOfLines={1} style={styles.fichaLugar}>{seleccionado.lugar}</Text>}
               {seleccionado.esActual
                 ? <Text style={styles.fichaLugar}>Estás acá</Text>
-                : !!onAbrirDestino && (
-                  <TouchableOpacity onPress={() => onAbrirDestino(seleccionado)}>
-                    <Text style={styles.fichaLink}>Ver desafío ›</Text>
+                : !!accion && (
+                  <TouchableOpacity onPress={irADestino} accessibilityRole="button">
+                    <Text style={styles.fichaLink}>{accion.texto} ›</Text>
                   </TouchableOpacity>
                 )}
             </View>

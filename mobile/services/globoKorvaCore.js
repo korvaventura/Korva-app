@@ -98,4 +98,42 @@ function destinosParaGlobo(destinos = [], actual) {
   return [{ ...base, ...actual, estado: 'en_curso', esActual: true }, ...resto];
 }
 
-module.exports = { FACTOR_BORDE, UMBRAL_BORDE_PX, bordeDeRuta, fueraDeBorde, avanzarBloqueoPan, GLOBO_ZOOM_MIN, GLOBO_ZOOM_MAX, UMBRAL_TOPE, giroHacia, avanzarTope, destinosParaGlobo, ubicacionLocal, resolverActual };
+const COMPLETADOS = new Set(['completed', 'shipped', 'cargado']);
+const clamp01 = (v) => Math.max(0, Math.min(100, v));
+
+// Estado del destino para el usuario (mismos criterios que Korva Mundi).
+function estadoInscripcion(uc, objetivo) {
+  if (!uc) return 'por_conquistar';
+  const km = Number(uc.km_completed || 0);
+  const pct = objetivo > 0 ? clamp01(km / objetivo * 100) : 0;
+  if (COMPLETADOS.has(uc.status) || pct >= 100) return 'conquistado';
+  if (km > 0 || uc.status === 'active') return 'en_curso';
+  return 'adquirido';
+}
+
+// Parámetros que espera DetalleReto, armados desde la fila de user_challenges.
+function itemDetalleReto(uc, objetivo) {
+  const km = Number(uc?.km_completed || 0);
+  return {
+    challenge_id: uc.challenge_id,
+    challenge: uc.challenges?.title,
+    km_completados: km,
+    distancia_total: objetivo,
+    porcentaje: objetivo > 0 ? clamp01(km / objetivo * 100) : 0,
+    started_at: uc.started_at || null,
+    completed_at: uc.completed_at || null,
+    meta_fecha: uc.meta_fecha || null,
+    status: uc.status,
+  };
+}
+
+// Qué pasa al tocar "ir" en un destino del globo.
+function accionDestino(destino, uc, { islandiaId, objetivo = 0 } = {}) {
+  if (!destino || destino.esActual) return null;
+  if (destino.pruebaInterna && destino.pantallaPrueba) return { tipo: 'prueba', texto: 'Ver ficha y mapa', pantalla: destino.pantallaPrueba };
+  if (destino.id === islandiaId || destino.gratuita) return { tipo: 'rutaLibre', texto: 'Ver Islandia' };
+  if (uc) return { tipo: 'miDesafio', texto: 'Ver mi desafío y mapa', item: itemDetalleReto(uc, objetivo) };
+  return { tipo: 'catalogo', texto: 'Descubrir desafío' };
+}
+
+module.exports = { estadoInscripcion, itemDetalleReto, accionDestino, FACTOR_BORDE, UMBRAL_BORDE_PX, bordeDeRuta, fueraDeBorde, avanzarBloqueoPan, GLOBO_ZOOM_MIN, GLOBO_ZOOM_MAX, UMBRAL_TOPE, giroHacia, avanzarTope, destinosParaGlobo, ubicacionLocal, resolverActual };

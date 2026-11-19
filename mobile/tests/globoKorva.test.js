@@ -132,3 +132,26 @@ test('arrastrar fuera de la ruta: borde por radio y empuje contra el límite', (
   const mapa = leer('components/MapaRecorrido3D.js');
   assert.match(mapa, /if \(empuje\.cambiar \|\| \(!escena\.territorio && fueraDeBorde\(final, bordeRutaRef\.current\)\)\)/);
 });
+
+test('tocar otro destino en el globo lleva a su tarjeta y mapa', () => {
+  const { accionDestino, estadoInscripcion, itemDetalleReto } = require('../services/globoKorvaCore');
+  const uc = { challenge_id: 'fuji', status: 'active', km_completed: 20, started_at: '2026-10-01', challenges: { title: 'Monte Fuji 68K' } };
+  const a = accionDestino({ id: 'fuji' }, uc, { islandiaId: 'isl', objetivo: 68 });
+  assert.equal(a.tipo, 'miDesafio');
+  assert.deepEqual(
+    [a.item.challenge_id, a.item.challenge, a.item.km_completados, a.item.distancia_total, a.item.started_at],
+    ['fuji', 'Monte Fuji 68K', 20, 68, '2026-10-01'],
+  );
+  assert.equal(accionDestino({ id: 'dub' }, null).tipo, 'catalogo');
+  assert.equal(accionDestino({ id: 'isl', gratuita: true }, null, { islandiaId: 'isl' }).tipo, 'rutaLibre');
+  assert.equal(accionDestino({ ...DESTINOS_PRUEBA[1] }, null).tipo, 'prueba');
+  assert.equal(accionDestino({ id: 'x', esActual: true }, uc), null);
+  assert.equal(estadoInscripcion(null, 10), 'por_conquistar');
+  assert.equal(estadoInscripcion({ status: 'active', km_completed: 0 }, 10), 'en_curso');
+  assert.equal(estadoInscripcion({ status: 'active', km_completed: 10 }, 10), 'conquistado');
+  assert.equal(estadoInscripcion({ status: 'shipped', km_completed: 1 }, 10), 'conquistado');
+  assert.equal(itemDetalleReto({ challenge_id: 'a', km_completed: 5 }, 0).porcentaje, 0);
+  const src = leer('components/MapaConGlobo.js');
+  assert.match(src, /StackActions\.push\('DetalleReto', \{ item: accion\.item, userId, abrirRuta: true \}\)/);
+  assert.match(src, /\{accion\.texto\} ›/);
+});

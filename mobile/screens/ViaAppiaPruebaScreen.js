@@ -47,7 +47,6 @@ export default function ViaAppiaPruebaScreen({ navigation }) {
     <View style={{ flex: 1 }} onLayout={(e) => setAltura(e.nativeEvent.layout.height)}>
       {altura > 0 && <MapaConGlobo key={progreso} escena={mapa.escena} horneado={mapa.horneado}
         destinoActual={destinoAppia} esAdmin
-        onAbrirDestino={(d) => navigation?.navigate(d.pantallaPrueba || 'KorvaMundi')}
         focoMonumento={foco}
         checkpoints={paradas} progreso={progreso} completado={progreso === 1}
         kmUsuario={611 * progreso} kmTotalUsuario={611} altura={altura}
