@@ -27,16 +27,16 @@ export default function IslandiaInvitacion({ navigation, userId, participacion, 
 
   return (
     <TouchableOpacity activeOpacity={0.9} style={styles.card} onPress={() => navigation.navigate('RutaLibre')} accessibilityRole="button"
-      accessibilityLabel="Islandia, ruta libre sin costo y sin medalla por ahora. Empezar la ruta">
+      accessibilityLabel="Islandia, ruta piloto sin costo. La medalla todavía está en preparación. Empezar la ruta">
       <View style={styles.fila}>
         <View style={styles.etiqueta}>
-          <Text style={styles.etiquetaTxt}>RUTA LIBRE · SIN COSTO</Text>
+          <Text style={styles.etiquetaTxt}>RUTA PILOTO · SIN COSTO</Text>
         </View>
         <Text style={styles.km}>1.400 km</Text>
       </View>
       <Text style={styles.titulo}>Islandia · Ring Road</Text>
-      <Text style={styles.texto}>Cascadas, glaciares y volcanes. Recorrela a tu ritmo: tus próximas salidas suman.</Text>
-      <Text style={styles.medalla}>Por ahora no incluye medalla. Más adelante vas a poder comprarla con tu recorrido validado.</Text>
+      <Text style={styles.texto}>Cascadas, glaciares y volcanes. Es nuestra primera ruta que podés empezar sin comprar: tus próximas salidas suman.</Text>
+      <Text style={styles.medalla}>La medalla todavía está en preparación. Cuando esté lista vas a poder comprarla con tu recorrido validado.</Text>
       <View style={styles.acciones}>
         <View style={styles.boton}><Text style={styles.botonTxt}>Empezar la ruta</Text></View>
         {lugar === 'inicio' && (
