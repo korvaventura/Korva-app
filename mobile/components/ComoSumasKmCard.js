@@ -52,7 +52,7 @@ export default function ComoSumasKmCard({ userId, movimiento, onActualizarMovimi
           <Text style={styles.filaDetalle}>GPS Korva, Strava o manual · suman a todos tus desafíos</Text>
           <TouchableOpacity onPress={() => setOtraApp(true)} accessibilityRole="button" hitSlop={8} style={styles.filaLink}>
             <Ionicons name="watch-outline" size={13} color={colors.actionBlue} />
-            <Text style={styles.filaLinkTxt}>¿Usás Garmin u otro reloj? ›</Text>
+            <Text style={styles.filaLinkTxt}>¿Usás otro reloj o app? ›</Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.km}>{hoy ? `${fmt(hoy.actividades)} km` : '—'}</Text>
@@ -81,7 +81,7 @@ export default function ComoSumasKmCard({ userId, movimiento, onActualizarMovimi
       <Modal visible={otraApp} transparent animationType="fade" onRequestClose={() => setOtraApp(false)}>
         <View style={styles.velo}>
           <View style={styles.aviso}>
-            <Text style={styles.avisoTitulo}>Seguí usando tu app</Text>
+            <Text style={styles.avisoTitulo}>Seguí usando tu reloj o app</Text>
             {OPCIONES_REGISTRO.map((o, n) => (
               <View key={o.id} style={styles.opcion}>
                 <Text style={styles.opcionNumero}>{n + 1}</Text>

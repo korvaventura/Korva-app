@@ -49,7 +49,7 @@ test('el detalle de movimiento no repite la misma key en dos hermanos', () => {
 test('la tarjeta queda liviana: sin fila de fuentes ni botón grande, con ayuda para otras apps', () => {
   const src = leer('components/ComoSumasKmCard.js');
   assert.doesNotMatch(src, /function Fuente|styles\.fuentes|styles\.boton\b/);
-  assert.match(src, /¿Usás Garmin u otro reloj\?/);
+  assert.match(src, /¿Usás otro reloj o app\?/);
   assert.match(src, /navigation\?\.navigate\('Registrar'\)/);
   const { OPCIONES_REGISTRO } = require('../services/comoSumasCore');
   assert.deepEqual(OPCIONES_REGISTRO.map((o) => o.id), ['strava', 'manual', 'gps']);
@@ -57,9 +57,15 @@ test('la tarjeta queda liviana: sin fila de fuentes ni botón grande, con ayuda 
 
 test('cada link vive en su fila: Garmin en Actividades, Salud en Movimiento del día', () => {
   const src = leer('components/ComoSumasKmCard.js');
-  const garmin = src.indexOf('¿Usás Garmin u otro reloj? ›');
+  const garmin = src.indexOf('¿Usás otro reloj o app? ›');
   const filaSalud = src.indexOf('Movimiento del día');
   assert.ok(garmin > 0 && garmin < filaSalud);
   assert.ok(src.indexOf('{salud.accion.texto} ›') > filaSalud);
   assert.doesNotMatch(src, /styles\.pie\b/);
+});
+
+test('el explicativo dice qué es Strava para quien no la conoce', () => {
+  const { OPCIONES_REGISTRO } = require('../services/comoSumasCore');
+  assert.match(OPCIONES_REGISTRO[0].texto, /^Strava es una app gratuita/);
+  assert.match(OPCIONES_REGISTRO[0].texto, /¿No la tenés\? Bajala gratis/);
 });
