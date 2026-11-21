@@ -1,6 +1,7 @@
 ﻿import './performance-polyfill';
 import './services/gps/gpsBackgroundTask';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import { TourProvider } from './components/tour/Tour';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useState, useEffect } from 'react';
@@ -43,6 +44,8 @@ TextInput.defaultProps = TextInput.defaultProps || {};
 TextInput.defaultProps.allowFontScaling = false;
 
 const Tab = createBottomTabNavigator();
+// Ref de navegación para que el recorrido guiado pueda cambiar de pestaña.
+const navigationRef = createNavigationContainerRef();
 const Stack = createNativeStackNavigator();
 
 const ADMINS = [
@@ -221,7 +224,8 @@ export default function App() {
   const esAdmin = ADMINS.includes(usuario.email?.toLowerCase());
 
   return (
-    <NavigationContainer>
+    <TourProvider navigationRef={navigationRef}>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="HomeTabs">
           {() => <HomeTabs esAdmin={esAdmin} />}
@@ -239,5 +243,6 @@ export default function App() {
         {esAdmin && __DEV__ && <Stack.Screen name="SaludDiagnostico" component={SaludDiagnosticoScreen} />}
       </Stack.Navigator>
     </NavigationContainer>
+    </TourProvider>
   );
 }

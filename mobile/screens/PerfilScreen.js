@@ -18,6 +18,7 @@ import { versionDeInscripcion, versionesDelDesafio, distanciaDeVersion, distanci
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius, spacing } from '../theme/korvaTheme';
+import { useTourScroll, useTourTarget } from '../components/tour/Tour';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -49,6 +50,10 @@ export default function PerfilScreen() {
   const participacionLibre = rutaLibre.datos?.userId === userId ? rutaLibre.datos.participacion : null;
   const tieneRutaLibre = !!participacionLibre && !participacionLibre.abandonado;
   const scrollRef = useRef(null);
+  // Recorrido guiado: actividades (borrar duplicados) y dirección de envío.
+  const alDesplazarTour = useTourScroll('Perfil', scrollRef);
+  const refTourActividades = useTourTarget('actividades');
+  const refTourDireccion = useTourTarget('direccion');
   const direccionY = useRef(0);
   const actividadesY = useRef(0);
   const [editandoNombre, setEditandoNombre] = useState(false);
@@ -596,7 +601,7 @@ export default function PerfilScreen() {
   const inicial = usuario?.name?.charAt(0)?.toUpperCase() || 'K';
 
   return (
-    <SafeAreaView style={styles.scroll} edges={['top']}><ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.container}>
+    <SafeAreaView style={styles.scroll} edges={['top']}><ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.container} onScroll={alDesplazarTour} scrollEventThrottle={64}>
 
       {/* Modal Próximamente Strava */}
       {/* Modal Strava Info */}
@@ -1099,7 +1104,7 @@ export default function PerfilScreen() {
       </Modal>
 
       {/* Actividades */}
-      <View style={styles.seccion} onLayout={(e) => { actividadesY.current = e.nativeEvent.layout.y; }}>
+      <View style={styles.seccion} ref={refTourActividades} collapsable={false} onLayout={(e) => { actividadesY.current = e.nativeEvent.layout.y; }}>
         <View style={styles.activitiesHeading}>
           <Text style={[styles.seccionTitulo, { marginBottom: 0, flex: 1 }]}>Tus actividades</Text>
           <TouchableOpacity style={styles.activitiesLink} onPress={() => navigation.navigate('MisActividades')}
@@ -1215,7 +1220,7 @@ export default function PerfilScreen() {
       </View>
 
       {/* Dirección */}
-      <View style={styles.seccion} onLayout={e => { direccionY.current = e.nativeEvent.layout.y; }}>
+      <View style={styles.seccion} ref={refTourDireccion} collapsable={false} onLayout={e => { direccionY.current = e.nativeEvent.layout.y; }}>
         <Text style={{ color: colors.textMuted, fontSize: 11, textAlign: 'center', marginBottom: 12 }}>
           🔒 Tu información es privada y solo se usa para procesar el envío de tu medalla. No se comparte con terceros.
         </Text>

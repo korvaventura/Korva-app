@@ -1,0 +1,57 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const T = require('../services/tour/tourCore');
+
+const leer = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+const pantalla = { width: 390, height: 844 };
+
+test('los pasos cubren lo importante de Korva y terminan con un cierre', () => {
+  const ids = T.PASOS.map((p) => p.id);
+  assert.deepEqual(ids, ['desafio', 'gps', 'comoSumas', 'korvaMundi', 'tab-Registrar', 'tab-Catalogo', 'actividades', 'direccion', 'fin']);
+  const dir = T.PASOS.find((p) => p.id === 'direccion');
+  assert.match(dir.texto, /le llegan a nuestro equipo/);
+  assert.match(dir.texto, /No son públicos: los demás participantes no los ven/);
+  assert.match(T.PASOS.find((p) => p.id === 'actividades').texto, /se cargó dos veces, borrala/);
+});
+
+test('el velo deja un hueco alrededor del elemento y nada más', () => {
+  const huecos = T.huecoOverlay({ x: 20, y: 300, width: 350, height: 100 }, pantalla, 8);
+  assert.equal(huecos.length, 4);
+  const area = huecos.reduce((s, h) => s + h.w * h.h, 0);
+  assert.equal(area, pantalla.width * pantalla.height - (366 * 116));
+  assert.deepEqual(T.huecoOverlay(null, pantalla), [{ x: 0, y: 0, w: 390, h: 844 }]);
+});
+
+test('el globito va abajo si entra, si no arriba', () => {
+  assert.equal(T.posicionGlobo({ x: 0, y: 100, width: 10, height: 50 }, pantalla).top, 164);
+  assert.ok(T.posicionGlobo({ x: 0, y: 700, width: 10, height: 80 }, pantalla).top < 700);
+});
+
+test('botones de la barra, desplazamiento y cuándo arrancar', () => {
+  assert.deepEqual(T.rectTab(1, 6, pantalla, 34), { x: 65, y: 761, width: 65, height: 49 });
+  assert.equal(T.desplazamientoNecesario({ x: 0, y: 300, width: 10, height: 100 }, pantalla), 0);
+  assert.ok(T.desplazamientoNecesario({ x: 0, y: 1500, width: 10, height: 100 }, pantalla) > 1000);
+  const ahora = Date.UTC(2026, 10, 21);
+  assert.equal(T.modoInicioTour({ creadoEn: new Date(ahora - 86400000).toISOString(), ahora }), 'auto');
+  assert.equal(T.modoInicioTour({ creadoEn: '2026-01-01', ahora }), 'ofrecer');
+  assert.equal(T.modoInicioTour({ creadoEn: '2026-01-01', ofrecido: true, ahora }), null);
+  assert.equal(T.modoInicioTour({ creadoEn: new Date(ahora).toISOString(), visto: true, ahora }), null);
+});
+
+test('el recorrido se dibuja encima de la app, no cambia estado al dibujar y está conectado', () => {
+  const tour = leer('components/tour/Tour.js');
+  assert.match(tour, /class SeguroTour extends Component/);
+  assert.match(tour, /useEffect\(\(\) => \{ if \(!actual\) terminar\(\); \}/);
+  const app = leer('App.js');
+  assert.match(app, /<TourProvider navigationRef=\{navigationRef\}>/);
+  assert.match(app, /<NavigationContainer ref=\{navigationRef\}>/);
+  const home = leer('screens/HomeScreen.js');
+  for (const id of ['desafio', 'gps', 'comoSumas', 'korvaMundi']) assert.match(home, new RegExp(`useTourTarget\\('${id}'\\)`));
+  assert.match(home, /onRecorrido=/);
+  const perfil = leer('screens/PerfilScreen.js');
+  assert.match(perfil, /useTourTarget\('actividades'\)/);
+  assert.match(perfil, /useTourTarget\('direccion'\)/);
+  assert.match(leer('components/KorvaHelpSheet.js'), /Ver recorrido guiado/);
+});

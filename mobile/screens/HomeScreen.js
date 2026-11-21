@@ -21,6 +21,8 @@ import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/activida
 import { colors } from '../theme/korvaTheme';
 import ComoSumasKmCard from '../components/ComoSumasKmCard';
 import IslandiaInvitacion from '../components/IslandiaInvitacion';
+import { useTour, useTourScroll, useTourTarget } from '../components/tour/Tour';
+import { modoInicioTour } from '../services/tour/tourCore';
 import useMovimientoPersonal from '../services/useMovimientoPersonal';
 import KorvaCompletedShare from '../components/KorvaCompletedShare';
 
@@ -127,6 +129,15 @@ export default function HomeScreen({ navigation }) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user?.id) {
         setUserId(session.user.id);
+        try {
+          const [visto, ofrecido] = await Promise.all([
+            AsyncStorage.getItem(`korva:tour-visto:${session.user.id}`),
+            AsyncStorage.getItem(`korva:tour-ofrecido:${session.user.id}`),
+          ]);
+          const modo = modoInicioTour({ creadoEn: session.user.created_at, visto: visto === '1', ofrecido: ofrecido === '1' });
+          if (modo === 'auto') setTimeout(() => { AsyncStorage.setItem(`korva:tour-visto:${session.user.id}`, '1').catch(() => {}); tour.iniciar(); }, 2500);
+          else if (modo === 'ofrecer') setOfrecerTour(true);
+        } catch (e) {}
         try {
           await AsyncStorage.setItem('tutorial_visto', 'true');
         } catch (e) {}
@@ -401,6 +412,15 @@ export default function HomeScreen({ navigation }) {
 
   const [modalCompartirItem, setModalCompartirItem] = useState(null);
   const scrollRef = useRef(null);
+  // Recorrido guiado: elementos que resalta y desplazamiento de esta pantalla.
+  const tour = useTour();
+  const alDesplazarTour = useTourScroll('Mis Retos', scrollRef);
+  const refTourDesafio = useTourTarget('desafio');
+  const refTourGps = useTourTarget('gps');
+  const refTourComoSumas = useTourTarget('comoSumas');
+  const refTourKorvaMundi = useTourTarget('korvaMundi');
+  const [ofrecerTour, setOfrecerTour] = useState(false);
+  const iniciarTour = () => { setOfrecerTour(false); if (userId) AsyncStorage.setItem(`korva:tour-visto:${userId}`, '1').catch(() => {}); tour.iniciar(); };
   const actividadesInicioY = useRef(0);
   const movimientoInicioY = useRef(0);
 
@@ -473,7 +493,20 @@ export default function HomeScreen({ navigation }) {
       style={styles.scroll}
       contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
+      onScroll={alDesplazarTour}
+      scrollEventThrottle={64}
     >
+      {ofrecerTour && (
+        <View style={styles.ofertaTour}>
+          <Text style={styles.ofertaTourTxt}>¿Querés un recorrido rápido por Korva?</Text>
+          <View style={styles.ofertaTourAcciones}>
+            <TouchableOpacity onPress={() => { setOfrecerTour(false); if (userId) AsyncStorage.setItem(`korva:tour-ofrecido:${userId}`, '1').catch(() => {}); }} hitSlop={8}>
+              <Text style={styles.ofertaTourNo}>Ahora no</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={iniciarTour} hitSlop={8}><Text style={styles.ofertaTourSi}>Ver recorrido ›</Text></TouchableOpacity>
+          </View>
+        </View>
+      )}
       {/* Banner dirección — para completados sin dirección */}
       {bannerDireccionVisible && (
         <View style={[styles.bannerStrava, { borderLeftColor: colors.brandOrange, backgroundColor: '#1A0D00' }]}>
@@ -491,7 +524,8 @@ export default function HomeScreen({ navigation }) {
       )}
 
       {/* Modal FAQ / Ayuda */}
-      <KorvaHelpSheet visible={modalAyudaVisible} onClose={() => setModalAyudaVisible(false)} />
+      <KorvaHelpSheet visible={modalAyudaVisible} onClose={() => setModalAyudaVisible(false)}
+        onRecorrido={() => { setModalAyudaVisible(false); setTimeout(iniciarTour, 450); }} />
 
       {/* Modal Próximamente Strava */}
       {/* Modal Compartir Progreso */}
@@ -708,7 +742,7 @@ export default function HomeScreen({ navigation }) {
                 </ScrollView>
               )}
 
-              <View onLayout={e => setAnchoAventuras(e.nativeEvent.layout.width)}>
+              <View ref={refTourDesafio} collapsable={false} onLayout={e => setAnchoAventuras(e.nativeEvent.layout.width)}>
                 <ScrollView ref={aventurasRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false}
                   onContentSizeChange={() => aventurasRef.current?.scrollTo({ x: retoVisibleIndex * anchoAventuras, animated: false })}
                   style={alturasAventuras[challengesActivos[retoVisibleIndex]?.challenge_id] ? { height: alturasAventuras[challengesActivos[retoVisibleIndex].challenge_id] } : undefined}
@@ -754,10 +788,10 @@ export default function HomeScreen({ navigation }) {
         <IslandiaInvitacion navigation={navigation} userId={userId} participacion={participacionLibre} />
       )}
 
-      {userId && <GpsHomeAction navigation={navigation} />}
+      {userId && <View ref={refTourGps} collapsable={false}><GpsHomeAction navigation={navigation} /></View>}
 
       {userId && (
-        <View style={styles.movimientoResumen}>
+        <View style={styles.movimientoResumen} ref={refTourComoSumas} collapsable={false}>
           <ComoSumasKmCard userId={userId} movimiento={movimientoPersonal} onActualizarMovimiento={actualizarMovimiento}
             stravaConectado={stravaConectado} onStrava={stravaConectado ? () => setModalStravaVisible(true) : conectarStrava}
             navigation={navigation} tieneDesafios={challengesActivos.length > 0} />
@@ -807,11 +841,13 @@ export default function HomeScreen({ navigation }) {
       )}
 
       {!cargando && !error && (
+        <View ref={refTourKorvaMundi} collapsable={false}>
         <KorvaMundiTeaser
           conquistados={challengesCompletados.length + (tieneRutaLibre && participacionLibre.estado === 'completada' ? 1 : 0)}
           enCurso={challengesEnCurso.filter((c) => !c.pausado).length + (tieneRutaLibre && !participacionLibre.pausado && participacionLibre.estado !== 'completada' ? 1 : 0)}
           onPress={() => navigation.navigate('KorvaMundi')}
         />
+        </View>
       )}
 
 
@@ -1332,6 +1368,11 @@ const styles = StyleSheet.create({
   gpsInicioDesc: { color: '#8FAECC', fontSize: 10, lineHeight: 14 },
   gpsInicioAccion: { height: 34, borderRadius: 17, backgroundColor: colors.brandOrange, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
   gpsInicioAccionText: { color: colors.text, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  ofertaTour: { backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.borderSoft, padding: 14, marginBottom: 14 },
+  ofertaTourTxt: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  ofertaTourAcciones: { flexDirection: 'row', justifyContent: 'flex-end', gap: 18, marginTop: 8 },
+  ofertaTourNo: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
+  ofertaTourSi: { color: colors.actionBlue, fontSize: 13, fontWeight: '800' },
   actualizarLink: { alignItems: 'center', paddingVertical: 18 },
   actualizarLinkText: { color: colors.textMuted, fontSize: 12 },
   actualizarLinkAccion: { color: colors.actionBlue, fontWeight: '700' },
