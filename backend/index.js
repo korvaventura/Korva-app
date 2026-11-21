@@ -2523,3 +2523,9 @@ if (stravaWebhookMotorActiva()) {
     demoraInicialMs: Number(process.env.STRAVA_WEBHOOK_RECUPERACION_INICIAL_MS) || undefined,
   });
 }
+
+// Private Garmin importer: disabled until explicitly enabled after validation.
+require('./lib/garminProcesamiento').iniciarProcesamientoGarmin({
+  supabase, repoMotor: crearRepositorioSupabase(supabase),
+  dispararEfectos: async (ids) => { if (efectosMotorActivos() && ids.length) await procesadorEventos.ronda({ repo: crearRepositorioSupabase(supabase), ids }); },
+});
