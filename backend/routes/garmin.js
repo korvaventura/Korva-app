@@ -1,7 +1,7 @@
 const express = require('express');
 const requireUser = require('../middleware/requireUser');
 const { crearGarminRepositorio } = require('../lib/garminRepositorio');
-const { REDIRECT_URI, TTL_SECONDS, hash, configuracionGarmin, permitidoGarmin, cifrar, descifrar,
+const { REDIRECT_URI, TTL_SECONDS, hash, configuracionGarmin, permitidoGarmin, actividadesGarminActivas, cifrar, descifrar,
   nuevoIntento, urlAutorizacion, intercambiarCodigo } = require('../lib/garminOAuth');
 
 const validRandom = (value) => typeof value === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value);
@@ -43,7 +43,7 @@ function crearGarminRoutes({ supabase, repo = crearGarminRepositorio(supabase), 
       const row = await repo.estado(req.userId);
       return res.json({ available: true, connected: !!row,
         connected_at: row?.connected_at || null, permissions: row?.permissions || [],
-        activities_enabled: false });
+        activities_enabled: !!row && actividadesGarminActivas(env) });
     } catch { return fallar(res); }
   });
 

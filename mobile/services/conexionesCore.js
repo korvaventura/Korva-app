@@ -17,10 +17,10 @@ function mostrarGarmin(status) {
 function filaGarmin(status) {
   if (!mostrarGarmin(status)) return null;
   if (!status.connected) {
-    return { estado: 'sin_conectar', titulo: 'Sin vincular', detalle: 'Vinculá tu cuenta Garmin.', accion: 'conectar' };
+    return { estado: 'sin_conectar', titulo: 'Sin conectar', detalle: 'Conectala y tus salidas de Garmin llegan solas.', accion: 'conectar' };
   }
   if (status.activities_enabled === true) {
-    return { estado: 'sincroniza', titulo: 'Cuenta vinculada', detalle: 'Tus salidas de Garmin suman a tus desafíos.', accion: null };
+    return { estado: 'sincroniza', titulo: 'Conectada', detalle: 'Tus salidas de Garmin suman solas a tus desafíos.', accion: null };
   }
   return {
     estado: 'vinculada',
@@ -64,4 +64,22 @@ function urlAutorizacionValida(url) {
   return typeof url === 'string' && url.startsWith(ORIGEN_GARMIN);
 }
 
-module.exports = { mostrarGarmin, filaGarmin, filaStrava, mensajeGarmin, resultadoDeUrl, urlAutorizacionValida };
+// Garmin está en beta: un aviso, una sola vez, cuando ya suma km.
+const SOPORTE_WHATSAPP = '61474024238';
+const SOPORTE_MAIL = 'korvaventura@gmail.com';
+const AVISO_BETA_GARMIN = {
+  titulo: 'Garmin está en beta',
+  texto: 'Tus salidas de Garmin se van a sumar solas a tus desafíos. Es una función nueva: si ves km raros, una salida que no aparece o algo que se suma dos veces, avisanos y lo revisamos.',
+};
+const CLAVE_AVISO_BETA = (userId) => `korva:garmin-beta-visto:v1:${userId || 'anon'}`;
+function debeMostrarAvisoBeta(fila, visto) {
+  return fila?.estado === 'sincroniza' && !visto;
+}
+function urlWhatsappSoporte(texto = 'Hola Korva, vi algo raro con Garmin: ') {
+  return `https://wa.me/${SOPORTE_WHATSAPP}?text=${encodeURIComponent(texto)}`;
+}
+function urlMailSoporte(asunto = 'Garmin en Korva') {
+  return `mailto:${SOPORTE_MAIL}?subject=${encodeURIComponent(asunto)}`;
+}
+
+module.exports = { AVISO_BETA_GARMIN, CLAVE_AVISO_BETA, debeMostrarAvisoBeta, urlWhatsappSoporte, urlMailSoporte, SOPORTE_MAIL, mostrarGarmin, filaGarmin, filaStrava, mensajeGarmin, resultadoDeUrl, urlAutorizacionValida };

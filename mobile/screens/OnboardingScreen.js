@@ -7,7 +7,7 @@ const { width } = Dimensions.get('window');
 const SLIDES = [
   { emoji: 'compass-outline', titulo: 'Tu próxima aventura', descripcion: 'Sumá kilómetros desde donde estés y descubrí lugares, historias y checkpoints a tu ritmo.', color: '#FF7900' },
   { emoji: 'map-outline', titulo: 'Elegí cómo empezar', descripcion: 'Explorá una ruta gratuita como Islandia o elegí un desafío pago del catálogo. Las rutas gratuitas no incluyen medalla ni te comprometen a comprar.', color: '#FF7900' },
-  { emoji: 'footsteps-outline', titulo: 'Registrá tus actividades', descripcion: 'Usá GPS para medir una salida, cargala manualmente o conectá Strava. Una actividad puede sumar a tus desafíos activos; podés pausar cada uno desde Perfil.', color: '#FF7900' },
+  { emoji: 'footsteps-outline', titulo: 'Registrá tus actividades', descripcion: 'Conectá Garmin o Strava y tus salidas llegan solas, grabá con Korva GPS o cargalas a mano. Cada salida suma a todos tus desafíos activos; podés pausar cada uno desde Perfil.', color: '#FF7900' },
   { emoji: 'heart-outline', titulo: 'Salud, solo si vos elegís', descripcion: 'En Inicio → Tu movimiento podés conectar Salud para ver pasos y distancia. Para sumar esa distancia a un desafío, elegilo y confirmá aparte. Los pasos no se convierten a km.', color: '#FF7900' },
   { emoji: 'medal-outline', titulo: 'Cada paso cuenta', descripcion: 'Explorá tus rutas y compartí tus avances. En desafíos pagos, el progreso y el envío de la medalla se gestionan por separado, según las condiciones de tu pedido.', color: '#FF7900' },
 ];

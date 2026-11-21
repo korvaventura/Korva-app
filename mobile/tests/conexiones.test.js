@@ -18,6 +18,7 @@ test('vinculada no es lo mismo que sincronizando', () => {
   // Sin el campo, tampoco se promete que sume.
   assert.equal(c.filaGarmin({ available: true, connected: true }).estado, 'vinculada');
   assert.equal(c.filaGarmin({ available: true, connected: true, activities_enabled: true }).estado, 'sincroniza');
+  assert.match(c.filaGarmin({ available: true, connected: true, activities_enabled: true }).detalle, /suman solas/);
 });
 
 test('Strava conserva su texto', () => {
@@ -47,4 +48,20 @@ test('solo se abre la autorización de Korva', () => {
   assert.equal(c.urlAutorizacionValida('https://evil.com/garmin/authorize?ticket=abc'), false);
   assert.equal(c.urlAutorizacionValida('https://korva-app-production.up.railway.app.evil.com/garmin/authorize?x'), false);
   assert.equal(c.urlAutorizacionValida(null), false);
+});
+
+test('aviso beta: una sola vez y solo cuando Garmin ya suma', () => {
+  const suma = c.filaGarmin({ available: true, connected: true, activities_enabled: true });
+  const vinculada = c.filaGarmin({ available: true, connected: true, activities_enabled: false });
+  assert.equal(c.debeMostrarAvisoBeta(suma, false), true);
+  assert.equal(c.debeMostrarAvisoBeta(suma, true), false);
+  assert.equal(c.debeMostrarAvisoBeta(vinculada, false), false);
+  assert.equal(c.debeMostrarAvisoBeta(null, false), false);
+  assert.equal(c.CLAVE_AVISO_BETA('u1'), 'korva:garmin-beta-visto:v1:u1');
+  assert.match(c.AVISO_BETA_GARMIN.texto, /avisanos/);
+});
+
+test('contacto de soporte', () => {
+  assert.match(c.urlWhatsappSoporte(), /^https:\/\/wa\.me\/61474024238\?text=Hola%20Korva/);
+  assert.equal(c.urlMailSoporte('x y'), 'mailto:korvaventura@gmail.com?subject=x%20y');
 });

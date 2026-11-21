@@ -25,6 +25,12 @@ function permitidoGarmin(userId, env = process.env) {
     .split(',').map((id) => id.trim()).filter(Boolean).includes(userId);
 }
 
+// Las salidas de Garmin suman km solo con el importador encendido (mismas banderas que
+// lib/garminProcesamiento.js). La app usa esto para no prometer km que no se suman.
+function actividadesGarminActivas(env = process.env) {
+  return env.GARMIN_ACTIVITIES_ENABLED === '1' && env.GARMIN_PUSH_CAPTURE_ENABLED === '1' && env.GARMIN_OAUTH_ENABLED === '1';
+}
+
 function cifrar(value, key, context) {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
@@ -122,5 +128,5 @@ async function intercambiarCodigo(config, code, verifier, fetchImpl = fetch, dia
     refreshExpiresAt: new Date(now + tokens.refresh_token_expires_in * 1000).toISOString() };
 }
 
-module.exports = { REDIRECT_URI, TTL_SECONDS, hash, configuracionGarmin, permitidoGarmin,
+module.exports = { REDIRECT_URI, TTL_SECONDS, hash, configuracionGarmin, permitidoGarmin, actividadesGarminActivas,
   cifrar, descifrar, nuevoIntento, urlAutorizacion, intercambiarCodigo };

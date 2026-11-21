@@ -52,9 +52,9 @@ test('la tarjeta queda liviana: sin fila de fuentes ni botón grande, con ayuda 
   assert.match(src, /¿Usás otro reloj o app\?/);
   assert.match(src, /navigation\?\.navigate\('Registrar'\)/);
   const { OPCIONES_REGISTRO } = require('../services/comoSumasCore');
-  assert.deepEqual(OPCIONES_REGISTRO.map((o) => o.id), ['strava', 'manual', 'gps', 'catalogo']);
+  assert.deepEqual(OPCIONES_REGISTRO.map((o) => o.id), ['garmin', 'strava', 'manual', 'gps', 'catalogo']);
   const { opcionesRegistro } = require('../services/comoSumasCore');
-  assert.deepEqual(opcionesRegistro({ tieneDesafios: true }).map((o) => o.id), ['strava', 'manual', 'gps']);
+  assert.deepEqual(opcionesRegistro({ tieneDesafios: true }).map((o) => o.id), ['garmin', 'strava', 'manual', 'gps']);
   assert.equal(opcionesRegistro({ tieneDesafios: false }).at(-1).id, 'catalogo');
   assert.match(src, /navigation\?\.navigate\('Catalogo'\)/);
 });
@@ -70,8 +70,12 @@ test('cada link vive en su fila: Garmin en Actividades, Salud en Movimiento del 
 
 test('el explicativo dice qué es Strava para quien no la conoce', () => {
   const { OPCIONES_REGISTRO } = require('../services/comoSumasCore');
-  assert.match(OPCIONES_REGISTRO[0].texto, /^Strava es una app gratuita/);
-  assert.match(OPCIONES_REGISTRO[0].texto, /¿No la tenés\? Bajala gratis/);
+  const strava = OPCIONES_REGISTRO.find((o) => o.id === 'strava');
+  assert.match(strava.texto, /^Strava es una app gratuita/);
+  assert.match(strava.texto, /¿No la tenés\? Bajala gratis/);
+  // Garmin va directo, no a través de Strava.
+  assert.doesNotMatch(strava.texto, /Garmin/);
+  assert.match(OPCIONES_REGISTRO[0].texto, /Perfil → Conexiones/);
 });
 
 test('la ayuda de "otro reloj o app" no habla de Islandia', () => {

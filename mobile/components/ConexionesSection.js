@@ -1,12 +1,14 @@
-import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, AppState, Linking, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../supabase';
 import { useFocusEffect } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 import { estadoGarmin, iniciarGarmin, GARMIN_RETURN_URL } from '../services/garminApi';
 import { colors, radius, spacing } from '../theme/korvaTheme';
 import { useTourDato } from './tour/Tour';
 
-const { filaGarmin, filaStrava, mensajeGarmin, resultadoDeUrl, urlAutorizacionValida } = require('../services/conexionesCore');
+const { filaGarmin, filaStrava, mensajeGarmin, resultadoDeUrl, urlAutorizacionValida, AVISO_BETA_GARMIN, CLAVE_AVISO_BETA, debeMostrarAvisoBeta, urlWhatsappSoporte, urlMailSoporte } = require('../services/conexionesCore');
 
 // Perfil → Conexiones: Strava y Garmin con la misma fila.
 // Strava funciona como siempre (sus acciones vienen de PerfilScreen).
@@ -16,6 +18,7 @@ export default function ConexionesSection({ stravaConectado, onConectarStrava, o
   const [garmin, setGarmin] = useState(null);
   const [conectandoGarmin, setConectandoGarmin] = useState(false);
   const pidiendo = useRef(false);
+  const [avisoBeta, setAvisoBeta] = useState(false);
 
   useFocusEffect(useCallback(() => {
     let vivo = true;
@@ -36,7 +39,9 @@ export default function ConexionesSection({ stravaConectado, onConectarStrava, o
       // Lo que vale es lo que dice el servidor, no el link de regreso.
       const actual = await estadoGarmin();
       setGarmin(actual);
-      const m = mensajeGarmin({ conectado: actual.connected === true, tipo: r?.type, resultado: r?.type === 'success' ? resultadoDeUrl(r.url) : null });
+      // Si ya suma km, en vez del cartel aparece el aviso de beta (una sola vez).
+      const m = actual.connected === true && actual.activities_enabled === true ? null
+        : mensajeGarmin({ conectado: actual.connected === true, tipo: r?.type, resultado: r?.type === 'success' ? resultadoDeUrl(r.url) : null });
       if (m) Alert.alert(m.titulo, m.texto);
     } catch (e) {
       Alert.alert('Conectar Garmin', e.status === 409
@@ -52,6 +57,32 @@ export default function ConexionesSection({ stravaConectado, onConectarStrava, o
   const fGarmin = filaGarmin(garmin);
   // El tour nombra a Garmin solo si a esta persona le aparece.
   useTourDato('garmin', !!fGarmin);
+
+  // Garmin en beta: la primera vez que suma km, un aviso para que nos cuenten si ven algo raro.
+  const estadoFila = fGarmin?.estado;
+  useEffect(() => {
+    if (estadoFila !== 'sincroniza') return;
+    let vivo = true;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const clave = CLAVE_AVISO_BETA(session?.user?.id);
+        const visto = await AsyncStorage.getItem(clave);
+        if (vivo && debeMostrarAvisoBeta(fGarmin, !!visto)) setAvisoBeta(true);
+      } catch { /* sin aviso, la app sigue normal */ }
+    })();
+    return () => { vivo = false; };
+  }, [estadoFila]);
+  const cerrarAvisoBeta = async () => {
+    setAvisoBeta(false);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      await AsyncStorage.setItem(CLAVE_AVISO_BETA(session?.user?.id), '1');
+    } catch { /* se vuelve a mostrar la próxima vez */ }
+  };
+  const avisarProblema = () => {
+    Linking.openURL(urlWhatsappSoporte()).catch(() => Linking.openURL(urlMailSoporte()).catch(() => {}));
+  };
 
   return (
     <View style={s.seccion} ref={tourRef} collapsable={false}>
@@ -81,7 +112,7 @@ export default function ConexionesSection({ stravaConectado, onConectarStrava, o
             <View style={s.info}>
               <View style={s.nombreFila}>
                 <Text style={s.nombre}>Garmin</Text>
-                <Text style={s.prueba}>PRUEBA</Text>
+                <Text style={s.prueba}>BETA</Text>
               </View>
               <Text style={[s.estado, fGarmin.estado !== 'sin_conectar' && s.estadoOk]}>{fGarmin.titulo}</Text>
               <Text style={s.detalle}>{fGarmin.detalle}</Text>
@@ -94,6 +125,23 @@ export default function ConexionesSection({ stravaConectado, onConectarStrava, o
           </View>
         )}
       </View>
+      {fGarmin && fGarmin.estado !== 'sin_conectar' && (
+        <TouchableOpacity onPress={avisarProblema} style={s.ayuda}><Text style={s.ayudaTexto}>¿Algo raro con Garmin? Avisanos</Text></TouchableOpacity>
+      )}
+      <Modal visible={avisoBeta} transparent animationType="fade" onRequestClose={cerrarAvisoBeta}>
+        <View style={s.velo}>
+          <View style={s.aviso}>
+            <Text style={s.avisoTitulo}>{AVISO_BETA_GARMIN.titulo}</Text>
+            <Text style={s.avisoTexto}>{AVISO_BETA_GARMIN.texto}</Text>
+            <TouchableOpacity style={s.avisoBoton} onPress={() => { cerrarAvisoBeta(); avisarProblema(); }} accessibilityRole="button">
+              <Text style={s.avisoBotonTexto}>Avisar un problema</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.avisoSecundario} onPress={cerrarAvisoBeta} accessibilityRole="button">
+              <Text style={s.avisoSecundarioTexto}>Entendido</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       {stravaConectado && (
         <TouchableOpacity onPress={onComoFuncionaStrava} style={s.ayuda}><Text style={s.ayudaTexto}>¿Cómo funciona la sincronización con Strava?</Text></TouchableOpacity>
       )}
@@ -123,5 +171,13 @@ const s = StyleSheet.create({
   boton: { minWidth: 86, minHeight: 36, borderRadius: 10, backgroundColor: colors.brandOrange, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   botonTexto: { color: colors.text, fontSize: 12, fontWeight: '800' },
   ayuda: { paddingVertical: 10 },
+  velo: { flex: 1, backgroundColor: 'rgba(2,8,15,0.7)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  aviso: { width: '100%', maxWidth: 380, backgroundColor: colors.surface, borderRadius: 20, padding: 22, borderWidth: 1, borderColor: colors.borderSoft },
+  avisoTitulo: { color: colors.text, fontSize: 18, fontWeight: '900' },
+  avisoTexto: { color: colors.textSoft, fontSize: 14, lineHeight: 21, marginTop: 10 },
+  avisoBoton: { marginTop: 18, minHeight: 46, borderRadius: 12, backgroundColor: colors.brandOrange, alignItems: 'center', justifyContent: 'center' },
+  avisoBotonTexto: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  avisoSecundario: { marginTop: 8, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  avisoSecundarioTexto: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
   ayudaTexto: { color: colors.actionBlue, fontSize: 12, fontWeight: '700' },
 });

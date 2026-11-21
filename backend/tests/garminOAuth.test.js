@@ -266,3 +266,10 @@ test('real Garmin wrapped permissions connect only with valid ACTIVITY_EXPORT co
     } });
   }
 });
+
+test('activities_enabled solo con el importador encendido', () => {
+  const { actividadesGarminActivas } = require('../lib/garminOAuth');
+  assert.equal(actividadesGarminActivas({}), false);
+  assert.equal(actividadesGarminActivas({ GARMIN_ACTIVITIES_ENABLED: '1', GARMIN_OAUTH_ENABLED: '1' }), false);
+  assert.equal(actividadesGarminActivas({ GARMIN_ACTIVITIES_ENABLED: '1', GARMIN_PUSH_CAPTURE_ENABLED: '1', GARMIN_OAUTH_ENABLED: '1' }), true);
+});

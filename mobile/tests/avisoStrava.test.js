@@ -24,5 +24,5 @@ test('el GPS avisa antes de iniciar y muestra la línea de Strava', () => {
   assert.match(src, /'Grabar y no volver a avisar'/);
   assert.match(src, /Strava conectado · grabá cada salida con una sola app/);
   const { OPCIONES_REGISTRO } = require('../services/comoSumasCore');
-  assert.match(OPCIONES_REGISTRO[0].texto, /Usá una sola forma por salida/);
+  assert.match(OPCIONES_REGISTRO.find((o) => o.id === 'strava').texto, /Usá una sola forma por salida/);
 });
