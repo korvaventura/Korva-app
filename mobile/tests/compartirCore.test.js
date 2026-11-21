@@ -82,3 +82,13 @@ test('foto: prueba .jpg y después .png', () => {
   ]);
   assert.deepEqual(c.urlsFondo(''), []);
 });
+
+test('orden de tarjetas: preferido, después más avance, Islandia al final', () => {
+  const fuji = { challenge_id: 'f', km_completados: 10, distancia_total: 68 };
+  const dub = { challenge_id: 'd', km_completados: 15, distancia_total: 19 };
+  const isl = { challenge_id: 'i', km_completados: 1300, distancia_total: 1400, libre: true };
+  assert.deepEqual(c.ordenarRetos([fuji, isl, dub]).map((r) => r.challenge_id), ['d', 'f', 'i']);
+  assert.deepEqual(c.ordenarRetos([fuji, isl, dub], 'f').map((r) => r.challenge_id), ['f', 'd', 'i']);
+  assert.deepEqual(c.ordenarRetos([fuji, isl, dub], 'i').map((r) => r.challenge_id), ['i', 'd', 'f']);
+  assert.deepEqual(c.ordenarRetos(null), []);
+});

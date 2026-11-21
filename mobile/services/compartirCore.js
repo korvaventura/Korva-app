@@ -145,8 +145,18 @@ function actividadDeAviso(data, actividades) {
     .find((a) => a && String(a.external_id) === String(data.external_id) && a.excluida !== true) || null;
 }
 
+// Orden de las tarjetas: primero el desafío desde el que se llegó; si no,
+// el de más avance. Islandia (ruta libre) después de los pagos.
+function ordenarRetos(retos, preferidoId = null) {
+  const pct = (r) => (Number(r?.distancia_total) > 0 ? Number(r.km_completados || 0) / Number(r.distancia_total) : 0);
+  return [...(retos || [])].filter(Boolean).sort((a, b) =>
+    (b.challenge_id === preferidoId) - (a.challenge_id === preferidoId)
+    || (!!a.libre - !!b.libre)
+    || pct(b) - pct(a));
+}
+
 module.exports = {
-  ISLANDIA, retoIslandia, actividadDeAviso,
+  ISLANDIA, retoIslandia, actividadDeAviso, ordenarRetos,
   SUPABASE_URL, CARPETA_FONDOS, PALETA_KORVA, PALETAS,
   slugDesafio, urlFondo, urlsFondo, paletaDesafio, formatoKm, formatoDuracion, formatoRitmo, avanceDesafio, trazadoDesafio, trazadoPlano,
 };

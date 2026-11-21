@@ -9,6 +9,7 @@ import { colors, radius, spacing } from '../theme/korvaTheme';
 import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
 import KorvaCompletedShare from '../components/KorvaCompletedShare';
 import MapaRecorrido from './MapaRecorrido';
+const { formatoKm } = require('../services/compartirCore');
 
 const iconoDeporte = (tipo) => ({ ride: 'bicycle-outline', run: 'fitness-outline', swim: 'water-outline', walk: 'walk-outline' }[tipo] || 'pulse-outline');
 const deporteHistoria = (tipo) => tipo === 'manual' ? 'Actividad' : nombreDeporteActividad(tipo);
@@ -444,11 +445,17 @@ export default function DetalleRetoScreen({ route, navigation }) {
                     <Text style={styles.timelineHito}>{act.hito.texto}</Text>
                     <Text style={styles.timelineFecha}>{formatearFecha(act.recorded_at)}</Text>
                     <View style={styles.timelineActRow}>
-                      <Text style={styles.timelineKm}>{parseFloat(act.distance_km).toFixed(2)} km</Text>
+                      <Text style={styles.timelineKm}>{formatoKm(act.distance_km)} km</Text>
                     </View>
                     <Text style={styles.timelineTipo}>{deporteHistoria(act.sport_type)} · {nombreFuenteActividad(act.source)}</Text>
-                    <Text style={styles.timelineAcumulado}>Acumulado en actividades: {act.acumulado.toFixed(2)} km</Text>
+                    <Text style={styles.timelineAcumulado}>Acumulado en actividades: {formatoKm(act.acumulado)} km</Text>
                     {act.source === 'korva_gps' && act.id && <RutaGpsActividad activityId={act.id} />}
+                    {!!act.id && (
+                      <TouchableOpacity style={styles.timelineCompartir} accessibilityRole="button" accessibilityLabel="Compartir esta actividad"
+                        onPress={() => navigation.navigate('DetalleActividad', { actividad: act, abrirCompartir: true, retoPreferido: item.challenge_id })}>
+                        <Text style={[styles.timelineCompartirText, index === actividadesConHito.length - 1 && styles.timelineCompartirUltima]}>Compartir ↗</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               ))}
@@ -540,5 +547,8 @@ const styles = StyleSheet.create({
   timelineActRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs },
   timelineKm: { fontSize: 24, fontWeight: '900', color: colors.text, letterSpacing: -0.5 },
   timelineTipo: { fontSize: 11, lineHeight: 16, color: colors.textSoft },
+  timelineCompartir: { alignSelf: 'flex-start', paddingVertical: 8, marginTop: 4 },
+  timelineCompartirText: { color: colors.actionBlue, fontSize: 14, fontWeight: '800' },
+  timelineCompartirUltima: { color: colors.brandOrange },
   timelineAcumulado: { fontSize: 11, lineHeight: 16, color: colors.textMuted, marginTop: spacing.md },
 });

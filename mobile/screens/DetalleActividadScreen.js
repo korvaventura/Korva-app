@@ -1,4 +1,4 @@
-import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Alert, Modal, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
@@ -7,7 +7,7 @@ import KorvaActivityShareCard from '../components/KorvaActivityShareCard';
 import { obtenerRutaGps } from '../services/gps/gpsApi';
 import { supabase } from '../supabase';
 import { consultarRutaLibre } from '../services/rutasLibresApi';
-const { retoIslandia } = require('../services/compartirCore');
+const { retoIslandia, ordenarRetos, formatoKm } = require('../services/compartirCore');
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../theme/korvaTheme';
 import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
@@ -30,6 +30,7 @@ export default function DetalleActividadScreen({ route, navigation }) {
   const userIdParam = route.params?.userId || null;
   const recienGuardada = route.params?.recienGuardada === true;
   const abrirCompartir = recienGuardada || route.params?.abrirCompartir === true;
+  const retoPreferido = route.params?.retoPreferido || null;
   const rutaGpsDisponible = route.params?.rutaGpsDisponible === true;
   const km = Number(a.distance_km || 0);
   const segundos = Number(a.duration_seconds || 0);
@@ -87,8 +88,9 @@ export default function DetalleActividadScreen({ route, navigation }) {
           // Sin Islandia no pasa nada: se comparten los otros desafíos.
         }
         if (vivo) {
-          setRetosElegibles(validos);
-          setRetoShare(validos[0] || null);
+          const ordenados = ordenarRetos(validos, retoPreferido);
+          setRetosElegibles(ordenados);
+          setRetoShare(ordenados[0] || null);
         }
       } catch {
         // Compartir sigue disponible como "Solo actividad" aunque falle el contexto del reto.
@@ -106,6 +108,23 @@ export default function DetalleActividadScreen({ route, navigation }) {
     const t = setTimeout(() => setShareVisible(true), 450);
     return () => clearTimeout(t);
   }, [abrirCompartir, contextoListo]);
+
+  // Tarjetas: cada desafío al que sumó la salida y, al final, "Solo la salida".
+  const opciones = retosElegibles.length ? [...retosElegibles, null] : [null];
+  const indiceShare = Math.max(0, opciones.findIndex((r) => (r?.challenge_id || null) === (retoShare?.challenge_id || null)));
+  const indiceRef = useRef(0);
+  indiceRef.current = indiceShare;
+  const opcionesRef = useRef(opciones);
+  opcionesRef.current = opciones;
+  const deslizar = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 14 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+    onPanResponderRelease: (_, g) => {
+      const lista = opcionesRef.current;
+      if (lista.length < 2 || Math.abs(g.dx) < 40) return;
+      const siguiente = (indiceRef.current + (g.dx < 0 ? 1 : -1) + lista.length) % lista.length;
+      setRetoShare(lista[siguiente]);
+    },
+  })).current;
 
   const compartir = async () => {
     if (!shareRef.current || cargandoShare) return;
@@ -184,23 +203,16 @@ export default function DetalleActividadScreen({ route, navigation }) {
             </View>
 
           <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalContent}>
-            {retosElegibles.length > 1 && (
-              <Text style={styles.challengePrompt}>¿Qué aventura querés compartir?</Text>
-            )}
             {retosElegibles.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.choices}>
-                <TouchableOpacity style={[styles.choice, !retoShare && styles.choiceActive]} onPress={() => setRetoShare(null)}>
-                  <Text style={[styles.choiceText, !retoShare && styles.choiceTextActive]}>Solo actividad</Text>
-                </TouchableOpacity>
-                {retosElegibles.map((reto) => (
-                  <TouchableOpacity
-                    key={reto.challenge_id}
-                    style={[styles.choice, retoShare?.challenge_id === reto.challenge_id && styles.choiceActive]}
-                    onPress={() => setRetoShare(reto)}
-                  >
-                    <Text style={[styles.choiceText, retoShare?.challenge_id === reto.challenge_id && styles.choiceTextActive]}>{reto.challenge}</Text>
-                  </TouchableOpacity>
-                ))}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.choices} contentContainerStyle={styles.choicesContent}>
+                {opciones.map((reto, i) => {
+                  const activo = i === indiceShare;
+                  return (
+                    <TouchableOpacity key={reto?.challenge_id || 'solo'} style={[styles.choice, activo && styles.choiceActive]} onPress={() => setRetoShare(reto)}>
+                      <Text style={[styles.choiceText, activo && styles.choiceTextActive]}>{reto ? String(reto.challenge).replace(/\s+\d+(?:[.,]\d+)?\s*K$/i, '') : 'Solo la salida'}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
             )}
 
@@ -213,7 +225,7 @@ export default function DetalleActividadScreen({ route, navigation }) {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.previewArea}>
+            <View style={styles.previewArea} {...deslizar.panHandlers}>
               <ViewShot
                 ref={shareRef}
                 options={shareVariant === 'overlay' ? { format: 'png', quality: 1, result: 'tmpfile' } : { format: 'jpg', quality: 0.92, result: 'tmpfile' }}
@@ -224,6 +236,11 @@ export default function DetalleActividadScreen({ route, navigation }) {
               </ViewShot>
             </View>
 
+            {opciones.length > 1 && (
+              <View style={styles.puntos}>
+                {opciones.map((r, i) => <View key={r?.challenge_id || 'solo'} style={[styles.punto, i === indiceShare && styles.puntoActivo]} />)}
+              </View>
+            )}
             <Text style={styles.overlayHint}>
               {shareVariant === 'overlay'
                 ? 'Para pegar encima de tu foto o de tu captura de Strava.'
@@ -285,6 +302,10 @@ const styles = StyleSheet.create({
   variant: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 18, borderWidth: 1, borderColor: colors.borderSoft },
   variantActive: { borderColor: colors.brandOrange, backgroundColor: colors.surfaceRaised },
   variantText: { color: colors.text, fontSize: 10, fontWeight: '800' },
+  choicesContent: { paddingRight: 8 },
+  puntos: { flexDirection: 'row', gap: 5, justifyContent: 'center', marginTop: 10 },
+  punto: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.borderStrong },
+  puntoActivo: { width: 16, backgroundColor: colors.text },
   previewArea: { width: '100%', alignItems: 'center', justifyContent: 'center', borderRadius: 24, overflow: 'hidden', backgroundColor: '#26384A', paddingVertical: 8 },
   transparentShot: { backgroundColor: 'transparent' },
   overlayHint: { color: colors.textMuted, fontSize: 10, marginTop: 10, textAlign: 'center' },

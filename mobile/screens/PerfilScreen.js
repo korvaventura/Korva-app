@@ -6,6 +6,7 @@ import useRutaLibre from '../services/useRutaLibre';
 import KorvaGroups from '../components/KorvaGroups';
 import { nombreDeporteActividad, nombreFuenteActividad, iconoDeporteActividad } from '../utils/actividadPresentacion';
 import KorvaCompletedShare from '../components/KorvaCompletedShare';
+const { formatoKm } = require('../services/compartirCore');
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Modal, Dimensions, DeviceEventEmitter } from 'react-native';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -1120,7 +1121,7 @@ export default function PerfilScreen() {
             <Text style={styles.verTodasText}>Ocultar historial</Text>
           </TouchableOpacity>
         )}
-        <Text style={styles.activitiesHint}>Tocá una actividad para ver el detalle y compartirla.</Text>
+        <Text style={styles.activitiesHint}>Tocá una actividad para ver el detalle, o ↗ para compartirla.</Text>
         {actividades.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>🏁</Text>
@@ -1144,7 +1145,11 @@ export default function PerfilScreen() {
                     {' · ' + nombreFuenteActividad(act.source)}
                   </Text>
                 </View>
-                <Text style={styles.actividadKm}>{parseFloat(act.distance_km).toFixed(2)} km</Text>
+                <Text style={styles.actividadKm}>{formatoKm(act.distance_km)} km</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('DetalleActividad', { actividad: act, userId, abrirCompartir: true })}
+                  style={styles.eliminarBtn} accessibilityRole="button" accessibilityLabel="Compartir actividad">
+                  <Ionicons name="share-outline" size={18} color={colors.brandOrangeSoft} />
+                </TouchableOpacity>
                 <TouchableOpacity onPress={() => eliminarActividad(act.id)} style={styles.eliminarBtn}
                   accessibilityRole="button" accessibilityLabel="Eliminar actividad">
                   <Ionicons name="trash-outline" size={17} color={colors.textMuted} />
