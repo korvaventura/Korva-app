@@ -37,7 +37,7 @@ const REDIRECT_URI = 'https://korva-app-production.up.railway.app/strava/callbac
 const WEBHOOK_VERIFY_TOKEN = 'korva_webhook_secret_2024';
 
 // Tolerancia para considerar que dos actividades del mismo dia son la misma
-const TOLERANCIA_KM = 0.3;
+const { rangoDuplicadoKm } = require('../lib/toleranciaDuplicados');
 
 const getSupabase = () => createClient(
   process.env.SUPABASE_URL,
@@ -59,14 +59,16 @@ const normalizarSportType = (tipo) => {
 const yaExisteActividad = async (supabase, userId, startDate, km, externalId) => {
   try {
     const fecha = String(startDate).split('T')[0];
+    // Margen proporcional (5 %, mínimo 0,3 km): GPS y Strava miden distinto la misma salida.
+    const rango = rangoDuplicadoKm(km);
     let query = supabase
       .from('activities')
       .select('id, source, distance_km')
       .eq('user_id', userId)
       .gte('recorded_at', `${fecha}T00:00:00`)
       .lte('recorded_at', `${fecha}T23:59:59.999`)
-      .gte('distance_km', km - TOLERANCIA_KM)
-      .lte('distance_km', km + TOLERANCIA_KM)
+      .gte('distance_km', rango.min)
+      .lte('distance_km', rango.max)
       .limit(1);
 
     if (externalId) query = query.neq('external_id', String(externalId));
