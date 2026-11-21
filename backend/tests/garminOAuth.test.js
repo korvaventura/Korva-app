@@ -195,3 +195,19 @@ test('encryption rejects tampering and moving credentials to another account', (
   assert.equal(configuracionGarmin({ ...env, GARMIN_TOKEN_URL: 'https://attacker.invalid' }), null);
   assert.equal(configuracionGarmin({ ...env, GARMIN_REDIRECT_URI: 'https://attacker.invalid' }), null);
 });
+
+
+test('disconnect route is authenticated, private, bound to JWT identity and hides provider errors', async () => {
+  const repo = states(); const calls = [];
+  repo.bloquearConexion = async (id) => { calls.push(id); return null; };
+  await server(async ({ request }) => {
+    assert.equal((await request('connection', { method: 'DELETE' })).status, 401);
+    assert.equal((await request('connection', { method: 'DELETE', headers: { Authorization: 'Bearer other' } })).status, 404);
+    const result = await request('connection?userId=intruder', { method: 'DELETE', headers: { Authorization: 'Bearer owner' } });
+    assert.equal(result.status, 200); assert.deepEqual(JSON.parse(result.text), { connected: false });
+    assert.deepEqual(calls, ['owner']);
+    repo.bloquearConexion = async () => { throw Error('private-provider-body-with-token'); };
+    const failure = await request('connection', { method: 'DELETE', headers: { Authorization: 'Bearer owner' } });
+    assert.equal(failure.status, 503); assert.doesNotMatch(failure.text, /private-provider-body-with-token/);
+  }, { repo });
+});
