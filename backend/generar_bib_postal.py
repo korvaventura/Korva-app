@@ -6,6 +6,7 @@ Imprime JSON con: dorsal_pdf (base64), postal_pdf (base64)
 """
 import sys, io, json, base64, os, subprocess, tempfile
 from pptx import Presentation
+from generar_certificado import pptx_a_pdf_base64
 
 def reemplazar_en_pptx(pptx_bytes, reemplazos):
     prs = Presentation(io.BytesIO(pptx_bytes))
@@ -30,19 +31,6 @@ def reemplazar_en_pptx(pptx_bytes, reemplazos):
     output = io.BytesIO()
     prs.save(output)
     return output.getvalue()
-
-def pptx_a_pdf_base64(pptx_bytes, nombre_temp):
-    with tempfile.TemporaryDirectory() as tmpdir:
-        pptx_path = os.path.join(tmpdir, f'{nombre_temp}.pptx')
-        pdf_path = os.path.join(tmpdir, f'{nombre_temp}.pdf')
-        with open(pptx_path, 'wb') as f:
-            f.write(pptx_bytes)
-        subprocess.run([
-            'libreoffice', '--headless', '--convert-to', 'pdf',
-            '--outdir', tmpdir, pptx_path
-        ], capture_output=True, timeout=60)
-        with open(pdf_path, 'rb') as f:
-            return base64.b64encode(f.read()).decode('utf-8')
 
 def main():
     data = json.loads(sys.stdin.read())

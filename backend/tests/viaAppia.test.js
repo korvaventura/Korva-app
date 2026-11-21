@@ -55,7 +55,7 @@ test('Vía Appia: compra pendiente, 611 km, certificado y aviso una sola vez; Sa
   });
   assert.deepEqual(r.db.user_challenges.filter(c => c.challenge_id === appia.id).map(c => [c.status, c.km_completed]), [['completed', 611]]);
   assert.deepEqual(r.db.user_challenges.find(c => c.id === otra.id), otra);
-  assert.deepEqual(r.efectos.certificados.map(c => c.km), [611]);
+  assert.deepEqual(r.efectos.certificados.map(c => [c.km, c.bib]), [[611, '0001']]);
   assert.equal(r.efectos.emails.filter(e => /Medalla lista para despachar/.test(e.asunto)).length, 1);
 });
 
@@ -67,6 +67,22 @@ test('Vía Appia: única distancia 611; una versión legacy no ofrecida vuelve a
       assert.equal(decidirAccion(fila, resultado).accion === 'completar', esperado);
     }
   }
+});
+
+test('Vía Appia: certificado conserva dorsal propio 0007 aunque otro desafío tenga 999 y usuario 0042', async () => {
+  const otra = uc({ id: 'uc-camino', challenge_id: camino.id, numero_bib: 999, status: 'pending' });
+  const r = await conBackend({ user_challenges: [uc({ status: 'pending', numero_bib: 7 }), otra] }, async b => {
+    await comprar(b);
+    for (const distance_km of [250, 250, 111]) {
+      const respuesta = await b.pedir({ metodo: 'POST', ruta: '/actividades/manual', body: {
+        user_id: USER.id, challenge_id: appia.id, distance_km, sport_type: 'walk', recorded_at: '2026-11-02T10:00:00Z',
+      } });
+      assert.equal(respuesta.status, 200, JSON.stringify(respuesta.body));
+    }
+  });
+  assert.deepEqual(r.efectos.certificados.map(c => c.bib), ['0007']);
+  assert.equal(r.db.user_challenges.find(c => c.id === 'uc-appia').numero_bib, 7);
+  assert.deepEqual(r.db.user_challenges.find(c => c.id === otra.id), otra);
 });
 
 test('Vía Appia: si faltan las plantillas no usa las de otro desafío', async () => {

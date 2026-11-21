@@ -1,8 +1,11 @@
+const { leerDorsal, formatearDorsal } = require('./lib/dorsalDesafio');
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const stravaRoutes = require('./routes/strava');
+const { crearGarminRoutes } = require('./routes/garmin');
+const { crearGarminPushRoutes } = require('./routes/garminPush');
 const shopifyRoutes = require('./routes/shopify');
 const mercadopagoRoutes = require('./routes/mercadopago');
 const invitacionesRoutes = require('./routes/invitaciones');
@@ -103,6 +106,8 @@ app.use(cors());
 app.use('/shopify', shopifyRoutes);
 app.use('/progreso-desglose', progresoDesgloseRoutes);
 
+// Garmin validates the origin before parsing its own bounded JSON body.
+app.use('/garmin', crearGarminPushRoutes({ supabase }));
 app.use(express.json({ limit: '10mb' }));
 
 app.use('/actividades/gps', crearActividadGpsRoutes({ supabase, procesadorEventos }));
@@ -158,7 +163,7 @@ app.get('/test/certificado/:userId/:challengeId', async (req, res) => {
     // D-V1: el certificado lleva la distancia de la versión elegida (Estándar o Extendida).
     const distanciaTotal = objetivoDeInscripcion(uc, uc.challenges).objetivo_km || uc.km_completed;
 
-    const certificadoPdf = await generarCertificado(supabase, usuario.name, tituloChallenge, distanciaTotal, usuario.bib_number || '---', fechaCompletado, numeroSerie);
+    const certificadoPdf = await generarCertificado(supabase, usuario.name, tituloChallenge, distanciaTotal, formatearDorsal(await leerDorsal(supabase, uc.id)), fechaCompletado, numeroSerie);
     if (!certificadoPdf) {
       if (reserva.reservado) await liberarSerialCAS(supabase, uc.id, numeroSerie); // se puede reintentar
       return res.json({ error: 'No se pudo generar el certificado' });
@@ -199,7 +204,7 @@ app.get('/test/reenviar-certificados', async (req, res) => {
           : new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
         const tituloChallenge = uc.challenges?.title || 'Desafío Korva';
         const distanciaTotal = objetivoDeInscripcion(uc, uc.challenges).objetivo_km || uc.km_completed; // D-V1
-        const certificadoPdf = await generarCertificado(supabase, usuario.name, tituloChallenge, distanciaTotal, usuario.bib_number || '---', fechaCompletado, numeroSerie);
+        const certificadoPdf = await generarCertificado(supabase, usuario.name, tituloChallenge, distanciaTotal, formatearDorsal(await leerDorsal(supabase, uc.id)), fechaCompletado, numeroSerie);
         if (!certificadoPdf) {
           await liberarSerialCAS(supabase, uc.id, numeroSerie); // queda para el próximo reintento, como antes
           resultados.push({ email: usuario.email, error: 'PDF falló' });
@@ -293,7 +298,7 @@ app.get('/usuarios/bib/:userId', async (req, res) => {
     // Buscar el challenge específico o el más reciente
     let ucQuery = supabase
       .from('user_challenges')
-      .select('challenge_id, numero_bib, challenges(title), dorsal_url, postal_url')
+      .select('id, challenge_id, numero_bib, challenges(title), dorsal_url, postal_url')
       .eq('user_id', userId)
       .in('status', ['active', 'completed', 'shipped', 'cargado']);
 
@@ -307,8 +312,8 @@ app.get('/usuarios/bib/:userId', async (req, res) => {
     const challengeTitle = uc?.challenges?.title || 'Desafío Korva';
     if (!challengeId) return res.status(404).json({ error: 'No se encontró desafío activo para este usuario' });
 
-    // Usar numero_bib del challenge específico, fallback a bib_number global
-    const bibNumber = uc?.numero_bib || user.bib_number;
+    // Nunca recuperar el número global de otro desafío.
+    const bibNumber = uc?.numero_bib;
     if (!bibNumber) return res.status(404).json({ error: 'No tiene número de bib asignado' });
 
     // Si ya tiene URLs guardadas para este desafío, devolverlas sin regenerar
@@ -387,6 +392,7 @@ app.post('/upload', async (req, res) => {
 });
 
 app.use('/strava', stravaRoutes);
+app.use('/garmin', crearGarminRoutes({ supabase }));
 // 4A-7: la importación Strava con el motor dispara el mismo procesador de efectos.
 stravaRoutes.configurarMotor({ dispararEfectos: (ids) => procesadorEventos.disparar(ids) });
 app.use('/mercadopago', mercadopagoRoutes);
@@ -610,7 +616,7 @@ const enviarCertificadoFinisher = async (user_id, reto, distanciaTotal) => {
       usuario.name,
       tituloChallenge,
       distanciaTotal,
-      usuario.bib_number || '---',
+      formatearDorsal(await leerDorsal(supabase, reto.id)),
       fechaCompletado,
       numeroSerie
     );
@@ -2517,3 +2523,9 @@ if (stravaWebhookMotorActiva()) {
     demoraInicialMs: Number(process.env.STRAVA_WEBHOOK_RECUPERACION_INICIAL_MS) || undefined,
   });
 }
+
+// Private Garmin importer: disabled until explicitly enabled after validation.
+require('./lib/garminProcesamiento').iniciarProcesamientoGarmin({
+  supabase, repoMotor: crearRepositorioSupabase(supabase),
+  dispararEfectos: async (ids) => { if (efectosMotorActivos() && ids.length) await procesadorEventos.ronda({ repo: crearRepositorioSupabase(supabase), ids }); },
+});

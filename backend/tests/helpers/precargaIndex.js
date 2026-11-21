@@ -74,7 +74,7 @@ Module._load = function cargar(pedido, padre, esPrincipal) {
     return {
       ...real,
       generarCertificado: async (_s, nombre, desafio, km, bib, fecha, serial) => {
-        efectos.certificados.push({ nombre, desafio, km, serial }); // la distancia impresa (D-V1)
+        efectos.certificados.push({ nombre, desafio, km, bib, serial }); // la distancia impresa (D-V1)
         return Buffer.from(`PDF ${serial} ${nombre} ${desafio} ${km}`).toString('base64');
       },
       generarBibYPostal: async () => null, // sin plantillas ni Storage: el código manda el email sin adjuntos
