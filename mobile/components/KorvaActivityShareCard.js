@@ -16,8 +16,16 @@ const RH = 380;
 
 const DEPORTE = { run: 'CORRER', walk: 'CAMINAR', ride: 'BICI', hike: 'TREKKING', swim: 'NADAR' };
 
+// Armar la ruta de un mapa cuesta: se calcula una vez por desafío y queda guardada.
+const RUTAS = new Map();
 function rutaDelDesafio(challenge) {
   if (!challenge?.challenge_id) return null;
+  if (RUTAS.has(challenge.challenge_id)) return RUTAS.get(challenge.challenge_id);
+  const ruta = calcularRuta(challenge);
+  RUTAS.set(challenge.challenge_id, ruta);
+  return ruta;
+}
+function calcularRuta(challenge) {
   try {
     const mapa = mapa3DDeDesafio(challenge.challenge_id, challenge.challenge || challenge.challenge_title);
     if (!mapa) return null;

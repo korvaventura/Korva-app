@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { Image, StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,7 +9,7 @@ import { colors, radius, spacing } from '../theme/korvaTheme';
 import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
 import KorvaCompletedShare from '../components/KorvaCompletedShare';
 import MapaRecorrido from './MapaRecorrido';
-const { formatoKm } = require('../services/compartirCore');
+const { formatoKm, urlsFondo } = require('../services/compartirCore');
 
 const iconoDeporte = (tipo) => ({ ride: 'bicycle-outline', run: 'fitness-outline', swim: 'water-outline', walk: 'walk-outline' }[tipo] || 'pulse-outline');
 const deporteHistoria = (tipo) => tipo === 'manual' ? 'Actividad' : nombreDeporteActividad(tipo);
@@ -94,6 +94,8 @@ export default function DetalleRetoScreen({ route, navigation }) {
   const estaCompletado = pct >= 100;
   // Versión Estándar/Extendida (solo distancia; cualquier deporte suma 1:1).
   const itemNormalizado = { ...item, challenge: nombreReto, km_completados: kmCompletados, distancia_total: distanciaTotal, porcentaje: pct };
+  // La foto para compartir se baja mientras mirás la historia: al tocar Compartir ya está.
+  useEffect(() => { urlsFondo(nombreReto).forEach((u) => Image.prefetch(u).catch(() => {})); }, [nombreReto]);
   const version = versionDeInscripcion(itemNormalizado);
   const versionLabel = etiquetaDeInscripcion(itemNormalizado);
 
@@ -452,7 +454,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
                     {act.source === 'korva_gps' && act.id && <RutaGpsActividad activityId={act.id} />}
                     {!!act.id && (
                       <TouchableOpacity style={styles.timelineCompartir} accessibilityRole="button" accessibilityLabel="Compartir esta actividad"
-                        onPress={() => navigation.navigate('DetalleActividad', { actividad: act, abrirCompartir: true, retoPreferido: item.challenge_id })}>
+                        onPress={() => navigation.navigate('DetalleActividad', { actividad: act, abrirCompartir: true, retoInicial: itemNormalizado })}>
                         <Text style={[styles.timelineCompartirText, index === actividadesConHito.length - 1 && styles.timelineCompartirUltima]}>Compartir ↗</Text>
                       </TouchableOpacity>
                     )}

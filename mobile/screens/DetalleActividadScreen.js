@@ -1,4 +1,4 @@
-import { Alert, Modal, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Alert, Image, Modal, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
@@ -7,7 +7,10 @@ import KorvaActivityShareCard from '../components/KorvaActivityShareCard';
 import { obtenerRutaGps } from '../services/gps/gpsApi';
 import { supabase } from '../supabase';
 import { consultarRutaLibre } from '../services/rutasLibresApi';
-const { retoIslandia, ordenarRetos, formatoKm } = require('../services/compartirCore');
+const { retoIslandia, ordenarRetos, urlsFondo } = require('../services/compartirCore');
+
+// Bajar la foto del desafío apenas sabemos cuál es: cuando abre compartir ya está.
+const precargarFondo = (titulo) => { urlsFondo(titulo).forEach((u) => Image.prefetch(u).catch(() => {})); };
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../theme/korvaTheme';
 import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
@@ -30,7 +33,9 @@ export default function DetalleActividadScreen({ route, navigation }) {
   const userIdParam = route.params?.userId || null;
   const recienGuardada = route.params?.recienGuardada === true;
   const abrirCompartir = recienGuardada || route.params?.abrirCompartir === true;
-  const retoPreferido = route.params?.retoPreferido || null;
+  // Desde la historia de un desafío llega ese desafío ya armado: se muestra al instante.
+  const retoInicial = route.params?.retoInicial || null;
+  const retoPreferido = route.params?.retoPreferido || retoInicial?.challenge_id || null;
   const rutaGpsDisponible = route.params?.rutaGpsDisponible === true;
   const km = Number(a.distance_km || 0);
   const segundos = Number(a.duration_seconds || 0);
@@ -40,32 +45,39 @@ export default function DetalleActividadScreen({ route, navigation }) {
   const [shareVisible, setShareVisible] = useState(false);
   const [shareVariant, setShareVariant] = useState('story');
   const [puntos, setPuntos] = useState([]);
-  const [retosElegibles, setRetosElegibles] = useState([]);
-  const [retoShare, setRetoShare] = useState(null);
+  const [retosElegibles, setRetosElegibles] = useState(retoInicial ? [retoInicial] : []);
+  const [retoShare, setRetoShare] = useState(retoInicial);
   const [cargandoShare, setCargandoShare] = useState(false);
   const shareRef = useRef(null);
   const fondoRef = useRef('cargando');
   const [contextoListo, setContextoListo] = useState(false);
   const yaAbrio = useRef(false);
+  useEffect(() => { if (retoInicial) precargarFondo(retoInicial.challenge); }, []);
 
   useEffect(() => {
     let vivo = true;
     const preparar = async () => {
       if (!a.id) return;
+      // La traza GPS se pide en paralelo: no frena la elección de desafíos.
+      if (a.source === 'korva_gps' || rutaGpsDisponible) {
+        obtenerRutaGps(a.id)
+          .then((ruta) => { if (vivo) setPuntos(Array.isArray(ruta?.points) ? ruta.points : []); })
+          .catch(() => {});
+      }
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const uid = userIdParam || session?.user?.id;
         const token = session?.access_token;
-
-        if (a.source === 'korva_gps' || rutaGpsDisponible) {
-          const ruta = await obtenerRutaGps(a.id);
-          if (vivo) setPuntos(Array.isArray(ruta?.points) ? ruta.points : []);
-        }
-
         if (!uid || !token) return;
-        const progresoRes = await fetch(`${BACKEND_URL}/strava/progreso/${uid}`);
-        const progreso = progresoRes.ok ? await progresoRes.json() : [];
+
+        const [progreso, islandia] = await Promise.all([
+          fetch(`${BACKEND_URL}/strava/progreso/${uid}`).then((r) => (r.ok ? r.json() : [])).catch(() => []),
+          consultarRutaLibre()
+            .then((libre) => (libre?.userId === uid ? retoIslandia(libre.participacion, a) : null))
+            .catch(() => null),
+        ]);
         const candidatos = (Array.isArray(progreso) ? progreso : []).filter((r) => !r.pending && r.challenge_id);
+        candidatos.forEach((r) => precargarFondo(r.challenge));
 
         const chequeados = await Promise.all(candidatos.map(async (reto) => {
           try {
@@ -80,20 +92,15 @@ export default function DetalleActividadScreen({ route, navigation }) {
           }
         }));
         const validos = chequeados.filter(Boolean);
-        try {
-          const libre = await consultarRutaLibre();
-          const islandia = libre?.userId === uid ? retoIslandia(libre.participacion, a) : null;
-          if (islandia) validos.push(islandia);
-        } catch {
-          // Sin Islandia no pasa nada: se comparten los otros desafíos.
-        }
-        if (vivo) {
+        if (islandia) { validos.push(islandia); precargarFondo(islandia.challenge); }
+        if (vivo && validos.length) {
           const ordenados = ordenarRetos(validos, retoPreferido);
           setRetosElegibles(ordenados);
-          setRetoShare(ordenados[0] || null);
+          // Si ya se estaba mostrando un desafío (vino desde su historia), se queda en ese.
+          setRetoShare((actual) => ordenados.find((r) => r.challenge_id === actual?.challenge_id) || ordenados[0]);
         }
       } catch {
-        // Compartir sigue disponible como "Solo actividad" aunque falle el contexto del reto.
+        // Compartir sigue disponible como "Solo la salida" aunque falle el contexto del reto.
       }
     };
     preparar().finally(() => { if (vivo) setContextoListo(true); });
@@ -103,9 +110,9 @@ export default function DetalleActividadScreen({ route, navigation }) {
   // Recién guardada (GPS, manual) o desde el aviso de Strava: abrimos compartir
   // solo una vez y cuando ya sabemos a qué desafío sumó.
   useEffect(() => {
-    if (!abrirCompartir || !contextoListo || yaAbrio.current) return;
+    if (!abrirCompartir || (!contextoListo && !retoInicial) || yaAbrio.current) return;
     yaAbrio.current = true;
-    const t = setTimeout(() => setShareVisible(true), 450);
+    const t = setTimeout(() => setShareVisible(true), retoInicial ? 150 : 300);
     return () => clearTimeout(t);
   }, [abrirCompartir, contextoListo]);
 
@@ -243,7 +250,7 @@ export default function DetalleActividadScreen({ route, navigation }) {
             )}
             <Text style={styles.overlayHint}>
               {shareVariant === 'overlay'
-                ? 'Para pegar encima de tu foto o de tu captura de Strava.'
+                ? 'Para pegar encima de una foto tuya.'
                 : 'Lista para subir a tu historia.'}
             </Text>
 
