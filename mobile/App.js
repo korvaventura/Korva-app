@@ -240,7 +240,7 @@ export default function App() {
         <Stack.Screen name="KorvaMundi">
           {(props) => <KorvaMundiScreen {...props} esAdmin={esAdmin} />}
         </Stack.Screen>
-        <Stack.Screen name="RutaLibre" component={RutaLibreScreen} options={{ title: 'Islandia', headerShown: true, headerStyle: { backgroundColor: colors.background }, headerTintColor: colors.text }} />
+        <Stack.Screen name="RutaLibre" component={RutaLibreScreen} />
         {esAdmin && __DEV__ && <Stack.Screen name="CaminoSantiagoPrueba" component={CaminoSantiagoPruebaScreen} options={{ title: 'Camino · prueba local' }} />}
         {esAdmin && __DEV__ && <Stack.Screen name="ViaAppiaPrueba" component={ViaAppiaPruebaScreen} options={{ title: 'Vía Appia · prueba local' }} />}
         {esAdmin && __DEV__ && <Stack.Screen name="SaludDiagnostico" component={SaludDiagnosticoScreen} />}

@@ -9,6 +9,7 @@ import { colors, radius, spacing } from '../theme/korvaTheme';
 import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
 import KorvaCompletedShare from '../components/KorvaCompletedShare';
 import MapaRecorrido from './MapaRecorrido';
+import HistorialActividades from '../components/HistorialActividades';
 const { formatoKm, urlsFondo } = require('../services/compartirCore');
 
 const iconoDeporte = (tipo) => ({ ride: 'bicycle-outline', run: 'fitness-outline', swim: 'water-outline', walk: 'walk-outline' }[tipo] || 'pulse-outline');
@@ -230,12 +231,6 @@ export default function DetalleRetoScreen({ route, navigation }) {
   const stats = calcularStats();
 
   const kmRestantes = parseFloat(distanciaTotal) - parseFloat(kmCompletados);
-  let acumulado = 0;
-  const actividadesConHito = [...actividades].reverse().map((act, i) => {
-    acumulado += act.distance_km;
-    const hito = getHitoActividad(act, i, acumulado, parseFloat(distanciaTotal));
-    return { ...act, hito, acumulado };
-  });
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
     <ScrollView ref={scrollRef} onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16} scrollEnabled={!mapaInteractuando} canCancelContentTouches={true}
@@ -258,7 +253,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
 
       <View style={styles.progresoCard}>
         <View style={styles.progresoHeader}>
-          <Text style={styles.progresoKm}>{parseFloat(kmCompletados).toFixed(1)} km</Text>
+          <Text style={styles.progresoKm}>{formatoKm(kmCompletados)} km</Text>
           <View style={styles.progresoPill}>
             {estaCompletado && <Ionicons name="checkmark" size={16} color={colors.brandOrangeSoft} />}
             <Text style={styles.progresoPct}>{pct.toFixed(0)}%</Text>
@@ -273,7 +268,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
             <Text style={styles.desgloseTitulo}>Cómo se forma tu progreso</Text>
             <View style={styles.desgloseFila}>
               <Text style={styles.desgloseLabel}>Actividades registradas</Text>
-              <Text style={styles.desgloseValor}>{Number(desgloseProgreso.km_actividades || 0).toFixed(2)} km</Text>
+              <Text style={styles.desgloseValor}>{formatoKm(desgloseProgreso.km_actividades || 0)} km</Text>
             </View>
             {Number(desgloseProgreso.km_base || 0) > 0 && (
               <View style={styles.desgloseFila}>
@@ -420,50 +415,8 @@ export default function DetalleRetoScreen({ route, navigation }) {
       )}
 
       {!abrirRuta && (
-        <View style={styles.historialSection}>
-          <View style={styles.historialHeader}>
-            <Text style={styles.historialTitulo}>Actividades registradas</Text>
-            {!cargando && <Text style={styles.historialCantidad}>{actividadesConHito.length}</Text>}
-          </View>
-          {cargando ? (
-            <ActivityIndicator color={colors.brandOrange} />
-          ) : actividadesConHito.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Ionicons name="flag-outline" size={28} color={colors.brandOrangeSoft} style={styles.emptyIcon} />
-              <Text style={styles.emptyText}>Sin actividades todavía</Text>
-              <Text style={styles.emptySubtext}>Registrá tu primer km — correr, caminar, bici o nadar, todo suma.</Text>
-            </View>
-          ) : (
-            <View style={styles.timeline}>
-              {actividadesConHito.map((act, index) => (
-                <View key={index} style={styles.timelineItem}>
-                  <View style={styles.timelineLeft}>
-                    <View style={[styles.timelineDot, index === 0 && styles.timelineDotActivo]}>
-                      <Ionicons name={act.hito.icono} size={18} color={index === 0 ? colors.brandOrangeSoft : colors.textMuted} />
-                    </View>
-                    {index < actividadesConHito.length - 1 && <View style={styles.timelineLine} />}
-                  </View>
-                  <View style={styles.timelineContent}>
-                    <Text style={styles.timelineHito}>{act.hito.texto}</Text>
-                    <Text style={styles.timelineFecha}>{formatearFecha(act.recorded_at)}</Text>
-                    <View style={styles.timelineActRow}>
-                      <Text style={styles.timelineKm}>{formatoKm(act.distance_km)} km</Text>
-                    </View>
-                    <Text style={styles.timelineTipo}>{deporteHistoria(act.sport_type)} · {nombreFuenteActividad(act.source)}</Text>
-                    <Text style={styles.timelineAcumulado}>Acumulado en actividades: {formatoKm(act.acumulado)} km</Text>
-                    {act.source === 'korva_gps' && act.id && <RutaGpsActividad activityId={act.id} />}
-                    {!!act.id && (
-                      <TouchableOpacity style={styles.timelineCompartir} accessibilityRole="button" accessibilityLabel="Compartir esta actividad"
-                        onPress={() => navigation.navigate('DetalleActividad', { actividad: act, abrirCompartir: true, retoInicial: itemNormalizado })}>
-                        <Text style={[styles.timelineCompartirText, index === actividadesConHito.length - 1 && styles.timelineCompartirUltima]}>Compartir ↗</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
+        <HistorialActividades actividades={actividades} cargando={cargando} distanciaTotal={distanciaTotal}
+          reto={itemNormalizado} navigation={navigation} />
       )}
 
     </ScrollView>

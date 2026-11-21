@@ -25,6 +25,7 @@ import { useTour, useTourScroll, useTourTarget } from '../components/tour/Tour';
 import { modoInicioTour } from '../services/tour/tourCore';
 import useMovimientoPersonal from '../services/useMovimientoPersonal';
 import KorvaCompletedShare from '../components/KorvaCompletedShare';
+const { formatoKm } = require('../services/compartirCore');
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -480,6 +481,7 @@ export default function HomeScreen({ navigation }) {
   const challengesActivos = [...challengesEnCurso, ...(tieneRutaLibre ? [{
     id: participacionLibre.id, challenge_id: 'islandia-libre', challenge: 'Islandia', libre: true,
     participacion: participacionLibre, pausado: participacionLibre.pausado, porcentaje: participacionLibre.porcentaje,
+    km_completados: participacionLibre.km, distancia_total: 1400,
   }] : [])];
   const retoVisibleIndex = Math.min(retoActivoIndex, Math.max(0, challengesActivos.length - 1));
   const movimientoPrimero = !challengesEnCurso.some(c => !c.pausado);
@@ -1032,7 +1034,33 @@ function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, meta
   if (!item) return null;
   if (item.libre) return (
     <View>
-      <RutaLibreCardVista navigation={navigation} estado={{ datos: { participacion: item.participacion } }} destacado />
+      {/* Islandia con la misma tarjeta que los demás desafíos; verde = ruta libre */}
+      <View style={[styles.shareCard, { borderColor: '#32665C' }]}>
+        <View style={styles.shareHeader}>
+          <Text style={styles.shareKorvaLogo}>TU AVENTURA</Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Compartir progreso" hitSlop={8} style={{ padding: 8 }} onPress={() => compartirProgreso(index)}>
+            <Ionicons name="share-outline" size={22} color={colors.actionBlue} />
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.shareChallengeName}>Islandia · Ring Road</Text>
+        <View style={styles.heroMetricRow}>
+          <Text style={styles.heroKmNumero}>{formatoKm(item.participacion.km)}</Text>
+          <Text style={styles.heroKmUnidad}>km</Text>
+          <View style={styles.heroPctPill}>
+            <Text style={[styles.heroPctText, { color: '#78DEC5' }]}>{Math.floor(Math.min(100, item.participacion.porcentaje || 0))}%</Text>
+          </View>
+        </View>
+        <Text style={styles.heroTotal}>de 1.400 km</Text>
+        <View style={styles.heroFooter}>
+          <Text style={[styles.heroFooterMuted, { color: '#78DEC5' }]}>
+            {item.participacion.estado === 'pausada' ? 'Ruta libre · pausada' : item.participacion.estado === 'completada' ? 'Ruta libre · completada' : 'Ruta libre · sin medalla'}
+          </Text>
+        </View>
+        <TouchableOpacity style={styles.heroHistoria} onPress={() => navigation.navigate('RutaLibre')} activeOpacity={0.72}>
+          <Text style={styles.heroHistoriaText}>Historia del desafío</Text>
+          <Ionicons name="arrow-forward" size={13} color={colors.actionBlue} />
+        </TouchableOpacity>
+      </View>
       <MapaRecorrido challengeId="3b211caf-ee16-54c8-a93c-343a5eb2d57e" challengeTitle="Islandia · Ring Road"
         kmCompletados={item.participacion.km} distanciaTotal={1400} porcentaje={item.participacion.porcentaje} integrado />
     </View>
@@ -1062,7 +1090,7 @@ function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, meta
           </View>
           <Text style={styles.shareChallengeName}>{item.challenge || '—'}</Text>
           <View style={styles.heroMetricRow}>
-            <Text style={styles.heroKmNumero}>{Number(item.km_completados || 0).toFixed(1)}</Text>
+            <Text style={styles.heroKmNumero}>{formatoKm(item.km_completados || 0)}</Text>
             <Text style={styles.heroKmUnidad}>km</Text>
             <View style={styles.heroPctPill}>
               <Text style={styles.heroPctText}>{pct.toFixed(0)}%</Text>

@@ -880,7 +880,41 @@ export default function PerfilScreen() {
               if (inscripcion.libre) return (
                 <View key="islandia-libre" style={{ width: SCREEN_WIDTH, paddingHorizontal: 24, alignSelf: 'flex-start' }}
                   onLayout={e => { const h = Math.ceil(e.nativeEvent.layout.height); setAlturasRetos(prev => prev[idx] === h ? prev : { ...prev, [idx]: h }); }}>
-                  <RutaLibreCardVista navigation={navigation} estado={rutaLibre} destacado accion="Ver ruta" onActualizar={() => actualizarRutaLibre({ conservarDatos: true })} />
+                  {(() => {
+                    // Islandia con la misma tarjeta que los demás desafíos; verde = ruta libre.
+                    const pl = rutaLibre?.datos?.participacion;
+                    if (!pl) return <RutaLibreCardVista navigation={navigation} estado={rutaLibre} destacado accion="Ver ruta" onActualizar={() => actualizarRutaLibre({ conservarDatos: true })} />;
+                    const pctL = Math.min(100, Number(pl.porcentaje) || 0);
+                    return (
+                      <View style={[styles.retoCard, { borderColor: '#32665C' }]}>
+                        <Text style={[styles.retoEyebrow, { color: '#78DEC5' }]}>{pl.estado === 'pausada' ? 'RUTA LIBRE · PAUSADA' : pl.estado === 'completada' ? 'RUTA LIBRE · COMPLETADA' : 'RUTA LIBRE · SIN MEDALLA'}</Text>
+                        <View style={styles.retoTitleRow}>
+                          <Text style={styles.retoCardTitulo}>Islandia · Ring Road</Text>
+                          <View style={styles.retoPctPill}><Text style={[styles.retoProgressPct, { color: '#78DEC5' }]}>{Math.floor(pctL)}%</Text></View>
+                        </View>
+                        <View style={styles.retoMetricRow}>
+                          <Text style={styles.retoMetric}>{formatoKm(pl.km)}</Text>
+                          <Text style={styles.retoMetricUnit}>km</Text>
+                        </View>
+                        <Text style={styles.retoKm}>de 1.400 km</Text>
+                        <View style={styles.retoProgressBar}><View style={[styles.retoProgressFill, { width: `${pctL}%`, backgroundColor: '#78DEC5' }]} /></View>
+                        <TouchableOpacity style={styles.retoRutaBtn} accessibilityRole="button" onPress={() => navigation.navigate('RutaLibre', { abrirRuta: true })}>
+                          <Ionicons name="map-outline" size={16} color={colors.actionBlue} />
+                          <Text style={styles.retoRutaBtnText}>Ver ruta</Text>
+                          <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.retoRutaBtn} accessibilityRole="button"
+                          onPress={() => setProgresoCompartir({ titulo: 'Islandia · Ring Road', km: pl.km, total: 1400, challenge_id: '3b211caf-ee16-54c8-a93c-343a5eb2d57e' })}>
+                          <Ionicons name="share-outline" size={16} color={colors.actionBlue} /><Text style={styles.retoRutaBtnText}>Compartir progreso</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.retoRutaBtn} accessibilityRole="button" onPress={() => navigation.navigate('RutaLibre')}>
+                          <Ionicons name="book-outline" size={16} color={colors.actionBlue} />
+                          <Text style={styles.retoRutaBtnText}>Historia del desafío</Text>
+                          <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })()}
                 </View>
               );
               const cId = inscripcion.challenge_id;
@@ -904,7 +938,7 @@ export default function PerfilScreen() {
                       <View style={styles.retoPctPill}><Text style={styles.retoProgressPct}>{pct.toFixed(0)}%</Text></View>
                     </View>
                     <View style={styles.retoMetricRow}>
-                      <Text style={styles.retoMetric}>{kmCompletados.toFixed(1)}</Text>
+                      <Text style={styles.retoMetric}>{formatoKm(kmCompletados)}</Text>
                       <Text style={styles.retoMetricUnit}>km</Text>
                     </View>
                     <Text style={styles.retoKm}>de {distanciaTotal} km</Text>

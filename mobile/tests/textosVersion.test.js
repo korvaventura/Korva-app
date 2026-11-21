@@ -51,8 +51,10 @@ test('el cambio de versión manda `version` (y modalidad legacy) al backend', ()
 test('los deportes de ACTIVIDADES se presentan desde sport_type, separados de la versión', () => {
   assert.match(leer('HomeScreen.js'), /nombreDeporteActividad\(actividadReciente\.sport_type\)/);
   assert.match(leer('PerfilScreen.js'), /iconoDeporteActividad\(act\.sport_type\)/);
-  const historia = leer('DetalleRetoScreen.js');
+  // La línea de tiempo de la historia vive en un componente compartido.
+  const historia = require('fs').readFileSync(require('path').join(__dirname, '..', 'components', 'HistorialActividades.js'), 'utf8');
   assert.match(historia, /deporteHistoria\(act\.sport_type\)/);
   assert.match(historia, /nombreDeporteActividad\(tipo\)/);
   assert.match(historia, /iconoDeporte\(actividad\.sport_type\)/);
+  assert.match(leer('DetalleRetoScreen.js'), /<HistorialActividades/);
 });
