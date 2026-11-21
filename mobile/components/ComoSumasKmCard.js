@@ -49,7 +49,7 @@ export default function ComoSumasKmCard({ userId, movimiento, onActualizarMovimi
         <View style={[styles.icono, styles.iconoActividad]}><Ionicons name="walk" size={18} color={colors.brandOrange} /></View>
         <View style={styles.filaTexto}>
           <Text style={styles.filaTitulo}>Actividades</Text>
-          <Text style={styles.filaDetalle}>GPS Korva, Strava o manual · suman a todos tus desafíos</Text>
+          <Text style={styles.filaDetalle}>Strava, Korva GPS o manual · suman a todos tus desafíos</Text>
           <TouchableOpacity onPress={() => setOtraApp(true)} accessibilityRole="button" hitSlop={8} style={styles.filaLink}>
             <Ionicons name="watch-outline" size={13} color={colors.actionBlue} />
             <Text style={styles.filaLinkTxt}>¿Usás otro reloj o app? ›</Text>

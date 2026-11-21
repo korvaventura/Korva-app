@@ -29,6 +29,7 @@ export default function RutaLibreScreen({ navigation, route }) {
   const [actividades, setActividades] = useState([]);
   const [cargandoAct, setCargandoAct] = useState(true);
   const [mapaActivo, setMapaActivo] = useState(false);
+  const [verCapitulos, setVerCapitulos] = useState(false);
   const scroll = useRef(null), scrollY = useRef(0), pendiente = useRef(false), vivo = useRef(false);
   useEffect(() => { vivo.current = true; return () => { vivo.current = false; }; }, []);
   useEffect(() => { urlsFondo(ISLANDIA.titulo).forEach((u) => Image.prefetch(u).catch(() => {})); }, []);
@@ -101,7 +102,6 @@ export default function RutaLibreScreen({ navigation, route }) {
         <Text style={s.eyebrow}>{activa ? 'HISTORIA DEL DESAFÍO' : 'RUTA LIBRE · SIN COSTO'}</Text>
         <Text style={s.titulo}>Islandia · Ring Road</Text>
         <Text style={s.subtitulo}>Ruta libre · 1.400 km · sin medalla</Text>
-        <Text style={s.subtituloSuave}>Cascadas, glaciares, fiordos, volcanes y sagas. Todos los kilómetros suman igual.</Text>
 
         {estado.cargando ? <ActivityIndicator color={VERDE} style={{ marginVertical: spacing.xl }} />
           : estado.error ? (
@@ -129,17 +129,16 @@ export default function RutaLibreScreen({ navigation, route }) {
               )}
               {!!textoEstado && <Text style={s.estado}>{textoEstado}</Text>}
               {p.started_at && <Text style={s.fecha}>Comenzaste el {formatearFecha(p.started_at)}</Text>}
-              <View style={s.acciones}>
-                <TouchableOpacity onPress={() => setCompartiendo(true)} accessibilityRole="button" style={s.accion}>
-                  <Ionicons name="share-outline" size={16} color={VERDE} /><Text style={s.accionTexto}>Compartir progreso</Text>
-                </TouchableOpacity>
-                {p.estado !== 'completada' && (
-                  <View style={s.accionesSec}>
-                    <TouchableOpacity disabled={guardando} onPress={() => actuar(p.pausado ? 'reanudar' : 'pausar')}><Text style={s.accionSec}>{p.pausado ? 'Reanudar' : 'Pausar'}</Text></TouchableOpacity>
-                    <TouchableOpacity disabled={guardando} onPress={dejar}><Text style={s.accionSec}>Dejar ruta</Text></TouchableOpacity>
-                  </View>
-                )}
-              </View>
+              {!abrirRuta && (
+                <View style={s.rapidas}>
+                  <TouchableOpacity style={s.rapida} accessibilityRole="button" onPress={() => navigation.push('RutaLibre', { abrirRuta: true })}>
+                    <Ionicons name="map-outline" size={17} color={colors.actionBlue} /><Text style={s.rapidaTexto}>Ver mapa</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.rapida} accessibilityRole="button" onPress={() => setCompartiendo(true)}>
+                    <Ionicons name="share-outline" size={17} color={colors.actionBlue} /><Text style={s.rapidaTexto}>Compartir</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           ) : (
             <TouchableOpacity style={s.boton} disabled={guardando} onPress={aceptar}>
@@ -149,36 +148,50 @@ export default function RutaLibreScreen({ navigation, route }) {
         {guardando && <ActivityIndicator color={VERDE} />}
         {!!error && <Text style={s.error}>{error}</Text>}
 
-        <View style={s.seccion}>
-          <View style={s.seccionFila}>
-            <Ionicons name="map-outline" size={19} color={colors.actionBlue} />
-            <Text style={s.seccionTitulo}>Tu ruta</Text>
+        {/* Lo más usado primero: las salidas, con su botón para compartir. */}
+        {!abrirRuta && activa && (
+          <HistorialActividades actividades={actividades} cargando={cargandoAct} distanciaTotal={1400} reto={reto} navigation={navigation} />
+        )}
+
+        {(abrirRuta || !activa) && (
+          <View style={s.seccion}>
+            <View style={s.seccionFila}>
+              <Ionicons name="map-outline" size={19} color={colors.actionBlue} />
+              <Text style={s.seccionTitulo}>Tu ruta</Text>
+            </View>
+            <Text style={s.seccionSub}>Explorá los checkpoints de tu aventura.</Text>
+            {abrirRuta ? (
+              <MapaRecorrido challengeId={ISLANDIA.id} challengeTitle={ISLANDIA.titulo} kmCompletados={km}
+                distanciaTotal={1400} porcentaje={pct} integrado alturaMapa={500} onInteraccionMapa={bloquearMapa} onHistoriaAbierta={mostrarHistoria} />
+            ) : (
+              <TouchableOpacity style={s.abrirMapa} accessibilityRole="button" onPress={() => navigation.push('RutaLibre', { abrirRuta: true })}>
+                <Ionicons name="map-outline" size={18} color={colors.actionBlue} />
+                <Text style={s.abrirMapaTexto}>Abrir mapa del recorrido</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.actionBlue} />
+              </TouchableOpacity>
+            )}
+            {abrirRuta && <Text style={s.nota}>Mapa artístico del desafío virtual; no sirve para navegación GPS.</Text>}
           </View>
-          <Text style={s.seccionSub}>Explorá los checkpoints de tu aventura.</Text>
-          {abrirRuta ? (
-            <MapaRecorrido challengeId={ISLANDIA.id} challengeTitle={ISLANDIA.titulo} kmCompletados={km}
-              distanciaTotal={1400} porcentaje={pct} integrado alturaMapa={500} onInteraccionMapa={bloquearMapa} onHistoriaAbierta={mostrarHistoria} />
-          ) : (
-            <TouchableOpacity style={s.abrirMapa} accessibilityRole="button" onPress={() => navigation.push('RutaLibre', { abrirRuta: true })}>
-              <Ionicons name="map-outline" size={18} color={colors.actionBlue} />
-              <Text style={s.abrirMapaTexto}>Abrir mapa del recorrido</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.actionBlue} />
-            </TouchableOpacity>
-          )}
-          {abrirRuta && <Text style={s.nota}>Mapa artístico del desafío virtual; no sirve para navegación GPS.</Text>}
-        </View>
+        )}
 
         {!abrirRuta && (
           <View style={s.capitulos}>
-            <Text style={s.capitulosTitulo}>La vuelta en cinco capítulos</Text>
-            {islandiaHistoria.capitulos.map((c) => (
+            <TouchableOpacity style={s.capitulosCabecera} onPress={() => setVerCapitulos((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: verCapitulos }}>
+              <Text style={s.capitulosTitulo}>La vuelta en cinco capítulos</Text>
+              <Ionicons name={verCapitulos ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+            {verCapitulos && islandiaHistoria.capitulos.map((c) => (
               <Text key={c.id} style={s.capitulo}><Text style={s.capituloNum}>{c.numero}  </Text>{c.nombre}</Text>
             ))}
           </View>
         )}
 
-        {!abrirRuta && activa && (
-          <HistorialActividades actividades={actividades} cargando={cargandoAct} distanciaTotal={1400} reto={reto} navigation={navigation} />
+        {!abrirRuta && activa && p.estado !== 'completada' && (
+          <View style={s.opciones}>
+            <Text style={s.opcionesTitulo}>Opciones</Text>
+            <TouchableOpacity disabled={guardando} onPress={() => actuar(p.pausado ? 'reanudar' : 'pausar')}><Text style={s.accionSec}>{p.pausado ? 'Reanudar' : 'Pausar'}</Text></TouchableOpacity>
+            <TouchableOpacity disabled={guardando} onPress={dejar}><Text style={s.accionSec}>Dejar ruta</Text></TouchableOpacity>
+          </View>
         )}
       </ScrollView>
       {compartiendo && <KorvaProgressShare reto={{ titulo: ISLANDIA.titulo, km, total: 1400, challenge_id: ISLANDIA.id }} onClose={() => setCompartiendo(false)} />}
@@ -194,8 +207,7 @@ const s = StyleSheet.create({
   volverTexto: { color: colors.actionBlue, fontSize: 14, fontWeight: '700' },
   eyebrow: { color: VERDE, fontSize: 9, fontWeight: '900', letterSpacing: 2, marginBottom: spacing.sm },
   titulo: { fontSize: 26, fontWeight: '900', color: colors.text, marginBottom: spacing.sm },
-  subtitulo: { fontSize: 13, color: colors.textSoft, marginBottom: spacing.xs },
-  subtituloSuave: { fontSize: 12, lineHeight: 18, color: colors.textMuted, marginBottom: spacing.xxl },
+  subtitulo: { fontSize: 13, color: colors.textSoft, marginBottom: spacing.xxl },
   tarjeta: { backgroundColor: colors.surfaceSoft, borderRadius: radius.xl, padding: spacing.xl, marginBottom: spacing.lg, borderWidth: 1, borderColor: '#32665C' },
   filaKm: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
   km: { fontSize: 38, fontWeight: '900', letterSpacing: -1, color: colors.text },
@@ -227,8 +239,14 @@ const s = StyleSheet.create({
   abrirMapa: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 48, paddingHorizontal: 14, borderRadius: 12, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderSoft },
   abrirMapaTexto: { flex: 1, color: colors.actionBlue, fontSize: 14, fontWeight: '800' },
   nota: { color: colors.textMuted, fontSize: 11, lineHeight: 17, marginTop: spacing.md },
-  capitulos: { borderRadius: radius.xl, borderWidth: 1, borderColor: colors.borderSoft, padding: spacing.xl, marginBottom: spacing.xl, gap: 6 },
-  capitulosTitulo: { color: colors.text, fontSize: 15, fontWeight: '800', marginBottom: 4 },
+  rapidas: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
+  rapida: { flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 12, backgroundColor: colors.backgroundDeep, borderWidth: 1, borderColor: colors.borderSoft },
+  rapidaTexto: { color: colors.actionBlue, fontSize: 14, fontWeight: '800' },
+  capitulosCabecera: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  opciones: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.xl },
+  opcionesTitulo: { color: colors.textMuted, fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  capitulos: { borderRadius: radius.xl, borderWidth: 1, borderColor: colors.borderSoft, padding: spacing.lg, marginTop: spacing.lg, marginBottom: spacing.lg, gap: 6 },
+  capitulosTitulo: { color: colors.text, fontSize: 14, fontWeight: '800' },
   capitulo: { color: colors.textSoft, fontSize: 13, lineHeight: 20 },
   capituloNum: { color: VERDE, fontWeight: '900' },
 });

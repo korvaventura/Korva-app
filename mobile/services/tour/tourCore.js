@@ -7,15 +7,18 @@ const PASOS = [
   { id: 'mundi', stack: 'KorvaMundi', titulo: 'Korva Mundi',
     texto: 'Todos los desafíos en un mismo planeta. Girá el globo con el dedo y tocá un punto para ver ese desafío. Desde cualquier mapa podés alejarte hasta acá.' },
   { id: 'comoSumas', pantalla: 'Mis Retos', titulo: 'Tres formas de sumar km',
-    texto: 'Korva GPS, carga manual o Strava: las tres suman igual. Usá la que te quede más cómoda, una sola por salida. Te mostramos cada una.' },
-  { id: 'registrar-gps', objetivo: 'registrar', pantalla: 'Registrar', titulo: 'Forma 1 · Korva GPS',
+    texto: 'Conectando una app, con Korva GPS o con carga manual: las tres suman igual. Usá la que te quede más cómoda, una sola por salida. Te mostramos cada una.' },
+  { id: 'conectar', objetivo: 'strava', pantalla: 'Perfil',
+    titulo: (d) => (d?.garmin ? 'Forma 1 · Conectá Strava o Garmin' : 'Forma 1 · Conectá Strava'),
+    texto: (d) => (d?.garmin
+      ? 'Si ya registrás tus salidas en Strava o Garmin, conectá una y llegan solas, sin cargar nada. No es obligatorio: si no usás ninguna, sumá con Korva GPS o carga manual.'
+      : 'Si ya registrás tus salidas en Strava, conectala y llegan solas, sin cargar nada. No es obligatorio: si no la usás, sumá con Korva GPS o carga manual.') },
+  { id: 'registrar-gps', objetivo: 'registrar', pantalla: 'Registrar', titulo: 'Forma 2 · Korva GPS',
     texto: 'Grabás tu salida con el teléfono, sin instalar nada más: tocás Iniciar y salís.' },
-  { id: 'gps-mapa', stack: 'GpsTracker', titulo: 'Forma 1 · Mirate avanzar',
+  { id: 'gps-mapa', stack: 'GpsTracker', titulo: 'Forma 2 · Mirate avanzar',
     texto: 'Lo propio de Korva GPS: mientras grabás te ves avanzar en vivo por el mapa de tu desafío, con el próximo hito y los km de hoy. Deslizá para pasar de Datos a Mapa.' },
-  { id: 'registrar-manual', objetivo: 'registrar', pantalla: 'Registrar', titulo: 'Forma 2 · Manual',
-    texto: '¿Saliste con tu reloj u otra app? Elegí Manual y cargá los km y el tiempo de esa salida.' },
-  { id: 'strava', pantalla: 'Perfil', titulo: 'Forma 3 · Strava',
-    texto: '¿Ya usás Strava o un reloj (Garmin, Coros, Polar, Suunto…)? Conectá Strava acá y tus salidas llegan solas, con las métricas de tu reloj, sin cargar nada.' },
+  { id: 'registrar-manual', objetivo: 'registrar', pantalla: 'Registrar', titulo: 'Forma 3 · Carga manual',
+    texto: '¿Saliste con tu reloj u otra app que no está conectada? Elegí Manual y cargá los km y el tiempo de esa salida.' },
   { id: 'actividades', pantalla: 'Perfil', titulo: 'Tus actividades',
     texto: 'Si una salida se cargó dos veces, borrala acá con la papelera.' },
   { id: 'direccion', pantalla: 'Perfil', titulo: 'Dirección de envío',
@@ -69,4 +72,16 @@ function modoInicioTour({ creadoEn, visto, ofrecido, ahora = Date.now() }) {
   return ofrecido ? null : 'ofrecer';
 }
 
-module.exports = { PASOS, huecoOverlay, posicionGlobo, rectTab, desplazamientoNecesario, modoInicioTour };
+// Título y texto pueden depender de lo que tiene la persona (p. ej. si le aparece Garmin).
+function textoPaso(paso, datos = {}) {
+  const leer = (v) => (typeof v === 'function' ? v(datos) : v);
+  return { titulo: leer(paso?.titulo) || '', texto: leer(paso?.texto) || '' };
+}
+
+// ¿Se movió el elemento lo suficiente como para redibujar el recuadro?
+function rectCambio(a, b, tolerancia = 2) {
+  if (!a || !b) return a !== b;
+  return ['x', 'y', 'width', 'height'].some((k) => Math.abs(a[k] - b[k]) > tolerancia);
+}
+
+module.exports = { textoPaso, rectCambio, PASOS, huecoOverlay, posicionGlobo, rectTab, desplazamientoNecesario, modoInicioTour };

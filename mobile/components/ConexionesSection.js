@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 import { estadoGarmin, iniciarGarmin, GARMIN_RETURN_URL } from '../services/garminApi';
 import { colors, radius, spacing } from '../theme/korvaTheme';
+import { useTourDato } from './tour/Tour';
 
 const { filaGarmin, filaStrava, mensajeGarmin, resultadoDeUrl, urlAutorizacionValida } = require('../services/conexionesCore');
 
@@ -49,6 +50,8 @@ export default function ConexionesSection({ stravaConectado, onConectarStrava, o
 
   const fStrava = filaStrava(stravaConectado);
   const fGarmin = filaGarmin(garmin);
+  // El tour nombra a Garmin solo si a esta persona le aparece.
+  useTourDato('garmin', !!fGarmin);
 
   return (
     <View style={s.seccion} ref={tourRef} collapsable={false}>

@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius, spacing } from '../theme/korvaTheme';
 import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
 import KorvaCompletedShare from '../components/KorvaCompletedShare';
+import KorvaProgressShare from '../components/KorvaProgressShare';
 import MapaRecorrido from './MapaRecorrido';
 import HistorialActividades from '../components/HistorialActividades';
 const { formatoKm, urlsFondo } = require('../services/compartirCore');
@@ -83,6 +84,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
   const [guardandoMeta, setGuardandoMeta] = useState(false);
   const [desgloseProgreso, setDesgloseProgreso] = useState(null);
   const [compartirCompletado, setCompartirCompletado] = useState(false);
+  const [compartirProgreso, setCompartirProgreso] = useState(false);
 
 
 
@@ -287,8 +289,29 @@ export default function DetalleRetoScreen({ route, navigation }) {
         {item.started_at && (
           <Text style={styles.progresoFecha}>Comenzaste el {formatearFecha(item.started_at)}</Text>
         )}
+        {!abrirRuta && (
+          <View style={styles.accionesRapidas}>
+            <TouchableOpacity style={styles.accionRapida} accessibilityRole="button"
+              onPress={() => navigation.push('DetalleReto', { item, userId, nombrePersona, abrirRuta: true })}>
+              <Ionicons name="map-outline" size={17} color={colors.actionBlue} />
+              <Text style={styles.accionRapidaTexto}>Ver mapa</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.accionRapida} accessibilityRole="button"
+              onPress={() => (estaCompletado ? setCompartirCompletado(true) : setCompartirProgreso(true))}>
+              <Ionicons name="share-outline" size={17} color={colors.actionBlue} />
+              <Text style={styles.accionRapidaTexto}>Compartir</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
+      {/* Lo más usado primero: las salidas, con su botón para compartir. */}
+      {!abrirRuta && (
+        <HistorialActividades actividades={actividades} cargando={cargando} distanciaTotal={distanciaTotal}
+          reto={itemNormalizado} navigation={navigation} />
+      )}
+
+      {abrirRuta && (
       <View onLayout={(e) => { rutaY.current = e.nativeEvent.layout.y; }} style={styles.rutaSection}>
         <View style={styles.sectionTitleRow}>
           <Ionicons name="map-outline" size={19} color={colors.actionBlue} />
@@ -319,13 +342,8 @@ export default function DetalleRetoScreen({ route, navigation }) {
           </TouchableOpacity>
         )}
       </View>
-
-      {estaCompletado && (
-        <TouchableOpacity style={styles.completedShareBtn} accessibilityRole="button" onPress={() => setCompartirCompletado(true)}>
-          <Ionicons name="share-outline" size={18} color={colors.brandOrangeSoft} />
-          <Text style={styles.completedShareText}>Compartir desafío completado</Text>
-        </TouchableOpacity>
       )}
+
       {estaCompletado && stats && (
         <View style={styles.statsCompletadoCard}>
           <View style={styles.sectionTitleRow}>
@@ -414,19 +432,18 @@ export default function DetalleRetoScreen({ route, navigation }) {
         </View>
       )}
 
-      {!abrirRuta && (
-        <HistorialActividades actividades={actividades} cargando={cargando} distanciaTotal={distanciaTotal}
-          reto={itemNormalizado} navigation={navigation} />
-      )}
-
     </ScrollView>
     <KorvaCompletedShare nombrePersona={nombrePersona} reto={compartirCompletado ? itemNormalizado : null} onClose={() => setCompartirCompletado(false)} />
+    {compartirProgreso && <KorvaProgressShare reto={{ titulo: nombreReto, km: kmCompletados, total: distanciaTotal, challenge_id: item.challenge_id }} onClose={() => setCompartirProgreso(false)} />}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   rutaSection: { marginBottom: spacing.xl },
+  accionesRapidas: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
+  accionRapida: { flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 12, backgroundColor: colors.backgroundDeep, borderWidth: 1, borderColor: colors.borderSoft },
+  accionRapidaTexto: { color: colors.actionBlue, fontSize: 14, fontWeight: '800' },
   rutaTitulo: { fontSize: 16, fontWeight: '800', color: colors.text },
   abrirRutaBtn: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 48, paddingHorizontal: 14, borderRadius: 12, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderSoft },
   abrirRutaBtnText: { flex: 1, color: colors.actionBlue, fontSize: 14, fontWeight: '800' },

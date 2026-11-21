@@ -2,7 +2,7 @@ import { Component, createContext, useCallback, useContext, useEffect, useMemo, 
 import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { initialWindowMetrics } from 'react-native-safe-area-context';
 import { colors } from '../../theme/korvaTheme';
-import { PASOS, desplazamientoNecesario, huecoOverlay, posicionGlobo, rectTab } from '../../services/tour/tourCore';
+import { PASOS, desplazamientoNecesario, huecoOverlay, posicionGlobo, rectTab, rectCambio, textoPaso } from '../../services/tour/tourCore';
 
 // Recorrido guiado: oscurece la pantalla, resalta un elemento y explica qué hace.
 // Se dibuja ENCIMA de la app (no reemplaza ninguna pantalla) y, si algo falla,
@@ -15,6 +15,7 @@ export function TourProvider({ navigationRef, children }) {
   const acciones = useRef(new Map()); // id → función que prepara la pantalla (p. ej. elegir Manual)
   const direccion = useRef(1); // +1 avanzando, −1 volviendo (para saltear pasos sin elemento)
   const desplazables = useRef(new Map()); // pantalla → { ref, offset }
+  const datos = useRef({}); // lo que tiene la persona (p. ej. { garmin: true }) para elegir textos
   const [activo, setActivo] = useState(false);
   const [paso, setPaso] = useState(0);
   const [rect, setRect] = useState(null);
@@ -27,14 +28,15 @@ export function TourProvider({ navigationRef, children }) {
   const registrarAccion = useCallback((id, fn) => {
     if (fn) acciones.current.set(id, fn); else acciones.current.delete(id);
   }, []);
-  const registrarScroll = useCallback((pantalla, datos) => {
-    if (datos) desplazables.current.set(pantalla, datos); else desplazables.current.delete(pantalla);
+  const registrarScroll = useCallback((pantalla, info) => {
+    if (info) desplazables.current.set(pantalla, info); else desplazables.current.delete(pantalla);
   }, []);
+  const registrarDato = useCallback((clave, valor) => { datos.current = { ...datos.current, [clave]: valor }; }, []);
 
   const terminar = useCallback(() => { turno.current += 1; setActivo(false); setRect(null); setListo(false); }, []);
   const iniciar = useCallback(() => { turno.current += 1; direccion.current = 1; setPaso(0); setRect(null); setListo(false); setActivo(true); }, []);
 
-  const valor = useMemo(() => ({ registrar, registrarAccion, registrarScroll, iniciar, terminar, activo }), [registrar, registrarAccion, registrarScroll, iniciar, terminar, activo]);
+  const valor = useMemo(() => ({ registrar, registrarAccion, registrarScroll, registrarDato, iniciar, terminar, activo }), [registrar, registrarAccion, registrarScroll, registrarDato, iniciar, terminar, activo]);
 
   return (
     <TourContext.Provider value={valor}>
@@ -43,7 +45,7 @@ export function TourProvider({ navigationRef, children }) {
         <SeguroTour onError={terminar}>
           <Overlay
             paso={paso} setPaso={setPaso} rect={rect} setRect={setRect} listo={listo} setListo={setListo}
-            objetivos={objetivos} acciones={acciones} direccion={direccion} desplazables={desplazables} navigationRef={navigationRef} turno={turno} terminar={terminar}
+            objetivos={objetivos} acciones={acciones} direccion={direccion} desplazables={desplazables} datos={datos} navigationRef={navigationRef} turno={turno} terminar={terminar}
           />
         </SeguroTour>
       )}
@@ -76,7 +78,7 @@ function medir(nodo) {
   });
 }
 
-function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, acciones, direccion, desplazables, navigationRef, turno, terminar }) {
+function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, acciones, direccion, desplazables, datos, navigationRef, turno, terminar }) {
   const pantalla = useWindowDimensions();
   const insetInferior = initialWindowMetrics?.insets?.bottom || 0;
   const actual = PASOS[paso];
@@ -123,15 +125,28 @@ function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, acc
         // La pantalla se prepara para el paso (por ejemplo, elegir Manual o pasar a Mapa).
         const preparar = acciones.current.get(actual.id);
         if (preparar) { try { preparar(); } catch { /* sigue igual */ } await espera(350); if (!vigente()) return; }
-        let r = await medir(objetivos.current.get(clave));
+        // La pantalla puede seguir acomodándose (carga datos, termina el scroll):
+        // medimos hasta que el elemento quede quieto antes de mostrar el recuadro.
+        const medirQuieto = async () => {
+          let previo = await medir(objetivos.current.get(clave));
+          for (let i = 0; i < 6 && vigente(); i++) {
+            await espera(140);
+            const ahora = await medir(objetivos.current.get(clave));
+            if (!rectCambio(previo, ahora)) return ahora;
+            previo = ahora;
+          }
+          return previo;
+        };
+        let r = await medirQuieto();
         if (!r) { if (vigente()) saltear(); return; }
-        const delta = desplazamientoNecesario(r, pantalla);
         const scroll = desplazables.current.get(actual.pantalla);
-        if (delta && scroll?.ref?.current) {
+        for (let intento = 0; intento < 2 && vigente(); intento++) {
+          const delta = desplazamientoNecesario(r, pantalla);
+          if (!delta || !scroll?.ref?.current) break;
           scroll.ref.current.scrollTo({ y: Math.max(0, (scroll.offset.current || 0) + delta), animated: true });
           await espera(450);
           if (!vigente()) return;
-          r = await medir(objetivos.current.get(clave));
+          r = await medirQuieto();
           if (!r) { saltear(); return; }
         }
         if (vigente()) { setRect(r); setListo(true); }
@@ -142,12 +157,26 @@ function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, acc
     return () => { cancelado = true; };
   }, [paso]);
 
+  // Mientras el paso está a la vista, el recuadro sigue al elemento: si la
+  // pantalla se mueve (cargan datos, aparece una fila), se redibuja solo.
+  useEffect(() => {
+    if (!listo || !rect || !actual || actual.tab || actual.id === 'fin') return undefined;
+    const clave2 = actual.objetivo || actual.id;
+    let vivo = true;
+    const id = setInterval(async () => {
+      const r = await medir(objetivos.current.get(clave2));
+      if (vivo && r && rectCambio(rect, r)) setRect(r);
+    }, 350);
+    return () => { vivo = false; clearInterval(id); };
+  }, [listo, rect, paso]);
+
   // Nunca cambiar estado durante el dibujado (eso era lo que rompía el tutorial viejo).
   useEffect(() => { if (!actual) terminar(); }, [actual, terminar]);
   if (!actual) return null;
   const huecos = huecoOverlay(listo ? rect : null, pantalla);
   const globo = posicionGlobo(listo ? rect : null, pantalla);
   const ultimo = paso === PASOS.length - 1;
+  const textos = textoPaso(actual, datos.current);
   const total = PASOS.length - 1;
 
   return (
@@ -161,8 +190,8 @@ function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, acc
       {listo && (
         <View style={[styles.globo, globo]}>
           {!ultimo && <Text style={styles.contador}>{paso + 1} DE {total}</Text>}
-          <Text style={styles.titulo}>{actual.titulo}</Text>
-          <Text style={styles.texto}>{actual.texto}</Text>
+          <Text style={styles.titulo}>{textos.titulo}</Text>
+          <Text style={styles.texto}>{textos.texto}</Text>
           <View style={styles.acciones}>
             {!ultimo ? (
               <TouchableOpacity onPress={terminar} hitSlop={10} accessibilityRole="button"><Text style={styles.saltar}>Saltar</Text></TouchableOpacity>
@@ -210,6 +239,12 @@ export function useTourScroll(pantalla, scrollRef) {
     return () => tour?.registrarScroll(pantalla, null);
   }, [tour, pantalla, scrollRef]);
   return useCallback((e) => { offset.current = e?.nativeEvent?.contentOffset?.y || 0; }, []);
+}
+
+// Para que el recorrido sepa algo de la persona (p. ej. si le aparece Garmin).
+export function useTourDato(clave, valor) {
+  const tour = useContext(TourContext);
+  useEffect(() => { tour?.registrarDato?.(clave, valor); }, [tour, clave, valor]);
 }
 
 export function useTour() {

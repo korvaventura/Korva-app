@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme/korvaTheme';
 import { clave, debeInvitar, ocultarHasta } from '../services/islandiaInvitacionCore';
 
+const { formatoKm } = require('../services/compartirCore');
+
 const VERDE = '#3DDC84';
 
 // Invitación a Islandia, la ruta libre (sin costo y, por ahora, sin medalla). En Inicio se puede ocultar 7 días;
@@ -17,6 +19,25 @@ export default function IslandiaInvitacion({ navigation, userId, participacion, 
   }, [userId, lugar]);
 
   if (oculta === null) return null;
+  // En el Catálogo Islandia está siempre: si ya la empezaste, se ve tu avance.
+  const enCurso = !!participacion && !participacion.abandonado;
+  if (lugar === 'catalogo' && enCurso) {
+    const estado = participacion.estado === 'completada' ? 'Completada' : participacion.pausado ? 'Pausada' : 'En curso';
+    return (
+      <TouchableOpacity activeOpacity={0.9} style={styles.card} onPress={() => navigation.navigate('RutaLibre')} accessibilityRole="button"
+        accessibilityLabel={`Islandia, ruta libre. ${estado}. Ver tu avance`}>
+        <View style={styles.fila}>
+          <View style={styles.etiqueta}><Text style={styles.etiquetaTxt}>RUTA LIBRE · {estado.toUpperCase()}</Text></View>
+          <Text style={styles.km}>1.400 km</Text>
+        </View>
+        <Text style={styles.titulo}>Islandia · Ring Road</Text>
+        <Text style={styles.texto}>Llevás {formatoKm(participacion.km)} de 1.400 km.</Text>
+        <View style={styles.acciones}>
+          <View style={styles.boton}><Text style={styles.botonTxt}>Ver mi avance</Text></View>
+        </View>
+      </TouchableOpacity>
+    );
+  }
   if (!debeInvitar({ participacion, ocultaHasta: oculta })) return null;
 
   const ahoraNo = () => {

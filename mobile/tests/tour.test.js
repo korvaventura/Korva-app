@@ -9,7 +9,7 @@ const pantalla = { width: 390, height: 844 };
 
 test('los pasos cubren lo importante de Korva y terminan con un cierre', () => {
   const ids = T.PASOS.map((p) => p.id);
-  assert.deepEqual(ids, ['desafio', 'mundi', 'comoSumas', 'registrar-gps', 'gps-mapa', 'registrar-manual', 'strava', 'actividades', 'direccion', 'tab-Catalogo', 'fin']);
+  assert.deepEqual(ids, ['desafio', 'mundi', 'comoSumas', 'conectar', 'registrar-gps', 'gps-mapa', 'registrar-manual', 'actividades', 'direccion', 'tab-Catalogo', 'fin']);
   assert.equal(T.PASOS.find((p) => p.id === 'gps-mapa').stack, 'GpsTracker');
   assert.equal(T.PASOS.find((p) => p.id === 'registrar-manual').objetivo, 'registrar');
   assert.equal(T.PASOS.find((p) => p.id === 'mundi').stack, 'KorvaMundi');
@@ -60,10 +60,7 @@ test('el recorrido se dibuja encima de la app, no cambia estado al dibujar y est
   assert.match(perfil, /useTourTarget\('actividades'\)/);
   assert.match(perfil, /useTourTarget\('direccion'\)/);
   assert.match(perfil, /useTourTarget\('strava'\)/);
-  const strava = T.PASOS.find((p) => p.id === 'strava');
-  assert.equal(strava.titulo, 'Forma 3 · Strava');
-  assert.match(strava.texto, /llegan solas, con las métricas de tu reloj/);
-  for (const p of T.PASOS) assert.doesNotMatch(p.texto, /alcanza|la mejor forma|recomendad/);
+  for (const p of T.PASOS) for (const d of [{}, { garmin: true }]) assert.doesNotMatch(T.textoPaso(p, d).texto, /alcanza|la mejor forma|recomendad/);
   assert.match(T.PASOS.find((p) => p.id === 'gps-mapa').texto, /Lo propio de Korva GPS/);
   assert.match(T.PASOS.find((p) => p.id === 'comoSumas').texto, /las tres suman igual/);
   assert.match(leer('components/KorvaHelpSheet.js'), /Ver recorrido guiado/);
@@ -79,4 +76,27 @@ test('se puede volver atrás y cada pantalla se prepara para su paso', () => {
   const gps = leer('screens/GpsTrackerScreen.js');
   assert.match(gps, /useTourAccion\('gps-mapa', \(\) => irAPagina\(1\)\)/);
   assert.match(gps, /useTourTarget\('gps-mapa'\)/);
+});
+
+test('Forma 1 es conectar: nombra Garmin solo si a la persona le aparece', () => {
+  const p = T.PASOS.find((x) => x.id === 'conectar');
+  assert.equal(p.objetivo, 'strava');
+  const sin = T.textoPaso(p, {});
+  assert.equal(sin.titulo, 'Forma 1 · Conectá Strava');
+  assert.doesNotMatch(sin.texto, /Garmin/);
+  assert.match(sin.texto, /No es obligatorio/);
+  const con = T.textoPaso(p, { garmin: true });
+  assert.equal(con.titulo, 'Forma 1 · Conectá Strava o Garmin');
+  assert.match(con.texto, /conectá una/);
+  assert.equal(T.textoPaso(T.PASOS[0]).titulo, 'Tu desafío');
+  assert.match(T.PASOS.find((x) => x.id === 'registrar-gps').titulo, /^Forma 2/);
+  assert.match(T.PASOS.find((x) => x.id === 'registrar-manual').titulo, /^Forma 3/);
+});
+
+test('el recuadro se redibuja solo si el elemento se movió', () => {
+  const a = { x: 10, y: 100, width: 300, height: 80 };
+  assert.equal(T.rectCambio(a, { ...a, y: 101 }), false);
+  assert.equal(T.rectCambio(a, { ...a, y: 140 }), true);
+  assert.equal(T.rectCambio(null, a), true);
+  assert.equal(T.rectCambio(null, null), false);
 });
