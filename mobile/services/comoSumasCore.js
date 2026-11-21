@@ -40,7 +40,7 @@ function numerosHoy(movimiento) {
 
 // Cómo registrar si ya usás otra app o reloj: de lo más cómodo a lo menos.
 const OPCIONES_REGISTRO = [
-  { id: 'strava', titulo: 'Conectala a Strava', texto: 'Strava es una app gratuita para registrar entrenamientos. Garmin, Coros, Polar, Suunto y la mayoría de los relojes y apps se conectan con Strava, y desde ahí tus salidas llegan solas a Korva. ¿No la tenés? Bajala gratis y conectá tu reloj o app.' },
+  { id: 'strava', titulo: 'Conectala a Strava', texto: 'Strava es una app gratuita para registrar entrenamientos. Garmin, Coros, Polar, Suunto y la mayoría de los relojes y apps se conectan con Strava, y desde ahí tus salidas llegan solas a Korva. ¿No la tenés? Bajala gratis y conectá tu reloj o app. Usá una sola forma por salida: si grabás con Strava, no hace falta grabar también con Korva GPS.' },
   { id: 'manual', titulo: 'O cargala a mano', texto: 'Seguí usando tu reloj o app de siempre y, al terminar, cargá la salida en Registrar → Manual con los km y el tiempo.' },
   { id: 'gps', titulo: '¿No usás ninguna?', texto: 'Grabá con Korva GPS desde Iniciar.' },
   { id: 'catalogo', titulo: '¿Todavía no te anotaste a un desafío?', texto: 'Empezá descubriendo el catálogo: elegí tu aventura y tus km empiezan a sumar.' },

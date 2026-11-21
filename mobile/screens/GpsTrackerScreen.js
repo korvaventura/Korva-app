@@ -15,6 +15,9 @@ import { sincronizarActividadGps } from '../services/gps/gpsLiveActivity';
 import { confirmarActividadGps } from '../services/gps/gpsApi';
 import { colors, radius } from '../theme/korvaTheme';
 import GpsAventura from '../components/GpsAventura';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../supabase';
+import { claveAvisoStrava, debeAvisarStrava, TEXTO_AVISO_STRAVA } from '../services/gps/avisoStravaCore';
 
 const {
   crearSesionGps,
@@ -113,6 +116,38 @@ export default function GpsTrackerScreen({ navigation }) {
     }
     await iniciarGpsBackground();
     setEstadoGps('buscando');
+  };
+
+  // Strava conectado: avisar (una vez, o hasta que lo silencie) que no grabe la misma salida dos veces.
+  const [strava, setStrava] = useState({ conectado: false, silenciado: true, userId: null });
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const uid = session?.user?.id;
+        if (!uid) return;
+        const { data } = await supabase.from('users').select('strava_token').eq('id', uid).single();
+        const silenciado = (await AsyncStorage.getItem(claveAvisoStrava(uid))) === '1';
+        if (vivo) setStrava({ conectado: !!data?.strava_token, silenciado, userId: uid });
+      } catch {
+        // Sin dato de Strava el GPS funciona igual, sólo sin el aviso.
+      }
+    })();
+    return () => { vivo = false; };
+  }, []);
+
+  const iniciarConAviso = () => {
+    if (!debeAvisarStrava({ stravaConectado: strava.conectado, silenciado: strava.silenciado })) { iniciar(); return; }
+    Alert.alert('Ya tenés Strava conectado', TEXTO_AVISO_STRAVA, [
+      { text: 'Mejor uso Strava', style: 'cancel', onPress: () => navigation?.goBack?.() },
+      { text: 'Grabar con Korva GPS', onPress: () => iniciar() },
+      { text: 'Grabar y no volver a avisar', onPress: () => {
+        setStrava((s) => ({ ...s, silenciado: true }));
+        if (strava.userId) AsyncStorage.setItem(claveAvisoStrava(strava.userId), '1').catch(() => {});
+        iniciar();
+      } },
+    ]);
   };
 
   const iniciar = async () => {
@@ -341,6 +376,9 @@ export default function GpsTrackerScreen({ navigation }) {
             : 'Al finalizar vas a revisar y confirmar la actividad. Recién al confirmarla suma a tus desafíos activos.'}
         </Text>
       </View>
+      {strava.conectado && !sesion && (
+        <Text style={styles.stravaLinea}>Strava conectado · grabá cada salida con una sola app</Text>
+      )}
       </ScrollView>
 
       <View style={{ width: anchoPagina }}>
@@ -367,7 +405,7 @@ export default function GpsTrackerScreen({ navigation }) {
 
       <View style={styles.controls}>
         {!sesion && (
-          <TouchableOpacity style={styles.primary} onPress={iniciar}>
+          <TouchableOpacity style={styles.primary} onPress={iniciarConAviso}>
             <Ionicons name="play" size={22} color={colors.text} />
             <Text style={styles.primaryText}>Iniciar actividad</Text>
           </TouchableOpacity>
@@ -483,6 +521,7 @@ const styles = StyleSheet.create({
   summaryValue: { color: colors.text, fontSize: 17, fontWeight: '700' },
   summaryLabel: { color: colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 1, marginTop: 4 },
   controls: { paddingBottom: 38, paddingTop: 10 },
+  stravaLinea: { color: colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: 10 },
   paginas: { flex: 1 },
   puntos: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingTop: 8 },
   puntoBoton: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.background },
