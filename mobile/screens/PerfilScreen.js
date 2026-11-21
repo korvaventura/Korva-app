@@ -1,3 +1,4 @@
+import GarminConnection from '../components/GarminConnection';
 import TerminosScreen from './TerminosScreen';
 import KorvaProgressShare from '../components/KorvaProgressShare';
 import { ordenarAventurasPerfil } from '../services/aventurasPerfilCore';
@@ -1329,6 +1330,8 @@ export default function PerfilScreen() {
           </View>
         )}
       </View>
+
+      <GarminConnection />
 
       {/* Strava */}
       <View style={styles.seccion}>
