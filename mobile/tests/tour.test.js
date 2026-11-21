@@ -61,10 +61,11 @@ test('el recorrido se dibuja encima de la app, no cambia estado al dibujar y est
   assert.match(perfil, /useTourTarget\('direccion'\)/);
   assert.match(perfil, /useTourTarget\('strava'\)/);
   const strava = T.PASOS.find((p) => p.id === 'strava');
-  assert.equal(strava.titulo, 'Forma 3 · Strava (recomendada)');
-  assert.match(strava.texto, /Es opcional, pero si ya usás Strava o un reloj, es la mejor forma/);
-  assert.doesNotMatch(strava.texto, /alcanza/);
-  assert.match(T.PASOS.find((p) => p.id === 'comoSumas').texto, /conectar Strava \(opcional\)/);
+  assert.equal(strava.titulo, 'Forma 3 · Strava');
+  assert.match(strava.texto, /llegan solas, con las métricas de tu reloj/);
+  for (const p of T.PASOS) assert.doesNotMatch(p.texto, /alcanza|la mejor forma|recomendad/);
+  assert.match(T.PASOS.find((p) => p.id === 'gps-mapa').texto, /Lo propio de Korva GPS/);
+  assert.match(T.PASOS.find((p) => p.id === 'comoSumas').texto, /las tres suman igual/);
   assert.match(leer('components/KorvaHelpSheet.js'), /Ver recorrido guiado/);
 });
 
