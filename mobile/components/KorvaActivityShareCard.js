@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { mapa3DDeDesafio } from '../screens/MapaRecorrido';
 
@@ -73,10 +73,12 @@ export default function KorvaActivityShareCard({
   const avance = avanceBase;
   const urls = variante === 'story' && nombre ? urlsFondo(nombre) : [];
   const [intento, setIntento] = useState(0);
+  // Mientras baja la foto se ve la imagen con el color del desafío; la foto aparece suave encima.
+  const aparece = useRef(new Animated.Value(0)).current;
   const fondo = urls[intento] || null;
   const [estadoFondo, setEstadoFondo] = useState(urls.length ? 'cargando' : 'sin-foto');
 
-  useEffect(() => { setIntento(0); setEstadoFondo(urls.length ? 'cargando' : 'sin-foto'); }, [urls[0]]);
+  useEffect(() => { setIntento(0); aparece.setValue(0); setEstadoFondo(urls.length ? 'cargando' : 'sin-foto'); }, [urls[0]]);
   useEffect(() => { onFondoListo?.(fondo ? estadoFondo : 'sin-foto'); }, [estadoFondo, fondo]);
 
   const trazado = useMemo(() => {
@@ -122,8 +124,9 @@ export default function KorvaActivityShareCard({
   return (
     <View collapsable={false} style={{ width: ancho, height: ancho * 16 / 9, overflow: 'hidden', backgroundColor: paleta.fondo }}>
       {conFoto && (
-        <Image source={{ uri: fondo }} style={StyleSheet.absoluteFill} resizeMode="cover"
-          onLoad={() => setEstadoFondo('listo')} onError={() => (urls[intento + 1] ? setIntento(intento + 1) : setEstadoFondo('sin-foto'))} />
+        <Animated.Image source={{ uri: fondo }} style={[StyleSheet.absoluteFill, { opacity: aparece }]} resizeMode="cover"
+          onLoad={() => { setEstadoFondo('listo'); Animated.timing(aparece, { toValue: 1, duration: 220, useNativeDriver: true }).start(); }}
+          onError={() => (urls[intento + 1] ? setIntento(intento + 1) : setEstadoFondo('sin-foto'))} />
       )}
       {/* velos: arriba detrás de los números, abajo detrás de la línea */}
       <Svg style={StyleSheet.absoluteFill} width={ancho} height={ancho * 16 / 9} viewBox="0 0 1080 1920" preserveAspectRatio="none">

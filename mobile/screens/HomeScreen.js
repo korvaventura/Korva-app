@@ -2,7 +2,7 @@ import KorvaHelpSheet from '../components/KorvaHelpSheet';
 import { RutaLibreCardVista } from '../components/RutaLibreCard';
 import useRutaLibre from '../services/useRutaLibre';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking, TextInput, Alert, Modal, Dimensions, KeyboardAvoidingView, Platform, DeviceEventEmitter } from 'react-native';
+import { Image, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking, TextInput, Alert, Modal, Dimensions, KeyboardAvoidingView, Platform, DeviceEventEmitter } from 'react-native';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { leerSesionGpsLocal } from '../services/gps/gpsPersistence';
@@ -25,7 +25,7 @@ import { useTour, useTourScroll, useTourTarget } from '../components/tour/Tour';
 import { modoInicioTour } from '../services/tour/tourCore';
 import useMovimientoPersonal from '../services/useMovimientoPersonal';
 import KorvaCompletedShare from '../components/KorvaCompletedShare';
-const { formatoKm } = require('../services/compartirCore');
+const { formatoKm, urlsFondo } = require('../services/compartirCore');
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -74,6 +74,12 @@ export default function HomeScreen({ navigation }) {
   const [conquistaAbierta, setConquistaAbierta] = useState(null);
   const [userId, setUserId] = useState(null);
   const { estado: rutaLibre } = useRutaLibre();
+  // Fotos para compartir: se bajan apenas cargan tus desafíos, así al compartir ya están.
+  useEffect(() => {
+    const titulos = (challenges || []).map((c) => c?.challenge).filter(Boolean);
+    if (rutaLibre?.datos?.participacion && !rutaLibre.datos.participacion.abandonado) titulos.push('Islandia');
+    titulos.forEach((t) => urlsFondo(t).forEach((u) => Image.prefetch(u).catch(() => {})));
+  }, [challenges, rutaLibre?.datos?.participacion?.id]);
   const [completado, setCompletado] = useState(null);
   const [retoCompartir, setRetoCompartir] = useState(null);
   const [mostrarTutorial, setMostrarTutorial] = useState(false);
