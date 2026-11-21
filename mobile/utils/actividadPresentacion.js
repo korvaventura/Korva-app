@@ -20,4 +20,5 @@ export const nombreFuenteActividad = (source) =>
   source === 'korva_gps' ? 'Korva GPS'
     : source === 'strava' ? 'Strava'
       : source === 'manual' ? 'Manual'
+        : source === 'garmin' ? 'Garmin'
         : (source || 'Korva');

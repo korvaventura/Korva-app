@@ -1,3 +1,4 @@
+import ConexionesSection from '../components/ConexionesSection';
 import TerminosScreen from './TerminosScreen';
 import KorvaProgressShare from '../components/KorvaProgressShare';
 import { ordenarAventurasPerfil } from '../services/aventurasPerfilCore';
@@ -1375,35 +1376,15 @@ export default function PerfilScreen() {
         )}
       </View>
 
-      {/* Strava */}
-      <View style={styles.seccion} ref={refTourStrava} collapsable={false}>
-        <Text style={styles.seccionTitulo}>Conexiones · Strava</Text>
-        {stravaConectado ? (
-          <>
-            <View style={styles.stravaConectadoCard}>
-              <View style={styles.stravaConectadoInfo}>
-                <Text style={styles.stravaConectadoText}>Strava conectado</Text>
-                <Text style={styles.stravaConectadoDesc}>Tus actividades se sincronizan automáticamente</Text>
-              </View>
-              <View style={{ gap: 8, alignItems: 'flex-end' }}>
-                <TouchableOpacity onPress={conectarStravaReal}>
-                  <Text style={styles.stravaReconectarText}>Reconectar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={desconectarStrava}>
-                  <Text style={{ color: colors.danger, fontSize: 12 }}>Desconectar</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.stravaInstructivoBtn} onPress={() => setModalStravaVisible(true)}>
-              <Text style={styles.stravaInstructivoBtnText}>¿Cómo funciona la sincronización?</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <TouchableOpacity style={styles.stravaButton} onPress={conectarStrava}>
-            <Text style={styles.stravaButtonText}>Conectar con Strava</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* Conexiones: Strava y Garmin (Garmin solo si el servidor la habilita) */}
+      <ConexionesSection
+        tourRef={refTourStrava}
+        stravaConectado={stravaConectado}
+        onConectarStrava={conectarStrava}
+        onReconectarStrava={conectarStravaReal}
+        onDesconectarStrava={desconectarStrava}
+        onComoFuncionaStrava={() => setModalStravaVisible(true)}
+      />
 
       <TouchableOpacity style={styles.cerrarButton} accessibilityRole="button" onPress={() => setVerLegal(true)}><Text style={styles.cerrarButtonText}>Términos y privacidad</Text></TouchableOpacity>
       <Modal visible={verLegal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setVerLegal(false)}><TerminosScreen onVolver={() => setVerLegal(false)} /></Modal>
