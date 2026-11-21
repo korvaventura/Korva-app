@@ -45,3 +45,18 @@ for role in ('anon', 'authenticated'):
                f"has_table_privilege('{role}','public.garmin_oauth_states','select') OR "
                f"has_function_privilege('{role}','public.korva_garmin_consume(text,text)','execute');") == 'f'
 print('OK: Garmin single-use concurrent callback, expiry, replay and server-only grants')
+
+# Refresh/disconnect use the same cross-worker lease. No network calls are made.
+sql((Path(__file__).parents[1] / 'migrations/20261121194000_garmin_connection_lease.sql').read_text())
+sql(f"INSERT INTO public.garmin_connections (user_id,garmin_user_id,token_ciphertext,access_expires_at,refresh_expires_at) VALUES ('{user_id}','fixture','encrypted',now(),now());")
+owner = '22222222-2222-4222-8222-222222222222'
+def claim(_):
+    return sql(f"SET ROLE service_role; SELECT user_id FROM public.korva_garmin_claim('{user_id}','{owner}');")
+with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:
+    results = list(pool.map(claim, range(24)))
+assert results.count(user_id) == 1 and results.count('') == 23
+sql("UPDATE public.garmin_connections SET operation_until=now()-interval '1 second';")
+assert claim(None) == user_id
+for role in ('anon', 'authenticated'):
+    assert sql(f"SELECT has_function_privilege('{role}','public.korva_garmin_claim(uuid,uuid)','execute');") == 'f'
+print('OK: cross-worker Garmin refresh/disconnect lease')

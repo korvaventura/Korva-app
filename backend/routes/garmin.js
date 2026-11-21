@@ -1,6 +1,7 @@
 const express = require('express');
 const requireUser = require('../middleware/requireUser');
 const { crearGarminRepositorio } = require('../lib/garminRepositorio');
+const { crearGarminLifecycle } = require('../lib/garminLifecycle');
 const { REDIRECT_URI, TTL_SECONDS, hash, configuracionGarmin, permitidoGarmin, cifrar, descifrar,
   nuevoIntento, urlAutorizacion, intercambiarCodigo } = require('../lib/garminOAuth');
 
@@ -36,6 +37,18 @@ function crearGarminRoutes({ supabase, repo = crearGarminRepositorio(supabase), 
     'X-Content-Type-Options': 'nosniff' }); res.vary('Authorization'); next(); });
   const disponible = (id) => !!configuracionGarmin(env) && permitidoGarmin(id, env);
   const fallar = (res) => res.status(503).json({ error: 'No pudimos conectar con Garmin. Intentá nuevamente.' });
+
+  router.delete('/connection', auth, async (req, res) => {
+    if (!disponible(req.userId)) return res.status(404).json({ error: 'Garmin no está habilitado para esta cuenta.' });
+    try {
+      const lifecycle = crearGarminLifecycle({ repo, env, fetchImpl });
+      return res.json(await lifecycle.desconectar(req.userId));
+    } catch (error) {
+      if (error.message === 'garmin_busy') return res.status(409).json({ error: 'Hay una operación de Garmin en curso. Intentá nuevamente.' });
+      if (error.message === 'garmin_reconnect_required') return res.status(409).json({ error: 'El permiso de Garmin venció. Revocá el acceso desde Garmin Connect para completar la desconexión.' });
+      return fallar(res);
+    }
+  });
 
   router.get('/status', auth, async (req, res) => {
     if (!disponible(req.userId)) return res.json({ available: false, connected: false });

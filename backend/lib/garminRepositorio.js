@@ -5,6 +5,26 @@ function crearGarminRepositorio(supabase) {
     return data?.[0] || null;
   }
   return {
+    bloquearConexion(userId, owner) {
+      return rpc('korva_garmin_claim', { p_user_id: userId, p_owner: owner });
+    },
+    async actualizarTokens(userId, owner, patch) {
+      const { data, error } = await supabase.from('garmin_connections').update(patch)
+        .eq('user_id', userId).eq('operation_owner', owner).gt('operation_until', new Date().toISOString()).select('user_id');
+      if (error) throw error;
+      if (data?.length !== 1) throw Error('garmin_lease_lost');
+    },
+    async borrarConexion(userId, owner) {
+      const { data, error } = await supabase.from('garmin_connections').delete()
+        .eq('user_id', userId).eq('operation_owner', owner).gt('operation_until', new Date().toISOString()).select('user_id');
+      if (error) throw error;
+      if (data?.length !== 1) throw Error('garmin_lease_lost');
+    },
+    async liberarConexion(userId, owner) {
+      const { error } = await supabase.from('garmin_connections').update({ operation_owner: null, operation_until: null })
+        .eq('user_id', userId).eq('operation_owner', owner);
+      if (error) throw error;
+    },
     async estado(userId) {
       const { data, error } = await supabase.from('garmin_connections')
         .select('connected_at,refresh_expires_at,permissions').eq('user_id', userId).maybeSingle();
