@@ -7,7 +7,7 @@ import KorvaActivityShareCard from '../components/KorvaActivityShareCard';
 import { obtenerRutaGps } from '../services/gps/gpsApi';
 import { supabase } from '../supabase';
 import { consultarRutaLibre } from '../services/rutasLibresApi';
-const { retoIslandia, ordenarRetos, urlsFondo } = require('../services/compartirCore');
+const { retoIslandia, ordenarRetos, urlsFondo, formatoRitmo } = require('../services/compartirCore');
 
 // Bajar la foto del desafío apenas sabemos cuál es: cuando abre compartir ya está.
 const precargarFondo = (titulo) => { urlsFondo(titulo).forEach((u) => Image.prefetch(u).catch(() => {})); };
@@ -41,6 +41,7 @@ export default function DetalleActividadScreen({ route, navigation }) {
   const segundos = Number(a.duration_seconds || 0);
   const pace = km > 0 && segundos > 0 ? segundos / 60 / km : null;
   const paceTxt = pace ? `${Math.floor(pace)}:${String(Math.round((pace % 1) * 60)).padStart(2, '0')} /km` : '—';
+  const ritmoSalida = formatoRitmo(km, segundos, a.sport_type);
 
   const [shareVisible, setShareVisible] = useState(false);
   const [shareVariant, setShareVariant] = useState('story');
@@ -174,7 +175,7 @@ export default function DetalleActividadScreen({ route, navigation }) {
         <View style={styles.stats}>
           <View style={styles.stat}><Text style={styles.valor}>{km.toFixed(2)}</Text><Text style={styles.label}>km</Text></View>
           <View style={styles.stat}><Text style={styles.valor}>{duracion(segundos)}</Text><Text style={styles.label}>tiempo</Text></View>
-          <View style={styles.stat}><Text style={styles.valor}>{a.sport_type === 'ride' && segundos > 0 ? `${(km / (segundos / 3600)).toFixed(1)} km/h` : paceTxt}</Text><Text style={styles.label}>{a.sport_type === 'ride' ? 'velocidad' : 'ritmo'}</Text></View>
+          <View style={styles.stat}><Text style={styles.valor}>{ritmoSalida ? `${ritmoSalida.valor} ${ritmoSalida.unidad}` : '—'}</Text><Text style={styles.label}>{ritmoSalida?.unidad === 'km/h' ? 'velocidad' : 'ritmo'}</Text></View>
         </View>
 
         {(a.source === 'korva_gps' || rutaGpsDisponible) && a.id ? (

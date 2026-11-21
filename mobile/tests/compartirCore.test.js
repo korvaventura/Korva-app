@@ -92,3 +92,19 @@ test('orden de tarjetas: preferido, después más avance, Islandia al final', ()
   assert.deepEqual(c.ordenarRetos([fuji, isl, dub], 'i').map((r) => r.challenge_id), ['i', 'd', 'f']);
   assert.deepEqual(c.ordenarRetos(null), []);
 });
+
+test('bici o ritmo imposible a pie se muestra como velocidad', () => {
+  assert.deepEqual(c.formatoRitmo(70, 10230, 'manual'), { valor: '24,6', unidad: 'km/h' }); // 2:26 /km
+  assert.equal(c.formatoRitmo(20, 3600, 'Ciclismo').unidad, 'km/h');
+  assert.equal(c.formatoRitmo(20, 3600, 'bici').unidad, 'km/h');
+  assert.equal(c.formatoRitmo(10, 3000, 'run').unidad, '/km'); // 5:00 /km
+  assert.equal(c.formatoRitmo(10, 3000, 'manual').unidad, '/km');
+});
+
+test('pasado el total no muestra más km que el desafío', () => {
+  const a = c.avanceDesafio({ distancia_total: 57, km_completados: 88.5 }, 70);
+  assert.equal(a.kmAhora, 57);
+  assert.equal(a.completado, true);
+  assert.equal(a.despues, 1);
+  assert.equal(c.avanceDesafio({ distancia_total: 57, km_completados: 20 }, 5).completado, false);
+});

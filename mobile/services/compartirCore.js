@@ -60,11 +60,19 @@ function formatoDuracion(segundos) {
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}`;
 }
 
+const BICI = /^(ride|bike|bici|biking|cycling|ciclismo|bicicleta|virtualride|ebikeride|mountainbikeride|gravelride)$/i;
+// Más rápido que 2:50 /km no es correr ni caminar (ni el récord mundial de
+// maratón): se muestra como velocidad, igual que en bici.
+const RITMO_MINIMO_A_PIE = 170;
+
 // Ritmo (min/km) o velocidad (km/h) en bici. null si no hay datos.
 function formatoRitmo(km, segundos, deporte) {
   const k = Number(km) || 0, s = Number(segundos) || 0;
   if (!(k > 0) || !(s > 0)) return null;
-  if (deporte === 'ride') return { valor: coma(k / (s / 3600), 1), unidad: 'km/h' };
+  const segPorKm = s / k;
+  if (BICI.test(String(deporte || '').trim()) || segPorKm < RITMO_MINIMO_A_PIE) {
+    return { valor: coma(k / (s / 3600), 1), unidad: 'km/h' };
+  }
   const t = Math.round(s / k);
   return { valor: `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`, unidad: '/km' };
 }
@@ -77,7 +85,8 @@ function avanceDesafio(reto, kmSalida) {
   if (!(total > 0)) return null;
   const despues = Math.min(1, Math.max(0, ahora / total));
   const antes = Math.min(despues, Math.max(0, (ahora - (Number(kmSalida) || 0)) / total));
-  return { antes, despues, kmAhora: ahora, total };
+  // Nunca "88,5 de 57 km": pasado el total, el desafío está completo.
+  return { antes, despues, kmAhora: Math.min(ahora, total), total, completado: ahora >= total };
 }
 
 function interpolar(puntos, km) {

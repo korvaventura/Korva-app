@@ -95,7 +95,9 @@ export default function KorvaActivityShareCard({
   const linea2 = progreso
     ? (avance ? `de ${formatoKm(avance.total)} km  ·  ${pctTexto}` : '')
     : [segundos > 0 ? formatoDuracion(segundos) : null, ritmo ? `${ritmo.valor} ${ritmo.unidad}` : null].filter(Boolean).join('  ·  ');
-  const pie = progreso ? null : avance ? `+${formatoKm(km)} km  ·  ${formatoKm(avance.kmAhora)} de ${formatoKm(avance.total)} km` : null;
+  const pie = progreso ? null : avance
+    ? (avance.completado ? `+${formatoKm(km)} km  ·  Desafío completado` : `+${formatoKm(km)} km  ·  ${formatoKm(avance.kmAhora)} de ${formatoKm(avance.total)} km`)
+    : null;
   const subtitulo = (nombre ? String(nombre).replace(/\s+\d+(?:[.,]\d+)?\s*K\b/i, '') : DEPORTE[actividad.sport_type] || 'KORVA').toUpperCase();
 
   if (variante !== 'story') {
@@ -110,7 +112,7 @@ export default function KorvaActivityShareCard({
             <Linea trazado={trazado} acento="#F36B0A" grosor={1.25} />
           </Svg>
         )}
-        {!!nombre && <Text style={[s.sombra, s.blanco, { fontSize: 34 * k, fontWeight: '600', marginTop: 30 * k }]}>{String(nombre).replace(/\s+\d+(?:[.,]\d+)?\s*K\b/i, '')}{avance && !progreso ? `  ·  ${formatoKm(avance.kmAhora)} de ${formatoKm(avance.total)} km` : ''}</Text>}
+        {!!nombre && <Text style={[s.sombra, s.blanco, { fontSize: 34 * k, fontWeight: '600', marginTop: 30 * k }]}>{String(nombre).replace(/\s+\d+(?:[.,]\d+)?\s*K\b/i, '')}{avance && !progreso ? (avance.completado ? '  ·  completado' : `  ·  ${formatoKm(avance.kmAhora)} de ${formatoKm(avance.total)} km`) : ''}</Text>}
         <Text style={[s.sombra, { color: '#F36B0A', fontSize: 34 * k, fontWeight: '800', letterSpacing: 14 * k, marginTop: 14 * k }]}>KORVA</Text>
       </View>
     );
