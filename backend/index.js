@@ -5,6 +5,7 @@ const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const stravaRoutes = require('./routes/strava');
 const { crearGarminRoutes } = require('./routes/garmin');
+const { crearGarminPushRoutes } = require('./routes/garminPush');
 const shopifyRoutes = require('./routes/shopify');
 const mercadopagoRoutes = require('./routes/mercadopago');
 const invitacionesRoutes = require('./routes/invitaciones');
@@ -105,6 +106,8 @@ app.use(cors());
 app.use('/shopify', shopifyRoutes);
 app.use('/progreso-desglose', progresoDesgloseRoutes);
 
+// Garmin validates the origin before parsing its own bounded JSON body.
+app.use('/garmin', crearGarminPushRoutes({ supabase }));
 app.use(express.json({ limit: '10mb' }));
 
 app.use('/actividades/gps', crearActividadGpsRoutes({ supabase, procesadorEventos }));
