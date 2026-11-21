@@ -35,7 +35,7 @@ const states = () => ({ attempts: new Map(), connections: new Map(),
   },
 });
 async function server(fn, options = {}) {
-  const repo = options.repo || states(); const requests = [];
+  const repo = options.repo || states(); const requests = []; const logs = [];
   const fetchImpl = options.fetchImpl || (async (url, init) => {
     requests.push({ url, init });
     const data = url.endsWith('/token') ? { access_token: 'access-private', refresh_token: 'refresh-private',
@@ -44,7 +44,7 @@ async function server(fn, options = {}) {
     return { ok: true, json: async () => data };
   });
   const app = express(); app.use(express.json());
-  app.use('/garmin', crearGarminRoutes({ repo, env: { ...env, ...options.env }, fetchImpl,
+  app.use('/garmin', crearGarminRoutes({ repo, env: { ...env, ...options.env }, fetchImpl, log: (entry) => logs.push(entry),
     auth: (req, res, next) => {
       if (!req.headers.authorization) return res.sendStatus(401);
       req.userId = req.headers.authorization.slice(7); next();
@@ -64,7 +64,7 @@ async function server(fn, options = {}) {
     return { start, launchPath, launched, state: new URL(launched.headers.get('location')).searchParams.get('state'),
       cookie: launched.headers.get('set-cookie').split(';')[0] };
   };
-  try { await fn({ repo, requests, request, begin }); }
+  try { await fn({ repo, requests, request, begin, logs }); }
   finally { listener.closeAllConnections(); await new Promise((r) => listener.close(r)); }
 }
 const callback = (flow, code = 'a-code') => `callback?state=${flow.state}&code=${code}`;
@@ -194,4 +194,42 @@ test('encryption rejects tampering and moving credentials to another account', (
   assert.throws(() => descifrar(parts.join('.'), key, 'owner'));
   assert.equal(configuracionGarmin({ ...env, GARMIN_TOKEN_URL: 'https://attacker.invalid' }), null);
   assert.equal(configuracionGarmin({ ...env, GARMIN_REDIRECT_URI: 'https://attacker.invalid' }), null);
+});
+
+
+test('callback diagnostics identify token, identity, permissions and storage stages without credentials', async () => {
+  for (const failure of ['token', 'user_id', 'permissions', 'permissions-shape', 'missing-permission', 'database', 'none']) {
+    let calls = 0;
+    const repo = states();
+    if (failure === 'database') repo.conectar = async () => { throw Object.assign(Error('private-database-body'), { code: '23505' }); };
+    await server(async ({ begin, request, logs }) => {
+      const flow = await begin();
+      const result = await request(callback(flow, 'secret-auth-code'), { headers: { Cookie: flow.cookie } });
+      const serialized = JSON.stringify(logs);
+      assert.doesNotMatch(serialized, /secret-auth-code|private-access|private-refresh|test-secret|private-database-body/);
+      assert.equal(serialized.includes(flow.state), false);
+      assert.equal(serialized.includes(flow.cookie), false);
+      assert.equal(new Set(logs.map((entry) => entry.trace_id)).size, 1);
+      assert.equal(logs.at(-1).event, 'result');
+      const expected = failure === 'none' ? 'connected' : failure === 'database' ? 'account_in_use'
+        : failure === 'missing-permission' ? 'permission_required' : 'error';
+      assert.equal(logs.at(-1).result, expected);
+      assert.match(result.text, new RegExp('result=' + expected));
+      if (['token', 'user_id', 'permissions'].includes(failure)) {
+        assert.ok(logs.some((entry) => entry.stage === failure && entry.event === 'response' && entry.http_status === 403));
+      }
+      if (failure === 'permissions-shape') assert.ok(logs.some((entry) => entry.stage === 'permissions'
+        && entry.event === 'invalid_schema' && entry.root_type === 'object' && entry.permissions_field_array === true));
+      if (failure === 'database') assert.ok(logs.some((entry) => entry.database_code === '23505'));
+    }, { repo, fetchImpl: async () => {
+      calls++;
+      const stage = calls === 1 ? 'token' : calls === 2 ? 'user_id' : 'permissions';
+      return { ok: failure !== stage, status: failure === stage ? 403 : 200, json: async () => calls === 1
+        ? { access_token: 'private-access', refresh_token: 'private-refresh', expires_in: 86400,
+          refresh_token_expires_in: 7776000, token_type: 'bearer' }
+        : calls === 2 ? { userId: 'garmin' }
+          : failure === 'permissions-shape' ? { permissions: ['ACTIVITY_EXPORT'] }
+            : failure === 'missing-permission' ? [] : ['ACTIVITY_EXPORT'] };
+    } });
+  }
 });

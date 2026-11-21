@@ -30,7 +30,7 @@ function respuestaCallback(res, result) {
 }
 
 function crearGarminRoutes({ supabase, repo = crearGarminRepositorio(supabase), auth = requireUser,
-  env = process.env, fetchImpl = fetch }) {
+  env = process.env, fetchImpl = fetch, log = (entry) => console.info('korva_garmin_callback', JSON.stringify(entry)) }) {
   const router = express.Router();
   router.use((_req, res, next) => { res.set({ 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer',
     'X-Content-Type-Options': 'nosniff' }); res.vary('Authorization'); next(); });
@@ -75,31 +75,40 @@ function crearGarminRoutes({ supabase, repo = crearGarminRepositorio(supabase), 
   });
 
   router.get('/callback', async (req, res) => {
+    const traceId = require('node:crypto').randomUUID();
+    const diagnosticar = (entry) => { try { log({ trace_id: traceId, ...entry }); } catch {} };
+    const finish = (result) => { diagnosticar({ stage: 'callback', event: 'result', result }); return respuestaCallback(res, result); };
     const state = req.query.state;
-    if (!validRandom(state)) return respuestaCallback(res, 'invalid_state');
+    if (!validRandom(state)) return finish('invalid_state');
     const stateHash = hash(state);
     const binding = leerCookie(req, cookieName(stateHash));
-    if (!validRandom(binding)) return respuestaCallback(res, 'invalid_state');
+    if (!validRandom(binding)) return finish('invalid_state');
     try {
       // DELETE ... RETURNING is atomic, durable, expiring and shared across workers.
+      diagnosticar({ stage: 'state', event: 'consume' });
       const row = await repo.consumir(stateHash, hash(binding));
       res.clearCookie(cookieName(stateHash), cookieOptions);
-      if (!row) return respuestaCallback(res, 'invalid_state');
-      if (!disponible(row.user_id)) return respuestaCallback(res, 'unavailable');
-      if (req.query.error === 'access_denied' && !req.query.code) return respuestaCallback(res, 'cancelled');
+      if (!row) return finish('invalid_state');
+      if (!disponible(row.user_id)) return finish('unavailable');
+      if (req.query.error === 'access_denied' && !req.query.code) return finish('cancelled');
       if (req.query.error || typeof req.query.code !== 'string' || !req.query.code || req.query.code.length > 4096) {
-        return respuestaCallback(res, 'error');
+        return finish('error');
       }
       const config = configuracionGarmin(env);
+      diagnosticar({ stage: 'state', event: 'decrypt' });
       const payload = descifrar(row.payload_ciphertext, config.key, `garmin-state:${row.user_id}:${stateHash}`);
-      const connection = await intercambiarCodigo(config, req.query.code, payload.verifier, fetchImpl);
+      diagnosticar({ stage: 'token', event: 'endpoint', token_host: new URL(config.tokenUrl).hostname });
+      const connection = await intercambiarCodigo(config, req.query.code, payload.verifier, fetchImpl, diagnosticar);
+      diagnosticar({ stage: 'database', event: 'insert' });
       await repo.conectar(row.user_id, connection, cifrar(connection.tokens, config.key, `garmin-tokens:${row.user_id}`));
-      return respuestaCallback(res, 'connected');
+      return finish('connected');
     } catch (error) {
       // Provider bodies, codes, tokens and encryption material never reach logs or the app.
       const result = error.message === 'activity_permission_required' ? 'permission_required'
         : error.code === '23505' ? 'account_in_use' : 'error';
-      return respuestaCallback(res, result);
+      const knownDbCodes = ['23505', '23503', '42501', '42P01', '42703', '22P02', 'PGRST202', 'PGRST204'];
+      if (knownDbCodes.includes(error.code)) diagnosticar({ stage: 'database', event: 'error', database_code: error.code });
+      return finish(result);
     }
   });
   return router;
