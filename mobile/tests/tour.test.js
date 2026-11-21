@@ -9,7 +9,7 @@ const pantalla = { width: 390, height: 844 };
 
 test('los pasos cubren lo importante de Korva y terminan con un cierre', () => {
   const ids = T.PASOS.map((p) => p.id);
-  assert.deepEqual(ids, ['desafio', 'comoSumas', 'mundi', 'registrar-gps', 'gps-mapa', 'registrar-manual', 'tab-Catalogo', 'actividades', 'direccion', 'fin']);
+  assert.deepEqual(ids, ['desafio', 'comoSumas', 'mundi', 'registrar-gps', 'gps-mapa', 'registrar-manual', 'strava', 'actividades', 'direccion', 'tab-Catalogo', 'fin']);
   assert.equal(T.PASOS.find((p) => p.id === 'gps-mapa').stack, 'GpsTracker');
   assert.equal(T.PASOS.find((p) => p.id === 'registrar-manual').objetivo, 'registrar');
   assert.equal(T.PASOS.find((p) => p.id === 'mundi').stack, 'KorvaMundi');
@@ -59,6 +59,8 @@ test('el recorrido se dibuja encima de la app, no cambia estado al dibujar y est
   const perfil = leer('screens/PerfilScreen.js');
   assert.match(perfil, /useTourTarget\('actividades'\)/);
   assert.match(perfil, /useTourTarget\('direccion'\)/);
+  assert.match(perfil, /useTourTarget\('strava'\)/);
+  assert.match(T.PASOS.find((p) => p.id === 'strava').texto, /Garmin, Coros, Polar, Suunto/);
   assert.match(leer('components/KorvaHelpSheet.js'), /Ver recorrido guiado/);
 });
 

@@ -14,12 +14,14 @@ const PASOS = [
     texto: 'Mientras grabás, en la pantalla Mapa te ves avanzar por tu desafío, con el próximo hito y los km de hoy. Deslizá para pasar de Datos a Mapa.' },
   { id: 'registrar-manual', objetivo: 'registrar', pantalla: 'Registrar', titulo: 'Cargá tus km · Manual',
     texto: '¿Saliste con tu reloj u otra app? Elegí Manual y cargá los km y el tiempo de esa salida.' },
-  { id: 'tab-Catalogo', tab: 'Catalogo', titulo: 'Catálogo',
-    texto: 'Elegí tu próxima aventura. Islandia es una ruta libre, sin costo.' },
+  { id: 'strava', pantalla: 'Perfil', titulo: 'Strava: tus salidas llegan solas',
+    texto: 'Strava es una app gratuita para registrar entrenamientos. Si la conectás acá, cada salida que guardes en Strava llega sola a Korva, sin cargar nada. Garmin, Coros, Polar, Suunto y la mayoría de los relojes y apps se conectan con Strava. Grabá cada salida con una sola app.' },
   { id: 'actividades', pantalla: 'Perfil', titulo: 'Tus actividades',
     texto: 'Si una salida se cargó dos veces, borrala acá con la papelera.' },
   { id: 'direccion', pantalla: 'Perfil', titulo: 'Dirección de envío',
     texto: 'Cuando completes un desafío, estos datos le llegan a nuestro equipo para enviarte la medalla. No son públicos: los demás participantes no los ven.' },
+  { id: 'tab-Catalogo', tab: 'Catalogo', titulo: 'Catálogo',
+    texto: 'Elegí tu próxima aventura. Islandia es una ruta libre, sin costo.' },
   { id: 'fin', titulo: '¡Listo!', texto: 'Ya sabés moverte por Korva. Podés volver a ver este recorrido desde el botón "?" del Inicio.' },
 ];
 

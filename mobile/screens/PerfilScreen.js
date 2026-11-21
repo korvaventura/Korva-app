@@ -54,6 +54,7 @@ export default function PerfilScreen() {
   const alDesplazarTour = useTourScroll('Perfil', scrollRef);
   const refTourActividades = useTourTarget('actividades');
   const refTourDireccion = useTourTarget('direccion');
+  const refTourStrava = useTourTarget('strava');
   const direccionY = useRef(0);
   const actividadesY = useRef(0);
   const [editandoNombre, setEditandoNombre] = useState(false);
@@ -1336,7 +1337,7 @@ export default function PerfilScreen() {
       </View>
 
       {/* Strava */}
-      <View style={styles.seccion}>
+      <View style={styles.seccion} ref={refTourStrava} collapsable={false}>
         <Text style={styles.seccionTitulo}>Conexiones · Strava</Text>
         {stravaConectado ? (
           <>
