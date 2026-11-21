@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const stravaRoutes = require('./routes/strava');
+const { crearGarminRoutes } = require('./routes/garmin');
 const shopifyRoutes = require('./routes/shopify');
 const mercadopagoRoutes = require('./routes/mercadopago');
 const invitacionesRoutes = require('./routes/invitaciones');
@@ -388,6 +389,7 @@ app.post('/upload', async (req, res) => {
 });
 
 app.use('/strava', stravaRoutes);
+app.use('/garmin', crearGarminRoutes({ supabase }));
 // 4A-7: la importación Strava con el motor dispara el mismo procesador de efectos.
 stravaRoutes.configurarMotor({ dispararEfectos: (ids) => procesadorEventos.disparar(ids) });
 app.use('/mercadopago', mercadopagoRoutes);
