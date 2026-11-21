@@ -528,7 +528,7 @@ export default function HomeScreen({ navigation }) {
       {/* Modal Próximamente Strava */}
       {/* Modal Compartir Progreso */}
       {modalCompartirItem && <KorvaProgressShare
-        reto={{ titulo: modalCompartirItem.challenge, km: modalCompartirItem.km_completados, total: modalCompartirItem.distancia_total }}
+        reto={{ titulo: modalCompartirItem.challenge, km: modalCompartirItem.km_completados, total: modalCompartirItem.distancia_total, challenge_id: modalCompartirItem.challenge_id }}
         onClose={() => setModalCompartirItem(null)}
       />}
 

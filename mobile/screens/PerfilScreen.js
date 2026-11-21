@@ -941,7 +941,7 @@ export default function PerfilScreen() {
                       <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.retoRutaBtn} accessibilityRole="button"
-                      onPress={() => setProgresoCompartir({ titulo: inscripcion.challenges?.title, km: kmCompletados, total: distanciaTotal })}>
+                      onPress={() => setProgresoCompartir({ titulo: inscripcion.challenges?.title, km: kmCompletados, total: distanciaTotal, challenge_id: inscripcion.challenge_id })}>
                       <Ionicons name="share-outline" size={16} color={colors.actionBlue} /><Text style={styles.retoRutaBtnText}>Compartir progreso</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.retoDetailsToggle}

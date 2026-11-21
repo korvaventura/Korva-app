@@ -58,7 +58,7 @@ export default function RutaLibreScreen({ navigation, route }) {
       </View>}
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('HomeTabs', { screen: 'Registrar' })}><Text style={styles.buttonText}>Registrar actividad</Text></TouchableOpacity>
       <TouchableOpacity onPress={() => setCompartiendo(true)}><Text style={styles.link}>Compartir progreso</Text></TouchableOpacity>
-      {compartiendo && <KorvaProgressShare reto={{ titulo: 'Islandia · Ring Road', km: p.km, total: 1400, gratuita: true }} onClose={() => setCompartiendo(false)} />}
+      {compartiendo && <KorvaProgressShare reto={{ titulo: 'Islandia · Ring Road', km: p.km, total: 1400, gratuita: true, challenge_id: '3b211caf-ee16-54c8-a93c-343a5eb2d57e' }} onClose={() => setCompartiendo(false)} />}
     </> : <TouchableOpacity style={styles.button} disabled={guardando} onPress={aceptar}><Text style={styles.buttonText}>{p?.abandonado ? 'Retomar ruta gratuita' : 'Elegir esta ruta gratuita'}</Text></TouchableOpacity>}
     {guardando && <ActivityIndicator color={colors.actionBlue} />}
     {!!error && <Text style={styles.error}>{error}</Text>}

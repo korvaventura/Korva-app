@@ -40,7 +40,7 @@ export function RutaLibreCardVista({ navigation, soloInscrita = false, estado, d
       {accion === 'Ver ruta' && p && p.estado !== 'completada' && <TouchableOpacity disabled={guardando} accessibilityRole="button" onPress={pausar}><Text style={styles.footerText}>{guardando ? 'Guardando…' : p.pausado ? 'Reanudar' : 'Pausar'}</Text></TouchableOpacity>}
       {p && !p.abandonado && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Compartir progreso" hitSlop={8} style={{ padding: 8, marginLeft: 'auto' }} onPress={() => setCompartiendo(true)}><Ionicons name="share-outline" size={22} color="#78DEC5" /></TouchableOpacity>}
     </View>}
-    {compartiendo && p && <KorvaProgressShare reto={{ titulo: 'Islandia · Ring Road', km: p.km, total: 1400, gratuita: true }} onClose={() => setCompartiendo(false)} />}
+    {compartiendo && p && <KorvaProgressShare reto={{ titulo: 'Islandia · Ring Road', km: p.km, total: 1400, gratuita: true, challenge_id: '3b211caf-ee16-54c8-a93c-343a5eb2d57e' }} onClose={() => setCompartiendo(false)} />}
   </View>;
 }
 const styles = StyleSheet.create({

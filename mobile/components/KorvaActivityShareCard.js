@@ -19,15 +19,16 @@ const DEPORTE = { run: 'CORRER', walk: 'CAMINAR', ride: 'BICI', hike: 'TREKKING'
 // Armar la ruta de un mapa cuesta: se calcula una vez por desafío y queda guardada.
 const RUTAS = new Map();
 function rutaDelDesafio(challenge) {
-  if (!challenge?.challenge_id) return null;
-  if (RUTAS.has(challenge.challenge_id)) return RUTAS.get(challenge.challenge_id);
+  const clave = challenge?.challenge_id || challenge?.challenge || challenge?.challenge_title;
+  if (!clave) return null;
+  if (RUTAS.has(clave)) return RUTAS.get(clave);
   const ruta = calcularRuta(challenge);
-  RUTAS.set(challenge.challenge_id, ruta);
+  RUTAS.set(clave, ruta);
   return ruta;
 }
 function calcularRuta(challenge) {
   try {
-    const mapa = mapa3DDeDesafio(challenge.challenge_id, challenge.challenge || challenge.challenge_title);
+    const mapa = mapa3DDeDesafio(challenge.challenge_id || null, challenge.challenge || challenge.challenge_title);
     if (!mapa) return null;
     return rutaLinea(mapa.escena, mapa.horneado, mapa.checkpoints).puntos;
   } catch {
@@ -56,6 +57,7 @@ export default function KorvaActivityShareCard({
   puntos = [],
   challenge = null,
   variante = 'story',
+  modo = 'salida', // 'salida' (una actividad) o 'progreso' (cuánto llevás del desafío)
   ancho = 360,
   onFondoListo,
 }) {
@@ -65,7 +67,10 @@ export default function KorvaActivityShareCard({
   const ritmo = formatoRitmo(km, segundos, actividad.sport_type);
   const nombre = challenge?.challenge || challenge?.challenge_title || null;
   const paleta = nombre ? paletaDesafio(nombre) : PALETA_KORVA;
-  const avance = challenge ? avanceDesafio(challenge, km) : null;
+  const progreso = modo === 'progreso';
+  const avanceBase = challenge ? avanceDesafio(challenge, progreso ? 0 : km) : null;
+  // En progreso no hay tramo de hoy: la línea marca lo hecho y dónde estás.
+  const avance = avanceBase;
   const urls = variante === 'story' && nombre ? urlsFondo(nombre) : [];
   const [intento, setIntento] = useState(0);
   const fondo = urls[intento] || null;
@@ -76,14 +81,21 @@ export default function KorvaActivityShareCard({
 
   const trazado = useMemo(() => {
     const ruta = avance ? rutaDelDesafio(challenge) : null;
-    if (ruta) return trazadoDesafio(ruta, avance.antes, avance.despues, RW, RH, { pad: 20 });
+    if (ruta) {
+      const t = trazadoDesafio(ruta, avance.antes, avance.despues, RW, RH, { pad: 20 });
+      // En progreso, lo recorrido va en el color del desafío.
+      return progreso && t ? { ...t, hoy: t.hecho, hecho: '' } : t;
+    }
     if (puntos.length >= 2) return trazadoPlano(proyectarRuta(puntos, RW, RH, { visualScale: 0.9, padding: 24 }));
     return null;
-  }, [challenge?.challenge_id, avance?.antes, avance?.despues, puntos]);
+  }, [challenge?.challenge_id, challenge?.challenge, avance?.antes, avance?.despues, puntos, progreso]);
 
-  const linea1 = `${formatoKm(km)} km`;
-  const linea2 = [segundos > 0 ? formatoDuracion(segundos) : null, ritmo ? `${ritmo.valor} ${ritmo.unidad}` : null].filter(Boolean).join('  ·  ');
-  const pie = avance ? `+${formatoKm(km)} km  ·  ${formatoKm(avance.kmAhora)} de ${formatoKm(avance.total)} km` : null;
+  const pctTexto = avance ? (avance.despues > 0 && avance.despues < 0.01 ? 'menos del 1%' : `${Math.floor(avance.despues * 100)}%`) : '';
+  const linea1 = `${formatoKm(progreso ? avance?.kmAhora : km)} km`;
+  const linea2 = progreso
+    ? (avance ? `de ${formatoKm(avance.total)} km  ·  ${pctTexto}` : '')
+    : [segundos > 0 ? formatoDuracion(segundos) : null, ritmo ? `${ritmo.valor} ${ritmo.unidad}` : null].filter(Boolean).join('  ·  ');
+  const pie = progreso ? null : avance ? `+${formatoKm(km)} km  ·  ${formatoKm(avance.kmAhora)} de ${formatoKm(avance.total)} km` : null;
   const subtitulo = (nombre ? String(nombre).replace(/\s+\d+(?:[.,]\d+)?\s*K\b/i, '') : DEPORTE[actividad.sport_type] || 'KORVA').toUpperCase();
 
   if (variante !== 'story') {
@@ -98,7 +110,7 @@ export default function KorvaActivityShareCard({
             <Linea trazado={trazado} acento="#F36B0A" grosor={1.25} />
           </Svg>
         )}
-        {!!nombre && <Text style={[s.sombra, s.blanco, { fontSize: 34 * k, fontWeight: '600', marginTop: 30 * k }]}>{String(nombre).replace(/\s+\d+(?:[.,]\d+)?\s*K\b/i, '')}{avance ? `  ·  ${formatoKm(avance.kmAhora)} de ${formatoKm(avance.total)} km` : ''}</Text>}
+        {!!nombre && <Text style={[s.sombra, s.blanco, { fontSize: 34 * k, fontWeight: '600', marginTop: 30 * k }]}>{String(nombre).replace(/\s+\d+(?:[.,]\d+)?\s*K\b/i, '')}{avance && !progreso ? `  ·  ${formatoKm(avance.kmAhora)} de ${formatoKm(avance.total)} km` : ''}</Text>}
         <Text style={[s.sombra, { color: '#F36B0A', fontSize: 34 * k, fontWeight: '800', letterSpacing: 14 * k, marginTop: 14 * k }]}>KORVA</Text>
       </View>
     );
