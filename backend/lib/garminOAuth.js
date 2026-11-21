@@ -62,29 +62,57 @@ function urlAutorizacion(config, payload) {
   return url.toString();
 }
 
-async function obtenerJson(url, options, fetchImpl) {
-  const response = await fetchImpl(url, { ...options, redirect: 'error', signal: AbortSignal.timeout(15000) });
+async function obtenerJson(url, options, fetchImpl, stage, diagnosticar) {
+  diagnosticar({ stage, event: 'request' });
+  let response;
+  try {
+    response = await fetchImpl(url, { ...options, redirect: 'error', signal: AbortSignal.timeout(15000) });
+  } catch {
+    diagnosticar({ stage, event: 'network_error' });
+    throw new Error('garmin_request_failed');
+  }
+  diagnosticar({ stage, event: 'response', http_status: Number.isInteger(response.status) ? response.status : null });
   if (!response.ok) throw new Error('garmin_request_failed');
-  return response.json();
+  try { return await response.json(); }
+  catch {
+    diagnosticar({ stage, event: 'invalid_json' });
+    throw new Error('garmin_invalid_json');
+  }
 }
 
-async function intercambiarCodigo(config, code, verifier, fetchImpl = fetch) {
+async function intercambiarCodigo(config, code, verifier, fetchImpl = fetch, diagnosticar = () => {}) {
   const tokens = await obtenerJson(config.tokenUrl, { method: 'POST', headers: {
     'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json',
   }, body: new URLSearchParams({ grant_type: 'authorization_code', client_id: config.clientId,
-    client_secret: config.clientSecret, redirect_uri: REDIRECT_URI, code, code_verifier: verifier }).toString() }, fetchImpl);
+    client_secret: config.clientSecret, redirect_uri: REDIRECT_URI, code, code_verifier: verifier }).toString() }, fetchImpl, 'token', diagnosticar);
+  if (!tokens || typeof tokens !== 'object') {
+    diagnosticar({ stage: 'token', event: 'invalid_schema' });
+    throw new Error('invalid_token_response');
+  }
   if (typeof tokens.access_token !== 'string' || !tokens.access_token || typeof tokens.refresh_token !== 'string'
     || !tokens.refresh_token || String(tokens.token_type).toLowerCase() !== 'bearer'
     || !Number.isFinite(tokens.expires_in) || tokens.expires_in <= 0
     || !Number.isFinite(tokens.refresh_token_expires_in) || tokens.refresh_token_expires_in <= 0) {
+    diagnosticar({ stage: 'token', event: 'invalid_schema' });
     throw new Error('invalid_token_response');
   }
   const headers = { Authorization: `Bearer ${tokens.access_token}`, Accept: 'application/json' };
-  const user = await obtenerJson(USER_URL, { headers }, fetchImpl);
-  const permissions = await obtenerJson(PERMISSIONS_URL, { headers }, fetchImpl);
-  if (typeof user.userId !== 'string' || !user.userId || user.userId.length > 256
-    || !Array.isArray(permissions) || permissions.some((p) => typeof p !== 'string')) throw new Error('invalid_garmin_identity');
-  if (!permissions.includes('ACTIVITY_EXPORT')) throw new Error('activity_permission_required');
+  const user = await obtenerJson(USER_URL, { headers }, fetchImpl, 'user_id', diagnosticar);
+  if (typeof user?.userId !== 'string' || !user.userId || user.userId.length > 256) {
+    diagnosticar({ stage: 'user_id', event: 'invalid_schema' });
+    throw new Error('invalid_garmin_identity');
+  }
+  const permissions = await obtenerJson(PERMISSIONS_URL, { headers }, fetchImpl, 'permissions', diagnosticar);
+  if (!Array.isArray(permissions) || permissions.some((p) => typeof p !== 'string')) {
+    diagnosticar({ stage: 'permissions', event: 'invalid_schema',
+      root_type: permissions === null ? 'null' : Array.isArray(permissions) ? 'array' : typeof permissions,
+      permissions_field_array: Array.isArray(permissions?.permissions) });
+    throw new Error('invalid_garmin_identity');
+  }
+  if (!permissions.includes('ACTIVITY_EXPORT')) {
+    diagnosticar({ stage: 'permissions', event: 'activity_export_missing' });
+    throw new Error('activity_permission_required');
+  }
   const now = Date.now();
   return { garminUserId: user.userId, permissions, tokens,
     expiresAt: new Date(now + Math.max(0, tokens.expires_in - 600) * 1000).toISOString(),
