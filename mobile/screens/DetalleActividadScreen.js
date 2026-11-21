@@ -6,6 +6,8 @@ import RutaGpsActividad from '../components/RutaGpsActividad';
 import KorvaActivityShareCard from '../components/KorvaActivityShareCard';
 import { obtenerRutaGps } from '../services/gps/gpsApi';
 import { supabase } from '../supabase';
+import { consultarRutaLibre } from '../services/rutasLibresApi';
+const { retoIslandia } = require('../services/compartirCore');
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../theme/korvaTheme';
 import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
@@ -27,6 +29,7 @@ export default function DetalleActividadScreen({ route, navigation }) {
   const a = route.params?.actividad || {};
   const userIdParam = route.params?.userId || null;
   const recienGuardada = route.params?.recienGuardada === true;
+  const abrirCompartir = recienGuardada || route.params?.abrirCompartir === true;
   const rutaGpsDisponible = route.params?.rutaGpsDisponible === true;
   const km = Number(a.distance_km || 0);
   const segundos = Number(a.duration_seconds || 0);
@@ -40,6 +43,9 @@ export default function DetalleActividadScreen({ route, navigation }) {
   const [retoShare, setRetoShare] = useState(null);
   const [cargandoShare, setCargandoShare] = useState(false);
   const shareRef = useRef(null);
+  const fondoRef = useRef('cargando');
+  const [contextoListo, setContextoListo] = useState(false);
+  const yaAbrio = useRef(false);
 
   useEffect(() => {
     let vivo = true;
@@ -73,29 +79,49 @@ export default function DetalleActividadScreen({ route, navigation }) {
           }
         }));
         const validos = chequeados.filter(Boolean);
+        try {
+          const libre = await consultarRutaLibre();
+          const islandia = libre?.userId === uid ? retoIslandia(libre.participacion, a) : null;
+          if (islandia) validos.push(islandia);
+        } catch {
+          // Sin Islandia no pasa nada: se comparten los otros desafíos.
+        }
         if (vivo) {
           setRetosElegibles(validos);
-          setRetoShare(validos.length === 1 ? validos[0] : null);
+          setRetoShare(validos[0] || null);
         }
       } catch {
         // Compartir sigue disponible como "Solo actividad" aunque falle el contexto del reto.
       }
     };
-    preparar();
+    preparar().finally(() => { if (vivo) setContextoListo(true); });
     return () => { vivo = false; };
   }, [a.id, a.source, userIdParam, rutaGpsDisponible]);
+
+  // Recién guardada (GPS, manual) o desde el aviso de Strava: abrimos compartir
+  // solo una vez y cuando ya sabemos a qué desafío sumó.
+  useEffect(() => {
+    if (!abrirCompartir || !contextoListo || yaAbrio.current) return;
+    yaAbrio.current = true;
+    const t = setTimeout(() => setShareVisible(true), 450);
+    return () => clearTimeout(t);
+  }, [abrirCompartir, contextoListo]);
 
   const compartir = async () => {
     if (!shareRef.current || cargandoShare) return;
     setCargandoShare(true);
     try {
+      // La foto del desafío tiene que estar cargada antes de sacar la imagen.
+      for (let i = 0; i < 40 && shareVariant === 'story' && fondoRef.current === 'cargando'; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
       await new Promise((resolve) => setTimeout(resolve, 120));
       const uri = await shareRef.current.capture();
       if (!(await Sharing.isAvailableAsync())) {
         Alert.alert('Compartir no disponible', 'Este dispositivo no permite abrir la hoja de compartir.');
         return;
       }
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Compartir actividad Korva' });
+      await Sharing.shareAsync(uri, { mimeType: shareVariant === 'overlay' ? 'image/png' : 'image/jpeg', dialogTitle: 'Compartir actividad Korva' });
     } catch (e) {
       Alert.alert('No se pudo compartir', 'Intentá nuevamente.');
     } finally {
@@ -137,7 +163,7 @@ export default function DetalleActividadScreen({ route, navigation }) {
         <TouchableOpacity style={styles.shareButton} onPress={() => setShareVisible(true)} activeOpacity={0.86}>
           <Text style={styles.shareButtonEyebrow}>{recienGuardada ? 'LISTA PARA COMPARTIR' : 'TU ACTIVIDAD'}</Text>
           <Text style={styles.shareButtonText}>Compartir actividad</Text>
-          <Text style={styles.shareButtonSub}>Creá una placa para tu foto o historia</Text>
+          <Text style={styles.shareButtonSub}>Para tu historia o encima de tu foto</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -179,28 +205,29 @@ export default function DetalleActividadScreen({ route, navigation }) {
             )}
 
             <View style={styles.variantRow}>
-              <TouchableOpacity style={[styles.variant, shareVariant === 'overlay' && styles.variantActive]} onPress={() => setShareVariant('overlay')}>
-                <Text style={styles.variantText}>Transparente</Text>
-              </TouchableOpacity>
               <TouchableOpacity style={[styles.variant, shareVariant === 'story' && styles.variantActive]} onPress={() => setShareVariant('story')}>
                 <Text style={styles.variantText}>Historia</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.variant, shareVariant === 'overlay' && styles.variantActive]} onPress={() => setShareVariant('overlay')}>
+                <Text style={styles.variantText}>Sin fondo</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.previewArea}>
               <ViewShot
                 ref={shareRef}
-                options={{ format: 'png', quality: 1, result: 'tmpfile' }}
+                options={shareVariant === 'overlay' ? { format: 'png', quality: 1, result: 'tmpfile' } : { format: 'jpg', quality: 0.92, result: 'tmpfile' }}
                 style={shareVariant === 'overlay' ? styles.transparentShot : null}
               >
-                <KorvaActivityShareCard actividad={a} puntos={puntos} challenge={retoShare} variante={shareVariant} ancho={anchoShare} />
+                <KorvaActivityShareCard actividad={a} puntos={puntos} challenge={retoShare} variante={shareVariant} ancho={anchoShare}
+                  onFondoListo={(e) => { fondoRef.current = e; }} />
               </ViewShot>
             </View>
 
             <Text style={styles.overlayHint}>
               {shareVariant === 'overlay'
-                ? 'PNG transparente · para poner sobre tu foto.'
-                : 'Historia 9:16 · lista para publicar directamente.'}
+                ? 'Para pegar encima de tu foto o de tu captura de Strava.'
+                : 'Lista para subir a tu historia.'}
             </Text>
 
           </ScrollView>

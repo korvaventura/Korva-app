@@ -10,6 +10,7 @@ import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { supabase } from './supabase';
+import { escucharAvisosCompartir } from './services/avisoCompartir';
 import HomeScreen from './screens/HomeScreen';
 import CatalogoScreen from './screens/CatalogoScreen';
 import PerfilScreen from './screens/PerfilScreen';
@@ -132,6 +133,8 @@ export default function App() {
   // Salud: sincronización por cuenta solo después de conexión opcional.
   // Va antes de cualquier return para no cambiar el orden de los hooks.
   useHealthAutoSync(!cargando && !mostrarTerminos ? usuario?.id || null : null);
+
+  useEffect(() => escucharAvisosCompartir(navigationRef), []);
 
   useEffect(() => {
     const handleDeepLink = async (url) => {

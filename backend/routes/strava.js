@@ -311,7 +311,8 @@ const procesarActividad = async (supabase, userId, stravaActivityId) => {
         supabase, userId,
         uc.challenge_id, uc.challenges.title,
         kmAntes, totalKm,
-        modalidadElegida.distancia_km
+        modalidadElegida.distancia_km,
+        { external_id: String(actividad.id) }
       );
     }
   }
@@ -832,7 +833,7 @@ const prepararFilaWebhook = async (supabase, userId, stravaActivityId) => {
 // Push de progreso (checkpoint, 50/75/90 %, "+X km") como el viejo, pero SOLO para los desafíos
 // activos y no pausados cuyo km subió sin completarse. La completitud NO pasa por acá: su
 // email/push/certificado salen una sola vez por el evento 'completado' (efectos del motor).
-const notificarProgresoMotor = async (supabase, userId, desafios) => {
+const notificarProgresoMotor = async (supabase, userId, desafios, externalId = null) => {
   const subieron = desafios.filter((d) =>
     d.status_leido === 'active' && d.accion === 'actualizar_km' && d.escrito &&
     Number(d.km_despues) > Number(d.km_antes || 0));
@@ -846,7 +847,8 @@ const notificarProgresoMotor = async (supabase, userId, desafios) => {
     if (!uc || uc.pausado || uc.status !== 'active' || !uc.challenges) continue;
     const objetivo = distanciaObjetivo(uc);
     if (!(objetivo > 0) || Number(d.km_despues) >= objetivo) continue;
-    await enviarNotificacionProgreso(supabase, userId, uc.challenge_id, uc.challenges.title, Number(d.km_antes || 0), Number(d.km_despues), objetivo);
+    await enviarNotificacionProgreso(supabase, userId, uc.challenge_id, uc.challenges.title, Number(d.km_antes || 0), Number(d.km_despues), objetivo,
+      externalId ? { external_id: externalId } : null);
   }
 };
 
@@ -891,7 +893,7 @@ const manejarEventoBandeja = async (ev) => {
   // actividad ya no es nueva).
   if (operacion === OPERACIONES_WEBHOOK.UPSERT) {
     try {
-      await notificarProgresoMotor(supabase, user.id, r.desafios);
+      await notificarProgresoMotor(supabase, user.id, r.desafios, String(ev.object_id));
       if (r.insertada && !(r.detalle && r.detalle.excluida)) await verificarYEnviarNotificacionRacha(supabase, user.id);
     } catch (e) {
       console.error('Error enviando notificaciones del webhook:', e.message);

@@ -327,6 +327,10 @@ export default function RegistroManualScreen({ navigation }) {
         setMinutos('');
         setSegundos('');
         setTimeout(() => { setMensaje(''); setExito(false); }, 3000);
+        // Igual que con Korva GPS: la salida guardada abre la pantalla para compartirla.
+        if (data.actividad?.id) {
+          navigation.navigate('DetalleActividad', { actividad: data.actividad, userId, recienGuardada: true });
+        }
       }
     } catch (error) {
       setMensaje('Error de conexion');
