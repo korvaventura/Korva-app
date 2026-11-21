@@ -107,6 +107,7 @@ app.use('/shopify', shopifyRoutes);
 app.use('/progreso-desglose', progresoDesgloseRoutes);
 
 // Garmin validates the origin before parsing its own bounded JSON body.
+app.use('/garmin', require('./routes/garminConsent').crearGarminConsentRoutes({ supabase }));
 app.use('/garmin', crearGarminPushRoutes({ supabase }));
 app.use(express.json({ limit: '10mb' }));
 
@@ -2527,5 +2528,6 @@ if (stravaWebhookMotorActiva()) {
 // Private Garmin importer: disabled until explicitly enabled after validation.
 require('./lib/garminProcesamiento').iniciarProcesamientoGarmin({
   supabase, repoMotor: crearRepositorioSupabase(supabase),
+  notificar: (params) => require('./lib/garminNotificacion').notificarGarmin({ ...params, enviar: enviarNotificacionProgreso }),
   dispararEfectos: async (ids) => { if (efectosMotorActivos() && ids.length) await procesadorEventos.ronda({ repo: crearRepositorioSupabase(supabase), ids }); },
 });
