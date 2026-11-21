@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, AppState, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Alert, AppState, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import gpsCore from '../services/gps/gpsCore';
@@ -17,7 +17,7 @@ import { colors, radius } from '../theme/korvaTheme';
 import GpsAventura from '../components/GpsAventura';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../supabase';
-import { claveAvisoStrava, debeAvisarStrava, TEXTO_AVISO_STRAVA } from '../services/gps/avisoStravaCore';
+import { STRAVA_APP, claveAvisoStrava, debeAvisarStrava, TEXTO_AVISO_STRAVA, tiendaStrava } from '../services/gps/avisoStravaCore';
 
 const {
   crearSesionGps,
@@ -140,7 +140,10 @@ export default function GpsTrackerScreen({ navigation }) {
   const iniciarConAviso = () => {
     if (!debeAvisarStrava({ stravaConectado: strava.conectado, silenciado: strava.silenciado })) { iniciar(); return; }
     Alert.alert('Ya tenés Strava conectado', TEXTO_AVISO_STRAVA, [
-      { text: 'Mejor uso Strava', style: 'cancel', onPress: () => navigation?.goBack?.() },
+      { text: 'Abrir Strava', style: 'cancel', onPress: async () => {
+        navigation?.goBack?.();
+        try { await Linking.openURL(STRAVA_APP); } catch { Linking.openURL(tiendaStrava(Platform.OS)).catch(() => {}); }
+      } },
       { text: 'Grabar con Korva GPS', onPress: () => iniciar() },
       { text: 'Grabar y no volver a avisar', onPress: () => {
         setStrava((s) => ({ ...s, silenciado: true }));
