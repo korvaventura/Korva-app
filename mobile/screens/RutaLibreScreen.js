@@ -31,6 +31,13 @@ export default function RutaLibreScreen({ navigation, route }) {
   const [mapaActivo, setMapaActivo] = useState(false);
   const [verCapitulos, setVerCapitulos] = useState(false);
   const scroll = useRef(null), scrollY = useRef(0), pendiente = useRef(false), vivo = useRef(false);
+  const rutaY = useRef(0);
+  // "Ver mapa": igual que en los demás desafíos, la pantalla baja sola hasta el mapa.
+  useEffect(() => {
+    if (!abrirRuta) return undefined;
+    const t = setTimeout(() => scroll.current?.scrollTo({ y: Math.max(0, rutaY.current - 12), animated: true }), 450);
+    return () => clearTimeout(t);
+  }, [abrirRuta]);
   useEffect(() => { vivo.current = true; return () => { vivo.current = false; }; }, []);
   useEffect(() => { urlsFondo(ISLANDIA.titulo).forEach((u) => Image.prefetch(u).catch(() => {})); }, []);
 
@@ -154,7 +161,7 @@ export default function RutaLibreScreen({ navigation, route }) {
         )}
 
         {(abrirRuta || !activa) && (
-          <View style={s.seccion}>
+          <View style={s.seccion} onLayout={(e) => { rutaY.current = e.nativeEvent.layout.y; }}>
             <View style={s.seccionFila}>
               <Ionicons name="map-outline" size={19} color={colors.actionBlue} />
               <Text style={s.seccionTitulo}>Tu ruta</Text>
@@ -162,7 +169,7 @@ export default function RutaLibreScreen({ navigation, route }) {
             <Text style={s.seccionSub}>Explorá los checkpoints de tu aventura.</Text>
             {abrirRuta ? (
               <MapaRecorrido challengeId={ISLANDIA.id} challengeTitle={ISLANDIA.titulo} kmCompletados={km}
-                distanciaTotal={1400} porcentaje={pct} integrado alturaMapa={500} onInteraccionMapa={bloquearMapa} onHistoriaAbierta={mostrarHistoria} />
+                distanciaTotal={1400} porcentaje={pct} actividades={actividades} fullscreen onInteraccionMapa={bloquearMapa} onHistoriaAbierta={mostrarHistoria} />
             ) : (
               <TouchableOpacity style={s.abrirMapa} accessibilityRole="button" onPress={() => navigation.push('RutaLibre', { abrirRuta: true })}>
                 <Ionicons name="map-outline" size={18} color={colors.actionBlue} />

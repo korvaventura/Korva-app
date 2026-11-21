@@ -25,14 +25,16 @@ const hitoActividad = (actividad, index, acumulado, total) => {
 
 // "Actividades registradas" de un desafío: línea de tiempo de la primera a la
 // última salida, cada una con su botón para compartir. Igual en todos los desafíos.
-// actividades: de la más nueva a la más vieja (como llegan del servidor).
+// actividades: en cualquier orden; se muestran de la más reciente a la más vieja.
 // reto: { challenge_id, challenge, km_completados, distancia_total } para abrir compartir en ese desafío.
 export default function HistorialActividades({ actividades = [], cargando = false, distanciaTotal = 0, reto = null, navigation }) {
   let acumulado = 0;
-  const lista = [...actividades].reverse().map((act, i) => {
+  // El acumulado se calcula de la primera a la última; se muestran de la más
+  // reciente a la más vieja, así la última salida queda arriba, lista para compartir.
+  const lista = [...actividades].sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at)).map((act, i) => {
     acumulado += Number(act.distance_km) || 0;
     return { ...act, hito: hitoActividad(act, i, acumulado, Number(distanciaTotal) || 0), acumulado };
-  });
+  }).reverse();
   return (
     <View style={s.seccion}>
       <View style={s.cabecera}>
@@ -67,7 +69,7 @@ export default function HistorialActividades({ actividades = [], cargando = fals
                 {!!act.id && (
                   <TouchableOpacity style={s.compartir} accessibilityRole="button" accessibilityLabel="Compartir esta actividad"
                     onPress={() => navigation.navigate('DetalleActividad', { actividad: act, abrirCompartir: true, retoInicial: reto })}>
-                    <Text style={[s.compartirTexto, index === lista.length - 1 && s.compartirUltima]}>Compartir ↗</Text>
+                    <Text style={[s.compartirTexto, index === 0 && s.compartirUltima]}>Compartir ↗</Text>
                   </TouchableOpacity>
                 )}
               </View>
