@@ -219,7 +219,7 @@ test('callback diagnostics identify token, identity, permissions and storage sta
         assert.ok(logs.some((entry) => entry.stage === failure && entry.event === 'response' && entry.http_status === 403));
       }
       if (failure === 'permissions-shape') assert.ok(logs.some((entry) => entry.stage === 'permissions'
-        && entry.event === 'invalid_schema' && entry.root_type === 'object' && entry.permissions_field_array === true));
+        && entry.event === 'invalid_schema' && entry.root_type === 'object' && entry.permissions_field_array === false));
       if (failure === 'database') assert.ok(logs.some((entry) => entry.database_code === '23505'));
     }, { repo, fetchImpl: async () => {
       calls++;
@@ -228,8 +228,41 @@ test('callback diagnostics identify token, identity, permissions and storage sta
         ? { access_token: 'private-access', refresh_token: 'private-refresh', expires_in: 86400,
           refresh_token_expires_in: 7776000, token_type: 'bearer' }
         : calls === 2 ? { userId: 'garmin' }
-          : failure === 'permissions-shape' ? { permissions: ['ACTIVITY_EXPORT'] }
+          : failure === 'permissions-shape' ? { permissions: 'malformed' }
             : failure === 'missing-permission' ? [] : ['ACTIVITY_EXPORT'] };
+    } });
+  }
+});
+
+test('real Garmin wrapped permissions connect only with valid ACTIVITY_EXPORT consent', async () => {
+  const cases = [
+    { payload: { permissions: ['ACTIVITY_EXPORT'] }, result: 'connected' },
+    { payload: { permissions: ['WORKOUT_IMPORT'] }, result: 'permission_required' },
+    { payload: { permissions: [] }, result: 'permission_required' },
+    { payload: { permissions: ['ACTIVITY_EXPORT', 1] }, result: 'error' },
+    { payload: { permissions: { ACTIVITY_EXPORT: true } }, result: 'error' },
+    { payload: null, result: 'error' },
+  ];
+  for (const { payload, result } of cases) {
+    let calls = 0;
+    await server(async ({ begin, request, repo, logs }) => {
+      const flow = await begin();
+      const response = await request(callback(flow), { headers: { Cookie: flow.cookie } });
+      assert.match(response.text, new RegExp('result=' + result));
+      assert.equal(logs.at(-1).result, result);
+      assert.equal(repo.connections.size, result === 'connected' ? 1 : 0);
+      if (result === 'connected') {
+        assert.deepEqual(repo.connections.get('owner').permissions, ['ACTIVITY_EXPORT']);
+        const status = JSON.parse((await request('status', { headers: { Authorization: 'Bearer owner' } })).text);
+        assert.equal(status.connected, true); assert.equal(status.activities_enabled, false);
+        assert.equal((await request(callback(flow), { headers: { Cookie: flow.cookie } })).status, 400);
+      }
+    }, { fetchImpl: async () => {
+      calls++;
+      return { ok: true, status: 200, json: async () => calls === 1
+        ? { access_token: 'private-access', refresh_token: 'private-refresh', expires_in: 86400,
+          refresh_token_expires_in: 7776000, token_type: 'bearer' }
+        : calls === 2 ? { userId: 'garmin' } : payload };
     } });
   }
 });

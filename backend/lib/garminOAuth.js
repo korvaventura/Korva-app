@@ -102,11 +102,14 @@ async function intercambiarCodigo(config, code, verifier, fetchImpl = fetch, dia
     diagnosticar({ stage: 'user_id', event: 'invalid_schema' });
     throw new Error('invalid_garmin_identity');
   }
-  const permissions = await obtenerJson(PERMISSIONS_URL, { headers }, fetchImpl, 'permissions', diagnosticar);
+  const permissionResponse = await obtenerJson(PERMISSIONS_URL, { headers }, fetchImpl, 'permissions', diagnosticar);
+  // Observed in the private trial: Garmin wraps the list in { permissions: [...] }.
+  // Keep the direct-array form compatible, but validate every entry and consent below.
+  const permissions = Array.isArray(permissionResponse) ? permissionResponse : permissionResponse?.permissions;
   if (!Array.isArray(permissions) || permissions.some((p) => typeof p !== 'string')) {
     diagnosticar({ stage: 'permissions', event: 'invalid_schema',
-      root_type: permissions === null ? 'null' : Array.isArray(permissions) ? 'array' : typeof permissions,
-      permissions_field_array: Array.isArray(permissions?.permissions) });
+      root_type: permissionResponse === null ? 'null' : Array.isArray(permissionResponse) ? 'array' : typeof permissionResponse,
+      permissions_field_array: Array.isArray(permissionResponse?.permissions) });
     throw new Error('invalid_garmin_identity');
   }
   if (!permissions.includes('ACTIVITY_EXPORT')) {
