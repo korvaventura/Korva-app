@@ -1,0 +1,209 @@
+diff --git a/.github/workflows/backend-tests.yml b/.github/workflows/backend-tests.yml
+index d3b89eb..33a3cb6 100644
+--- a/.github/workflows/backend-tests.yml
++++ b/.github/workflows/backend-tests.yml
+@@ -40,6 +40,10 @@ jobs:
+         env:
+           DORSAL_TEST_DATABASE_URL: postgresql://postgres:prueba-local@localhost:5432/dorsales_test
+         run: python3 backend/tests/garmin_push_postgres.py
++      - name: Importación Garmin y deduplicación en PostgreSQL descartable
++        env:
++          DORSAL_TEST_DATABASE_URL: postgresql://postgres:prueba-local@localhost:5432/dorsales_test
++        run: python3 backend/tests/garmin_import_postgres.py
+   backend-tests:
+     runs-on: ubuntu-latest
+     timeout-minutes: 10
+diff --git a/backend/index.js b/backend/index.js
+index 6ee90c2..374259e 100644
+--- a/backend/index.js
++++ b/backend/index.js
+@@ -2523,3 +2523,9 @@ if (stravaWebhookMotorActiva()) {
+     demoraInicialMs: Number(process.env.STRAVA_WEBHOOK_RECUPERACION_INICIAL_MS) || undefined,
+   });
+ }
++
++// Private Garmin importer: disabled until explicitly enabled after validation.
++require('./lib/garminProcesamiento').iniciarProcesamientoGarmin({
++  supabase, repoMotor: crearRepositorioSupabase(supabase),
++  dispararEfectos: async (ids) => { if (efectosMotorActivos() && ids.length) await procesadorEventos.ronda({ repo: crearRepositorioSupabase(supabase), ids }); },
++});
+diff --git a/backend/lib/garminProcesamiento.js b/backend/lib/garminProcesamiento.js
+new file mode 100644
+index 0000000..c870691
+--- /dev/null
++++ b/backend/lib/garminProcesamiento.js
+@@ -0,0 +1,44 @@
++const { recalcularConReintentos } = require('./recuperacionRecalculo');
++// Durable capture remains separate from processing. Failed rounds leave events pending.
++async function procesarGarmin({ supabase, repoMotor, allowedIds, dispararEfectos = async () => {}, recalcular = recalcularConReintentos }) {
++  if (!allowedIds.length) return { procesados: 0 };
++  const { data, error } = await supabase.from('garmin_push_events').select('id,user_id')
++    .eq('state', 'capturado').in('user_id', allowedIds).order('received_at').limit(25);
++  if (error) throw error;
++  let procesados = 0;
++  for (const event of data || []) {
++    const { data: result, error: writeError } = await supabase.rpc('korva_garmin_import_event', {
++      p_event_id: event.id, p_allowed_ids: allowedIds,
++    });
++    if (writeError) throw writeError;
++    if (!result || result.result !== 'importado') continue;
++    const progress = await recalcular({ repo: repoMotor, userId: event.user_id, motivo: 'garmin',
++      marcasALimpiar: result.marcas || [] });
++    if (!progress.ok) continue;
++    await dispararEfectos(progress.informe.eventos_para_procesar);
++    const { error: finishError } = await supabase.from('garmin_push_events').update({ state: 'hecho' })
++      .eq('id', event.id).eq('state', 'capturado');
++    if (finishError) throw finishError;
++    procesados++;
++  }
++  return { procesados };
++}
++function iniciarProcesamientoGarmin({ env = process.env, log = console.info, ...options }) {
++  if (env.GARMIN_ACTIVITIES_ENABLED !== '1' || env.GARMIN_PUSH_CAPTURE_ENABLED !== '1' || env.GARMIN_OAUTH_ENABLED !== '1') return null;
++  const allowedIds = (env.GARMIN_OAUTH_TEST_USER_IDS || '').split(',').map(s => s.trim())
++    .filter(s => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s));
++  if (!allowedIds.length) return null;
++  let running = false;
++  const round = async () => {
++    if (running) return;
++    running = true;
++    try { const result = await procesarGarmin({ ...options, allowedIds });
++      if (result.procesados) log('korva_garmin_processing', JSON.stringify(result));
++    } catch { log('korva_garmin_processing failed'); }
++    finally { running = false; }
++  };
++  const initial = setTimeout(round, 5000); initial.unref();
++  const timer = setInterval(round, 30000); timer.unref();
++  return { stop() { clearTimeout(initial); clearInterval(timer); } };
++}
++module.exports = { procesarGarmin, iniciarProcesamientoGarmin };
+diff --git a/backend/migrations/20261121223000_garmin_import.sql b/backend/migrations/20261121223000_garmin_import.sql
+new file mode 100644
+index 0000000..60b4075
+--- /dev/null
++++ b/backend/migrations/20261121223000_garmin_import.sql
+@@ -0,0 +1,43 @@
++BEGIN;
++-- Same-source replays are stable; cross-source insertion is serialized per user.
++CREATE FUNCTION public.korva_activity_provider_dedup() RETURNS trigger
++LANGUAGE plpgsql SET search_path='' AS $$
++BEGIN
++ IF NEW.source NOT IN ('garmin','strava') THEN RETURN NEW; END IF;
++ PERFORM pg_advisory_xact_lock(hashtextextended(NEW.user_id::text, 93217));
++ IF EXISTS (SELECT 1 FROM public.activities a WHERE a.user_id=NEW.user_id
++   AND a.source IN ('garmin','strava') AND a.source<>NEW.source
++   AND NOT coalesce(a.excluida,false) AND a.distance_km>0 AND NEW.distance_km>0
++   AND abs(extract(epoch FROM a.recorded_at-NEW.recorded_at))<=600
++   AND abs(a.distance_km-NEW.distance_km)<=greatest(0.3,greatest(a.distance_km,NEW.distance_km)*0.05)
++   AND (a.sport_type=NEW.sport_type OR (a.sport_type IN ('run','walk','hike') AND NEW.sport_type IN ('run','walk','hike'))))
++ THEN RETURN NULL; END IF;
++ RETURN NEW;
++END $$;
++CREATE TRIGGER korva_activity_provider_dedup BEFORE INSERT ON public.activities
++FOR EACH ROW EXECUTE FUNCTION public.korva_activity_provider_dedup();
++CREATE FUNCTION public.korva_garmin_import_event(p_event_id uuid,p_allowed_ids uuid[]) RETURNS jsonb
++LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
++DECLARE e public.garmin_push_events; p jsonb; marks jsonb; stamp timestamptz:=clock_timestamp();
++BEGIN
++ SELECT * INTO e FROM public.garmin_push_events WHERE id=p_event_id FOR UPDATE;
++ IF NOT FOUND OR e.state<>'capturado' OR NOT(e.user_id=ANY(p_allowed_ids)) THEN RETURN jsonb_build_object('result','omitido'); END IF;
++ IF NOT EXISTS(SELECT 1 FROM public.garmin_connections c WHERE c.user_id=e.user_id AND 'ACTIVITY_EXPORT'=ANY(c.permissions)) THEN RETURN jsonb_build_object('result','sin_permiso'); END IF;
++ p:=e.payload;
++ IF coalesce((p->>'manual')::boolean,false) OR p->>'parent_summary_id' IS NOT NULL THEN
++  UPDATE public.garmin_push_events SET state='ignorado' WHERE id=e.id;
++  RETURN jsonb_build_object('result','ignorado');
++ END IF;
++ -- Mark before insertion in the same transaction. Crashes are handled by recovery.
++ WITH m AS (UPDATE public.user_challenges SET recalculo_pendiente_desde=stamp
++  WHERE user_id=e.user_id AND status='active' AND recalculo_pendiente_desde IS NULL RETURNING id)
++ SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'marca',stamp)),'[]'::jsonb) INTO marks FROM m;
++ INSERT INTO public.activities(user_id,source,external_id,sport_type,distance_km,duration_seconds,recorded_at)
++ VALUES(e.user_id,'garmin',p->>'external_id',p->>'sport_type',(p->>'distance_km')::double precision,
++ (p->>'duration_seconds')::integer,(p->>'recorded_at')::timestamptz AT TIME ZONE 'UTC')
++ ON CONFLICT(external_id) DO NOTHING;
++ RETURN jsonb_build_object('result','importado','marcas',marks);
++END $$;
++REVOKE ALL ON FUNCTION public.korva_garmin_import_event(uuid,uuid[]) FROM PUBLIC,anon,authenticated;
++GRANT EXECUTE ON FUNCTION public.korva_garmin_import_event(uuid,uuid[]) TO service_role;
++COMMIT;
+diff --git a/backend/package.json b/backend/package.json
+index e41ec24..b1308ad 100644
+--- a/backend/package.json
++++ b/backend/package.json
+@@ -5,7 +5,7 @@
+   "main": "index.js",
+   "scripts": {
+     "dev": "nodemon index.js",
+-    "test": "node --test tests/residualMovimiento.test.js tests/progresoHealthSombra.test.js tests/progresoHealthMotor.test.js tests/inicioRetroactivo.test.js tests/progresoDesafio.test.js tests/progresoServicio.test.js tests/pausarDesafio.test.js tests/reanudarDesafio.test.js tests/eliminarActividad.test.js tests/completionEventos.test.js tests/efectosCompletado.test.js tests/cambiarModalidad.test.js tests/convivencia.test.js tests/versionDesafio.test.js tests/actividadManual.test.js tests/importacionStrava.test.js tests/webhookStrava.test.js tests/progresoStrava.test.js tests/actividadGps.test.js tests/gpsValidacion.test.js tests/gpsRuta.test.js tests/movimientoPersonal.test.js tests/rutasLibres.test.js tests/rutasLibresRoutes.test.js tests/movimientoPersonalLectura.test.js tests/comunidadPaises.test.js tests/socialGroups.test.js tests/gruposRoutes.test.js tests/consentimientoHealth.test.js tests/healthConsentRoutes.test.js tests/caminoSantiago.test.js tests/viaAppia.test.js tests/dorsalDesafio.test.js tests/garminOAuth.test.js tests/garminPush.test.js",
++    "test": "node --test tests/residualMovimiento.test.js tests/progresoHealthSombra.test.js tests/progresoHealthMotor.test.js tests/inicioRetroactivo.test.js tests/progresoDesafio.test.js tests/progresoServicio.test.js tests/pausarDesafio.test.js tests/reanudarDesafio.test.js tests/eliminarActividad.test.js tests/completionEventos.test.js tests/efectosCompletado.test.js tests/cambiarModalidad.test.js tests/convivencia.test.js tests/versionDesafio.test.js tests/actividadManual.test.js tests/importacionStrava.test.js tests/webhookStrava.test.js tests/progresoStrava.test.js tests/actividadGps.test.js tests/gpsValidacion.test.js tests/gpsRuta.test.js tests/movimientoPersonal.test.js tests/rutasLibres.test.js tests/rutasLibresRoutes.test.js tests/movimientoPersonalLectura.test.js tests/comunidadPaises.test.js tests/socialGroups.test.js tests/gruposRoutes.test.js tests/consentimientoHealth.test.js tests/healthConsentRoutes.test.js tests/caminoSantiago.test.js tests/viaAppia.test.js tests/dorsalDesafio.test.js tests/garminOAuth.test.js tests/garminPush.test.js tests/garminProcesamiento.test.js",
+     "test:camino": "node --test tests/caminoSantiago.test.js",
+     "test:appia": "node --test tests/viaAppia.test.js"
+   },
+diff --git a/backend/tests/garminProcesamiento.test.js b/backend/tests/garminProcesamiento.test.js
+new file mode 100644
+index 0000000..103ec9b
+--- /dev/null
++++ b/backend/tests/garminProcesamiento.test.js
+@@ -0,0 +1,24 @@
++const test = require('node:test');
++const assert = require('node:assert/strict');
++const { procesarGarmin, iniciarProcesamientoGarmin } = require('../lib/garminProcesamiento');
++function fixture({ ok = true, rpcError = null } = {}) {
++ const calls = [];
++ const supabase = { from() { return { select() { return this; }, eq() { return this; }, in() { return this; }, order() { return this; }, limit: async () => ({data:[{id:'event',user_id:'user'}]}), update() { calls.push('finish'); return this; }, then(resolve) { resolve({error:null}); } }; },
++ rpc: async () => { calls.push('write'); return {data:{result:'importado',marcas:[{id:'challenge',marca:'stamp'}]},error:rpcError}; } };
++ return { calls, options:{supabase,repoMotor:{},allowedIds:['user'],recalcular:async p=>{calls.push('recalculate');assert.deepEqual(p.marcasALimpiar,[{id:'challenge',marca:'stamp'}]);return {ok,informe:{eventos_para_procesar:['completion']}};},dispararEfectos:async()=>calls.push('effects')} };
++}
++test('Garmin finishes only after durable import, successful motor and effects',async()=>{
++ const {calls,options}=fixture();assert.equal((await procesarGarmin(options)).procesados,1);
++ assert.deepEqual(calls,['write','recalculate','effects','finish']);
++});
++test('failed motor leaves durable event pending for retry',async()=>{
++ const {calls,options}=fixture({ok:false});assert.equal((await procesarGarmin(options)).procesados,0);
++ assert.deepEqual(calls,['write','recalculate']);
++});
++test('database error cannot acknowledge event as processed',async()=>{
++ const {calls,options}=fixture({rpcError:Error('db')});await assert.rejects(procesarGarmin(options));assert.deepEqual(calls,['write']);
++});
++test('worker disabled by default and without explicit private accounts',()=>{
++ assert.equal(iniciarProcesamientoGarmin({env:{}}),null);
++ assert.equal(iniciarProcesamientoGarmin({env:{GARMIN_ACTIVITIES_ENABLED:'1',GARMIN_PUSH_CAPTURE_ENABLED:'1',GARMIN_OAUTH_ENABLED:'1'}}),null);
++});
+diff --git a/backend/tests/garmin_import_postgres.py b/backend/tests/garmin_import_postgres.py
+new file mode 100644
+index 0000000..fc4a0d8
+--- /dev/null
++++ b/backend/tests/garmin_import_postgres.py
+@@ -0,0 +1,32 @@
++"""Run after capture tests, only in disposable local PostgreSQL."""
++exec((__import__('pathlib').Path(__file__).with_name('garmin_push_postgres.py')).read_text().split("sql((Path")[0])
++sql('''CREATE TABLE public.activities(id uuid primary key default gen_random_uuid(),user_id uuid,source text,external_id text unique,sport_type text,distance_km double precision,duration_seconds integer,recorded_at timestamp,excluida boolean default false);
++CREATE TABLE public.user_challenges(id uuid primary key default gen_random_uuid(),user_id uuid,status text,recalculo_pendiente_desde timestamptz);
++GRANT SELECT,INSERT,UPDATE ON public.activities,public.user_challenges TO service_role;''')
++sql((Path(__file__).parents[1]/'migrations/20261121223000_garmin_import.sql').read_text())
++sql(f"UPDATE public.garmin_connections SET permissions=ARRAY['ACTIVITY_EXPORT']; INSERT INTO public.user_challenges(user_id,status) VALUES('{user}','active'); DELETE FROM public.garmin_push_events;")
++payload={'external_id':'garmin:123','sport_type':'run','distance_km':5,'duration_seconds':1800,'recorded_at':'2026-11-21T22:00:00Z'}
++def event(payload, fingerprint):
++ p=json.dumps(payload).replace("'","''")
++ return sql(f"INSERT INTO public.garmin_push_events(user_id,summary_id,fingerprint,payload) VALUES('{user}','s-{fingerprint}',repeat('{fingerprint}',64),'{p}') RETURNING id;")
++def run(e):
++ return json.loads(sql(f"SET ROLE service_role; SELECT public.korva_garmin_import_event('{e}',ARRAY['{user}']::uuid[]);"))
++e=event(payload,'a')
++with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
++ list(pool.map(lambda _:run(e),range(16)))
++assert sql('SELECT count(*) FROM public.activities;')=='1'
++assert sql('SELECT recalculo_pendiente_desde IS NOT NULL FROM public.user_challenges;')=='t'
++# Strava arriving second is suppressed.
++sql(f"INSERT INTO public.activities(user_id,source,external_id,sport_type,distance_km,recorded_at) VALUES('{user}','strava','456','run',5,'2026-11-21 22:00:03');")
++assert sql('SELECT count(*) FROM public.activities;')=='1'
++# Garmin arriving second is also suppressed.
++sql(f"INSERT INTO public.activities(user_id,source,external_id,sport_type,distance_km,recorded_at) VALUES('{user}','strava','789','ride',20,'2026-11-21 20:00:00');")
++run(event(dict(payload,external_id='garmin:789',sport_type='ride',distance_km=20,recorded_at='2026-11-21T20:00:01Z'),'b'))
++assert sql('SELECT count(*) FROM public.activities;')=='2'
++# Replays cannot resurrect excluded records.
++sql("UPDATE public.activities SET excluida=true WHERE external_id='garmin:123';")
++run(e)
++assert sql("SELECT excluida FROM public.activities WHERE external_id='garmin:123';")=='t'
++assert run(event(dict(payload,external_id='garmin:manual',manual=True),'c'))['result']=='ignorado'
++assert sql('SELECT count(*) FROM public.activities;')=='2'
++print('OK Garmin import: concurrent replays, progress marks, dedup both orders, exclusion and manual filtering')
