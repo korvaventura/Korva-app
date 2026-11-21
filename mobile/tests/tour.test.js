@@ -9,7 +9,9 @@ const pantalla = { width: 390, height: 844 };
 
 test('los pasos cubren lo importante de Korva y terminan con un cierre', () => {
   const ids = T.PASOS.map((p) => p.id);
-  assert.deepEqual(ids, ['desafio', 'gps', 'comoSumas', 'korvaMundi', 'tab-Registrar', 'tab-Catalogo', 'actividades', 'direccion', 'fin']);
+  assert.deepEqual(ids, ['desafio', 'comoSumas', 'mundi', 'registrar', 'tab-Catalogo', 'actividades', 'direccion', 'fin']);
+  assert.equal(T.PASOS.find((p) => p.id === 'mundi').stack, 'KorvaMundi');
+  assert.match(T.PASOS.find((p) => p.id === 'registrar').texto, /GPS: .*Manual: /);
   const dir = T.PASOS.find((p) => p.id === 'direccion');
   assert.match(dir.texto, /le llegan a nuestro equipo/);
   assert.match(dir.texto, /No son públicos: los demás participantes no los ven/);
@@ -48,7 +50,10 @@ test('el recorrido se dibuja encima de la app, no cambia estado al dibujar y est
   assert.match(app, /<TourProvider navigationRef=\{navigationRef\}>/);
   assert.match(app, /<NavigationContainer ref=\{navigationRef\}>/);
   const home = leer('screens/HomeScreen.js');
-  for (const id of ['desafio', 'gps', 'comoSumas', 'korvaMundi']) assert.match(home, new RegExp(`useTourTarget\\('${id}'\\)`));
+  for (const id of ['desafio', 'comoSumas']) assert.match(home, new RegExp(`useTourTarget\\('${id}'\\)`));
+  assert.match(leer('screens/RegistroManualScreen.js'), /useTourTarget\('registrar'\)/);
+  assert.match(leer('screens/KorvaMundiScreen.js'), /useTourTarget\('mundi'\)/);
+  assert.match(tour, /navigationRef\.navigate\?\.\(actual\.stack\)/);
   assert.match(home, /onRecorrido=/);
   const perfil = leer('screens/PerfilScreen.js');
   assert.match(perfil, /useTourTarget\('actividades'\)/);

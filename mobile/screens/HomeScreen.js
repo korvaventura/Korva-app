@@ -416,9 +416,7 @@ export default function HomeScreen({ navigation }) {
   const tour = useTour();
   const alDesplazarTour = useTourScroll('Mis Retos', scrollRef);
   const refTourDesafio = useTourTarget('desafio');
-  const refTourGps = useTourTarget('gps');
   const refTourComoSumas = useTourTarget('comoSumas');
-  const refTourKorvaMundi = useTourTarget('korvaMundi');
   const [ofrecerTour, setOfrecerTour] = useState(false);
   const iniciarTour = () => { setOfrecerTour(false); if (userId) AsyncStorage.setItem(`korva:tour-visto:${userId}`, '1').catch(() => {}); tour.iniciar(); };
   const actividadesInicioY = useRef(0);
@@ -788,7 +786,7 @@ export default function HomeScreen({ navigation }) {
         <IslandiaInvitacion navigation={navigation} userId={userId} participacion={participacionLibre} />
       )}
 
-      {userId && <View ref={refTourGps} collapsable={false}><GpsHomeAction navigation={navigation} /></View>}
+      {userId && <GpsHomeAction navigation={navigation} />}
 
       {userId && (
         <View style={styles.movimientoResumen} ref={refTourComoSumas} collapsable={false}>
@@ -841,13 +839,11 @@ export default function HomeScreen({ navigation }) {
       )}
 
       {!cargando && !error && (
-        <View ref={refTourKorvaMundi} collapsable={false}>
         <KorvaMundiTeaser
           conquistados={challengesCompletados.length + (tieneRutaLibre && participacionLibre.estado === 'completada' ? 1 : 0)}
           enCurso={challengesEnCurso.filter((c) => !c.pausado).length + (tieneRutaLibre && !participacionLibre.pausado && participacionLibre.estado !== 'completada' ? 1 : 0)}
           onPress={() => navigation.navigate('KorvaMundi')}
         />
-        </View>
       )}
 
 

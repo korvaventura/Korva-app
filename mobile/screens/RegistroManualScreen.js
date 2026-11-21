@@ -8,6 +8,7 @@ import { colors } from '../theme/korvaTheme';
 import useRutaLibre from '../services/useRutaLibre';
 import { consultarRutaLibre } from '../services/rutasLibresApi';
 import { TEXTO_ACEPTAR } from '../services/islandiaInvitacionCore';
+import { useTourTarget } from '../components/tour/Tour';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -23,6 +24,7 @@ const formatearFecha = (date) => {
 
 export default function RegistroManualScreen({ navigation }) {
   const [modoRegistro, setModoRegistro] = useState('gps');
+  const refTourRegistrar = useTourTarget('registrar');
   const [detallesVisibles, setDetallesVisibles] = useState(false);
   const [descripcionActividad, setDescripcionActividad] = useState('');
   const [distancia, setDistancia] = useState('');
@@ -347,7 +349,7 @@ export default function RegistroManualScreen({ navigation }) {
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.titulo}>Registrar actividad</Text>
       <Text style={styles.subtitulo}>Elegí cómo querés guardar tus kilómetros.</Text>
-      <View style={styles.modeRow}>
+      <View style={styles.modeRow} ref={refTourRegistrar} collapsable={false}>
         {[
           { id: 'gps', label: 'GPS', icon: 'navigate-outline' },
           { id: 'manual', label: 'Manual', icon: 'create-outline' },

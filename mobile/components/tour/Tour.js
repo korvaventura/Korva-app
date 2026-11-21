@@ -90,9 +90,15 @@ function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, des
           if (vigente()) { setRect(null); setListo(true); }
           return;
         }
-        const pestana = actual.tab || actual.pantalla;
-        navigationRef.navigate?.('HomeTabs', { screen: pestana });
-        await espera(420);
+        if (actual.stack) {
+          // Pantalla propia (p. ej. Korva Mundi): se abre y se espera a que dibuje.
+          navigationRef.navigate?.(actual.stack);
+          await espera(900);
+        } else {
+          const pestana = actual.tab || actual.pantalla;
+          navigationRef.navigate?.('HomeTabs', { screen: pestana });
+          await espera(420);
+        }
         if (!vigente()) return;
         if (actual.tab) {
           const rutas = rutasDeTabs(navigationRef);

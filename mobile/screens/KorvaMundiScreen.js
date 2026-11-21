@@ -7,6 +7,7 @@ import { supabase } from '../supabase';
 import { colors } from '../theme/korvaTheme';
 import { distanciaDeInscripcion } from '../utils/versionDesafio';
 import KorvaGlobe3D from '../components/KorvaGlobe3D';
+import { useTourTarget } from '../components/tour/Tour';
 import { conUbicacion, destinosPrueba } from '../services/korvaMundiCore';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
@@ -37,6 +38,7 @@ const formatFecha = (value) => {
 export default function KorvaMundiScreen({ navigation, esAdmin = false }) {
   const { estado: rutaLibre } = useRutaLibre();
   const [catalogo, setCatalogo] = useState([]);
+  const refTourMundi = useTourTarget('mundi');
   const [inscripciones, setInscripciones] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(false);
@@ -214,7 +216,7 @@ export default function KorvaMundiScreen({ navigation, esAdmin = false }) {
         </View>
       ) : (
         <>
-          <View style={styles.globeWrap} {...panResponder.panHandlers}>
+          <View style={styles.globeWrap} ref={refTourMundi} collapsable={false} {...panResponder.panHandlers}>
             <KorvaGlobe3D
               destinos={destinos}
               giroX={giroX}
