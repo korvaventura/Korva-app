@@ -251,7 +251,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
       <Text style={styles.eyebrow}>HISTORIA DEL DESAFÍO</Text>
       <Text style={styles.titulo}>{nombreReto}</Text>
       <Text style={styles.subtitulo}>Versión {versionLabel} · {distanciaTotal} km</Text>
-      <Text style={styles.subtituloVersion}>Cada actividad cuenta. Todos los kilómetros suman igual.</Text>
+      <View style={{ height: spacing.xl }} />
 
       <View style={styles.progresoCard}>
         <View style={styles.progresoHeader}>
@@ -265,7 +265,8 @@ export default function DetalleRetoScreen({ route, navigation }) {
           <View style={[styles.progressFill, { width: `${pct}%` }, estaCompletado && styles.progressFillCompletado]} />
         </View>
         <Text style={styles.progresoSub}>de {distanciaTotal} km totales</Text>
-        {desgloseProgreso && (
+        {/* Solo si hay algo más que actividades (progreso anterior o movimiento diario). */}
+        {desgloseProgreso && (Number(desgloseProgreso.km_base || 0) > 0 || Number(desgloseProgreso.km_movimiento_diario || 0) > 0) && (
           <View style={styles.desgloseProgreso}>
             <Text style={styles.desgloseTitulo}>Cómo se forma tu progreso</Text>
             <View style={styles.desgloseFila}>
