@@ -12,6 +12,8 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export function TourProvider({ navigationRef, children }) {
   const objetivos = useRef(new Map()); // id → nodo nativo
+  const acciones = useRef(new Map()); // id → función que prepara la pantalla (p. ej. elegir Manual)
+  const direccion = useRef(1); // +1 avanzando, −1 volviendo (para saltear pasos sin elemento)
   const desplazables = useRef(new Map()); // pantalla → { ref, offset }
   const [activo, setActivo] = useState(false);
   const [paso, setPaso] = useState(0);
@@ -22,14 +24,17 @@ export function TourProvider({ navigationRef, children }) {
   const registrar = useCallback((id, nodo) => {
     if (nodo) objetivos.current.set(id, nodo); else objetivos.current.delete(id);
   }, []);
+  const registrarAccion = useCallback((id, fn) => {
+    if (fn) acciones.current.set(id, fn); else acciones.current.delete(id);
+  }, []);
   const registrarScroll = useCallback((pantalla, datos) => {
     if (datos) desplazables.current.set(pantalla, datos); else desplazables.current.delete(pantalla);
   }, []);
 
   const terminar = useCallback(() => { turno.current += 1; setActivo(false); setRect(null); setListo(false); }, []);
-  const iniciar = useCallback(() => { turno.current += 1; setPaso(0); setRect(null); setListo(false); setActivo(true); }, []);
+  const iniciar = useCallback(() => { turno.current += 1; direccion.current = 1; setPaso(0); setRect(null); setListo(false); setActivo(true); }, []);
 
-  const valor = useMemo(() => ({ registrar, registrarScroll, iniciar, terminar, activo }), [registrar, registrarScroll, iniciar, terminar, activo]);
+  const valor = useMemo(() => ({ registrar, registrarAccion, registrarScroll, iniciar, terminar, activo }), [registrar, registrarAccion, registrarScroll, iniciar, terminar, activo]);
 
   return (
     <TourContext.Provider value={valor}>
@@ -38,7 +43,7 @@ export function TourProvider({ navigationRef, children }) {
         <SeguroTour onError={terminar}>
           <Overlay
             paso={paso} setPaso={setPaso} rect={rect} setRect={setRect} listo={listo} setListo={setListo}
-            objetivos={objetivos} desplazables={desplazables} navigationRef={navigationRef} turno={turno} terminar={terminar}
+            objetivos={objetivos} acciones={acciones} direccion={direccion} desplazables={desplazables} navigationRef={navigationRef} turno={turno} terminar={terminar}
           />
         </SeguroTour>
       )}
@@ -71,10 +76,17 @@ function medir(nodo) {
   });
 }
 
-function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, desplazables, navigationRef, turno, terminar }) {
+function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, acciones, direccion, desplazables, navigationRef, turno, terminar }) {
   const pantalla = useWindowDimensions();
   const insetInferior = initialWindowMetrics?.insets?.bottom || 0;
   const actual = PASOS[paso];
+  const clave = actual?.objetivo || actual?.id;
+  // Saltear un paso sin elemento en el sentido en que se viene moviendo.
+  const saltear = () => setPaso((p) => {
+    const siguiente = p + direccion.current;
+    if (siguiente < 0) { direccion.current = 1; return p + 1; }
+    return siguiente;
+  });
 
   // Prepara el paso: navega a su pestaña, desplaza hasta el elemento y lo mide.
   // Si el elemento no existe para este usuario, el paso se saltea.
@@ -103,21 +115,24 @@ function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, des
         if (actual.tab) {
           const rutas = rutasDeTabs(navigationRef);
           const i = rutas ? rutas.indexOf(actual.tab) : -1;
-          if (i < 0) { setPaso((p) => p + 1); return; }
+          if (i < 0) { saltear(); return; }
           setRect(rectTab(i, rutas.length, pantalla, insetInferior));
           setListo(true);
           return;
         }
-        let r = await medir(objetivos.current.get(actual.id));
-        if (!r) { if (vigente()) setPaso((p) => p + 1); return; }
+        // La pantalla se prepara para el paso (por ejemplo, elegir Manual o pasar a Mapa).
+        const preparar = acciones.current.get(actual.id);
+        if (preparar) { try { preparar(); } catch { /* sigue igual */ } await espera(350); if (!vigente()) return; }
+        let r = await medir(objetivos.current.get(clave));
+        if (!r) { if (vigente()) saltear(); return; }
         const delta = desplazamientoNecesario(r, pantalla);
         const scroll = desplazables.current.get(actual.pantalla);
         if (delta && scroll?.ref?.current) {
           scroll.ref.current.scrollTo({ y: Math.max(0, (scroll.offset.current || 0) + delta), animated: true });
           await espera(450);
           if (!vigente()) return;
-          r = await medir(objetivos.current.get(actual.id));
-          if (!r) { setPaso((p) => p + 1); return; }
+          r = await medir(objetivos.current.get(clave));
+          if (!r) { saltear(); return; }
         }
         if (vigente()) { setRect(r); setListo(true); }
       } catch {
@@ -152,9 +167,16 @@ function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, des
             {!ultimo ? (
               <TouchableOpacity onPress={terminar} hitSlop={10} accessibilityRole="button"><Text style={styles.saltar}>Saltar</Text></TouchableOpacity>
             ) : <View />}
-            <TouchableOpacity style={styles.siguiente} onPress={() => (ultimo ? terminar() : setPaso(paso + 1))} accessibilityRole="button">
-              <Text style={styles.siguienteTxt}>{ultimo ? 'Empezar' : 'Siguiente'}</Text>
-            </TouchableOpacity>
+            <View style={styles.botones}>
+              {paso > 0 && (
+                <TouchableOpacity style={styles.atras} onPress={() => { direccion.current = -1; setPaso(paso - 1); }} accessibilityRole="button">
+                  <Text style={styles.atrasTxt}>Atrás</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={styles.siguiente} onPress={() => { direccion.current = 1; if (ultimo) terminar(); else setPaso(paso + 1); }} accessibilityRole="button">
+                <Text style={styles.siguienteTxt}>{ultimo ? 'Empezar' : 'Siguiente'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       )}
@@ -166,6 +188,17 @@ function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, des
 export function useTourTarget(id) {
   const tour = useContext(TourContext);
   return useCallback((nodo) => { tour?.registrar(id, nodo); }, [tour, id]);
+}
+
+// Para que la pantalla se prepare al llegar a un paso (elegir Manual, pasar a Mapa…).
+export function useTourAccion(idPaso, fn) {
+  const tour = useContext(TourContext);
+  const fnRef = useRef(fn);
+  fnRef.current = fn;
+  useEffect(() => {
+    tour?.registrarAccion(idPaso, () => fnRef.current?.());
+    return () => tour?.registrarAccion(idPaso, null);
+  }, [tour, idPaso]);
 }
 
 // Para que el recorrido pueda desplazar la pantalla hasta el elemento.
@@ -192,6 +225,9 @@ const styles = StyleSheet.create({
   texto: { color: colors.textSoft, fontSize: 14, lineHeight: 20, marginTop: 6 },
   acciones: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 },
   saltar: { color: colors.textMuted, fontSize: 13, fontWeight: '700' },
+  botones: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  atras: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, borderWidth: 1, borderColor: colors.borderSoft },
+  atrasTxt: { color: colors.textSoft, fontSize: 14, fontWeight: '700' },
   siguiente: { backgroundColor: colors.brandOrange, paddingHorizontal: 18, paddingVertical: 9, borderRadius: 999 },
   siguienteTxt: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
 });

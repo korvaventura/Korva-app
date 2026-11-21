@@ -8,7 +8,7 @@ import { colors } from '../theme/korvaTheme';
 import useRutaLibre from '../services/useRutaLibre';
 import { consultarRutaLibre } from '../services/rutasLibresApi';
 import { TEXTO_ACEPTAR } from '../services/islandiaInvitacionCore';
-import { useTourTarget } from '../components/tour/Tour';
+import { useTourAccion, useTourTarget } from '../components/tour/Tour';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -25,6 +25,8 @@ const formatearFecha = (date) => {
 export default function RegistroManualScreen({ navigation }) {
   const [modoRegistro, setModoRegistro] = useState('gps');
   const refTourRegistrar = useTourTarget('registrar');
+  useTourAccion('registrar-gps', () => setModoRegistro('gps'));
+  useTourAccion('registrar-manual', () => setModoRegistro('manual'));
   const [detallesVisibles, setDetallesVisibles] = useState(false);
   const [descripcionActividad, setDescripcionActividad] = useState('');
   const [distancia, setDistancia] = useState('');

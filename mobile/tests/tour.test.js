@@ -9,9 +9,10 @@ const pantalla = { width: 390, height: 844 };
 
 test('los pasos cubren lo importante de Korva y terminan con un cierre', () => {
   const ids = T.PASOS.map((p) => p.id);
-  assert.deepEqual(ids, ['desafio', 'comoSumas', 'mundi', 'registrar', 'tab-Catalogo', 'actividades', 'direccion', 'fin']);
+  assert.deepEqual(ids, ['desafio', 'comoSumas', 'mundi', 'registrar-gps', 'gps-mapa', 'registrar-manual', 'tab-Catalogo', 'actividades', 'direccion', 'fin']);
+  assert.equal(T.PASOS.find((p) => p.id === 'gps-mapa').stack, 'GpsTracker');
+  assert.equal(T.PASOS.find((p) => p.id === 'registrar-manual').objetivo, 'registrar');
   assert.equal(T.PASOS.find((p) => p.id === 'mundi').stack, 'KorvaMundi');
-  assert.match(T.PASOS.find((p) => p.id === 'registrar').texto, /GPS: .*Manual: /);
   const dir = T.PASOS.find((p) => p.id === 'direccion');
   assert.match(dir.texto, /le llegan a nuestro equipo/);
   assert.match(dir.texto, /No son públicos: los demás participantes no los ven/);
@@ -59,4 +60,16 @@ test('el recorrido se dibuja encima de la app, no cambia estado al dibujar y est
   assert.match(perfil, /useTourTarget\('actividades'\)/);
   assert.match(perfil, /useTourTarget\('direccion'\)/);
   assert.match(leer('components/KorvaHelpSheet.js'), /Ver recorrido guiado/);
+});
+
+test('se puede volver atrás y cada pantalla se prepara para su paso', () => {
+  const tour = leer('components/tour/Tour.js');
+  assert.match(tour, />Atrás</);
+  assert.match(tour, /direccion\.current = -1; setPaso\(paso - 1\)/);
+  const registrar = leer('screens/RegistroManualScreen.js');
+  assert.match(registrar, /useTourAccion\('registrar-manual', \(\) => setModoRegistro\('manual'\)\)/);
+  assert.match(registrar, /useTourAccion\('registrar-gps', \(\) => setModoRegistro\('gps'\)\)/);
+  const gps = leer('screens/GpsTrackerScreen.js');
+  assert.match(gps, /useTourAccion\('gps-mapa', \(\) => irAPagina\(1\)\)/);
+  assert.match(gps, /useTourTarget\('gps-mapa'\)/);
 });

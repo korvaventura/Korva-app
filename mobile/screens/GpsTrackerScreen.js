@@ -15,6 +15,7 @@ import { sincronizarActividadGps } from '../services/gps/gpsLiveActivity';
 import { confirmarActividadGps } from '../services/gps/gpsApi';
 import { colors, radius } from '../theme/korvaTheme';
 import GpsAventura from '../components/GpsAventura';
+import { useTourAccion, useTourTarget } from '../components/tour/Tour';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../supabase';
 import { STRAVA_APP, claveAvisoStrava, debeAvisarStrava, TEXTO_AVISO_STRAVA, tiendaStrava } from '../services/gps/avisoStravaCore';
@@ -54,6 +55,9 @@ export default function GpsTrackerScreen({ navigation }) {
   const [pagina, setPagina] = useState(0);
   const [mapaTocado, setMapaTocado] = useState(false);
   const paginasRef = useRef(null);
+  // Recorrido guiado: resalta las pantallas Datos/Mapa y pasa sola a Mapa.
+  const refTourGpsMapa = useTourTarget('gps-mapa');
+  useTourAccion('gps-mapa', () => irAPagina(1));
   const irAPagina = (n) => { setMapaTocado(false); setPagina(n); paginasRef.current?.scrollTo({ x: n * anchoPagina, animated: true }); };
 
   const publicar = (s, { persistir = true } = {}) => {
@@ -318,6 +322,7 @@ export default function GpsTrackerScreen({ navigation }) {
         <View style={styles.back} />
       </View>
 
+      <View style={styles.paginas} ref={refTourGpsMapa} collapsable={false}>
       <ScrollView
         ref={paginasRef}
         style={styles.paginas}
@@ -397,6 +402,7 @@ export default function GpsTrackerScreen({ navigation }) {
         )}
       </View>
       </ScrollView>
+      </View>
 
       <View style={styles.puntos}>
         {['Datos', 'Mapa'].map((nombre, i) => (
