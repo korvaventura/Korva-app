@@ -13,7 +13,7 @@ async function server(fn, options = {}) {
   let throwDb = false;
   const repo = { async registrar(rows, ids) {
     if (throwDb) throw Error('private database message');
-    assert.deepEqual(ids, [USER]);
+    assert.deepEqual(ids, options.env?.GARMIN_PUBLIC_BETA_ENABLED === '1' ? null : [USER]);
     let eligible = 0, inserted = 0;
     for (const row of rows) {
       if (row.garmin_user_id !== 'garmin-fixture') continue;
@@ -112,4 +112,8 @@ test('Garmin/Strava duplicate preview is symmetric, midnight-safe and respects t
   // Same distance, separate workouts on the same day must remain separate.
   assert.equal(equivalenteGarminStrava(a, { ...b, recorded_at: '2026-11-20T12:00:00Z', distance_km: 10 }), false);
   assert.equal(equivalenteGarminStrava({ ...a, distance_km: 1 }, { ...b, distance_km: 1.3 }), true);
+});
+
+test('public capture explicitly passes null scope; absent private list still denies',async()=>{
+ await server(async({post})=>assert.equal((await post()).status,200),{env:{GARMIN_PUBLIC_BETA_ENABLED:'1',GARMIN_OAUTH_TEST_USER_IDS:''}});
 });
