@@ -24,6 +24,7 @@
 const { clienteSoloLectura, traerTodo } = require('./progresoSombra');
 const { healthConsentActivo } = require('./flagsMotor');
 const { resolverInicioRetroactivo } = require('./inicioRetroactivo');
+const { rangoDuplicadoKm } = require('./toleranciaDuplicados');
 
 const CAMPOS_USER_CHALLENGE = 'id, user_id, challenge_id, status, started_at, completed_at, pausado, pausado_at, periodos_pausados, version, modalidad, km_completed, km_base, km_base_motivo';
 const CAMPOS_CHALLENGE = 'id, title, modalidades, total_distance_km';
@@ -208,7 +209,7 @@ const crearRepositorioBase = (supabase) => {
 
     /**
      * Busca una actividad equivalente alrededor del inicio del GPS.
-     * Ventana estrecha (±45 min) + distancia (±0.3 km) + categoría compatible:
+     * Ventana estrecha (±45 min) + distancia (±5 %, mínimo 0,3 km) + categoría compatible:
      * evita duplicar una misma salida que ya llegó por Strava/manual sin bloquear
      * dos entrenamientos distintos del mismo día.
      */
@@ -228,8 +229,8 @@ const crearRepositorioBase = (supabase) => {
         .in('sport_type', tipos)
         .gte('recorded_at', new Date(inicioMs - ventanaMs).toISOString())
         .lte('recorded_at', new Date(inicioMs + ventanaMs).toISOString())
-        .gte('distance_km', Math.max(0, distanceKm - 0.3))
-        .lte('distance_km', distanceKm + 0.3)
+        .gte('distance_km', rangoDuplicadoKm(distanceKm).min)
+        .lte('distance_km', rangoDuplicadoKm(distanceKm).max)
         .limit(1);
       if (error) throw error;
       return Array.isArray(data) && data.length ? data[0] : null;
