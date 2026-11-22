@@ -73,8 +73,8 @@ function urlAutorizacionValida(url) {
 const SOPORTE_WHATSAPP = '61474024238';
 const SOPORTE_MAIL = 'korvaventura@gmail.com';
 const AVISO_BETA_GARMIN = {
-  titulo: 'Garmin está en beta',
-  texto: 'Tus salidas de Garmin se van a sumar solas a tus desafíos. Es una función nueva: si ves km raros, una salida que no aparece o algo que se suma dos veces, avisanos y lo revisamos.',
+  titulo: '¡Garmin conectado!',
+  texto: 'Desde ahora tus salidas de Garmin se suman solas a tus desafíos. Es una función nueva (beta): si ves km raros o una salida que no aparece, avisanos desde Perfil → Conexiones y lo revisamos.',
 };
 const CLAVE_AVISO_BETA = (userId) => `korva:garmin-beta-visto:v1:${userId || 'anon'}`;
 function debeMostrarAvisoBeta(fila, visto) {

@@ -81,6 +81,24 @@ function medir(nodo) {
 function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, acciones, direccion, desplazables, datos, navigationRef, turno, terminar }) {
   const pantalla = useWindowDimensions();
   const insetInferior = initialWindowMetrics?.insets?.bottom || 0;
+  // Lugar fijo donde queda el elemento después de desplazar: arriba, debajo de la barra de estado.
+  const arriba = (initialWindowMetrics?.insets?.top || 24) + 70;
+  // Salto sin animación (el velo tapa todo mientras tanto): así no se ve la pantalla bajando.
+  // Devuelve la nueva medida, o null si no hizo falta o la pantalla ya no da para más.
+  const llevarArriba = async (pantallaId, clave3, r) => {
+    const scroll = desplazables.current.get(pantallaId);
+    const delta = desplazamientoNecesario(r, pantalla, { arriba });
+    if (!delta || !scroll?.ref?.current) return null;
+    const previo = scroll.offset.current || 0;
+    const y = Math.max(0, previo + delta);
+    scroll.ref.current.scrollTo({ y, animated: false });
+    await espera(90);
+    const r2 = await medir(objetivos.current.get(clave3));
+    // Si no se movió (fin de la pantalla), dejamos todo como estaba.
+    if (!r2 || !rectCambio(r, r2)) return null;
+    scroll.offset.current = previo + (r.y - r2.y);
+    return r2;
+  };
   const actual = PASOS[paso];
   const clave = actual?.objetivo || actual?.id;
   // Saltear un paso sin elemento en el sentido en que se viene moviendo.
@@ -139,15 +157,11 @@ function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, acc
         };
         let r = await medirQuieto();
         if (!r) { if (vigente()) saltear(); return; }
-        const scroll = desplazables.current.get(actual.pantalla);
         for (let intento = 0; intento < 2 && vigente(); intento++) {
-          const delta = desplazamientoNecesario(r, pantalla);
-          if (!delta || !scroll?.ref?.current) break;
-          scroll.ref.current.scrollTo({ y: Math.max(0, (scroll.offset.current || 0) + delta), animated: true });
-          await espera(450);
+          const movido = await llevarArriba(actual.pantalla, clave, r);
           if (!vigente()) return;
-          r = await medirQuieto();
-          if (!r) { saltear(); return; }
+          if (!movido) break;
+          r = (await medirQuieto()) || movido;
         }
         if (vigente()) { setRect(r); setListo(true); }
       } catch {
@@ -165,7 +179,13 @@ function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, acc
     let vivo = true;
     const id = setInterval(async () => {
       const r = await medir(objetivos.current.get(clave2));
-      if (vivo && r && rectCambio(rect, r)) setRect(r);
+      if (!vivo || !r || !rectCambio(rect, r)) return;
+      // Si la pantalla se acomodó (cargaron datos) y el elemento se fue de lugar,
+      // lo volvemos a dejar arriba en vez de seguirlo hasta el fondo.
+      const movido = actual.pantalla ? await llevarArriba(actual.pantalla, clave2, r) : null;
+      if (!vivo) return;
+      if (movido) { setRect(movido); return; }
+      setRect(r);
     }, 350);
     return () => { vivo = false; clearInterval(id); };
   }, [listo, rect, paso]);

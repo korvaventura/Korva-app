@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Linking, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../supabase';
@@ -39,10 +39,11 @@ export default function ConexionesSection({ stravaConectado, onConectarStrava, o
       // Lo que vale es lo que dice el servidor, no el link de regreso.
       const actual = await estadoGarmin();
       setGarmin(actual);
-      // Si ya suma km, en vez del cartel aparece el aviso de beta (una sola vez).
+      // Si ya suma km, en vez del cartel aparece el aviso de bienvenida (una sola vez).
       const m = actual.connected === true && actual.activities_enabled === true ? null
         : mensajeGarmin({ conectado: actual.connected === true, tipo: r?.type, resultado: r?.type === 'success' ? resultadoDeUrl(r.url) : null });
       if (m) Alert.alert(m.titulo, m.texto);
+      else mostrarAvisoBetaSiCorresponde(filaGarmin(actual));
     } catch (e) {
       Alert.alert('Conectar Garmin', e.status === 409
         ? 'Ya tenés Garmin vinculado o una conexión en curso. Esperá unos minutos y volvé a abrir Perfil.'
@@ -74,21 +75,15 @@ export default function ConexionesSection({ stravaConectado, onConectarStrava, o
   // El tour nombra a Garmin solo si a esta persona le aparece.
   useTourDato('garmin', !!fGarmin);
 
-  // Garmin en beta: la primera vez que suma km, un aviso para que nos cuenten si ven algo raro.
-  const estadoFila = fGarmin?.estado;
-  useEffect(() => {
-    if (estadoFila !== 'sincroniza') return;
-    let vivo = true;
-    (async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const clave = CLAVE_AVISO_BETA(session?.user?.id);
-        const visto = await AsyncStorage.getItem(clave);
-        if (vivo && debeMostrarAvisoBeta(fGarmin, !!visto)) setAvisoBeta(true);
-      } catch { /* sin aviso, la app sigue normal */ }
-    })();
-    return () => { vivo = false; };
-  }, [estadoFila]);
+  // Garmin en beta: el aviso sale una sola vez, justo después de conectar
+  // (nunca solo al abrir Perfil, para que no aparezca de la nada ni en el tour).
+  const mostrarAvisoBetaSiCorresponde = async (fila) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const visto = await AsyncStorage.getItem(CLAVE_AVISO_BETA(session?.user?.id));
+      if (debeMostrarAvisoBeta(fila, !!visto)) setAvisoBeta(true);
+    } catch { /* sin aviso, la app sigue normal */ }
+  };
   const cerrarAvisoBeta = async () => {
     setAvisoBeta(false);
     try {
@@ -154,11 +149,8 @@ export default function ConexionesSection({ stravaConectado, onConectarStrava, o
           <View style={s.aviso}>
             <Text style={s.avisoTitulo}>{AVISO_BETA_GARMIN.titulo}</Text>
             <Text style={s.avisoTexto}>{AVISO_BETA_GARMIN.texto}</Text>
-            <TouchableOpacity style={s.avisoBoton} onPress={() => { cerrarAvisoBeta(); avisarProblema(); }} accessibilityRole="button">
-              <Text style={s.avisoBotonTexto}>Avisar un problema</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={s.avisoSecundario} onPress={cerrarAvisoBeta} accessibilityRole="button">
-              <Text style={s.avisoSecundarioTexto}>Entendido</Text>
+            <TouchableOpacity style={s.avisoBoton} onPress={cerrarAvisoBeta} accessibilityRole="button">
+              <Text style={s.avisoBotonTexto}>Entendido</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -198,7 +190,5 @@ const s = StyleSheet.create({
   avisoTexto: { color: colors.textSoft, fontSize: 14, lineHeight: 21, marginTop: 10 },
   avisoBoton: { marginTop: 18, minHeight: 46, borderRadius: 12, backgroundColor: colors.brandOrange, alignItems: 'center', justifyContent: 'center' },
   avisoBotonTexto: { color: colors.text, fontSize: 14, fontWeight: '800' },
-  avisoSecundario: { marginTop: 8, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  avisoSecundarioTexto: { color: colors.textMuted, fontSize: 14, fontWeight: '700' },
   ayudaTexto: { color: colors.actionBlue, fontSize: 12, fontWeight: '700' },
 });

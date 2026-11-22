@@ -42,12 +42,15 @@ function huecoOverlay(rect, pantalla, margen = 8) {
   ];
 }
 
-// El globito va abajo del elemento si hay lugar; si no, arriba. Sin elemento: centrado.
+// El globito va abajo del elemento si hay lugar; si no, arriba; si el elemento
+// es muy alto y no entra en ningún lado, abajo de la pantalla. Sin elemento: centrado.
 function posicionGlobo(rect, pantalla, altoGlobo = 170, margen = 14) {
   if (!rect) return { top: Math.max(60, (pantalla.height - altoGlobo) / 2) };
   const abajo = rect.y + rect.height + margen;
   if (abajo + altoGlobo < pantalla.height - 20) return { top: abajo };
-  return { top: Math.max(50, rect.y - margen - altoGlobo) };
+  const arriba = rect.y - margen - altoGlobo;
+  if (arriba >= 50) return { top: arriba };
+  return { top: Math.max(50, pantalla.height - altoGlobo - 110) };
 }
 
 // Botón de la barra inferior: mismas columnas que dibuja la barra de pestañas.
@@ -56,12 +59,13 @@ function rectTab(indice, total, pantalla, insetInferior = 0, altoBarra = 49) {
   return { x: indice * ancho, y: pantalla.height - insetInferior - altoBarra, width: ancho, height: altoBarra };
 }
 
-// ¿Hace falta desplazar para que el elemento quede cómodo a la vista?
+// ¿Hace falta desplazar? Si el elemento no queda cómodo a la vista, devuelve
+// cuánto mover para dejarlo siempre en el mismo lugar: arriba, con el globito abajo.
 function desplazamientoNecesario(rect, pantalla, { arriba = 90, abajo = 160 } = {}) {
   if (!rect) return 0;
   const limiteAbajo = pantalla.height - abajo;
-  if (rect.y >= arriba && rect.y + Math.min(rect.height, pantalla.height * 0.5) <= limiteAbajo) return 0;
-  return rect.y - pantalla.height * 0.28;
+  if (rect.y >= arriba - 10 && rect.y + Math.min(rect.height, pantalla.height * 0.5) <= limiteAbajo) return 0;
+  return rect.y - arriba;
 }
 
 // Usuario nuevo (cuenta de menos de 3 días): recorrido automático. El resto: se le ofrece una vez.

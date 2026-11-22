@@ -100,3 +100,11 @@ test('el recuadro se redibuja solo si el elemento se movió', () => {
   assert.equal(T.rectCambio(null, a), true);
   assert.equal(T.rectCambio(null, null), false);
 });
+
+test('tour: desplaza para dejar el elemento arriba y el globo nunca queda fuera', () => {
+  const pantalla = { width: 390, height: 844 };
+  assert.equal(T.desplazamientoNecesario({ x: 0, y: 1500, width: 10, height: 100 }, pantalla, { arriba: 120 }), 1380);
+  assert.equal(T.desplazamientoNecesario({ x: 0, y: 30, width: 10, height: 100 }, pantalla, { arriba: 120 }), -90);
+  const alto = T.posicionGlobo({ x: 0, y: 100, width: 300, height: 700 }, pantalla);
+  assert.ok(alto.top >= 50 && alto.top + 170 <= pantalla.height);
+});

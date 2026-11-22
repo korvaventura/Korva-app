@@ -62,6 +62,7 @@ test('aviso beta: una sola vez y solo cuando Garmin ya suma', () => {
   assert.equal(c.debeMostrarAvisoBeta(null, false), false);
   assert.equal(c.CLAVE_AVISO_BETA('u1'), 'korva:garmin-beta-visto:v1:u1');
   assert.match(c.AVISO_BETA_GARMIN.texto, /avisanos/);
+  assert.match(c.AVISO_BETA_GARMIN.texto, /Perfil → Conexiones/);
 });
 
 test('contacto de soporte', () => {
