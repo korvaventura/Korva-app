@@ -37,9 +37,16 @@ BEGIN
   RETURN jsonb_build_object('result','ignorado');
  END IF;
  -- Mark before insertion in the same transaction. Crashes are handled by recovery.
- WITH m AS (UPDATE public.user_challenges SET recalculo_pendiente_desde=stamp
-  WHERE user_id=e.user_id AND status='active' AND recalculo_pendiente_desde IS NULL RETURNING id)
- SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'marca',stamp)),'[]'::jsonb) INTO marks FROM m;
+ WITH previous AS MATERIALIZED (
+  SELECT id,recalculo_pendiente_desde AS old_mark FROM public.user_challenges
+  WHERE user_id=e.user_id AND status='active' ORDER BY id FOR UPDATE
+ ), m AS (
+  UPDATE public.user_challenges u SET recalculo_pendiente_desde=
+   greatest(stamp,coalesce(previous.old_mark + interval '1 microsecond',stamp))
+  FROM previous WHERE u.id=previous.id
+  RETURNING u.id,u.recalculo_pendiente_desde AS marca,previous.old_mark IS NULL AS propia
+ )
+ SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'marca',marca)) FILTER (WHERE propia),'[]'::jsonb) INTO marks FROM m;
  INSERT INTO public.activities(user_id,source,external_id,sport_type,distance_km,duration_seconds,recorded_at)
  VALUES(e.user_id,'garmin',p->>'external_id',p->>'sport_type',(p->>'distance_km')::double precision,
  (p->>'duration_seconds')::integer,(p->>'recorded_at')::timestamptz AT TIME ZONE 'UTC')
