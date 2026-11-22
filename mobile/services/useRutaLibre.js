@@ -17,14 +17,16 @@ export default function useRutaLibre() {
     }
   }, []);
   useFocusEffect(useCallback(() => {
-    actualizar();
+    // Al volver a la pantalla se conservan los datos anteriores mientras se
+    // actualiza: así nada aparece y desaparece (p. ej. la invitación a Islandia).
+    actualizar({ conservarDatos: true });
     let anterior = AppState.currentState;
     const app = AppState.addEventListener('change', (actual) => {
-      if (actual === 'active' && anterior !== 'active') actualizar();
+      if (actual === 'active' && anterior !== 'active') actualizar({ conservarDatos: true });
       anterior = actual;
     });
     const actividades = DeviceEventEmitter.addListener('korva:actividades-actualizadas', () => {
-      if (AppState.currentState === 'active') actualizar();
+      if (AppState.currentState === 'active') actualizar({ conservarDatos: true });
     });
     const movimiento = DeviceEventEmitter.addListener('korva:movimiento-actualizado', () => {
       if (AppState.currentState === 'active') actualizar({ conservarDatos: true });

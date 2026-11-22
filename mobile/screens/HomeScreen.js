@@ -470,6 +470,8 @@ export default function HomeScreen({ navigation }) {
   };
 
   const participacionLibre = rutaLibre.datos?.userId === userId ? rutaLibre.datos.participacion : null;
+  // La invitación a Islandia espera a saber si ya estás inscripto: sin esto aparecía un segundo y se iba.
+  const rutaLibreLista = !!userId && rutaLibre.datos?.userId === userId;
   const tieneRutaLibre = !!participacionLibre && !participacionLibre.abandonado;
 
   const challengesPending = challenges.filter(c => c.pending);
@@ -710,7 +712,7 @@ export default function HomeScreen({ navigation }) {
             </View>
           ))}
 
-          {challengesActivos.length === 0 && userId && (
+          {challengesActivos.length === 0 && rutaLibreLista && (
             <IslandiaInvitacion navigation={navigation} userId={userId} participacion={participacionLibre} />
           )}
           {challengesActivos.length === 0 ? (tieneRutaLibre ? null :
@@ -790,7 +792,7 @@ export default function HomeScreen({ navigation }) {
         </>
       )}
 
-      {userId && challengesActivos.length > 0 && (
+      {rutaLibreLista && challengesActivos.length > 0 && (
         <IslandiaInvitacion navigation={navigation} userId={userId} participacion={participacionLibre} />
       )}
 
