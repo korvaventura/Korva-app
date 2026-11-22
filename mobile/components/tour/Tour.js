@@ -2,13 +2,15 @@ import { Component, createContext, useCallback, useContext, useEffect, useMemo, 
 import { Animated, Easing, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { initialWindowMetrics } from 'react-native-safe-area-context';
 import { colors } from '../../theme/korvaTheme';
-import { PASOS, desplazamientoNecesario, huecoOverlay, posicionGlobo, rectTab, rectCambio, textoPaso } from '../../services/tour/tourCore';
+import { PASOS, desplazamientoNecesario, posicionGlobo, rectTab, rectCambio, textoPaso } from '../../services/tour/tourCore';
 
 // Recorrido guiado: oscurece la pantalla, resalta un elemento y explica qué hace.
 // Se dibuja ENCIMA de la app (no reemplaza ninguna pantalla) y, si algo falla,
 // se cierra solo y la app sigue normal.
 const TourContext = createContext(null);
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+// Valor animado que nunca baja de cero (para anchos y altos del velo).
+const pos = (v) => v.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: 'clamp' });
 
 export function TourProvider({ navigationRef, children }) {
   const objetivos = useRef(new Map()); // id → nodo nativo
@@ -147,10 +149,12 @@ function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, acc
         // medimos hasta que el elemento quede quieto antes de mostrar el recuadro.
         const medirQuieto = async () => {
           let previo = await medir(objetivos.current.get(clave));
-          for (let i = 0; i < 6 && vigente(); i++) {
-            await espera(140);
+          let quietas = 0;
+          for (let i = 0; i < 12 && vigente(); i++) {
+            await espera(130);
             const ahora = await medir(objetivos.current.get(clave));
-            if (!rectCambio(previo, ahora)) return ahora;
+            if (ahora && !rectCambio(previo, ahora)) { quietas += 1; if (quietas >= 2) return ahora; }
+            else quietas = 0;
             previo = ahora;
           }
           return previo;
@@ -180,12 +184,12 @@ function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, acc
     const id = setInterval(async () => {
       const r = await medir(objetivos.current.get(clave2));
       if (!vivo || !r || !rectCambio(rect, r, 4)) return;
-      // Si la pantalla se acomodó (cargaron datos) y el elemento se fue de lugar,
-      // lo volvemos a dejar arriba en vez de seguirlo hasta el fondo.
-      const movido = actual.pantalla ? await llevarArriba(actual.pantalla, clave2, r) : null;
+      // Si la pantalla se acomodó (cargaron datos), el recuadro se desliza al nuevo
+      // lugar. Solo si el elemento quedó fuera de la vista lo volvemos a subir.
+      const fuera = r.y > pantalla.height - 140 || r.y + r.height < 90;
+      const movido = fuera && actual.pantalla ? await llevarArriba(actual.pantalla, clave2, r) : null;
       if (!vivo) return;
-      if (movido) { setRect(movido); return; }
-      setRect(r);
+      setRect(movido || r);
     }, 350);
     return () => { vivo = false; clearInterval(id); };
   }, [listo, rect, paso]);
@@ -194,27 +198,25 @@ function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, acc
   // la pantalla se prepara detrás del velo, y aparecen cuando está todo quieto.
   const aparicion = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.timing(aparicion, { toValue: listo ? 1 : 0, duration: listo ? 240 : 140, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    Animated.timing(aparicion, { toValue: listo ? 1 : 0, duration: listo ? 240 : 140, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start(); // JS: comparte vista con posiciones animadas
   }, [listo]);
   // El recuadro se desliza al nuevo lugar en vez de saltar.
   const marcoAnim = useRef(null);
-  if (!marcoAnim.current) marcoAnim.current = { x: new Animated.Value(0), y: new Animated.Value(0), w: new Animated.Value(0), h: new Animated.Value(0), listoAntes: false };
+  if (!marcoAnim.current) marcoAnim.current = { x: new Animated.Value(0), y: new Animated.Value(0), w: new Animated.Value(0), h: new Animated.Value(0), globo: new Animated.Value(0), listoAntes: false };
   useEffect(() => {
     const m = marcoAnim.current;
-    if (!rect) { m.listoAntes = false; return; }
-    const destino = { x: rect.x, y: rect.y, w: rect.width, h: rect.height };
+    if (!rect) { m.listoAntes = false; m.globo.setValue(posicionGlobo(null, pantalla).top); return; }
+    const destino = { x: rect.x, y: rect.y, w: rect.width, h: rect.height, globo: posicionGlobo(rect, pantalla).top };
     // Recién aparece (venía tapado): se ubica directo. Ya visible: se desliza.
     const recien = !m.listoAntes;
     m.listoAntes = listo;
     if (!listo || recien) { Object.keys(destino).forEach((k) => m[k].setValue(destino[k])); return; }
-    Animated.parallel(Object.keys(destino).map((k) => Animated.timing(m[k], { toValue: destino[k], duration: 180, easing: Easing.out(Easing.cubic), useNativeDriver: false }))).start();
+    Animated.parallel(Object.keys(destino).map((k) => Animated.timing(m[k], { toValue: destino[k], duration: 220, easing: Easing.inOut(Easing.cubic), useNativeDriver: false }))).start();
   }, [rect, listo]);
 
   // Nunca cambiar estado durante el dibujado (eso era lo que rompía el tutorial viejo).
   useEffect(() => { if (!actual) terminar(); }, [actual, terminar]);
   if (!actual) return null;
-  const huecos = huecoOverlay(rect, pantalla);
-  const globo = posicionGlobo(listo ? rect : null, pantalla);
   const ultimo = paso === PASOS.length - 1;
   const textos = textoPaso(actual, datos.current);
   const total = PASOS.length - 1;
@@ -224,18 +226,22 @@ function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, acc
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {/* Velo completo mientras se prepara el paso; con hueco cuando está listo. Se cruzan suave. */}
-      <Animated.View pointerEvents={conHueco && listo ? 'none' : 'auto'} style={[StyleSheet.absoluteFill, styles.veloLleno, { opacity: conHueco ? aparicion.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) : 1 }]} />
-      {conHueco && (
-        <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { opacity: aparicion }]}>
-          {huecos.map((h, i) => (
-            <View key={i} style={[styles.velo, { left: h.x, top: h.y, width: h.w, height: h.h }]} />
-          ))}
-          <Animated.View pointerEvents="none" style={[styles.marco, { left: Animated.subtract(m.x, 8), top: Animated.subtract(m.y, 8), width: Animated.add(m.w, 16), height: Animated.add(m.h, 16) }]} />
-        </Animated.View>
+      {/* El velo de afuera queda fijo; solo el hueco se aclara cuando el paso está listo.
+          Así no parpadea la pantalla entre pasos. */}
+      {conHueco ? (
+        <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+          <Animated.View style={[styles.velo, { left: 0, top: 0, width: pantalla.width, height: pos(Animated.subtract(m.y, 8)) }]} />
+          <Animated.View style={[styles.velo, { left: 0, top: Animated.add(Animated.add(m.y, m.h), 8), width: pantalla.width, height: pantalla.height }]} />
+          <Animated.View style={[styles.velo, { left: 0, top: Animated.subtract(m.y, 8), width: pos(Animated.subtract(m.x, 8)), height: Animated.add(m.h, 16) }]} />
+          <Animated.View style={[styles.velo, { left: Animated.add(Animated.add(m.x, m.w), 8), top: Animated.subtract(m.y, 8), width: pantalla.width, height: Animated.add(m.h, 16) }]} />
+          <Animated.View pointerEvents={listo ? 'none' : 'auto'} style={[styles.velo, { left: Animated.subtract(m.x, 8), top: Animated.subtract(m.y, 8), width: Animated.add(m.w, 16), height: Animated.add(m.h, 16), opacity: aparicion.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }]} />
+          <Animated.View pointerEvents="none" style={[styles.marco, { left: Animated.subtract(m.x, 8), top: Animated.subtract(m.y, 8), width: Animated.add(m.w, 16), height: Animated.add(m.h, 16), opacity: aparicion }]} />
+        </View>
+      ) : (
+        <View style={[StyleSheet.absoluteFill, styles.veloLleno]} />
       )}
       {listo && (
-        <Animated.View style={[styles.globo, globo, { opacity: aparicion, transform: [{ translateY: subir }] }]}>
+        <Animated.View style={[styles.globo, { top: m.globo }, { opacity: aparicion, transform: [{ translateY: subir }] }]}>
           {!ultimo && <Text style={styles.contador}>{paso + 1} DE {total}</Text>}
           <Text style={styles.titulo}>{textos.titulo}</Text>
           <Text style={styles.texto}>{textos.texto}</Text>
