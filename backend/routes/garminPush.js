@@ -10,8 +10,8 @@ function crearGarminPushRoutes({ supabase, repo = crearGarminPushRepositorio(sup
     origin_mode: env.RAILWAY_ENVIRONMENT_ID ? 'railway_edge' : 'socket', activities_enabled: false });
   router.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
   router.post('/webhook', (req, res, next) => {
-    const ids = (env.GARMIN_OAUTH_TEST_USER_IDS || '').split(',').map((s) => s.trim()).filter((s) => UUID.test(s));
-    if (env.GARMIN_PUSH_CAPTURE_ENABLED !== '1' || env.GARMIN_OAUTH_ENABLED !== '1' || !ids.length) return res.sendStatus(404);
+    const ids = require('../lib/garminAcceso').cuentasGarmin(env);
+    if (env.GARMIN_PUSH_CAPTURE_ENABLED !== '1' || env.GARMIN_OAUTH_ENABLED !== '1' || (ids !== null && !ids.length)) return res.sendStatus(404);
     if (!ipGarmin(obtenerIp(req))) { trace({ result: 'origin_rejected' }); return res.sendStatus(403); }
     req.garminAllowedIds = ids;
     next();

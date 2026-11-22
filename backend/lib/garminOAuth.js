@@ -21,8 +21,7 @@ function configuracionGarmin(env = process.env) {
 }
 
 function permitidoGarmin(userId, env = process.env) {
-  return env.GARMIN_OAUTH_ENABLED === '1' && (env.GARMIN_OAUTH_TEST_USER_IDS || '')
-    .split(',').map((id) => id.trim()).filter(Boolean).includes(userId);
+  return require('./garminAcceso').usuarioGarminPermitido(userId, env);
 }
 
 // Las salidas de Garmin suman km solo con el importador encendido (mismas banderas que
