@@ -4,11 +4,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../supabase';
 import { useFocusEffect } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
-import { estadoGarmin, iniciarGarmin, GARMIN_RETURN_URL } from '../services/garminApi';
+import { estadoGarmin, iniciarGarmin, desconectarGarmin, GARMIN_RETURN_URL } from '../services/garminApi';
 import { colors, radius, spacing } from '../theme/korvaTheme';
 import { useTourDato } from './tour/Tour';
 
-const { filaGarmin, filaStrava, mensajeGarmin, resultadoDeUrl, urlAutorizacionValida, AVISO_BETA_GARMIN, CLAVE_AVISO_BETA, debeMostrarAvisoBeta, urlWhatsappSoporte, urlMailSoporte } = require('../services/conexionesCore');
+const { filaGarmin, filaStrava, mensajeGarmin, mensajeDesconectarGarmin, resultadoDeUrl, urlAutorizacionValida, AVISO_BETA_GARMIN, CLAVE_AVISO_BETA, debeMostrarAvisoBeta, urlWhatsappSoporte, urlMailSoporte } = require('../services/conexionesCore');
 
 // Perfil → Conexiones: Strava y Garmin con la misma fila.
 // Strava funciona como siempre (sus acciones vienen de PerfilScreen).
@@ -51,6 +51,22 @@ export default function ConexionesSection({ stravaConectado, onConectarStrava, o
       pidiendo.current = false;
       setConectandoGarmin(false);
     }
+  };
+
+  const confirmarDesconectarGarmin = () => {
+    Alert.alert('Desconectar Garmin', 'Tus próximas salidas de Garmin dejan de llegar a Korva. Lo que ya sumaste queda.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Desconectar', style: 'destructive', onPress: async () => {
+        if (pidiendo.current) return;
+        pidiendo.current = true; setConectandoGarmin(true);
+        let error = null;
+        try { await desconectarGarmin(); } catch (e) { error = e; }
+        try { setGarmin(await estadoGarmin()); } catch { /* se refresca al volver */ }
+        pidiendo.current = false; setConectandoGarmin(false);
+        const m = mensajeDesconectarGarmin(error);
+        Alert.alert(m.titulo, m.texto);
+      } },
+    ]);
   };
 
   const fStrava = filaStrava(stravaConectado);
@@ -117,6 +133,11 @@ export default function ConexionesSection({ stravaConectado, onConectarStrava, o
               <Text style={[s.estado, fGarmin.estado !== 'sin_conectar' && s.estadoOk]}>{fGarmin.titulo}</Text>
               <Text style={s.detalle}>{fGarmin.detalle}</Text>
             </View>
+            {fGarmin.accion === 'desconectar' && (
+              <TouchableOpacity onPress={confirmarDesconectarGarmin} disabled={conectandoGarmin} hitSlop={6}>
+                {conectandoGarmin ? <ActivityIndicator color={colors.textMuted} size="small" /> : <Text style={s.linkPeligro}>Desconectar</Text>}
+              </TouchableOpacity>
+            )}
             {fGarmin.accion === 'conectar' && (
               <TouchableOpacity style={s.boton} onPress={conectarGarmin} disabled={conectandoGarmin} accessibilityRole="button">
                 {conectandoGarmin ? <ActivityIndicator color={colors.text} size="small" /> : <Text style={s.botonTexto}>Conectar</Text>}

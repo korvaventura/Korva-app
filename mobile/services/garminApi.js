@@ -23,3 +23,5 @@ async function solicitar(path, method = 'GET') {
 // Si el backend todavía no tiene Garmin (404/red), se trata como "no disponible".
 export const estadoGarmin = () => solicitar('status').catch(() => ({ available: false, connected: false }));
 export const iniciarGarmin = () => solicitar('auth', 'POST');
+// DELETE /garmin/connection: revoca en Garmin y borra la conexión (las actividades ya importadas quedan).
+export const desconectarGarmin = () => solicitar('connection', 'DELETE');

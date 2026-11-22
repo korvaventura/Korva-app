@@ -5,14 +5,17 @@ const c = require('../services/conexionesCore');
 test('Garmin solo se muestra si el servidor la habilita para la cuenta', () => {
   assert.equal(c.filaGarmin(null), null);
   assert.equal(c.filaGarmin({ available: false, connected: false }), null);
-  assert.equal(c.filaGarmin({ available: false, connected: true }), null);
+  // Conectada pero con Garmin cerrado: se ve para poder desconectarla, sin prometer km.
+  const cerrada = c.filaGarmin({ available: false, connected: true });
+  assert.equal(cerrada.accion, 'desconectar');
+  assert.match(cerrada.detalle, /no se están sumando/);
   assert.equal(c.filaGarmin({ available: true, connected: false }).accion, 'conectar');
 });
 
 test('vinculada no es lo mismo que sincronizando', () => {
   const v = c.filaGarmin({ available: true, connected: true, activities_enabled: false });
   assert.equal(v.estado, 'vinculada');
-  assert.equal(v.accion, null);
+  assert.equal(v.accion, 'desconectar');
   assert.match(v.detalle, /todavía no suman/);
   assert.doesNotMatch(v.detalle, /sincroniz/i);
   // Sin el campo, tampoco se promete que sume.
@@ -64,4 +67,12 @@ test('aviso beta: una sola vez y solo cuando Garmin ya suma', () => {
 test('contacto de soporte', () => {
   assert.match(c.urlWhatsappSoporte(), /^https:\/\/wa\.me\/61474024238\?text=Hola%20Korva/);
   assert.equal(c.urlMailSoporte('x y'), 'mailto:korvaventura@gmail.com?subject=x%20y');
+});
+
+test('mensajes al desconectar Garmin', () => {
+  assert.equal(c.mensajeDesconectarGarmin(null).titulo, 'Garmin desconectado');
+  assert.match(c.mensajeDesconectarGarmin(null).texto, /Lo que ya sumaste queda/);
+  const e = Object.assign(new Error('Revocá el acceso desde Garmin Connect para completar la desconexión.'), { status: 409 });
+  assert.match(c.mensajeDesconectarGarmin(e).texto, /Garmin Connect/);
+  assert.match(c.mensajeDesconectarGarmin(new Error('x')).texto, /Intentá nuevamente/);
 });

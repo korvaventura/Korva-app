@@ -9,24 +9,29 @@
 // No hay operación de desconectar todavía: la app no la ofrece.
 
 // La fila de Garmin solo aparece si el servidor dice que está habilitada para esta cuenta.
+// También se muestra si ya estaba conectada aunque Garmin esté cerrado: así se puede desconectar.
 function mostrarGarmin(status) {
-  return status?.available === true;
+  return status?.available === true || status?.connected === true;
 }
 
 // "Cuenta vinculada" y "salidas que suman" son dos cosas distintas.
 function filaGarmin(status) {
   if (!mostrarGarmin(status)) return null;
+  if (!status.connected && status.available !== true) return null;
+  if (status.connected && status.available !== true) {
+    return { estado: 'vinculada', titulo: 'Cuenta vinculada', detalle: 'Garmin está pausado en Korva por ahora: tus salidas no se están sumando. Podés desconectarla cuando quieras.', accion: 'desconectar' };
+  }
   if (!status.connected) {
     return { estado: 'sin_conectar', titulo: 'Sin conectar', detalle: 'Conectala y tus salidas de Garmin llegan solas.', accion: 'conectar' };
   }
   if (status.activities_enabled === true) {
-    return { estado: 'sincroniza', titulo: 'Conectada', detalle: 'Tus salidas de Garmin suman solas a tus desafíos.', accion: null };
+    return { estado: 'sincroniza', titulo: 'Conectada', detalle: 'Tus salidas de Garmin suman solas a tus desafíos.', accion: 'desconectar' };
   }
   return {
     estado: 'vinculada',
     titulo: 'Cuenta vinculada',
     detalle: 'Las salidas de Garmin todavía no suman km. Seguí registrando con Strava, Korva GPS o carga manual.',
-    accion: null,
+    accion: 'desconectar',
   };
 }
 
@@ -82,4 +87,11 @@ function urlMailSoporte(asunto = 'Garmin en Korva') {
   return `mailto:${SOPORTE_MAIL}?subject=${encodeURIComponent(asunto)}`;
 }
 
-module.exports = { AVISO_BETA_GARMIN, CLAVE_AVISO_BETA, debeMostrarAvisoBeta, urlWhatsappSoporte, urlMailSoporte, SOPORTE_MAIL, mostrarGarmin, filaGarmin, filaStrava, mensajeGarmin, resultadoDeUrl, urlAutorizacionValida };
+// Respuestas de DELETE /garmin/connection.
+function mensajeDesconectarGarmin(error) {
+  if (!error) return { titulo: 'Garmin desconectado', texto: 'Tus salidas de Garmin ya no llegan a Korva. Lo que ya sumaste queda.' };
+  if (error.status === 409) return { titulo: 'Desconectar Garmin', texto: error.message || 'Hay una operación de Garmin en curso. Intentá nuevamente.' };
+  return { titulo: 'Desconectar Garmin', texto: 'No pudimos desconectar Garmin. Intentá nuevamente.' };
+}
+
+module.exports = { mensajeDesconectarGarmin, AVISO_BETA_GARMIN, CLAVE_AVISO_BETA, debeMostrarAvisoBeta, urlWhatsappSoporte, urlMailSoporte, SOPORTE_MAIL, mostrarGarmin, filaGarmin, filaStrava, mensajeGarmin, resultadoDeUrl, urlAutorizacionValida };
