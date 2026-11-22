@@ -1,0 +1,158 @@
+{
+ "fuente": {
+  "relieve": "NOAA NCEI DEM Global Mosaic (elevación y batimetría), servicio ImageServer exportImage, F32, bilineal",
+  "servicio": "https://gis.ngdc.noaa.gov/arcgis/rest/services/DEM_mosaics/DEM_global_mosaic/ImageServer",
+  "exportaciones": [
+   {
+    "archivo": "noaa-italia-contexto.tif",
+    "bbox": [
+     -1,
+     29.5,
+     31.5,
+     53
+    ],
+    "size": [
+     1625,
+     1175
+    ],
+    "sha256": "bddc5450e933ad034d9e2be0ca783c233380020adf044f2ce2b80ad18a13c2cf"
+   },
+   {
+    "archivo": "noaa-appia-corredor.tif",
+    "bbox": [
+     11.7,
+     39.6,
+     18.7,
+     42.4
+    ],
+    "size": [
+     1750,
+     700
+    ],
+    "sha256": "4052299f5d0c09d66a318c36e64cdd4713ffd497824af259853dd00a448c503e"
+   }
+  ],
+  "descargado": "2026-11-08",
+  "costaYLagos": "Natural Earth 1:10m (dominio público): land, minor_islands, lakes_europe, lakes"
+ },
+ "centro": {
+  "lat": 41.2,
+  "lon": 15.2
+ },
+ "kmPorGradoLat": 111.2,
+ "detalle": {
+  "minX": -290.0,
+  "minZ": -132.0,
+  "pasoKm": 0.8,
+  "nx": 726,
+  "nz": 386,
+  "pasabajosKm": 0.35
+ },
+ "contexto": {
+  "minX": -1300.0,
+  "minZ": -1290.0,
+  "pasoKm": 2.0,
+  "nx": 1301,
+  "nz": 1291
+ },
+ "codigosAgua": {
+  "0": "tierra",
+  "1": "mar o laguna (nivel 0 m)",
+  "2+": "lagos interiores"
+ },
+ "lagos": [
+  {
+   "codigo": 2,
+   "nombre": "Lago di Bolsena",
+   "nivelM": 306
+  },
+  {
+   "codigo": 3,
+   "nombre": "Trasimeno",
+   "nivelM": 256
+  },
+  {
+   "codigo": 4,
+   "nombre": "lago sin nombre",
+   "nivelM": 452
+  },
+  {
+   "codigo": 5,
+   "nombre": "Lago di Bracciano",
+   "nivelM": 160
+  },
+  {
+   "codigo": 1,
+   "nombre": "lago sin nombre",
+   "nivelM": 0
+  },
+  {
+   "codigo": 1,
+   "nombre": "lago sin nombre",
+   "nivelM": 0
+  },
+  {
+   "codigo": 1,
+   "nombre": "lago sin nombre",
+   "nivelM": 0
+  },
+  {
+   "codigo": 6,
+   "nombre": "Lake Skadar",
+   "nivelM": 4
+  }
+ ],
+ "reglas": {
+  "tierraMinM": 2.0,
+  "marMaxM": -3.0,
+  "fondoMinM": -400.0,
+  "planoMarM": 1.5,
+  "rampaCostaM": 5.0,
+  "costaClaraM": 8.0,
+  "rutaEnTierraKm": 0.9
+ },
+ "orden": "detalle alturas Int16, detalle agua Uint8, contexto alturas Int16, contexto agua Uint8 (fila = z)",
+ "estadisticas": {
+  "detalle": {
+   "celdas": 280236,
+   "tierra": 112114,
+   "mar": 168034,
+   "franjaRutaForzadaATierra": 21,
+   "islasSoloDEM": {
+    "cantidad": 0,
+    "celdasMax": 0
+   },
+   "lagos": [
+    "Lago di Bracciano",
+    "lago sin nombre",
+    "lago sin nombre",
+    "lago sin nombre"
+   ],
+   "minM": -400,
+   "maxM": 2597
+  },
+  "contexto": {
+   "celdas": 1679591,
+   "tierra": 1115761,
+   "mar": 563654,
+   "franjaRutaForzadaATierra": 4,
+   "islasSoloDEM": {
+    "cantidad": 18,
+    "celdasMax": 8
+   },
+   "lagos": [
+    "Lago di Bolsena",
+    "Trasimeno",
+    "lago sin nombre",
+    "Lago di Bracciano",
+    "lago sin nombre",
+    "lago sin nombre",
+    "lago sin nombre",
+    "Lake Skadar"
+   ],
+   "minM": -400,
+   "maxM": 4078
+  }
+ },
+ "sha256Bin": "f010ca80c2c5bf081dba3aef51ee931a1337c3ef3c3199937974034f38a96843"
+}

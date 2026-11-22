@@ -1,0 +1,62 @@
+import { useEffect, useRef, useState } from 'react';
+import { Alert, DeviceEventEmitter, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { consultarAportesHealth } from '../services/health/aportesDesafios';
+import { colors } from '../theme/korvaTheme';
+
+export default function SaludAportesDesafios({ userId, conectado, abiertoInicial = false }) {
+  const [abierto, setAbierto] = useState(false), [estado, setEstado] = useState(null);
+  const [ocupado, setOcupado] = useState(false), [error, setError] = useState('');
+  const vivo = useRef(true), bloqueado = useRef(false);
+  useEffect(() => { vivo.current = true; return () => { vivo.current = false; }; }, []);
+  // Desde la tarjeta del Home ("Elegir a qué desafíos suma Salud") se abre ya desplegado.
+  useEffect(() => { if (abiertoInicial) { setAbierto(true); operar(cargar); } }, []);
+  const cargar = async () => {
+    const datos = await consultarAportesHealth(userId);
+    if (vivo.current) setEstado(datos);
+  };
+  const operar = async (fn) => {
+    if (bloqueado.current || !vivo.current) return;
+    bloqueado.current = true; setOcupado(true); setError('');
+    try { await fn(); } catch (e) { if (vivo.current) setError(e.message || 'Intentá nuevamente.'); }
+    finally { bloqueado.current = false; if (vivo.current) setOcupado(false); }
+  };
+  const elegir = (d) => {
+    if (ocupado) return;
+    if (!d.activo && !conectado) { Alert.alert('Conectá Salud', 'Primero conectá Salud para sincronizar la distancia medida.'); return; }
+    const habilitar = !d.activo;
+    const texto = habilitar
+      ? 'Desde mañana, la distancia de Salud suma a este desafío. Los pasos no se convierten a km y las actividades no se cuentan dos veces. Se respetan las pausas. Para finalizar, Salud necesita al menos 48 horas después del día registrado para confirmar el avance.'
+      : 'Se detienen los nuevos aportes a este desafío. Se conservan los días completos que ya autorizaste; el día de hoy queda fuera.';
+    Alert.alert(habilitar ? `Usar Salud en ${d.titulo}` : `Detener aportes a ${d.titulo}`, texto,
+      [{ text: 'Cancelar', style: 'cancel' }, { text: habilitar ? 'Confirmar aporte' : 'Detener aportes', onPress: () => operar(async () => {
+        await consultarAportesHealth(userId, { id: d.id, tipo: d.tipo, activo: habilitar,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          version: estado.version, confirmo: true });
+        await cargar();
+        if (vivo.current) DeviceEventEmitter.emit('korva:movimiento-actualizado', { userId });
+      }) }]);
+  };
+  return <View style={s.section}>
+    <Text style={s.title}>Sumar distancia a desafíos</Text>
+    <Text style={s.copy}>Vos elegís a cuáles sumar. No se activa automáticamente.</Text>
+    <TouchableOpacity accessibilityRole="button" disabled={ocupado} onPress={() => {
+      setAbierto((v) => !v); if (!abierto) operar(cargar);
+    }}><Text style={s.link}>{ocupado ? 'Cargando…' : abierto ? 'Cerrar selección' : 'Elegir desafíos'}</Text></TouchableOpacity>
+    {abierto && <View style={s.list}>
+      {!!error && <><Text style={s.copy}>{error}</Text><TouchableOpacity disabled={ocupado} onPress={() => operar(cargar)}><Text style={s.link}>Volver a intentar</Text></TouchableOpacity></>}
+      {estado?.disponible === false && <Text style={s.copy}>Esta opción todavía no está habilitada. Tu movimiento sigue disponible en el resumen personal.</Text>}
+      {estado?.disponible && estado.desafios.length === 0 && <Text style={s.copy}>No tenés desafíos en curso para configurar.</Text>}
+      {estado?.disponible && estado.desafios.map((d) => <View key={`${d.tipo}:${d.id}`} style={s.row}>
+        <View style={s.info}><Text style={s.title}>{d.titulo}</Text>
+          <Text style={s.copy}>{d.activo ? `Activo desde ${new Date(d.desde).toLocaleDateString()}${d.pausado ? ' · desafío pausado' : ''}` : 'No suma a este desafío'}</Text>
+        </View>
+        <TouchableOpacity accessibilityRole="button" disabled={ocupado} onPress={() => elegir(d)}><Text style={s.link}>{d.activo ? 'Desactivar' : 'Activar'}</Text></TouchableOpacity>
+      </View>)}
+      {estado?.disponible && <Text style={s.copy}>Empieza desde el próximo día completo, después de confirmar.</Text>}
+    </View>}
+  </View>;
+}
+const s = StyleSheet.create({ section: { borderTopWidth: 1, borderTopColor: colors.borderSoft, paddingTop: 15, gap: 8 },
+  title: { color: colors.text, fontSize: 13, fontWeight: '700' }, copy: { color: colors.textSoft, fontSize: 12, lineHeight: 19 },
+  link: { color: colors.actionBlue, fontSize: 12, fontWeight: '700', paddingVertical: 10 }, list: { gap: 12 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.borderSoft, paddingVertical: 8 }, info: { flex: 1 } });

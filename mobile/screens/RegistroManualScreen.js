@@ -1,9 +1,14 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../supabase';
+import { colors } from '../theme/korvaTheme';
+import useRutaLibre from '../services/useRutaLibre';
+import { consultarRutaLibre } from '../services/rutasLibresApi';
+import { TEXTO_ACEPTAR } from '../services/islandiaInvitacionCore';
+import { useTourAccion, useTourTarget } from '../components/tour/Tour';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -18,6 +23,11 @@ const formatearFecha = (date) => {
 };
 
 export default function RegistroManualScreen({ navigation }) {
+  const [modoRegistro, setModoRegistro] = useState('gps');
+  const refTourRegistrar = useTourTarget('registrar');
+  useTourAccion('registrar-gps', () => setModoRegistro('gps'));
+  useTourAccion('registrar-manual', () => setModoRegistro('manual'));
+  const [detallesVisibles, setDetallesVisibles] = useState(false);
   const [descripcionActividad, setDescripcionActividad] = useState('');
   const [distancia, setDistancia] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -25,8 +35,22 @@ export default function RegistroManualScreen({ navigation }) {
   const [exito, setExito] = useState(false);
   const [userId, setUserId] = useState(null);
   const [diasAtras, setDiasAtras] = useState(0);
-  const [challengeId, setChallengeId] = useState(null);
-  const [challengeTitle, setChallengeTitle] = useState('');
+  const [desafios, setDesafios] = useState([]);
+  const [desafiosVisibles, setDesafiosVisibles] = useState(false);
+  const [estadoDesafios, setEstadoDesafios] = useState('cargando');
+  const [cambiandoDesafio, setCambiandoDesafio] = useState(null);
+  const generacion = useRef(0);
+  const cambioPendiente = useRef(false);
+  const activos = desafios.filter((reto) => !reto.pausado);
+  // Islandia es una ruta libre (fuera de user_challenges): también se lista y se puede pausar acá.
+  const { estado: rutaLibre, actualizar: actualizarRutaLibre } = useRutaLibre();
+  const participacionLibre = userId && rutaLibre.datos?.userId === userId ? rutaLibre.datos.participacion : null;
+  const islandia = participacionLibre && !participacionLibre.abandonado && participacionLibre.estado !== 'completada' ? participacionLibre : null;
+  const totalDesafios = desafios.length + (islandia ? 1 : 0);
+  const totalActivos = activos.length + (islandia && !islandia.pausado ? 1 : 0);
+  // Invitar a Islandia a quien no la empezó (o la dejó). Se acepta acá mismo, sin salir de Registrar.
+  const invitarIslandia = !!userId && rutaLibre.datos?.userId === userId && (!participacionLibre || participacionLibre.abandonado);
+  const challengeId = activos[0]?.challenge_id || null;
 
   const [evidenciaUri, setEvidenciaUri] = useState(null);
   const [subiendoEvidencia, setSubiendoEvidencia] = useState(false);
@@ -35,29 +59,124 @@ export default function RegistroManualScreen({ navigation }) {
   const [minutos, setMinutos] = useState('');
   const [segundos, setSegundos] = useState('');
 
-  useFocusEffect(useCallback(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user?.id) {
-        setUserId(session.user.id);
-        const { data } = await supabase
-          .from('user_challenges')
-          .select('challenge_id, challenges(title)')
-          .eq('user_id', session.user.id)
-          .eq('status', 'active')
-          .eq('pausado', false)
-          .order('started_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        if (data?.challenge_id) {
-          setChallengeId(data.challenge_id);
-          setChallengeTitle(data.challenges?.title || '');
-        } else {
-          setChallengeId(null);
-          setChallengeTitle('');
-        }
+  const cargarDesafios = useCallback(async (usuario, turno) => {
+    const { data, error } = await supabase
+      .from('user_challenges')
+      .select('id, challenge_id, pausado, challenges(title)')
+      .eq('user_id', usuario)
+      .eq('status', 'active')
+      .order('started_at', { ascending: true });
+    if (turno !== generacion.current) return;
+    if (error) throw error;
+    setDesafios(data || []);
+    setEstadoDesafios('listo');
+  }, []);
+
+  const consultarDesafios = useCallback(async () => {
+    const turno = ++generacion.current;
+    setEstadoDesafios('cargando');
+    setDesafios([]);
+    setUserId(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (turno !== generacion.current) return;
+      if (!session?.user?.id) {
+        setEstadoDesafios('sesion');
+        return;
       }
-    });
-  }, []));
+      setUserId(session.user.id);
+      await cargarDesafios(session.user.id, turno);
+    } catch {
+      if (turno === generacion.current) setEstadoDesafios('error');
+    }
+  }, [cargarDesafios]);
+
+  useFocusEffect(useCallback(() => {
+    consultarDesafios();
+    return () => { generacion.current += 1; };
+  }, [consultarDesafios]));
+
+  const cambiarPausaIslandia = async () => {
+    if (cambioPendiente.current || cargando || !userId || !islandia) return;
+    cambioPendiente.current = true;
+    setCambiandoDesafio('islandia');
+    try {
+      await consultarRutaLibre({ userId, accion: islandia.pausado ? 'reanudar' : 'pausar' });
+      await actualizarRutaLibre({ conservarDatos: true });
+    } catch (error) {
+      Alert.alert('Revisá Islandia', error?.message || 'No pudimos cambiar el estado de la ruta. Intentá nuevamente.');
+    } finally {
+      cambioPendiente.current = false;
+      setCambiandoDesafio(null);
+    }
+  };
+
+  const empezarIslandia = () => Alert.alert('Empezar Islandia', TEXTO_ACEPTAR, [
+    { text: 'Cancelar', style: 'cancel' },
+    { text: 'Aceptar y empezar', onPress: async () => {
+      if (cambioPendiente.current || !userId) return;
+      cambioPendiente.current = true;
+      setCambiandoDesafio('islandia');
+      try {
+        await consultarRutaLibre({ userId, accion: 'aceptar', body: { acepto: true, version: rutaLibre.datos?.ruta?.aceptacion_version } });
+        await actualizarRutaLibre({ conservarDatos: true });
+      } catch (error) {
+        Alert.alert('Islandia', error?.message || 'No pudimos empezar la ruta. Intentá nuevamente.');
+      } finally {
+        cambioPendiente.current = false;
+        setCambiandoDesafio(null);
+      }
+    } },
+  ]);
+
+  const filaInvitacionIslandia = (
+    <View style={[styles.challengeRow, styles.invitacionIslandia]}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.challengeName}>Islandia · Ring Road</Text>
+        <Text style={styles.challengeHint}>Ruta libre, sin costo. Por ahora sin medalla.</Text>
+      </View>
+      <TouchableOpacity style={styles.challengeAction} onPress={empezarIslandia} disabled={!!cambiandoDesafio || cargando}
+        accessibilityRole="button" accessibilityLabel="Empezar Islandia, ruta libre sin costo">
+        {cambiandoDesafio === 'islandia' ? <ActivityIndicator size="small" color={colors.actionBlue} />
+          : <Text style={styles.challengeActionText}>Empezar ›</Text>}
+      </TouchableOpacity>
+    </View>
+  );
+
+  const cambiarPausa = async (reto) => {
+    if (cambioPendiente.current || cargando || !userId) return;
+    const turno = generacion.current;
+    cambioPendiente.current = true;
+    setCambiandoDesafio(reto.id);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (turno !== generacion.current) return;
+      if (session?.user?.id !== userId) throw new Error('Volvé a iniciar sesión para gestionar tus desafíos.');
+      const res = await fetch(`${BACKEND_URL}/challenges/${reto.pausado ? 'reanudar' : 'pausar'}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ user_id: userId, challenge_id: reto.challenge_id }),
+        signal: controller.signal,
+      });
+      const data = await res.json();
+      if (turno !== generacion.current) return;
+      if (!res.ok || data.error) throw new Error(data.error || 'No se pudo cambiar el estado del desafío.');
+      // Releer también permite retirar un reto que se completó al reanudarlo.
+      setEstadoDesafios('cargando');
+      await cargarDesafios(userId, turno);
+    } catch (error) {
+      if (turno === generacion.current) {
+        setEstadoDesafios('error');
+        Alert.alert('Revisá tus desafíos', error.name === 'AbortError' ? 'La consulta tardó demasiado. Tocá Reintentar para confirmar el estado.' : 'No pudimos confirmar el estado. Tocá Reintentar.');
+      }
+    } finally {
+      clearTimeout(timeout);
+      cambioPendiente.current = false;
+      setCambiandoDesafio(null);
+    }
+  };
 
   const seleccionarEvidencia = async () => {
     try {
@@ -138,6 +257,7 @@ export default function RegistroManualScreen({ navigation }) {
   };
 
   const registrar = async () => {
+    if (cambioPendiente.current || estadoDesafios !== 'listo') return;
     if (!distancia || parseFloat(distancia) <= 0) {
       setMensaje('Ingresa una distancia valida');
       setExito(false);
@@ -191,6 +311,14 @@ export default function RegistroManualScreen({ navigation }) {
           : `${distancia} km guardados en modo libre 🏃`;
         setMensaje(msgModo);
         setExito(true);
+        // El guardado puede completar un desafío: actualizar la lista sin
+        // convertir un fallo de consulta en un fallo de registro.
+        const turno = generacion.current;
+        try {
+          await cargarDesafios(userId, turno);
+        } catch {
+          if (turno === generacion.current) setEstadoDesafios('error');
+        }
         setDistancia('');
         setDiasAtras(0);
         setEvidenciaUri(null);
@@ -199,6 +327,10 @@ export default function RegistroManualScreen({ navigation }) {
         setMinutos('');
         setSegundos('');
         setTimeout(() => { setMensaje(''); setExito(false); }, 3000);
+        // Igual que con Korva GPS: la salida guardada abre la pantalla para compartirla.
+        if (data.actividad?.id) {
+          navigation.navigate('DetalleActividad', { actividad: data.actividad, userId, recienGuardada: true });
+        }
       }
     } catch (error) {
       setMensaje('Error de conexion');
@@ -220,43 +352,64 @@ export default function RegistroManualScreen({ navigation }) {
   ];
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
-      <Text style={styles.titulo}>Registrar km</Text>
-      <Text style={styles.subtitulo}>Carga tus actividades manualmente</Text>
-
-      {!challengeId && userId && (
-        <TouchableOpacity
-          style={styles.bannerSinReto}
-          onPress={() => navigation?.navigate('Catalogo')}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.bannerSinRetoEmoji}>🏃</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.bannerSinRetoTitulo}>Tus km se guardan, pero no avanzan en ningún desafío</Text>
-            <Text style={styles.bannerSinRetoDesc}>Inscribite en un reto para que cada km cuente hacia tu medalla → Ver catálogo</Text>
-          </View>
-        </TouchableOpacity>
-      )}
-
-      <View style={{ marginBottom: 20 }}>
-        <Text style={{ color: '#A8CFFF', fontSize: 12, marginBottom: 8 }}>¿Qué actividad hiciste? <Text style={{ color: '#4a6a8a' }}>(opcional)</Text></Text>
-        <TextInput
-          style={{ backgroundColor: '#1E3A5F', borderRadius: 10, padding: 12, color: '#FFFFFF', fontSize: 14 }}
-          value={descripcionActividad}
-          onChangeText={setDescripcionActividad}
-          placeholder="Ej: Caminata, Natación, Trekking, Running..."
-          placeholderTextColor="#4a6a8a"
-        />
-        <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 8, textAlign: 'center' }}>
-          💡 Cualquier actividad es válida — correr, caminar, bici, nadar. Todo suma igual.
-        </Text>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <Text style={styles.titulo}>Registrar actividad</Text>
+      <Text style={styles.subtitulo}>Elegí cómo querés guardar tus kilómetros.</Text>
+      <View style={styles.modeRow} ref={refTourRegistrar} collapsable={false}>
+        {[
+          { id: 'gps', label: 'GPS', icon: 'navigate-outline' },
+          { id: 'manual', label: 'Manual', icon: 'create-outline' },
+        ].map((modo) => (
+          <TouchableOpacity key={modo.id}
+            style={[styles.modeButton, modoRegistro === modo.id && styles.modeButtonActive]}
+            onPress={() => setModoRegistro(modo.id)}
+            accessibilityRole="button" accessibilityState={{ selected: modoRegistro === modo.id }}>
+            <Ionicons name={modo.icon} size={20} color={modoRegistro === modo.id ? colors.text : colors.textSoft} />
+            <Text style={[styles.modeText, modoRegistro === modo.id && styles.modeTextActive]}>{modo.label}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {challengeTitle ? (
-        <View style={{ backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10, marginBottom: 12 }}>
-          <Text style={{ color: '#A8CFFF', fontSize: 13 }}>💡 Esta actividad sumará a todos tus desafíos activos. Si querés pausar alguno, podés hacerlo desde la pantalla principal.</Text>
+      {estadoDesafios === 'listo' && totalActivos === 0 && (
+        <View style={styles.freeMode}>
+          <Text style={styles.challengeTitle}>Modo libre</Text>
+          <Text style={styles.challengeExplanation}>{totalDesafios > 0
+            ? 'Tus desafíos están pausados. Podés seguir registrando movimiento y consultar tu historial personal.'
+            : 'Tus kilómetros quedan guardados en tu historial personal. Podés empezar ahora y elegir un desafío cuando quieras.'}</Text>
+          {invitarIslandia && (
+            <>
+              <Text style={[styles.challengeExplanation, { marginTop: 8 }]}>¿Querés que tus km sumen a una ruta? Islandia es libre y sin costo, por ahora sin medalla.</Text>
+              {filaInvitacionIslandia}
+            </>
+          )}
+          <TouchableOpacity style={styles.freeLink} onPress={() => navigation.navigate('Catalogo')} accessibilityRole="button">
+            <Text style={styles.challengeActionText}>Explorar desafíos</Text>
+            <Ionicons name="arrow-forward" size={15} color={colors.actionBlue} />
+          </TouchableOpacity>
         </View>
-      ) : null}
+      )}
+
+      {modoRegistro === 'gps' ? (
+        <View style={styles.gpsCard}>
+          <Ionicons name="navigate-outline" size={32} color={colors.brandOrangeSoft} />
+          <Text style={styles.gpsTitle}>Salí con Korva GPS</Text>
+          <Text style={styles.gpsCopy}>Distancia y tiempo con el GPS del teléfono.</Text>
+          <Text style={styles.gpsSports}>Correr · caminar · bici</Text>
+          <Text style={styles.gpsExplanation}>Podés pausar durante la salida. Al finalizar, revisás y confirmás la actividad antes de guardarla.</Text>
+          <TouchableOpacity style={[styles.button, cambiandoDesafio && styles.buttonDisabled]}
+            disabled={!!cambiandoDesafio} onPress={() => navigation.navigate('GpsTracker')}>
+            <View style={styles.btnRow}>
+              <Ionicons name="arrow-forward" size={18} color={colors.text} />
+              <Text style={styles.buttonText}>Abrir Korva GPS</Text>
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.gpsFootnote}>También podés registrar actividades sin un desafío.</Text>
+        </View>
+      ) : (
+        <>
+      <Text style={styles.manualNote}>
+        Tu actividad queda en el historial y suma a los desafíos que correspondan a su fecha.
+      </Text>
 
       <View style={styles.distanciaCard}>
         <Text style={styles.distanciaLabel}>DISTANCIA</Text>
@@ -267,14 +420,14 @@ export default function RegistroManualScreen({ navigation }) {
             onChangeText={v => setDistancia(v.replace(',', '.'))}
             keyboardType="decimal-pad"
             placeholder="0.0"
-            placeholderTextColor="#2a4a6a"
+            placeholderTextColor={colors.textMuted}
           />
           <Text style={styles.distanciaUnidad}>km</Text>
         </View>
       </View>
 
       <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>📅 Fecha de la actividad</Text>
+        <Text style={styles.seccionTitulo}>Fecha de la actividad</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.fechaScroll}>
           {opciones_fecha.map((op) => (
             <TouchableOpacity
@@ -293,10 +446,31 @@ export default function RegistroManualScreen({ navigation }) {
         </Text>
       </View>
 
+      <TouchableOpacity style={styles.detailsToggle} onPress={() => setDetallesVisibles(!detallesVisibles)}
+        accessibilityRole="button" accessibilityState={{ expanded: detallesVisibles }}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.detailsTitle}>{detallesVisibles ? 'Ocultar detalles' : 'Agregar detalles'}</Text>
+          <Text style={styles.detailsSubtitle}>Actividad, tiempo y evidencia · opcionales</Text>
+        </View>
+        <Ionicons name={detallesVisibles ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSoft} />
+      </TouchableOpacity>
+      {detallesVisibles && (
+        <>
+      <View style={{ marginBottom: 20 }}>
+        <Text style={{ color: colors.textSoft, fontSize: 12, marginBottom: 8 }}>¿Qué actividad hiciste? <Text style={{ color: colors.textMuted }}>(opcional)</Text></Text>
+        <TextInput
+          style={{ backgroundColor: colors.surfaceSoft, borderRadius: 10, padding: 12, color: colors.text, fontSize: 14 }}
+          value={descripcionActividad}
+          onChangeText={setDescripcionActividad}
+          placeholder="Ej: Caminata, Natación, Trekking, Running..."
+          placeholderTextColor={colors.textMuted}
+        />
+      </View>
+
       {/* Sección de tiempo opcional */}
       <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>⏱️ Tiempo <Text style={styles.opcional}>(opcional)</Text></Text>
-        <Text style={styles.evidenciaSubtitulo}>Para calcular tu ritmo promedio en el Perfil</Text>
+        <Text style={styles.seccionTitulo}>Tiempo <Text style={styles.opcional}>(opcional)</Text></Text>
+        <Text style={styles.evidenciaSubtitulo}>Para mostrar la duración y el ritmo de tu actividad</Text>
         <View style={styles.tiempoRow}>
           <View style={styles.tiempoInputWrapper}>
             <TextInput
@@ -305,7 +479,7 @@ export default function RegistroManualScreen({ navigation }) {
               onChangeText={setHoras}
               keyboardType="number-pad"
               placeholder="0"
-              placeholderTextColor="#2a4a6a"
+              placeholderTextColor={colors.textMuted}
               maxLength={2}
             />
             <Text style={styles.tiempoUnidad}>hs</Text>
@@ -317,7 +491,7 @@ export default function RegistroManualScreen({ navigation }) {
               onChangeText={setMinutos}
               keyboardType="number-pad"
               placeholder="0"
-              placeholderTextColor="#2a4a6a"
+              placeholderTextColor={colors.textMuted}
               maxLength={2}
             />
             <Text style={styles.tiempoUnidad}>min</Text>
@@ -329,7 +503,7 @@ export default function RegistroManualScreen({ navigation }) {
               onChangeText={setSegundos}
               keyboardType="number-pad"
               placeholder="0"
-              placeholderTextColor="#2a4a6a"
+              placeholderTextColor={colors.textMuted}
               maxLength={2}
             />
             <Text style={styles.tiempoUnidad}>seg</Text>
@@ -339,7 +513,7 @@ export default function RegistroManualScreen({ navigation }) {
 
       {/* Sección de evidencia */}
       <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>📸 Evidencia <Text style={styles.opcional}>(opcional)</Text></Text>
+        <Text style={styles.seccionTitulo}>Evidencia <Text style={styles.opcional}>(opcional)</Text></Text>
         <Text style={styles.evidenciaSubtitulo}>Captura de Strava, Garmin u otra app de entrenamiento</Text>
 
         {evidenciaUri ? (
@@ -358,16 +532,19 @@ export default function RegistroManualScreen({ navigation }) {
         ) : (
           <View style={styles.evidenciaBotonesRow}>
             <TouchableOpacity style={styles.evidenciaBtn} onPress={seleccionarEvidencia}>
-              <Ionicons name="image-outline" size={20} color="#1E6FD9" />
+              <Ionicons name="image-outline" size={20} color={colors.actionBlue} />
               <Text style={styles.evidenciaBtnText}>Galería</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.evidenciaBtn} onPress={sacarFoto}>
-              <Ionicons name="camera-outline" size={20} color="#1E6FD9" />
+              <Ionicons name="camera-outline" size={20} color={colors.actionBlue} />
               <Text style={styles.evidenciaBtnText}>Cámara</Text>
             </TouchableOpacity>
           </View>
         )}
       </View>
+
+        </>
+      )}
 
       {mensaje ? (
         <View style={[styles.mensajeBox, exito && styles.mensajeExito]}>
@@ -378,9 +555,9 @@ export default function RegistroManualScreen({ navigation }) {
       ) : null}
 
       <TouchableOpacity
-        style={[styles.button, cargando && styles.buttonDisabled]}
+        style={[styles.button, (cargando || cambiandoDesafio || estadoDesafios !== 'listo') && styles.buttonDisabled]}
         onPress={registrar}
-        disabled={cargando}
+        disabled={cargando || !!cambiandoDesafio || estadoDesafios !== 'listo'}
       >
         {cargando ? (
           <ActivityIndicator color="#FFFFFF" />
@@ -392,59 +569,142 @@ export default function RegistroManualScreen({ navigation }) {
         )}
       </TouchableOpacity>
 
+        </>
+      )}
+
+      <View style={styles.challengeSection}>
+        <TouchableOpacity style={styles.challengeHeading} onPress={() => setDesafiosVisibles(!desafiosVisibles)}
+          accessibilityRole="button" accessibilityState={{ expanded: desafiosVisibles }}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.challengeTitle}>Tus desafíos</Text>
+            <Text style={styles.challengeHint}>
+              {estadoDesafios === 'listo' ? (totalDesafios ? `${totalActivos} activos · Gestionar pausas` : 'Sin desafíos activos · Podés registrar igual')
+                : estadoDesafios === 'cargando' ? 'Consultando desafíos…' : 'No pudimos consultar tus desafíos'}
+            </Text>
+          </View>
+          <Ionicons name={desafiosVisibles ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSoft} />
+        </TouchableOpacity>
+        {invitarIslandia && totalActivos > 0 && filaInvitacionIslandia}
+        {(estadoDesafios === 'error' || estadoDesafios === 'sesion') && (
+          <TouchableOpacity style={styles.retryChallenges} onPress={consultarDesafios} disabled={!!cambiandoDesafio}>
+            <Text style={styles.challengeActionText}>Reintentar</Text>
+          </TouchableOpacity>
+        )}
+        {desafiosVisibles && estadoDesafios === 'listo' && (
+          <>
+            {desafios.map((reto) => (
+              <View key={reto.id} style={styles.challengeRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.challengeName}>{reto.challenges?.title || 'Desafío'}</Text>
+                  <Text style={styles.challengeHint}>{reto.pausado ? 'Pausado' : 'Activo'}</Text>
+                </View>
+                <TouchableOpacity style={styles.challengeAction} onPress={() => cambiarPausa(reto)}
+                  disabled={!!cambiandoDesafio || cargando} accessibilityRole="button"
+                  accessibilityLabel={`${reto.pausado ? 'Reanudar' : 'Pausar'} ${reto.challenges?.title || 'desafío'}`}>
+                  {cambiandoDesafio === reto.id ? <ActivityIndicator size="small" color={colors.actionBlue} />
+                    : <Text style={[styles.challengeActionText, (cambiandoDesafio || cargando) && { opacity: 0.4 }]}>{reto.pausado ? 'Reanudar' : 'Pausar'}</Text>}
+                </TouchableOpacity>
+              </View>
+            ))}
+            {!!islandia && (
+              <View key="islandia-libre" style={styles.challengeRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.challengeName}>Islandia · Ring Road</Text>
+                  <Text style={styles.challengeHint}>{islandia.pausado ? 'Pausado' : 'Activo'} · ruta libre</Text>
+                </View>
+                <TouchableOpacity style={styles.challengeAction} onPress={cambiarPausaIslandia}
+                  disabled={!!cambiandoDesafio || cargando} accessibilityRole="button"
+                  accessibilityLabel={`${islandia.pausado ? 'Reanudar' : 'Pausar'} Islandia`}>
+                  {cambiandoDesafio === 'islandia' ? <ActivityIndicator size="small" color={colors.actionBlue} />
+                    : <Text style={[styles.challengeActionText, (cambiandoDesafio || cargando) && { opacity: 0.4 }]}>{islandia.pausado ? 'Reanudar' : 'Pausar'}</Text>}
+                </TouchableOpacity>
+              </View>
+            )}
+            {totalDesafios > 0 && <Text style={styles.challengeExplanation}>¿Querés hacer tus desafíos uno a la vez? Dejá activo el que estás haciendo y pausá los demás: tus nuevas actividades no sumarán en ellos. Conservás el progreso y podés reanudarlos cuando quieras. Si cargás una actividad de otro día, cuenta si el desafío estaba activo cuando la hiciste.</Text>}
+          </>
+        )}
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#0D1B2A' },
+  freeMode: { padding: 16, borderRadius: 16, backgroundColor: colors.surfaceSoft, marginBottom: 20 },
+  freeLink: { flexDirection: 'row', gap: 8, alignItems: 'center', minHeight: 44, marginTop: 6 },
+  challengeSection: { marginTop: 24, borderTopWidth: 1, borderColor: colors.borderSoft },
+  challengeHeading: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 16, minHeight: 60 },
+  challengeTitle: { color: colors.textSoft, fontSize: 14, fontWeight: '700' },
+  challengeHint: { color: colors.textMuted, fontSize: 11, lineHeight: 17, marginTop: 4 },
+  invitacionIslandia: { borderTopWidth: 0, paddingTop: 4 },
+  challengeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  challengeName: { color: colors.text, fontSize: 13, fontWeight: '600' },
+  challengeAction: { minWidth: 82, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
+  challengeActionText: { color: colors.actionBlue, fontSize: 12, fontWeight: '700' },
+  challengeExplanation: { color: colors.textMuted, fontSize: 11, lineHeight: 18, marginTop: 12 },
+  retryChallenges: { alignSelf: 'flex-start', paddingVertical: 12, minHeight: 44 },
+  scroll: { flex: 1, backgroundColor: colors.background },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
-  titulo: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  subtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 28 },
+  titulo: { fontSize: 28, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  subtitulo: { fontSize: 13, color: colors.textSoft, marginBottom: 18 },
+  modeRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  modeButton: { flex: 1, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 16, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surfaceSoft },
+  modeButtonActive: { borderColor: colors.brandOrange, backgroundColor: colors.surfaceRaised },
+  modeText: { color: colors.textSoft, fontSize: 16, fontWeight: '800' },
+  modeTextActive: { color: colors.text },
+  gpsCard: { backgroundColor: colors.surfaceSoft, padding: 22, borderRadius: 22, borderWidth: 1, borderColor: colors.borderSoft },
+  gpsTitle: { color: colors.text, fontSize: 24, fontWeight: '900', marginTop: 16 },
+  gpsCopy: { color: colors.textSoft, fontSize: 14, lineHeight: 21, marginTop: 8 },
+  gpsSports: { color: colors.brandOrangeSoft, fontSize: 12, fontWeight: '700', marginTop: 16 },
+  gpsExplanation: { color: colors.textMuted, fontSize: 13, lineHeight: 21, marginTop: 18, marginBottom: 24 },
+  gpsFootnote: { color: colors.textMuted, fontSize: 11, lineHeight: 17, marginTop: 14, textAlign: 'center' },
+  manualNote: { color: colors.textSoft, fontSize: 12, lineHeight: 19, marginBottom: 18 },
+  detailsToggle: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.borderSoft, marginBottom: 20 },
+  detailsTitle: { color: colors.textSoft, fontSize: 14, fontWeight: '700' },
+  detailsSubtitle: { color: colors.textMuted, fontSize: 11, marginTop: 4 },
   deporteContainer: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  deporteBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 16, padding: 16, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
-  deporteBtnActivo: { borderColor: '#1E6FD9', backgroundColor: '#162d4a' },
+  deporteBtn: { flex: 1, backgroundColor: colors.surfaceSoft, borderRadius: 16, padding: 16, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  deporteBtnActivo: { borderColor: colors.actionBlue, backgroundColor: '#162d4a' },
   deporteEmoji: { fontSize: 28, marginBottom: 6 },
-  deporteLabel: { fontSize: 12, fontWeight: 'bold', color: '#4a6a8a' },
-  deporteLabelActivo: { color: '#1E6FD9' },
-  distanciaCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 28, marginBottom: 20, alignItems: 'center' },
-  distanciaLabel: { fontSize: 11, fontWeight: 'bold', color: '#4a6a8a', letterSpacing: 2, marginBottom: 16 },
+  deporteLabel: { fontSize: 12, fontWeight: 'bold', color: colors.textMuted },
+  deporteLabelActivo: { color: colors.actionBlue },
+  distanciaCard: { backgroundColor: colors.surfaceSoft, borderRadius: 20, padding: 20, marginBottom: 20, alignItems: 'center' },
+  distanciaLabel: { fontSize: 11, fontWeight: 'bold', color: colors.textMuted, letterSpacing: 2, marginBottom: 16 },
   distanciaRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-  distanciaInput: { fontSize: 56, fontWeight: 'bold', color: '#FFFFFF', minWidth: 120, textAlign: 'center' },
-  distanciaUnidad: { fontSize: 24, color: '#A8CFFF', fontWeight: 'bold' },
+  distanciaInput: { fontSize: 56, fontWeight: 'bold', color: colors.text, minWidth: 120, textAlign: 'center' },
+  distanciaUnidad: { fontSize: 24, color: colors.textSoft, fontWeight: 'bold' },
   seccion: { marginBottom: 20 },
-  seccionTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4, letterSpacing: 0.5 },
-  opcional: { fontSize: 12, color: '#4a6a8a', fontWeight: 'normal' },
-  evidenciaSubtitulo: { fontSize: 12, color: '#4a6a8a', marginBottom: 12 },
+  seccionTitulo: { fontSize: 13, fontWeight: 'bold', color: colors.text, marginBottom: 4, letterSpacing: 0.5 },
+  opcional: { fontSize: 12, color: colors.textMuted, fontWeight: 'normal' },
+  evidenciaSubtitulo: { fontSize: 12, color: colors.textMuted, marginBottom: 12 },
   tiempoRow: { flexDirection: 'row', gap: 12 },
-  tiempoInputWrapper: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  tiempoInput: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', minWidth: 40, textAlign: 'center' },
-  tiempoUnidad: { fontSize: 13, color: '#A8CFFF', fontWeight: 'bold' },
+  tiempoInputWrapper: { flex: 1, backgroundColor: colors.surfaceSoft, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  tiempoInput: { fontSize: 22, fontWeight: 'bold', color: colors.text, minWidth: 40, textAlign: 'center' },
+  tiempoUnidad: { fontSize: 13, color: colors.textSoft, fontWeight: 'bold' },
   evidenciaBotonesRow: { flexDirection: 'row', gap: 10 },
-  evidenciaBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E6FD9', flexDirection: 'row', justifyContent: 'center', gap: 8 },
-  evidenciaBtnText: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 14 },
+  evidenciaBtn: { flex: 1, backgroundColor: colors.surfaceSoft, borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: colors.actionBlue, flexDirection: 'row', justifyContent: 'center', gap: 8 },
+  evidenciaBtnText: { color: colors.actionBlue, fontWeight: 'bold', fontSize: 14 },
   evidenciaPreviewWrapper: { position: 'relative', borderRadius: 14, overflow: 'hidden' },
   evidenciaPreview: { width: '100%', height: 200, borderRadius: 14 },
   evidenciaOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
-  evidenciaSubiendoText: { color: '#FFFFFF', marginTop: 8, fontWeight: 'bold' },
+  evidenciaSubiendoText: { color: colors.text, marginTop: 8, fontWeight: 'bold' },
   evidenciaQuitarBtn: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
-  evidenciaQuitarText: { color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' },
+  evidenciaQuitarText: { color: colors.text, fontSize: 12, fontWeight: 'bold' },
   fechaScroll: { marginBottom: 12 },
-  fechaBtn: { backgroundColor: '#1E3A5F', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8, borderWidth: 2, borderColor: 'transparent' },
-  fechaBtnActivo: { borderColor: '#1E6FD9', backgroundColor: '#162d4a' },
-  fechaBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
-  fechaBtnTextActivo: { color: '#1E6FD9' },
-  fechaSeleccionada: { fontSize: 13, color: '#A8CFFF', marginTop: 4 },
+  fechaBtn: { backgroundColor: colors.surfaceSoft, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8, borderWidth: 2, borderColor: 'transparent' },
+  fechaBtnActivo: { borderColor: colors.brandOrange, backgroundColor: '#162d4a' },
+  fechaBtnText: { color: colors.textMuted, fontWeight: 'bold', fontSize: 13 },
+  fechaBtnTextActivo: { color: colors.text },
+  fechaSeleccionada: { fontSize: 13, color: colors.textSoft, marginTop: 4 },
   mensajeBox: { backgroundColor: '#2a1a1a', borderRadius: 12, padding: 14, marginBottom: 16 },
   mensajeExito: { backgroundColor: '#0a2a1a' },
-  mensajeText: { color: '#FC4C02', fontSize: 14, textAlign: 'center' },
-  mensajeTextoExito: { color: '#4CAF50' },
-  button: { backgroundColor: '#1E6FD9', paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
+  mensajeText: { color: colors.brandOrange, fontSize: 14, textAlign: 'center' },
+  mensajeTextoExito: { color: colors.success },
+  button: { backgroundColor: colors.brandOrange, paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
   buttonDisabled: { backgroundColor: '#2a3a4a' },
-  buttonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
+  buttonText: { color: colors.text, fontWeight: 'bold', fontSize: 16 },
   btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  bannerSinReto: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, marginBottom: 20, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#1E6FD9' },
+  bannerSinReto: { backgroundColor: colors.surfaceSoft, borderRadius: 14, padding: 14, marginBottom: 20, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: colors.actionBlue },
   bannerSinRetoEmoji: { fontSize: 28 },
-  bannerSinRetoTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  bannerSinRetoDesc: { fontSize: 12, color: '#1E6FD9', lineHeight: 18 },
+  bannerSinRetoTitulo: { fontSize: 13, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  bannerSinRetoDesc: { fontSize: 12, color: colors.actionBlue, lineHeight: 18 },
 });

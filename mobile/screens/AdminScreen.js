@@ -516,13 +516,23 @@ export default function AdminScreen() {
       <Text style={styles.titulo}>⚙️ Admin</Text>
 
       {/* Temporal: diagnóstico de Apple Health (solo lectura, no envía nada) */}
-      <TouchableOpacity
+      {__DEV__ && <TouchableOpacity
         style={[styles.menuBtn, { marginBottom: 12 }]}
         onPress={() => navigation.navigate('SaludDiagnostico')}
       >
         <Text style={styles.menuBtnEmoji}>❤️</Text>
         <Text style={styles.menuBtnLabel}>Diagnóstico Apple Health (temporal)</Text>
-      </TouchableOpacity>
+      </TouchableOpacity>}
+
+      {__DEV__ && <TouchableOpacity style={[styles.menuBtn, { marginBottom: 12 }]}
+        onPress={() => navigation.navigate('CaminoSantiagoPrueba')}>
+        <Text style={styles.menuBtnLabel}>Camino de Santiago · prueba del mapa</Text>
+      </TouchableOpacity>}
+
+      {__DEV__ && <TouchableOpacity style={[styles.menuBtn, { marginBottom: 12 }]}
+        onPress={() => navigation.navigate('ViaAppiaPrueba')}>
+        <Text style={styles.menuBtnLabel}>Vía Appia · prueba local de ficha e hitos</Text>
+      </TouchableOpacity>}
 
       {/* Menú desplegable */}
       <View style={styles.menuWrapper}>

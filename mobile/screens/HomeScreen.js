@@ -1,19 +1,31 @@
+import KorvaHelpSheet from '../components/KorvaHelpSheet';
+import { RutaLibreCardVista } from '../components/RutaLibreCard';
+import useRutaLibre from '../services/useRutaLibre';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking, TextInput, Alert, Modal, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
+import { Image, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Linking, TextInput, Alert, Modal, Dimensions, KeyboardAvoidingView, Platform, DeviceEventEmitter } from 'react-native';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
+import { leerSesionGpsLocal } from '../services/gps/gpsPersistence';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
 import CompletadoScreen from './CompletadoScreen';
 import TutorialScreen from './TutorialScreen';
-import ViewShot from 'react-native-view-shot';
-import * as Sharing from 'expo-sharing';
+import KorvaProgressShare from '../components/KorvaProgressShare';
 import MapaRecorrido from './MapaRecorrido';
 import { Ionicons } from '@expo/vector-icons';
-import { etiquetaDeInscripcion } from '../utils/versionDesafio';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { distanciaDeInscripcion } from '../utils/versionDesafio';
 import { listarMisActividades } from '../services/actividadesApi';
 import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
+import { colors } from '../theme/korvaTheme';
+import ComoSumasKmCard from '../components/ComoSumasKmCard';
+import IslandiaInvitacion from '../components/IslandiaInvitacion';
+import { useTour, useTourScroll, useTourTarget } from '../components/tour/Tour';
+import { modoInicioTour } from '../services/tour/tourCore';
+import useMovimientoPersonal from '../services/useMovimientoPersonal';
+import KorvaCompletedShare from '../components/KorvaCompletedShare';
+const { formatoKm, urlsFondo } = require('../services/compartirCore');
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
@@ -26,9 +38,9 @@ const aplicarMascaraFecha = (texto) => {
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 const PASOS = [
-  { emoji: '📝', titulo: 'Registrá tus km', desc: 'Usá la pestaña "Registrar" para cargar tus actividades manualmente.' },
+  { emoji: '📝', titulo: 'Registrá tus km', desc: 'Abrí Registrar y elegí GPS o Manual para guardar tu actividad.' },
   { emoji: '🏃', titulo: 'Empezá a correr', desc: 'Cada km cuenta hacia tu medalla.' },
-  { emoji: '📦', titulo: 'Recibí tu medalla', desc: 'Al llegar al 100% te la enviamos a casa.' },
+  { emoji: '🏅', titulo: 'Completá el desafío', desc: 'Tu progreso en la app y el envío físico de tu medalla se gestionan por separado.' },
 ];
 
 const getFrase = (pct) => {
@@ -56,12 +68,25 @@ export default function HomeScreen({ navigation }) {
   const [challenges, setChallenges] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(false);
+  const [alturasAventuras, setAlturasAventuras] = useState({});
+  const [anchoAventuras, setAnchoAventuras] = useState(Dimensions.get('window').width - 48);
+  const aventurasRef = useRef(null);
+  const [conquistaAbierta, setConquistaAbierta] = useState(null);
   const [userId, setUserId] = useState(null);
+  const { estado: rutaLibre } = useRutaLibre();
+  // Fotos para compartir: se bajan apenas cargan tus desafíos, así al compartir ya están.
+  useEffect(() => {
+    const titulos = (challenges || []).map((c) => c?.challenge).filter(Boolean);
+    if (rutaLibre?.datos?.participacion && !rutaLibre.datos.participacion.abandonado) titulos.push('Islandia');
+    titulos.forEach((t) => urlsFondo(t).forEach((u) => Image.prefetch(u).catch(() => {})));
+  }, [challenges, rutaLibre?.datos?.participacion?.id]);
   const [completado, setCompletado] = useState(null);
+  const [retoCompartir, setRetoCompartir] = useState(null);
   const [mostrarTutorial, setMostrarTutorial] = useState(false);
   const [modalInfoVisible, setModalInfoVisible] = useState(false);
   const [modalInfoChallenge, setModalInfoChallenge] = useState('');
   const [nombre, setNombre] = useState('');
+  const [nombreCompartir, setNombreCompartir] = useState('');
   const [bannerVisible, setBannerVisible] = useState(false);
   const [bannerCerrado, setBannerCerrado] = useState(false); // FIX: estado separado para cerrar manualmente
   const [metaInputs, setMetaInputs] = useState({});
@@ -73,25 +98,57 @@ export default function HomeScreen({ navigation }) {
   const [modalStravaProximamente, setModalStravaProximamente] = useState(false);
   const [modalStravaInfoVisible, setModalStravaInfoVisible] = useState(false);
   const [bannerDireccionVisible, setBannerDireccionVisible] = useState(false);
-  const [actividadesLibres, setActividadesLibres] = useState([]);
-  const [modoLibre, setModoLibre] = useState(false);
-  const [statsLibre, setStatsLibre] = useState(null);
   const [cargandoBib, setCargandoBib] = useState(false);
   const [modalAyudaVisible, setModalAyudaVisible] = useState(false);
-  const [faqAbierta, setFaqAbierta] = useState(null);
   const [retoActivoIndex, setRetoActivoIndex] = useState(0);
   const [modalModalidadVisible, setModalModalidadVisible] = useState(false);
   const [actividadReciente, setActividadReciente] = useState(null);
-  const [movimientoY, setMovimientoY] = useState(null);
-  const viewShotRefs = useRef([]);
+  const progresoLeido = useRef(false);
+  const completadosConocidos = useRef(null);
+  const { estado: movimientoPersonal, actualizar: actualizarMovimiento } = useMovimientoPersonal(userId);
+
+  const detectarNuevaFinalizacion = (lista) => {
+    const terminales = new Set(['completed', 'shipped', 'cargado']);
+    const completadosAhora = new Set(
+      lista
+        .filter(c => !c.pending && (terminales.has(c.status) || parseFloat(c.porcentaje || 0) >= 100))
+        .map(c => c.challenge_id)
+        .filter(Boolean)
+    );
+
+    // La primera lectura solo establece el estado real del servidor. Así una
+    // reinstalación, un logout o un cambio de dispositivo no revive logros históricos.
+    if (completadosConocidos.current === null) {
+      completadosConocidos.current = completadosAhora;
+      return;
+    }
+
+    const nuevo = lista.find(c =>
+      c.challenge_id &&
+      completadosAhora.has(c.challenge_id) &&
+      !completadosConocidos.current.has(c.challenge_id)
+    );
+    completadosConocidos.current = completadosAhora;
+    if (nuevo) setCompletado(nuevo);
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user?.id) {
         setUserId(session.user.id);
         try {
+          const [visto, ofrecido] = await Promise.all([
+            AsyncStorage.getItem(`korva:tour-visto:${session.user.id}`),
+            AsyncStorage.getItem(`korva:tour-ofrecido:${session.user.id}`),
+          ]);
+          const modo = modoInicioTour({ creadoEn: session.user.created_at, visto: visto === '1', ofrecido: ofrecido === '1' });
+          if (modo === 'auto') setTimeout(() => { AsyncStorage.setItem(`korva:tour-visto:${session.user.id}`, '1').catch(() => {}); tour.iniciar(); }, 2500);
+          else if (modo === 'ofrecer') setOfrecerTour(true);
+        } catch (e) {}
+        try {
           await AsyncStorage.setItem('tutorial_visto', 'true');
         } catch (e) {}
+        setNombreCompartir(session.user.user_metadata?.name || session.user.user_metadata?.full_name || '');
         const metaNombre = session.user.user_metadata?.name?.split(' ')[0] || 
                            session.user.user_metadata?.full_name?.split(' ')[0] || '';
         if (metaNombre) {
@@ -99,6 +156,7 @@ export default function HomeScreen({ navigation }) {
         } else {
           const { data } = await supabase.from('users').select('name').eq('id', session.user.id).single();
           setNombre(data?.name?.split(' ')[0] || '');
+          setNombreCompartir(data?.name || '');
         }
       } else {
         setCargando(false);
@@ -113,6 +171,10 @@ export default function HomeScreen({ navigation }) {
         verificarStrava();
         listarMisActividades().then((lista) => setActividadReciente(lista[0] || null)).catch(() => {});
       }
+      const movimiento = DeviceEventEmitter.addListener('korva:movimiento-actualizado', (e) => {
+        if (userId && e?.userId === userId) cargarProgreso();
+      });
+      return () => movimiento.remove();
     }, [userId])
   );
 
@@ -140,12 +202,14 @@ export default function HomeScreen({ navigation }) {
     } catch (e) {}
   };
 
-  const enriquecerEstados = async (lista) => {
+  const leerEstados = () => supabase
+    .from('user_challenges')
+    .select('challenge_id,status,completed_at,pausado,numero_bib')
+    .eq('user_id', userId);
+
+  const enriquecerEstados = async (lista, lectura = null) => {
     try {
-      const { data } = await supabase
-        .from('user_challenges')
-        .select('challenge_id,status,completed_at,pausado')
-        .eq('user_id', userId);
+      const { data } = await (lectura || leerEstados());
       const porChallenge = new Map((data || []).map((x) => [x.challenge_id, x]));
       return lista.map((item) => ({ ...item, ...(porChallenge.get(item.challenge_id) || {}) }));
     } catch {
@@ -156,26 +220,40 @@ export default function HomeScreen({ navigation }) {
   const cargarProgreso = async () => {
     if (!userId) return;
     try {
-      setCargando(true);
+      // Al volver a Inicio, conservar las tarjetas mientras se actualizan.
+      setCargando(!progresoLeido.current);
       setError(false);
+      const lecturaEstados = Promise.resolve(leerEstados()).catch(() => ({ data: null }));
       // La Home nunca espera a Strava para mostrar las cards.
       // Primero lee el progreso ya materializado por el motor; si Strava está conectado,
       // sincroniza después y refresca silenciosamente solo si llegaron datos nuevos.
       const res = await fetch(`${BACKEND_URL}/strava/progreso/${userId}`);
       const data = await res.json();
       const listaBase = Array.isArray(data) ? data : [];
-      const lista = await enriquecerEstados(listaBase);
+      if (!res.ok || !Array.isArray(data)) throw new Error('No se pudo leer el progreso');
+      const lista = await enriquecerEstados(listaBase, lecturaEstados);
       setChallenges(lista);
+      detectarNuevaFinalizacion(lista);
+      progresoLeido.current = true;
+      // Mostrar las tarjetas antes de consultar banners y dirección de envío.
+      setCargando(false);
 
       if (stravaConectado) {
         fetch(`${BACKEND_URL}/strava/actividades/${userId}`)
           .then(r => r.json())
           .then(sync => {
             if (Number(sync?.importadas || 0) > 0) {
+              actualizarMovimiento();
+              DeviceEventEmitter.emit('korva:actividades-actualizadas');
               return fetch(`${BACKEND_URL}/strava/progreso/${userId}`)
                 .then(r => r.json())
                 .then(actualizado => {
-                  if (Array.isArray(actualizado)) return enriquecerEstados(actualizado).then(setChallenges);
+                  if (Array.isArray(actualizado)) {
+                    return enriquecerEstados(actualizado).then((listaActualizada) => {
+                      setChallenges(listaActualizada);
+                      detectarNuevaFinalizacion(listaActualizada);
+                    });
+                  }
                 });
             }
           })
@@ -186,16 +264,6 @@ export default function HomeScreen({ navigation }) {
       const sinKm = activos.some(c => parseFloat(c.km_completados || 0) === 0);
       // FIX: solo mostrar si no fue cerrado manualmente
       if (sinKm && !bannerCerrado) setBannerVisible(true);
-      const reto100 = lista.find(c => parseFloat(c.porcentaje || 0) >= 100 && !c.pending);
-      if (reto100) {
-        const visto = await AsyncStorage.getItem(`completado_visto_${reto100.challenge_id}`);
-        if (!visto) {
-          // Marcar como visto inmediatamente para evitar loops de crash
-          await AsyncStorage.setItem(`completado_visto_${reto100.challenge_id}`, 'true');
-          setCompletado(reto100.challenge || reto100.challenge_title || 'tu desafío');
-        }
-      }
-
       const visibles = {};
       for (const c of activos) {
         if (parseFloat(c.km_completados || 0) === 0 && !c.meta_fecha) {
@@ -219,7 +287,8 @@ export default function HomeScreen({ navigation }) {
         } catch (e) {} // Si falla, no mostramos el banner para no confundir
       }
     } catch (err) {
-      setError(true);
+      // Un fallo al refrescar no oculta el último progreso disponible.
+      if (!progresoLeido.current) setError(true);
     } finally {
       setCargando(false);
     }
@@ -350,28 +419,18 @@ export default function HomeScreen({ navigation }) {
 
   const [modalCompartirItem, setModalCompartirItem] = useState(null);
   const scrollRef = useRef(null);
-  const shareCardRef = useRef(null);
+  // Recorrido guiado: elementos que resalta y desplazamiento de esta pantalla.
+  const tour = useTour();
+  const alDesplazarTour = useTourScroll('Mis Retos', scrollRef);
+  const refTourDesafio = useTourTarget('desafio');
+  const refTourComoSumas = useTourTarget('comoSumas');
+  const [ofrecerTour, setOfrecerTour] = useState(false);
+  const iniciarTour = () => { setOfrecerTour(false); if (userId) AsyncStorage.setItem(`korva:tour-visto:${userId}`, '1').catch(() => {}); tour.iniciar(); };
+  const actividadesInicioY = useRef(0);
+  const movimientoInicioY = useRef(0);
 
   const compartirProgreso = async (index) => {
     setModalCompartirItem(challengesActivos[index]);
-  };
-
-  const ejecutarCompartir = async () => {
-    try {
-      if (!shareCardRef?.current) {
-        Alert.alert('Error', 'No se pudo capturar la imagen. Cerrá y volvé a intentar.');
-        return;
-      }
-      // Esperar un frame para asegurar que el ViewShot está renderizado
-      await new Promise(resolve => setTimeout(resolve, 200));
-      const uri = await shareCardRef.current.capture();
-      setModalCompartirItem(null);
-      await new Promise(resolve => setTimeout(resolve, 400));
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: '¡Compartí tu progreso en Korva!' });
-    } catch (err) {
-      console.error('Error compartiendo:', err);
-      Alert.alert('Error', 'No se pudo compartir. Intentá de nuevo.');
-    }
   };
 
   if (mostrarTutorial) {
@@ -388,11 +447,15 @@ export default function HomeScreen({ navigation }) {
     return (
       <CompletadoScreen
         challenge={completado}
-        userId={userId}
-        onVolver={async () => {
-          const reto100 = challenges.find(c => parseFloat(c.porcentaje || 0) >= 100 && !c.pending);
-          if (reto100) await AsyncStorage.setItem(`completado_visto_${reto100.challenge_id}`, 'true');
+        nombrePersona={nombreCompartir}
+        onVolver={() => setCompletado(null)}
+        onCargarDireccion={() => {
           setCompletado(null);
+          navigation.navigate('Perfil');
+        }}
+        onVerKorvaMundi={() => {
+          setCompletado(null);
+          navigation.navigate('KorvaMundi');
         }}
       />
     );
@@ -406,6 +469,11 @@ export default function HomeScreen({ navigation }) {
     return Number.isFinite(ms) ? ms : 0;
   };
 
+  const participacionLibre = rutaLibre.datos?.userId === userId ? rutaLibre.datos.participacion : null;
+  // La invitación a Islandia espera a saber si ya estás inscripto: sin esto aparecía un segundo y se iba.
+  const rutaLibreLista = !!userId && rutaLibre.datos?.userId === userId;
+  const tieneRutaLibre = !!participacionLibre && !participacionLibre.abandonado;
+
   const challengesPending = challenges.filter(c => c.pending);
   const challengesEnCurso = challenges
     .filter(c => !c.pending && !esTerminado(c))
@@ -418,18 +486,13 @@ export default function HomeScreen({ navigation }) {
     .filter(esTerminado)
     // Último completado arriba; el primero que terminó va quedando al fondo.
     .sort((a, b) => fechaOrden(b.completed_at) - fechaOrden(a.completed_at));
-  const challengesActivos = challengesEnCurso;
+  const challengesActivos = [...challengesEnCurso, ...(tieneRutaLibre ? [{
+    id: participacionLibre.id, challenge_id: 'islandia-libre', challenge: 'Islandia', libre: true,
+    participacion: participacionLibre, pausado: participacionLibre.pausado, porcentaje: participacionLibre.porcentaje,
+    km_completados: participacionLibre.km, distancia_total: 1400,
+  }] : [])];
   const retoVisibleIndex = Math.min(retoActivoIndex, Math.max(0, challengesActivos.length - 1));
-  const esModoLibre = challengesActivos.length === 0 && challengesPending.length === 0;
-  if (esModoLibre !== modoLibre) {
-    setModoLibre(esModoLibre);
-    if (esModoLibre && userId && !statsLibre) {
-      fetch(`${BACKEND_URL}/perfil/${userId}`)
-        .then(r => r.json())
-        .then(d => setStatsLibre(d?.stats || null))
-        .catch(() => {});
-    }
-  }
+  const movimientoPrimero = !challengesEnCurso.some(c => !c.pausado);
 
 
   return (
@@ -438,10 +501,23 @@ export default function HomeScreen({ navigation }) {
       style={styles.scroll}
       contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
+      onScroll={alDesplazarTour}
+      scrollEventThrottle={64}
     >
+      {ofrecerTour && (
+        <View style={styles.ofertaTour}>
+          <Text style={styles.ofertaTourTxt}>¿Querés un recorrido rápido por Korva?</Text>
+          <View style={styles.ofertaTourAcciones}>
+            <TouchableOpacity onPress={() => { setOfrecerTour(false); if (userId) AsyncStorage.setItem(`korva:tour-ofrecido:${userId}`, '1').catch(() => {}); }} hitSlop={8}>
+              <Text style={styles.ofertaTourNo}>Ahora no</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={iniciarTour} hitSlop={8}><Text style={styles.ofertaTourSi}>Ver recorrido ›</Text></TouchableOpacity>
+          </View>
+        </View>
+      )}
       {/* Banner dirección — para completados sin dirección */}
       {bannerDireccionVisible && (
-        <View style={[styles.bannerStrava, { borderLeftColor: '#FC4C02', backgroundColor: '#1A0D00' }]}>
+        <View style={[styles.bannerStrava, { borderLeftColor: colors.brandOrange, backgroundColor: '#1A0D00' }]}>
           <View style={{ flex: 1 }}>
             <Text style={styles.bannerStravaTitulo}>📦 ¡Cargá tu dirección!</Text>
             <Text style={styles.bannerStravaDesc}>Completaste tu desafío pero falta tu dirección de envío. Cargala en el Perfil para que podamos enviarte tu medalla.</Text>
@@ -456,111 +532,15 @@ export default function HomeScreen({ navigation }) {
       )}
 
       {/* Modal FAQ / Ayuda */}
-      <Modal visible={modalAyudaVisible} transparent animationType="slide" onRequestClose={() => setModalAyudaVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { maxHeight: '85%' }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={styles.modalTitulo}>❓ Ayuda</Text>
-              <TouchableOpacity onPress={() => setModalAyudaVisible(false)}>
-                <Text style={{ color: '#4a6a8a', fontSize: 18, fontWeight: 'bold' }}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {[
-                { q: '¿Cómo funciona Korva?', a: 'Elegís un desafío en el Catálogo y lo comprás. Una vez confirmado el pago, el desafío se activa en la app. Registrás tus km caminando, corriendo o en bici y avanzás hasta completar la distancia. La información del envío de tu medalla se gestiona por separado.' },
-                { q: '¿Necesito completar el desafío de una sola vez?', a: 'No. Podés salir a correr o pedalear cuando quieras — salidas cortas, largas, a tu ritmo. Los km se van acumulando hasta completar la distancia total del desafío.' },
-                { q: '¿Puedo mezclar actividades?', a: 'Sí. Podés sumar km caminando, corriendo o en bicicleta, y todos cuentan igual (1 km = 1 km) hacia tu meta. La versión que elegís (Estándar o Extendida) solo define la distancia del desafío, no el tipo de actividad.' },
-                { q: '¿Cómo registro mis kilómetros?', a: 'Podés usar Korva GPS, cargar una actividad manualmente o sincronizar Strava si lo tenés conectado. El movimiento pasivo del teléfono no se suma automáticamente a tus desafíos.' },
-                { q: '¿Cómo cargo mi dirección de envío?', a: 'Desde la pestaña "Perfil", sección "Dirección de envío". Asegurate de tenerla cargada antes de completar el desafío para que el envío salga sin demoras.' },
-                { q: '¿Cuándo llega mi medalla?', a: 'Completar el desafío en la app no confirma por sí solo el despacho físico. Cuando tu pedido tenga información de seguimiento disponible, la recibirás por correo electrónico. Los tiempos y condiciones de envío dependen del país.' },
-                { q: '¿Qué son los logros?', a: 'Los logros son badges gratuitos que ganás por tu actividad — km recorridos, rachas de días activos, cantidad de salidas y más. Se acumulan siempre, tengas o no un desafío activo.' },
-                { q: '¿Puedo usar la app sin comprar un desafío?', a: 'Sí. Podés registrar actividades y acumular logros sin costo. Los desafíos son para quienes quieren una meta con medalla física incluida.' },
-                { q: '¿Puedo cambiar la versión de mi desafío?', a: 'Sí, desde "Mis retos activos" en el Perfil podés cambiar entre la versión Estándar y la Extendida. Tus km no cambian: solo cambia la distancia a completar.' },
-                { q: '¿Puedo tener varios desafíos a la vez?', a: 'Sí. Podés inscribirte en más de un desafío al mismo tiempo — cada uno tiene su propio progreso y se completan de forma independiente. En la app vas a ver una pestaña para cada desafío activo.' },
-                { q: '¿Mis datos están seguros?', a: 'Sí. Solo vos podés ver tu perfil, dirección y actividades. No compartimos tu información con terceros.' },
-                { q: '¿Necesito Strava?', a: 'No. El registro manual es suficiente para sumar tus km. Strava estará disponible próximamente como opción de sincronización automática.' },
-                { q: '¿Tengo un problema o consulta?', a: 'Escribinos a korvaventura@gmail.com o por Instagram @korva.aventuras. Te respondemos a la brevedad.' },
-              ].map((item, i) => (
-                <TouchableOpacity key={i} style={styles.faqItem} onPress={() => setFaqAbierta(faqAbierta === i ? null : i)}>
-                  <View style={styles.faqHeader}>
-                    <Text style={styles.faqPregunta}>{item.q}</Text>
-                    <Text style={styles.faqChevron}>{faqAbierta === i ? '▲' : '▼'}</Text>
-                  </View>
-                  {faqAbierta === i && <Text style={styles.faqRespuesta}>{item.a}</Text>}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      <KorvaHelpSheet visible={modalAyudaVisible} onClose={() => setModalAyudaVisible(false)}
+        onRecorrido={() => { setModalAyudaVisible(false); setTimeout(iniciarTour, 450); }} />
 
       {/* Modal Próximamente Strava */}
       {/* Modal Compartir Progreso */}
-      <Modal visible={!!modalCompartirItem} transparent animationType="fade" onRequestClose={() => setModalCompartirItem(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={{ width: '100%', alignItems: 'center' }}>
-            {modalCompartirItem && (
-              <ViewShot ref={shareCardRef} options={{ format: 'png', quality: 1 }}>
-                {(() => {
-                  const pct = Math.min(parseFloat(modalCompartirItem.porcentaje || 0), 100);
-                  const kmComp = parseFloat(modalCompartirItem.km_completados || 0).toFixed(1);
-                  const distTotal = parseFloat(modalCompartirItem.distancia_total || 0).toFixed(0);
-                  const mensaje = pct >= 100 ? 'META ALCANZADA'
-                    : pct >= 75 ? 'CASI EN LA META'
-                    : pct >= 50 ? 'MITAD DEL CAMINO'
-                    : pct >= 25 ? 'EN MOVIMIENTO'
-                    : 'EN RUTA';
-                  return (
-                    <View style={{ backgroundColor: '#0D1B2A', borderRadius: 20, width: 320, overflow: 'hidden' }}>
-                      <View style={{ padding: 28, alignItems: 'center' }}>
-                        {/* Logo */}
-                        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, letterSpacing: 4, fontWeight: 'bold', marginBottom: 24 }}>KORVA AVENTURAS</Text>
-                        {/* Medalla */}
-                        {modalCompartirItem.medal_image_url ? (
-                          <Image source={{ uri: modalCompartirItem.medal_image_url }} style={{ width: 72, height: 72, marginBottom: 16 }} resizeMode="contain" />
-                        ) : (
-                          <Text style={{ fontSize: 44, marginBottom: 16 }}>🏅</Text>
-                        )}
-                        {/* Nombre desafío */}
-                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, letterSpacing: 3, textTransform: 'uppercase', textAlign: 'center', marginBottom: 20 }}>
-                          {modalCompartirItem.challenge || '—'}
-                        </Text>
-                        {/* Porcentaje grande */}
-                        <Text style={{ color: '#FFFFFF', fontSize: 80, fontWeight: 'bold', letterSpacing: -3, lineHeight: 84 }}>
-                          {pct.toFixed(0)}<Text style={{ fontSize: 28, color: 'rgba(255,255,255,0.4)', fontWeight: '300' }}>%</Text>
-                        </Text>
-                        {/* Mensaje estado */}
-                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, letterSpacing: 3, marginTop: 6, marginBottom: 24 }}>{mensaje}</Text>
-                        {/* Barra progreso */}
-                        <View style={{ width: '100%', height: 3, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 2, marginBottom: 8 }}>
-                          <View style={{ width: `${pct}%`, height: 3, backgroundColor: '#FFFFFF', borderRadius: 2 }} />
-                        </View>
-                        {/* km */}
-                        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, letterSpacing: 1, marginBottom: 28 }}>
-                          {kmComp} / {distTotal} KM
-                        </Text>
-                        {/* Footer */}
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
-                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>{nombre?.toUpperCase()}</Text>
-                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: 1 }}>KORVA.RUN</Text>
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })()}
-              </ViewShot>
-            )}
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
-              <TouchableOpacity style={[styles.modalBtn, { flex: 1, backgroundColor: '#1E3A5F' }]} onPress={() => setModalCompartirItem(null)}>
-                <Text style={[styles.modalBtnText, { color: '#A8CFFF' }]}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, { flex: 1 }]} onPress={ejecutarCompartir}>
-                <Text style={styles.modalBtnText}>📤 Compartir</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {modalCompartirItem && <KorvaProgressShare
+        reto={{ titulo: modalCompartirItem.challenge, km: modalCompartirItem.km_completados, total: modalCompartirItem.distancia_total, challenge_id: modalCompartirItem.challenge_id }}
+        onClose={() => setModalCompartirItem(null)}
+      />}
 
       {/* Modal Strava Info — Qué es Strava y cómo conectarlo */}
       <Modal visible={modalStravaInfoVisible} transparent animationType="fade" onRequestClose={() => setModalStravaInfoVisible(false)}>
@@ -661,21 +641,13 @@ export default function HomeScreen({ navigation }) {
       <View style={styles.header}>
         <View>
           <Text style={styles.saludo}>Hola{nombre ? `, ${nombre}` : ''}! 👋</Text>
-          <Text style={styles.subtitulo}>Tus retos activos</Text>
+          <Text style={styles.subtitulo}>{movimientoPrimero ? 'Tu movimiento' : 'Tus aventuras'}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <TouchableOpacity style={styles.ayudaBtn} onPress={() => setModalAyudaVisible(true)}>
             <Text style={styles.ayudaBtnText}>?</Text>
           </TouchableOpacity>
-          {stravaConectado ? (
-            <TouchableOpacity style={styles.stravaConectadoBadge} onPress={() => setModalStravaVisible(true)}>
-              <Text style={styles.stravaConectadoBadgeText}>✓ Strava</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.stravaProximoBtn} onPress={conectarStrava}>
-              <Text style={styles.stravaProximoBtnText}>🔗 Strava</Text>
-            </TouchableOpacity>
-          )}
+          {/* Strava ahora vive en la tarjeta "Cómo sumás km". */}
         </View>
       </View>
 
@@ -726,10 +698,10 @@ export default function HomeScreen({ navigation }) {
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     style={{ backgroundColor: '#2a1a1a', borderRadius: 8, padding: 6, marginLeft: 8 }}
                   >
-                    <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 12 }}>✕</Text>
+                    <Text style={{ color: colors.brandOrange, fontWeight: 'bold', fontSize: 12 }}>✕</Text>
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.pendingModalidad}>Versión {etiquetaDeInscripcion(item)}</Text>
+                <Text style={styles.pendingModalidad}>{distanciaDeInscripcion(item)} km</Text>
                 <Text style={styles.pendingTexto}>Esperando confirmación de pago. Si ya pagaste, puede demorar unos minutos.</Text>
                 {item.link_shopify && (
                   <TouchableOpacity style={styles.pendingBtn} onPress={() => Linking.openURL(item.link_shopify)}>
@@ -740,28 +712,23 @@ export default function HomeScreen({ navigation }) {
             </View>
           ))}
 
-          {challengesActivos.length === 0 ? (
+          {challengesActivos.length === 0 && rutaLibreLista && (
+            <IslandiaInvitacion navigation={navigation} userId={userId} participacion={participacionLibre} />
+          )}
+          {challengesActivos.length === 0 ? (tieneRutaLibre ? null :
             <View style={styles.emptyCard}>
               <Text style={styles.emptyEmoji}>🏅</Text>
-              <Text style={styles.emptyText}>No tenés desafíos activos</Text>
-
-              {/* Si compraron pero no ven el desafío */}
-              <View style={{ backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, marginBottom: 16, width: '100%' }}>
-                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13, marginBottom: 6 }}>¿Ya compraste un desafío?</Text>
-                <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20 }}>Asegurate de estar registrado con el mismo email con el que compraste en korva.run. Una vez que iniciés sesión con ese email, el desafío aparece automáticamente.</Text>
-              </View>
-
-              {/* Si no compraron todavía */}
+              <Text style={styles.emptyText}>Tu próxima aventura</Text>
+              <Text style={styles.emptySubtext}>Podés seguir registrando actividades y elegir un desafío cuando quieras.</Text>
               {challengesPending.length === 0 && (
-                <>
-                  <Text style={styles.emptySubtext}>¿Todavía no tenés un desafío? Explorá nuestro catálogo:</Text>
-                  <TouchableOpacity style={styles.irCatalogoBtn} onPress={() => navigation.navigate('Catalogo')}>
-                    <View style={styles.btnRow}>
-                      <Text style={styles.irCatalogoBtnText}>Ver desafíos →</Text>
-                    </View>
-                  </TouchableOpacity>
-                </>
+                <TouchableOpacity style={styles.irCatalogoBtn} onPress={() => navigation.navigate('Catalogo')}>
+                  <Text style={styles.irCatalogoBtnText}>Explorar desafíos →</Text>
+                </TouchableOpacity>
               )}
+              <TouchableOpacity style={{ marginTop: 16 }}
+                onPress={() => Alert.alert('¿Ya compraste un desafío?', 'Usá el mismo email con el que compraste en korva.run. Si el pago está confirmado, tu desafío debería aparecer en esta cuenta.')}>
+                <Text style={{ color: colors.actionBlue, fontSize: 12 }}>¿Ya compraste un desafío?</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             // FIX: selector siempre visible, aunque sea un solo reto
@@ -772,9 +739,9 @@ export default function HomeScreen({ navigation }) {
                     <TouchableOpacity
                       key={item.id || item.challenge_id || i}
                       style={[styles.retoTab, i === retoVisibleIndex && styles.retoTabActivo]}
-                      onPress={() => setRetoActivoIndex(i)}
+                      onPress={() => { setRetoActivoIndex(i); aventurasRef.current?.scrollTo({ x: i * anchoAventuras, animated: true }); }}
                     >
-                      <Text style={[styles.retoTabText, i === retoVisibleIndex && styles.retoTabTextActivo]}>
+                      <Text style={[styles.retoTabText, i === retoVisibleIndex && styles.retoTabTextActivo, item.libre && { color: '#78DEC5' }]}>
                         {item.challenge}
                       </Text>
                       {parseFloat(item.porcentaje || 0) >= 100 && <Text style={styles.retoTabBadge}>🏅</Text>}
@@ -783,10 +750,19 @@ export default function HomeScreen({ navigation }) {
                 </ScrollView>
               )}
 
+              <View ref={refTourDesafio} collapsable={false} onLayout={e => setAnchoAventuras(e.nativeEvent.layout.width)}>
+                <ScrollView ref={aventurasRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false}
+                  onContentSizeChange={() => aventurasRef.current?.scrollTo({ x: retoVisibleIndex * anchoAventuras, animated: false })}
+                  style={alturasAventuras[challengesActivos[retoVisibleIndex]?.challenge_id] ? { height: alturasAventuras[challengesActivos[retoVisibleIndex].challenge_id] } : undefined}
+                  onMomentumScrollEnd={e => setRetoActivoIndex(Math.round(e.nativeEvent.contentOffset.x / Math.max(1, anchoAventuras)))}>
+                  {challengesActivos.map((item, i) => (
+                    <View key={item.id || item.challenge_id} style={{ width: anchoAventuras, alignSelf: 'flex-start' }}
+                      onLayout={e => { const h = Math.ceil(e.nativeEvent.layout.height); setAlturasAventuras(prev => prev[item.challenge_id] === h ? prev : { ...prev, [item.challenge_id]: h }); }}>
               <RetoCard
-                item={challengesActivos[retoVisibleIndex]}
-                index={retoVisibleIndex}
+                item={item}
+                index={i}
                 nombre={nombre}
+                nombrePersona={nombreCompartir}
                 userId={userId}
                 navigation={navigation}
                 metaVisibles={metaVisibles}
@@ -796,7 +772,6 @@ export default function HomeScreen({ navigation }) {
                 guardarMeta={guardarMeta}
                 saltarMeta={saltarMeta}
                 compartirProgreso={compartirProgreso}
-                viewShotRefs={viewShotRefs}
                 onModalidadPress={() => setModalModalidadVisible(true)}
                 scrollRef={scrollRef}
                 descargarBib={descargarBib}
@@ -804,38 +779,38 @@ export default function HomeScreen({ navigation }) {
                 cargandoBib={cargandoBib}
               />
 
-              <TouchableOpacity style={styles.gpsHeroAction} onPress={() => navigation.navigate('GpsTracker')} activeOpacity={0.88}>
-                <View style={styles.gpsHeroTop}>
-                  <View>
-                    <Text style={styles.gpsHeroEyebrow}>KORVA GPS</Text>
-                    <Text style={styles.gpsHeroTitulo}>Registrar actividad</Text>
-                  </View>
-                  <View style={styles.gpsHeroStart}>
-                    <Ionicons name="play" size={14} color="#FFFFFF" />
-                    <Text style={styles.gpsHeroStartText}>INICIAR</Text>
-                  </View>
-                </View>
-                <Text style={styles.gpsHeroDesc}>Correr · caminar · bici</Text>
-                <View style={styles.gpsHeroDivider} />
-                <Text style={styles.gpsHeroHint}>Distancia y tiempo con el GPS del teléfono · confirmás al finalizar</Text>
-              </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
 
-              <TouchableOpacity
-                style={styles.scrollCue}
-                disabled={movimientoY == null}
-                onPress={() => movimientoY != null && scrollRef.current?.scrollTo({ y: Math.max(0, movimientoY - 24), animated: true })}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="chevron-down" size={20} color="#547493" />
-              </TouchableOpacity>
+
+
+
             </>
           )}
         </>
       )}
 
-      {!cargando && !error && (
-        <View style={styles.movimientoSection} onLayout={(e) => setMovimientoY(e.nativeEvent.layout.y)}>
-          <Text style={styles.movimientoTitulo}>Tu movimiento</Text>
+      {rutaLibreLista && challengesActivos.length > 0 && (
+        <IslandiaInvitacion navigation={navigation} userId={userId} participacion={participacionLibre} />
+      )}
+
+      {userId && <GpsHomeAction navigation={navigation} />}
+
+      {userId && (
+        <View style={styles.movimientoResumen} ref={refTourComoSumas} collapsable={false}>
+          <ComoSumasKmCard userId={userId} movimiento={movimientoPersonal} onActualizarMovimiento={actualizarMovimiento}
+            stravaConectado={stravaConectado} onStrava={stravaConectado ? () => setModalStravaVisible(true) : conectarStrava}
+            navigation={navigation} tieneDesafios={challengesActivos.length > 0} />
+        </View>
+      )}
+
+      {userId && (
+        <View style={styles.movimientoSection} onLayout={(e) => { movimientoInicioY.current = e.nativeEvent.layout.y; }}>
+
+          <View onLayout={(e) => { actividadesInicioY.current = e.nativeEvent.layout.y; }}>
+            <Text style={styles.movimientoTitulo}>Tus actividades</Text>
       {actividadReciente && (
         <TouchableOpacity
           style={styles.actividadRecienteCard}
@@ -857,7 +832,7 @@ export default function HomeScreen({ navigation }) {
               </Text>
             </View>
             <Text style={styles.actividadRecienteKm}>{Number(actividadReciente.distance_km || 0).toFixed(2)} km</Text>
-            <Ionicons name="chevron-forward" size={20} color="#67A9FF" />
+            <Ionicons name="chevron-forward" size={20} color={colors.actionBlue} />
           </View>
         </TouchableOpacity>
       )}
@@ -867,122 +842,75 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.actividadesInicioTitulo}>Mis actividades</Text>
           <Text style={styles.actividadesInicioDesc}>Ver historial completo, estadísticas y recorridos GPS</Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color="#67A9FF" />
+        <Ionicons name="chevron-forward" size={20} color={colors.actionBlue} />
       </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Modo libre — sin reto activo */}
-      {modoLibre && (
-        <View style={{ margin: 20 }}>
-
-          {/* Header modo libre */}
-          <View style={{ backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20, marginBottom: 16 }}>
-            <Text style={{ color: '#A8CFFF', fontSize: 11, letterSpacing: 2, fontWeight: 'bold', marginBottom: 8 }}>MODO LIBRE</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 22, fontWeight: 'bold', marginBottom: 4 }}>
-              {nombre ? `¡Seguís en movimiento, ${nombre}!` : '¡Seguís en movimiento!'}
-            </Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20 }}>
-              Tus km se acumulan en tu historial y siguen sumando hacia logros — aunque no tengas un desafío activo.
-            </Text>
           </View>
-
-          {/* Stats globales */}
-          {statsLibre && (
-            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-              <View style={{ flex: 1, backgroundColor: '#0D1B2A', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E3A5F' }}>
-                <Text style={{ color: '#FC4C02', fontSize: 26, fontWeight: 'bold' }}>{statsLibre.total_km || 0}</Text>
-                <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 4 }}>km totales</Text>
-              </View>
-              <View style={{ flex: 1, backgroundColor: '#0D1B2A', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E3A5F' }}>
-                <Text style={{ color: '#FC4C02', fontSize: 26, fontWeight: 'bold' }}>🔥 {statsLibre.racha_actual || 0}</Text>
-                <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 4 }}>racha semanal</Text>
-              </View>
-              <View style={{ flex: 1, backgroundColor: '#0D1B2A', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#1E3A5F' }}>
-                <Text style={{ color: '#FC4C02', fontSize: 26, fontWeight: 'bold' }}>{statsLibre.medallas || 0}</Text>
-                <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 4 }}>🏅 medallas</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Próximo logro */}
-          {statsLibre?.proximo_logro && (
-            <View style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#1E3A5F' }}>
-              <Text style={{ fontSize: 24, marginRight: 12 }}>🎯</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' }}>{statsLibre.proximo_logro.nombre}</Text>
-                <Text style={{ color: '#4a6a8a', fontSize: 12 }}>Faltan {statsLibre.proximo_logro.falta} {statsLibre.proximo_logro.unidad}</Text>
-              </View>
-            </View>
-          )}
-
-          {/* Actividades recientes */}
-          {actividadesLibres.length > 0 && (
-            <View style={{ marginBottom: 16 }}>
-              <Text style={[styles.seccionTitulo, { marginBottom: 12 }]}>Actividades recientes</Text>
-              {actividadesLibres.slice(0, 5).map((a, i) => (
-                <View key={i} style={styles.actividadLibreCard}>
-                  <Text style={{ color: '#A8CFFF', fontSize: 13 }}>
-                    {a.sport_type === 'run' ? '🏃' : a.sport_type === 'ride' ? '🚴' : a.sport_type === 'swim' ? '🏊' : a.sport_type === 'walk' ? '🚶' : '⚡'} {parseFloat(a.distance_km).toFixed(1)} km
-                  </Text>
-                  <Text style={{ color: '#4a6a8a', fontSize: 12 }}>{new Date(a.recorded_at).toLocaleDateString('es-AR')}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* CTA suave hacia el catálogo */}
-          <TouchableOpacity
-            style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#FC4C02' }}
-            onPress={() => navigation.navigate('Catalogo')}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>¿Listo para tu próxima aventura?</Text>
-              <Text style={{ color: '#4a6a8a', fontSize: 12, marginTop: 4 }}>Explorá los desafíos disponibles</Text>
-            </View>
-            <Text style={{ color: '#FC4C02', fontSize: 20 }}>→</Text>
-          </TouchableOpacity>
-
         </View>
       )}
+
+      {!cargando && !error && (
+        <KorvaMundiTeaser
+          conquistados={challengesCompletados.length + (tieneRutaLibre && participacionLibre.estado === 'completada' ? 1 : 0)}
+          enCurso={challengesEnCurso.filter((c) => !c.pausado).length + (tieneRutaLibre && !participacionLibre.pausado && participacionLibre.estado !== 'completada' ? 1 : 0)}
+          onPress={() => navigation.navigate('KorvaMundi')}
+        />
+      )}
+
 
       {/* Retos completados — solo lectura */}
       {!error && challengesCompletados.length > 0 && (
         <View style={{ marginTop: 8, marginBottom: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 12 }}>
-            <Text style={[styles.seccionTitulo, { flex: 1 }]}>🏅 Completados</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 0, marginBottom: 12 }}>
+            <Text style={[styles.seccionTitulo, { flex: 1 }]}><Ionicons name="checkmark-circle-outline" size={18} color={colors.brandOrangeSoft} /> Completados</Text>
           </View>
           {challengesCompletados.map((item, i) => (
             <View key={i} style={styles.completadoCard}>
               <TouchableOpacity
                 style={{ flexDirection: 'row', alignItems: 'center' }}
-                onPress={() => navigation.navigate('DetalleReto', { item, userId })}
+                onPress={() => setConquistaAbierta(conquistaAbierta === item.challenge_id ? null : item.challenge_id)}
+                accessibilityRole="button" accessibilityState={{ expanded: conquistaAbierta === item.challenge_id }}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.completadoChallenge}>{item.challenge || item.challenge_title || '—'}</Text>
-                  <Text style={styles.completadoKm}>{parseFloat(item.km_completados || 0).toFixed(1)} km · {etiquetaDeInscripcion(item)}</Text>
+                  <Text style={styles.completadoKm}>{parseFloat(item.km_completados || 0).toFixed(1)} km</Text>
                 </View>
-                <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                  <TouchableOpacity onPress={(e) => { e.stopPropagation(); setModalInfoChallenge(item.challenge || ''); setModalInfoVisible(true); }}>
-                    <Text style={styles.completadoBadge}>🎁 Medalla · Más info</Text>
-                  </TouchableOpacity>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Text style={{ color: '#1E6FD9', fontSize: 12 }}>Ver historia →</Text>
-                    <TouchableOpacity onPress={(e) => { e.stopPropagation(); setModalInfoChallenge(item.challenge || ''); setModalInfoVisible(true); }}>
-                      <Text style={{ color: '#4a6a8a', fontSize: 16 }}>ℹ️</Text>
-                    </TouchableOpacity>
-                  </View>
+                <View style={styles.completedSeal}>
+                  <Ionicons name="checkmark" size={18} color={colors.brandOrangeSoft} />
+                  <Text style={styles.completedSealText}>100%</Text>
+                  <Ionicons name={conquistaAbierta === item.challenge_id ? "chevron-up" : "chevron-down"} size={15} color={colors.textSoft} />
                 </View>
               </TouchableOpacity>
-
+              {conquistaAbierta === item.challenge_id && <>
+              <View style={styles.completedActions}>
+                <TouchableOpacity style={styles.completedAction}
+                  onPress={() => navigation.navigate('DetalleReto', { item, userId, nombrePersona: nombreCompartir })}>
+                  <Ionicons name="book-outline" size={15} color={colors.textSoft} />
+                  <Text style={styles.completedActionText}>Ver historia</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.completedAction}
+                  onPress={() => navigation.navigate('DetalleReto', { item, userId, nombrePersona: nombreCompartir, abrirRuta: true })}>
+                  <Ionicons name="map-outline" size={15} color={colors.actionBlue} />
+                  <Text style={styles.completedActionText}>Ver ruta</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.completedAction}
+                  onPress={() => { setModalInfoChallenge(item.challenge || ''); setModalInfoVisible(true); }}>
+                  <Ionicons name="medal-outline" size={15} color={colors.brandOrangeSoft} />
+                  <Text style={styles.completedActionText}>Medalla y envío</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={styles.completedShareBtn} accessibilityRole="button" onPress={() => setRetoCompartir(item)}>
+                <Ionicons name="share-outline" size={16} color={colors.brandOrangeSoft} />
+                <Text style={styles.completedShareText}>Compartir desafío completado</Text>
+              </TouchableOpacity>
+              </>}
             </View>
           ))}
         </View>
       )}
 
       {!error && (
-        <TouchableOpacity style={styles.actualizarBtn} onPress={cargarProgreso}>
-          <Text style={styles.actualizarBtnText}>↻ Actualizar progreso</Text>
+        <TouchableOpacity style={styles.actualizarLink} onPress={cargarProgreso} accessibilityRole="button">
+          <Text style={styles.actualizarLinkText}>Tu progreso se actualiza solo · <Text style={styles.actualizarLinkAccion}>Actualizar ahora</Text></Text>
         </TouchableOpacity>
       )}
 
@@ -991,12 +919,12 @@ export default function HomeScreen({ navigation }) {
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalInfoVisible(false)}>
           <View style={[styles.modalCard, { padding: 24 }]}>
             <Text style={{ fontSize: 30, marginBottom: 10, textAlign: 'center' }}>🎁</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 }}>Sobre tu medalla</Text>
+            <Text style={{ color: colors.text, fontSize: 17, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 }}>Sobre tu medalla</Text>
             <Text style={{ color: '#6F91B5', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>{modalInfoChallenge}</Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+            <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
               Nuestro equipo está preparando y gestionando tu pedido. Cuando el envío tenga información de seguimiento disponible, la recibirás por correo electrónico.
             </Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+            <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
               Si compraste varias medallas en una misma compra, pueden prepararse y enviarse juntas. En ese caso recibirás un único enlace de seguimiento para el pedido, no un correo por cada medalla.
             </Text>
             <Text style={{ color: '#7F96AD', fontSize: 12, lineHeight: 18, marginBottom: 18 }}>
@@ -1006,7 +934,7 @@ export default function HomeScreen({ navigation }) {
               style={{ borderWidth: 1, borderColor: '#2A5A8A', borderRadius: 12, padding: 12, alignItems: 'center', marginBottom: 12 }}
               onPress={() => Linking.openURL('https://korva.run/pages/envios')}
             >
-              <Text style={{ color: '#67A9FF', fontWeight: 'bold', fontSize: 13 }}>Ver información completa sobre envíos →</Text>
+              <Text style={{ color: colors.actionBlue, fontWeight: 'bold', fontSize: 13 }}>Ver información completa sobre envíos →</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setModalInfoVisible(false)}>
               <Text style={{ color: '#4a6a8a', textAlign: 'center', fontSize: 13 }}>Cerrar</Text>
@@ -1044,44 +972,135 @@ export default function HomeScreen({ navigation }) {
       </Modal>
 
       <StatusBar style="light" />
+      <KorvaCompletedShare nombrePersona={nombreCompartir} reto={retoCompartir} onClose={() => setRetoCompartir(null)} />
     </ScrollView>
   );
 }
 
 // ─── Componente reto individual ──────────────────────────────────
-function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, viewShotRefs, onModalidadPress, scrollRef, descargarBib, cargandoBib, togglePausar }) {
+function KorvaMundiTeaser({ conquistados, enCurso, onPress }) {
+  const resumen = conquistados === 0 && enCurso === 0
+    ? 'El mundo te espera'
+    : `${conquistados} conquistado${conquistados === 1 ? '' : 's'} · ${enCurso} en curso`;
+  return (
+    <TouchableOpacity style={styles.korvaMundiCard} onPress={onPress} activeOpacity={0.9}>
+      <View style={styles.korvaMundiCopy}>
+        <Text style={styles.korvaMundiEyebrow}>KORVAMUNDI</Text>
+        <Text style={styles.korvaMundiTitle}>Tu mundo por conquistar</Text>
+        <Text style={styles.korvaMundiMeta}>{resumen}</Text>
+        <View style={styles.korvaMundiLink}>
+          <Text style={styles.korvaMundiLinkText}>Explorar mundo</Text>
+          <Ionicons name="arrow-forward" size={14} color={colors.brandOrangeSoft} />
+        </View>
+      </View>
+      <View style={styles.korvaMundiGlobe} pointerEvents="none">
+        <Svg width="158" height="158" viewBox="0 0 158 158">
+          <Circle cx="82" cy="79" r="61" fill="#091E30" stroke="#2C5B7E" strokeWidth="1.2" />
+          <Path d="M23 79 C48 58 112 58 141 79 M23 79 C49 101 112 101 141 79 M82 18 C57 43 57 116 82 140 M82 18 C108 44 108 115 82 140" fill="none" stroke="rgba(91,153,202,0.28)" strokeWidth="1" />
+          <Path d="M52 43 C60 35 70 35 75 43 C79 49 72 55 66 57 C60 59 60 67 54 68 C47 66 44 57 47 50 Z M92 71 C101 64 114 66 119 76 C123 86 116 96 108 101 C99 105 92 99 89 91 C86 84 86 76 92 71 Z" fill="rgba(76,139,187,0.20)" />
+          <Circle cx="111" cy="54" r="4" fill="#FC4C02" />
+          <Circle cx="111" cy="54" r="9" fill="none" stroke="rgba(252,76,2,0.22)" strokeWidth="3" />
+        </Svg>
+        <View style={styles.korvaMundiPlane}><Ionicons name="airplane" size={17} color={colors.textSoft} /></View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function GpsHomeAction({ navigation }) {
+  const [estadoGps, setEstadoGps] = useState(null);
+  useFocusEffect(useCallback(() => {
+    let enFoco = true;
+    leerSesionGpsLocal().then((sesion) => {
+      if (enFoco) setEstadoGps(sesion?.estado ?? null);
+    });
+    return () => { enFoco = false; };
+  }, []));
+  const tituloGps = {
+    grabando: 'Actividad en curso',
+    pausada: 'Actividad pausada',
+    finalizada: 'Actividad por confirmar',
+  }[estadoGps];
+  return (
+    <TouchableOpacity style={styles.gpsHeroAction} onPress={() => navigation.navigate('GpsTracker')} activeOpacity={0.88}>
+      <View style={styles.gpsHeroTop}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.gpsHeroEyebrow}>KORVA GPS</Text>
+          <Text style={styles.gpsHeroTitulo}>{tituloGps ?? 'Iniciar actividad'}</Text>
+        </View>
+        <View style={styles.gpsHeroStart}>
+          <Ionicons name="play" size={14} color={colors.text} />
+          <Text style={styles.gpsHeroStartText}>{tituloGps ? 'VER' : 'INICIAR'}</Text>
+        </View>
+      </View>
+
+    </TouchableOpacity>
+  );
+}
+
+function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, metaVisibles, metaInputs, setMetaInputs, guardandoMeta, guardarMeta, saltarMeta, compartirProgreso, onModalidadPress, scrollRef, descargarBib, cargandoBib, togglePausar }) {
+  if (!item) return null;
+  if (item.libre) return (
+    <View>
+      {/* Islandia con la misma tarjeta que los demás desafíos; verde = ruta libre */}
+      <View style={[styles.shareCard, { borderColor: '#32665C' }]}>
+        <View style={styles.shareHeader}>
+          <Text style={styles.shareKorvaLogo}>TU AVENTURA</Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Compartir progreso" hitSlop={8} style={{ padding: 8 }} onPress={() => compartirProgreso(index)}>
+            <Ionicons name="share-outline" size={22} color={colors.actionBlue} />
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.shareChallengeName}>Islandia · Ring Road</Text>
+        <View style={styles.heroMetricRow}>
+          <Text style={styles.heroKmNumero}>{formatoKm(item.participacion.km)}</Text>
+          <Text style={styles.heroKmUnidad}>km</Text>
+          <View style={styles.heroPctPill}>
+            <Text style={[styles.heroPctText, { color: '#78DEC5' }]}>{Math.floor(Math.min(100, item.participacion.porcentaje || 0))}%</Text>
+          </View>
+        </View>
+        <Text style={styles.heroTotal}>de 1.400 km</Text>
+        <View style={styles.heroFooter}>
+          <Text style={[styles.heroFooterMuted, { color: '#78DEC5' }]}>
+            {item.participacion.estado === 'pausada' ? 'Ruta libre · pausada' : item.participacion.estado === 'completada' ? 'Ruta libre · completada' : 'Ruta libre · sin medalla'}
+          </Text>
+        </View>
+        <MapaRecorrido challengeId="3b211caf-ee16-54c8-a93c-343a5eb2d57e" challengeTitle="Islandia · Ring Road"
+          kmCompletados={item.participacion.km} distanciaTotal={1400} porcentaje={item.participacion.porcentaje} enTarjeta
+          accionDerecha={(
+            <TouchableOpacity style={styles.heroHistoriaLink} onPress={() => navigation.navigate('RutaLibre')} activeOpacity={0.72} hitSlop={10}>
+              <Text style={styles.heroHistoriaText}>Historia del desafío</Text>
+              <Ionicons name="arrow-forward" size={13} color={colors.actionBlue} />
+            </TouchableOpacity>
+          )} />
+      </View>
+    </View>
+  );
   const challengeId = item.challenge_id;
   const estaPausado = item.pausado || false;
   const estaActivo = item.status === 'active';
-  if (!item) return null;
   const pct = Math.min(parseFloat(item.porcentaje || 0), 100);
   const estaCompletado = pct >= 100;
   const frase = getFrase(pct);
   const mostrarCardMeta = metaVisibles[item.challenge_id];
   const metaFormateada = formatearFechaMeta(item.meta_fecha);
-  const bordeCard = estaCompletado ? '#FC4C02' : '#244766';
-  // Versión del desafío (Estándar/Extendida), no deporte. Fallback a `modalidad` de respuestas viejas.
-  const modalidadLabel = `VERSIÓN ${etiquetaDeInscripcion(item).toUpperCase()}`;
+  const bordeCard = estaCompletado ? colors.brandOrange : colors.borderSoft;
   const tituloNormalizado = (item.challenge || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const tieneExpedicion = ['fuji', 'dubrovnik', 'san andres', 'fin del mundo'].some(nombre => tituloNormalizado.includes(nombre));
 
   return (
     <View>
-      <ViewShot
-        ref={ref => viewShotRefs.current[index] = ref}
-        options={{ format: 'png', quality: 1 }}
-      >
+
         <View style={[styles.shareCard, { borderColor: bordeCard }]}>
           {/* FIX: header rediseñado — sin colores que parezcan botones */}
           <View style={styles.shareHeader}>
             <Text style={styles.shareKorvaLogo}>TU AVENTURA</Text>
-            <TouchableOpacity onPress={onModalidadPress}>
-              <Text style={styles.shareDeporte}>{modalidadLabel}</Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Compartir progreso" hitSlop={8} style={{ padding: 8 }} onPress={() => compartirProgreso(index)}>
+              <Ionicons name="share-outline" size={22} color={colors.actionBlue} />
             </TouchableOpacity>
           </View>
           <Text style={styles.shareChallengeName}>{item.challenge || '—'}</Text>
           <View style={styles.heroMetricRow}>
-            <Text style={styles.heroKmNumero}>{Number(item.km_completados || 0).toFixed(1)}</Text>
+            <Text style={styles.heroKmNumero}>{formatoKm(item.km_completados || 0)}</Text>
             <Text style={styles.heroKmUnidad}>km</Text>
             <View style={styles.heroPctPill}>
               <Text style={styles.heroPctText}>{pct.toFixed(0)}%</Text>
@@ -1102,27 +1121,22 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
               : <Text style={styles.heroFooterMuted}>Completalo a tu ritmo</Text>}
             {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅 Completado</Text>}
           </View>
-          <TouchableOpacity
-            style={styles.heroHistoria}
-            onPress={() => navigation.navigate('DetalleReto', { item, userId })}
-            activeOpacity={0.72}
-          >
-            <Text style={styles.heroHistoriaText}>Historia del desafío</Text>
-            <Ionicons name="arrow-forward" size={13} color="#67A9FF" />
-          </TouchableOpacity>
+          <MapaRecorrido
+            kmCompletados={item.km_completados}
+            distanciaTotal={item.distancia_total}
+            porcentaje={pct}
+            challengeId={item.challenge_id}
+            challengeTitle={item.challenge}
+            enTarjeta
+            accionDerecha={(
+              <TouchableOpacity style={styles.heroHistoriaLink} onPress={() => navigation.navigate('DetalleReto', { item, userId, nombrePersona })} activeOpacity={0.72} hitSlop={10}>
+                <Text style={styles.heroHistoriaText}>Historia del desafío</Text>
+                <Ionicons name="arrow-forward" size={13} color={colors.actionBlue} />
+              </TouchableOpacity>
+            )}
+          />
         </View>
-      </ViewShot>
 
-      {tieneExpedicion && (
-        <MapaRecorrido
-          kmCompletados={item.km_completados}
-          distanciaTotal={item.distancia_total}
-          porcentaje={pct}
-          challengeId={item.challenge_id}
-          challengeTitle={item.challenge}
-          integrado
-        />
-      )}
 
       {mostrarCardMeta && (
         <View style={styles.metaCard}>
@@ -1149,7 +1163,7 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
               disabled={guardandoMeta[item.challenge_id]}
             >
               {guardandoMeta[item.challenge_id]
-                ? <ActivityIndicator color="#FFFFFF" size="small" />
+                ? <ActivityIndicator color={colors.text} size="small" />
                 : <Text style={styles.metaGuardarBtnText}>Guardar</Text>
               }
             </TouchableOpacity>
@@ -1165,217 +1179,244 @@ function RetoCard({ item, index, nombre, userId, navigation, metaVisibles, metaI
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#0D1B2A' },
+  completedShareBtn: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 4 },
+  completedShareText: { fontSize: 12, fontWeight: '800', color: colors.brandOrangeSoft },
+  scroll: { flex: 1, backgroundColor: colors.background },
   container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  saludo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
-  subtitulo: { fontSize: 12, color: '#7897B7' },
+  saludo: { fontSize: 22, fontWeight: 'bold', color: colors.text, marginBottom: 2 },
+  subtitulo: { fontSize: 12, color: colors.textMuted },
+  korvaMundiCard: { minHeight: 146, marginTop: 14, marginBottom: 20, borderRadius: 22, overflow: 'hidden', backgroundColor: '#0B2134', borderWidth: 1, borderColor: '#234766', flexDirection: 'row', alignItems: 'stretch' },
+  korvaMundiCopy: { flex: 1, zIndex: 2, paddingLeft: 18, paddingVertical: 18, paddingRight: 4, justifyContent: 'center' },
+  korvaMundiEyebrow: { color: colors.brandOrangeSoft, fontSize: 9, fontWeight: '900', letterSpacing: 2.3, marginBottom: 7 },
+  korvaMundiTitle: { color: colors.text, fontSize: 18, lineHeight: 23, fontWeight: '900', maxWidth: 180 },
+  korvaMundiMeta: { color: colors.textMuted, fontSize: 10, marginTop: 6 },
+  korvaMundiLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 13 },
+  korvaMundiLinkText: { color: colors.brandOrangeSoft, fontSize: 11, fontWeight: '800' },
+  korvaMundiGlobe: { position: 'absolute', width: 158, height: 158, right: -35, top: -7, opacity: 0.96 },
+  korvaMundiPlane: { position: 'absolute', left: 12, top: 23, transform: [{ rotate: '-18deg' }] },
   bannerStrava: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: '#0D2A1A',
     borderRadius: 14,
     borderLeftWidth: 4,
-    borderLeftColor: '#FC4C02',
+    borderLeftColor: colors.brandOrange,
     padding: 16,
     marginBottom: 16,
     gap: 12,
   },
   bannerStravaTitulo: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 14,
     fontWeight: 'bold',
     marginBottom: 4,
   },
   bannerStravaDesc: {
-    color: '#A8CFFF',
+    color: colors.textSoft,
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 8,
   },
   bannerStravaBtn: {
-    color: '#FC4C02',
+    color: colors.brandOrange,
     fontSize: 13,
     fontWeight: 'bold',
   },
-  stravaProximoBtn: { backgroundColor: '#1E3A5F', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2a4a6a' },
+  stravaProximoBtn: { backgroundColor: colors.surfaceStrong, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2a4a6a' },
   stravaProximoBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
-  stravaBtn: { backgroundColor: '#FC4C02', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
-  stravaBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
+  stravaBtn: { backgroundColor: colors.brandOrange, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  stravaBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 13 },
   stravaConectadoBadge: { backgroundColor: '#1a3a1a', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#2a6a2a' },
-  stravaConectadoBadgeText: { color: '#4CAF50', fontWeight: 'bold', fontSize: 13 },
+  stravaConectadoBadgeText: { color: colors.success, fontWeight: 'bold', fontSize: 13 },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  modalCard: { backgroundColor: '#1E3A5F', borderRadius: 24, padding: 28, width: '100%', borderWidth: 1, borderColor: '#FC4C02' },
+  modalCard: { backgroundColor: colors.surfaceStrong, borderRadius: 24, padding: 28, width: '100%', borderWidth: 1, borderColor: colors.brandOrange },
   modalEmoji: { fontSize: 48, textAlign: 'center', marginBottom: 12 },
-  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', marginBottom: 6 },
-  modalSubtitulo: { fontSize: 13, color: '#A8CFFF', textAlign: 'center', marginBottom: 24 },
+  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: 6 },
+  modalSubtitulo: { fontSize: 13, color: colors.textSoft, textAlign: 'center', marginBottom: 24 },
   modalPaso: { flexDirection: 'row', gap: 14, marginBottom: 18, alignItems: 'flex-start' },
   modalPasoEmoji: { fontSize: 24, width: 32 },
   modalPasoInfo: { flex: 1 },
-  modalPasoTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 3 },
-  modalPasoDesc: { fontSize: 12, color: '#A8CFFF', lineHeight: 18 },
-  modalBtn: { backgroundColor: '#FC4C02', paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginTop: 8 },
-  modalBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
-  bannerCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#1E6FD9' },
+  modalPasoTitulo: { fontSize: 14, fontWeight: 'bold', color: colors.text, marginBottom: 3 },
+  modalPasoDesc: { fontSize: 12, color: colors.textSoft, lineHeight: 18 },
+  modalBtn: { backgroundColor: colors.brandOrange, paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginTop: 8 },
+  modalBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 15 },
+  bannerCard: { backgroundColor: colors.surfaceStrong, borderRadius: 20, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: colors.actionBlueStrong },
   bannerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  bannerTitulo: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
-  bannerCerrar: { fontSize: 18, color: '#A8CFFF', paddingHorizontal: 4, paddingVertical: 2 },
-  bannerSubtitulo: { fontSize: 13, color: '#A8CFFF', marginBottom: 16 },
+  bannerTitulo: { fontSize: 18, fontWeight: 'bold', color: colors.text },
+  bannerCerrar: { fontSize: 18, color: colors.textSoft, paddingHorizontal: 4, paddingVertical: 2 },
+  bannerSubtitulo: { fontSize: 13, color: colors.textSoft, marginBottom: 16 },
   pasoRow: { flexDirection: 'row', gap: 12, marginBottom: 12, alignItems: 'flex-start' },
   pasoEmoji: { fontSize: 20, width: 28 },
   pasoInfo: { flex: 1 },
-  pasoTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
-  pasoDesc: { fontSize: 12, color: '#A8CFFF' },
-  bannerBtn: { backgroundColor: '#1E6FD9', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginTop: 8 },
-  bannerBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
+  pasoTitulo: { fontSize: 14, fontWeight: 'bold', color: colors.text, marginBottom: 2 },
+  pasoDesc: { fontSize: 12, color: colors.textSoft },
+  bannerBtn: { backgroundColor: colors.actionBlueStrong, paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginTop: 8 },
+  bannerBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 14 },
   btnRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  errorCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 40, alignItems: 'center', marginTop: 20, borderWidth: 1, borderColor: '#2a3a4a' },
+  errorCard: { backgroundColor: colors.surfaceStrong, borderRadius: 20, padding: 40, alignItems: 'center', marginTop: 20, borderWidth: 1, borderColor: '#2a3a4a' },
   errorEmoji: { fontSize: 48, marginBottom: 16 },
-  errorTitulo: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
-  errorSubtitulo: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 20, marginBottom: 24 },
-  reintentarBtn: { backgroundColor: '#1E6FD9', paddingVertical: 12, paddingHorizontal: 32, borderRadius: 12 },
-  reintentarText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
+  errorTitulo: { fontSize: 20, fontWeight: 'bold', color: colors.text, marginBottom: 8 },
+  errorSubtitulo: { fontSize: 14, color: colors.textSoft, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  reintentarBtn: { backgroundColor: colors.actionBlueStrong, paddingVertical: 12, paddingHorizontal: 32, borderRadius: 12 },
+  reintentarText: { color: colors.text, fontWeight: 'bold', fontSize: 15 },
   pendingCard: { backgroundColor: '#1E2A1A', borderRadius: 16, padding: 18, marginBottom: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 14, borderWidth: 1, borderColor: '#2a4a2a' },
   pendingEmoji: { fontSize: 28 },
   pendingInfo: { flex: 1 },
-  pendingTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
-  pendingModalidad: { fontSize: 12, color: '#A8CFFF', marginBottom: 6 },
+  pendingTitulo: { fontSize: 15, fontWeight: 'bold', color: colors.text, marginBottom: 2 },
+  pendingModalidad: { fontSize: 12, color: colors.textSoft, marginBottom: 6 },
   pendingTexto: { fontSize: 12, color: '#6a8a6a', lineHeight: 18 },
-  pendingBtn: { marginTop: 10, backgroundColor: '#1E6FD9', paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-  pendingBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 },
-  ayudaBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center', justifyContent: 'center' },
-  ayudaBtnText: { color: '#A8CFFF', fontWeight: 'bold', fontSize: 15 },
+  pendingBtn: { marginTop: 10, backgroundColor: colors.actionBlueStrong, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+  pendingBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 12 },
+  ayudaBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center', justifyContent: 'center' },
+  ayudaBtnText: { color: colors.textSoft, fontWeight: 'bold', fontSize: 15 },
   faqItem: { borderBottomWidth: 1, borderBottomColor: '#2a4a6a', paddingVertical: 14 },
   faqHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  faqPregunta: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', flex: 1, paddingRight: 12 },
+  faqPregunta: { fontSize: 14, fontWeight: 'bold', color: colors.text, flex: 1, paddingRight: 12 },
   faqChevron: { color: '#4a6a8a', fontSize: 12 },
-  faqRespuesta: { fontSize: 13, color: '#A8CFFF', lineHeight: 20, marginTop: 10 },
+  faqRespuesta: { fontSize: 13, color: colors.textSoft, lineHeight: 20, marginTop: 10 },
   emptyLogrosRow: { flexDirection: 'row', gap: 8, marginVertical: 16, flexWrap: 'wrap', justifyContent: 'center' },
-  emptyLogroItem: { backgroundColor: '#1E3A5F', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, fontSize: 12, color: '#A8CFFF', fontWeight: 'bold' },
-  emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 32, alignItems: 'center', marginTop: 20, gap: 8 },
+  emptyLogroItem: { backgroundColor: colors.surfaceStrong, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, fontSize: 12, color: colors.textSoft, fontWeight: 'bold' },
+  emptyCard: { backgroundColor: colors.surfaceStrong, borderRadius: 20, padding: 32, alignItems: 'center', marginTop: 20, gap: 8 },
   emptyEmoji: { fontSize: 48, marginBottom: 16 },
-  emptyText: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
-  emptySubtext: { fontSize: 14, color: '#A8CFFF', textAlign: 'center', lineHeight: 20 },
-  irCatalogoBtn: { backgroundColor: '#FC4C02', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 14, marginTop: 12 },
-  irCatalogoBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
+  emptyText: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginBottom: 8 },
+  emptySubtext: { fontSize: 14, color: colors.textSoft, textAlign: 'center', lineHeight: 20 },
+  irCatalogoBtn: { backgroundColor: colors.brandOrange, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 14, marginTop: 12 },
+  irCatalogoBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 15 },
   retoTabsScroll: { marginBottom: 10 },
   retoTab: { backgroundColor: '#132A42', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, borderWidth: 1, borderColor: '#234766', flexDirection: 'row', alignItems: 'center', gap: 6 },
   retoTabActivo: { backgroundColor: '#183553', borderColor: '#B94A1A' },
-  retoTabText: { color: '#7897B7', fontWeight: '700', fontSize: 12 },
+  retoTabText: { color: colors.textMuted, fontWeight: '700', fontSize: 12 },
   retoTabTextActivo: { color: '#F8FAFC' },
   retoTabBadge: { fontSize: 13 },
   shareCard: { backgroundColor: '#152F4A', borderRadius: 24, paddingHorizontal: 22, paddingTop: 20, paddingBottom: 18, marginBottom: 0, borderWidth: 1 },
   shareHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 13 },
   // FIX: KORVA y modalidad como texto plano, sin colores de botón
   shareKorvaLogo: { fontSize: 9, fontWeight: '900', color: '#6888A7', letterSpacing: 2.4 },
-  shareDeporte: { fontSize: 9, fontWeight: '800', color: '#67A9FF', letterSpacing: 1.1 },
+  shareDeporte: { fontSize: 9, fontWeight: '800', color: colors.actionBlue, letterSpacing: 1.1 },
   sharePctWrapper: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 1 },
-  sharePctNumero: { fontSize: 58, fontWeight: '800', color: '#FFFFFF', lineHeight: 64 },
-  sharePctSymbol: { fontSize: 26, fontWeight: '800', color: '#FC4C02', marginBottom: 9, marginLeft: 3 },
-  shareChallengeName: { fontSize: 22, fontWeight: '900', color: '#FFFFFF', marginBottom: 10 },
-  shareFrase: { fontSize: 13, color: '#A8CFFF', marginBottom: 12, fontStyle: 'italic' },
+  sharePctNumero: { fontSize: 58, fontWeight: '800', color: colors.text, lineHeight: 64 },
+  sharePctSymbol: { fontSize: 26, fontWeight: '800', color: colors.brandOrange, marginBottom: 9, marginLeft: 3 },
+  shareChallengeName: { fontSize: 22, fontWeight: '900', color: colors.text, marginBottom: 10 },
+  shareFrase: { fontSize: 13, color: colors.textSoft, marginBottom: 12, fontStyle: 'italic' },
   shareProgressBar: { height: 7, backgroundColor: '#091725', borderRadius: 4, marginTop: 12, marginBottom: 12, overflow: 'hidden' },
-  shareProgressFill: { height: 7, backgroundColor: '#FC4C02', borderRadius: 4 },
-  shareProgressFillCompletado: { backgroundColor: '#FC4C02' },
+  shareProgressFill: { height: 7, backgroundColor: colors.brandOrange, borderRadius: 4 },
+  shareProgressFillCompletado: { backgroundColor: colors.brandOrange },
   shareKmRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 6 },
-  shareKmText: { fontSize: 17, fontWeight: '800', color: '#FFFFFF' },
-  shareKmTotal: { fontSize: 11, color: '#7897B7', flex: 1 },
+  shareKmText: { fontSize: 17, fontWeight: '800', color: colors.text },
+  shareKmTotal: { fontSize: 11, color: colors.textMuted, flex: 1 },
   shareCompletadoBadge: { fontSize: 16 },
-  shareMetaText: { fontSize: 11, color: '#A8CFFF' },
+  shareMetaText: { fontSize: 11, color: colors.textSoft },
   heroMetricRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 2 },
-  heroKmNumero: { color: '#FFFFFF', fontSize: 62, lineHeight: 66, fontWeight: '900', letterSpacing: -2.5 },
-  heroKmUnidad: { color: '#A8CFFF', fontSize: 18, fontWeight: '800', marginLeft: 6, marginBottom: 9 },
+  heroKmNumero: { color: colors.text, fontSize: 62, lineHeight: 66, fontWeight: '900', letterSpacing: -2.5 },
+  heroKmUnidad: { color: colors.textSoft, fontSize: 18, fontWeight: '800', marginLeft: 6, marginBottom: 9 },
   heroPctPill: { marginLeft: 'auto', marginBottom: 8, backgroundColor: '#0D2236', borderRadius: 18, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: '#284C6E' },
-  heroPctText: { color: '#FC4C02', fontSize: 17, fontWeight: '900' },
-  heroTotal: { color: '#7897B7', fontSize: 12, fontWeight: '700', marginTop: 1 },
+  heroPctText: { color: colors.brandOrange, fontSize: 17, fontWeight: '900' },
+  heroTotal: { color: colors.textMuted, fontSize: 12, fontWeight: '700', marginTop: 1 },
   heroFooter: { minHeight: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   heroFooterMuted: { color: '#6888A7', fontSize: 11 },
-  gpsHeroAction: { marginTop: 20, minHeight: 142, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 18, backgroundColor: '#14283B', borderWidth: 1, borderColor: '#31506B' },
+  gpsHeroAction: { marginTop: 20, marginBottom: 20, minHeight: 78, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 14, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderStrong },
   gpsHeroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
-  gpsHeroStart: { height: 42, borderRadius: 21, backgroundColor: '#FC4C02', paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  gpsHeroStartText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  gpsHeroStart: { height: 42, borderRadius: 21, backgroundColor: colors.brandOrange, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  gpsHeroStartText: { color: colors.text, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   gpsHeroEyebrow: { color: '#6E8BA7', fontSize: 9, fontWeight: '900', letterSpacing: 2.2, marginBottom: 5 },
-  gpsHeroTitulo: { color: '#FFFFFF', fontSize: 21, fontWeight: '900', lineHeight: 25 },
-  gpsHeroDesc: { color: '#A8CFFF', fontSize: 11, marginTop: 10 },
+  gpsHeroTitulo: { color: colors.text, fontSize: 18, fontWeight: '900', lineHeight: 25 },
+  gpsHeroDesc: { color: colors.textSoft, fontSize: 11, marginTop: 10 },
   gpsHeroDivider: { height: 1, backgroundColor: '#203D57', marginVertical: 12 },
-  gpsHeroHint: { color: '#58748F', fontSize: 9, lineHeight: 13 },
-  heroHistoria: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#244766', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  heroHistoriaText: { color: '#67A9FF', fontSize: 11, fontWeight: '800' },
-  scrollCue: { alignSelf: 'center', alignItems: 'center', paddingHorizontal: 28, paddingTop: 14, paddingBottom: 4 },
-  shareFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#0D1B2A', paddingTop: 12 },
+  gpsHeroHint: { color: colors.textDim, fontSize: 9, lineHeight: 13 },
+  heroHistoria: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.borderSoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroHistoriaText: { color: colors.actionBlue, fontSize: 11, fontWeight: '800' },
+  heroHistoriaLink: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  scrollCue: { alignSelf: 'center', alignItems: 'center', minHeight: 44, paddingHorizontal: 24, paddingVertical: 10, marginBottom: 12 },
+  scrollCueText: { color: colors.textMuted, fontSize: 10, marginBottom: 2 },
+  shareFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.background, paddingTop: 12 },
   shareNombre: { fontSize: 12, color: '#4a6a8a', fontWeight: 'bold' },
   shareUrl: { fontSize: 12, color: '#4a6a8a' },
   retoAcciones: { marginTop: 18, marginBottom: 24, borderTopWidth: 1, borderTopColor: '#213C58', paddingTop: 14 },
   historiaLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 7, marginBottom: 10 },
-  historiaLinkText: { color: '#67A9FF', fontSize: 13, fontWeight: '800' },
+  historiaLinkText: { color: colors.actionBlue, fontSize: 13, fontWeight: '800' },
   accionesSecundarias: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 22, paddingVertical: 9 },
   accionSutil: { minHeight: 28, justifyContent: 'center' },
-  accionSutilText: { color: '#A8CFFF', fontSize: 11, fontWeight: '700' },
+  accionSutilText: { color: colors.textSoft, fontSize: 11, fontWeight: '700' },
   pausaSutil: { alignItems: 'center', paddingTop: 10, marginTop: 4 },
   pausaSutilText: { color: '#6F8298', fontSize: 10, fontWeight: '700' },
-    detalleBtn: { backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#1E6FD9', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
-  detalleBtnText: { color: '#1E6FD9', fontSize: 13, fontWeight: 'bold' },
-  compartirBtn: { backgroundColor: '#0D1B2A', borderWidth: 1, borderColor: '#2a4a6a', paddingVertical: 10, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
-  compartirBtnText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
+    detalleBtn: { backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.actionBlueStrong, paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
+  detalleBtnText: { color: colors.actionBlueStrong, fontSize: 13, fontWeight: 'bold' },
+  compartirBtn: { backgroundColor: colors.background, borderWidth: 1, borderColor: '#2a4a6a', paddingVertical: 10, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
+  compartirBtnText: { color: colors.textSoft, fontSize: 13, fontWeight: 'bold' },
   bibRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  bibBtn: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 12, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: '#FC4C02' },
-  bibBtnSecundario: { borderColor: '#1E6FD9' },
-  bibBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 },
-  completadoCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 16, marginHorizontal: 20, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderLeftWidth: 4, borderLeftColor: '#FC4C02' },
-  completadoChallenge: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  completadoKm: { fontSize: 13, color: '#A8CFFF' },
-  completadoBadge: { fontSize: 12, color: '#4CAF50', fontWeight: 'bold' },
-  seccionTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
-  modolLibreBanner: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 16, flexDirection: 'row', gap: 12, borderLeftWidth: 4, borderLeftColor: '#1E6FD9' },
+  bibBtn: { flex: 1, backgroundColor: colors.surfaceStrong, borderRadius: 12, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.brandOrange },
+  bibBtnSecundario: { borderColor: colors.actionBlueStrong },
+  bibBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 12 },
+  completadoCard: { backgroundColor: colors.backgroundDeep, borderRadius: 18, padding: 16, marginHorizontal: 0, marginBottom: 12, borderWidth: 1, borderColor: colors.borderStrong },
+  completedSeal: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 8, borderRadius: 16, backgroundColor: colors.backgroundDeep },
+  completedSealText: { color: colors.brandOrangeSoft, fontSize: 11, fontWeight: '800' },
+  completedActions: { flexDirection: 'row', gap: 12, marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderColor: colors.borderSoft },
+  completedAction: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44 },
+  completedActionText: { color: colors.textSoft, fontSize: 12, fontWeight: '700' },
+  completadoChallenge: { fontSize: 15, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  completadoKm: { fontSize: 13, color: colors.textSoft },
+  completadoBadge: { fontSize: 12, color: colors.success, fontWeight: 'bold' },
+  seccionTitulo: { fontSize: 16, fontWeight: 'bold', color: colors.text },
+  modolLibreBanner: { backgroundColor: colors.surfaceStrong, borderRadius: 16, padding: 16, flexDirection: 'row', gap: 12, borderLeftWidth: 4, borderLeftColor: colors.actionBlueStrong },
   modoLibreEmoji: { fontSize: 32 },
-  modoLibreTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  modoLibreDesc: { fontSize: 13, color: '#A8CFFF', lineHeight: 18, marginBottom: 8 },
-  modoLibreBtn: { fontSize: 13, color: '#FC4C02', fontWeight: 'bold' },
-  actividadLibreCard: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#1E3A5F' },
-  storyCard: { backgroundColor: '#0D1B2A', borderRadius: 20, padding: 28, width: 300, borderWidth: 2, borderColor: '#FC4C02', alignItems: 'center' },
+  modoLibreTitulo: { fontSize: 15, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  modoLibreDesc: { fontSize: 13, color: colors.textSoft, lineHeight: 18, marginBottom: 8 },
+  modoLibreBtn: { fontSize: 13, color: colors.brandOrange, fontWeight: 'bold' },
+  actividadLibreCard: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.surfaceStrong },
+  storyCard: { backgroundColor: colors.background, borderRadius: 20, padding: 28, width: 300, borderWidth: 2, borderColor: colors.brandOrange, alignItems: 'center' },
   storyHeader: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 24 },
-  storyLogo: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' },
-  storyTagline: { fontSize: 12, color: '#FC4C02', fontWeight: 'bold', letterSpacing: 2 },
+  storyLogo: { fontSize: 18, fontWeight: 'bold', color: colors.text },
+  storyTagline: { fontSize: 12, color: colors.brandOrange, fontWeight: 'bold', letterSpacing: 2 },
   storyPctWrapper: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
-  storyPctNumero: { fontSize: 72, fontWeight: 'bold', color: '#FFFFFF', lineHeight: 80 },
-  storyPctSymbol: { fontSize: 28, fontWeight: 'bold', color: '#FC4C02', marginTop: 16 },
-  storyChallenge: { fontSize: 16, fontWeight: 'bold', color: '#A8CFFF', marginBottom: 16, textAlign: 'center' },
-  storyBar: { height: 6, backgroundColor: '#1E3A5F', borderRadius: 3, width: '100%', marginBottom: 8 },
-  storyBarFill: { height: 6, backgroundColor: '#FC4C02', borderRadius: 3 },
-  storyKm: { fontSize: 13, color: '#A8CFFF', marginBottom: 24 },
-  storyFooter: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', borderTopWidth: 1, borderTopColor: '#1E3A5F', paddingTop: 12 },
-  storyNombre: { fontSize: 13, color: '#FFFFFF', fontWeight: 'bold' },
-  storyUrl: { fontSize: 13, color: '#FC4C02' },
-  movimientoSection: { marginHorizontal: 0, marginTop: 26, marginBottom: 6 },
-  movimientoTitulo: { color: '#A8CFFF', fontSize: 11, fontWeight: '800', letterSpacing: 1.4, marginBottom: 10 },
-  actividadRecienteCard: { backgroundColor: '#13283D', borderRadius: 16, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#1E3A5F' },
+  storyPctNumero: { fontSize: 72, fontWeight: 'bold', color: colors.text, lineHeight: 80 },
+  storyPctSymbol: { fontSize: 28, fontWeight: 'bold', color: colors.brandOrange, marginTop: 16 },
+  storyChallenge: { fontSize: 16, fontWeight: 'bold', color: colors.textSoft, marginBottom: 16, textAlign: 'center' },
+  storyBar: { height: 6, backgroundColor: colors.surfaceStrong, borderRadius: 3, width: '100%', marginBottom: 8 },
+  storyBarFill: { height: 6, backgroundColor: colors.brandOrange, borderRadius: 3 },
+  storyKm: { fontSize: 13, color: colors.textSoft, marginBottom: 24 },
+  storyFooter: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', borderTopWidth: 1, borderTopColor: colors.surfaceStrong, paddingTop: 12 },
+  storyNombre: { fontSize: 13, color: colors.text, fontWeight: 'bold' },
+  storyUrl: { fontSize: 13, color: colors.brandOrange },
+  movimientoResumen: { marginTop: 2 },
+  movimientoSection: { marginHorizontal: 0, marginTop: 14, marginBottom: 6 },
+  movimientoTitulo: { color: colors.textSoft, fontSize: 11, fontWeight: '800', letterSpacing: 1.4, marginBottom: 10 },
+  actividadRecienteCard: { backgroundColor: 'transparent', borderRadius: 0, paddingVertical: 12, paddingHorizontal: 0, marginBottom: 10, borderBottomWidth: 1, borderColor: colors.borderSoft },
   actividadRecienteHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 },
   actividadRecienteEyebrow: { color: '#617184', fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
   actividadRecienteFecha: { color: '#617184', fontSize: 11, fontWeight: '600' },
   actividadRecienteFila: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  actividadRecienteDeporte: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
-  actividadRecienteFuente: { color: '#A8CFFF', fontSize: 11, marginTop: 3 },
-  actividadRecienteKm: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
-  actividadesInicioCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 4, marginBottom: 10, borderTopWidth: 1, borderTopColor: '#1E3A5F' },
-  actividadesInicioTitulo: { color: '#A8CFFF', fontSize: 13, fontWeight: '800' },
-  actividadesInicioDesc: { color: '#A8CFFF', fontSize: 11, marginTop: 3 },
+  actividadRecienteDeporte: { color: colors.text, fontSize: 16, fontWeight: '800' },
+  actividadRecienteFuente: { color: colors.textSoft, fontSize: 11, marginTop: 3 },
+  actividadRecienteKm: { color: colors.text, fontSize: 18, fontWeight: '800' },
+  actividadesInicioCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingHorizontal: 4, marginBottom: 10, borderTopWidth: 1, borderTopColor: colors.surfaceStrong },
+  actividadesInicioTitulo: { color: colors.textSoft, fontSize: 13, fontWeight: '800' },
+  actividadesInicioDesc: { color: colors.textSoft, fontSize: 11, marginTop: 3 },
   gpsInicioCard: { marginHorizontal: 20, marginTop: 4, marginBottom: 14, paddingHorizontal: 15, paddingVertical: 13, minHeight: 72, borderRadius: 18, backgroundColor: '#122A42', borderWidth: 1, borderColor: '#244B70', flexDirection: 'row', alignItems: 'center', gap: 12 },
   gpsInicioIcono: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#173B60', borderWidth: 1, borderColor: '#28577F', alignItems: 'center', justifyContent: 'center' },
   gpsInicioEyebrow: { color: '#6F95BA', fontSize: 8, fontWeight: '800', letterSpacing: 1.8, marginBottom: 2 },
-  gpsInicioTitulo: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', marginBottom: 2 },
+  gpsInicioTitulo: { color: colors.text, fontSize: 16, fontWeight: '800', marginBottom: 2 },
   gpsInicioDesc: { color: '#8FAECC', fontSize: 10, lineHeight: 14 },
-  gpsInicioAccion: { height: 34, borderRadius: 17, backgroundColor: '#FC4C02', paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
-  gpsInicioAccionText: { color: '#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  gpsInicioAccion: { height: 34, borderRadius: 17, backgroundColor: colors.brandOrange, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  gpsInicioAccionText: { color: colors.text, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  ofertaTour: { backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.borderSoft, padding: 14, marginBottom: 14 },
+  ofertaTourTxt: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  ofertaTourAcciones: { flexDirection: 'row', justifyContent: 'flex-end', gap: 18, marginTop: 8 },
+  ofertaTourNo: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
+  ofertaTourSi: { color: colors.actionBlue, fontSize: 13, fontWeight: '800' },
+  actualizarLink: { alignItems: 'center', paddingVertical: 18 },
+  actualizarLinkText: { color: colors.textMuted, fontSize: 12 },
+  actualizarLinkAccion: { color: colors.actionBlue, fontWeight: '700' },
   actualizarBtn: { marginTop: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2a4a6a', alignItems: 'center' },
-  actualizarBtnText: { color: '#A8CFFF', fontSize: 14 },
-  metaCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 18, marginBottom: 8, borderWidth: 1, borderColor: '#FC4C02' },
-  metaCardTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  metaCardSubtitulo: { fontSize: 12, color: '#A8CFFF', marginBottom: 14 },
+  actualizarBtnText: { color: colors.textSoft, fontSize: 14 },
+  metaCard: { backgroundColor: colors.surfaceStrong, borderRadius: 16, padding: 18, marginBottom: 8, borderWidth: 1, borderColor: colors.brandOrange },
+  metaCardTitulo: { fontSize: 15, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  metaCardSubtitulo: { fontSize: 12, color: colors.textSoft, marginBottom: 14 },
   metaInputRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  metaInput: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, color: '#FFFFFF', fontSize: 14, borderWidth: 1, borderColor: '#2a4a6a' },
-  metaGuardarBtn: { backgroundColor: '#FC4C02', borderRadius: 10, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
-  metaGuardarBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
+  metaInput: { flex: 1, backgroundColor: colors.background, borderRadius: 10, padding: 12, color: colors.text, fontSize: 14, borderWidth: 1, borderColor: '#2a4a6a' },
+  metaGuardarBtn: { backgroundColor: colors.brandOrange, borderRadius: 10, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  metaGuardarBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 14 },
   metaSaltarBtn: { alignItems: 'center', paddingVertical: 4 },
   metaSaltarText: { color: '#4a6a8a', fontSize: 12 },
 });

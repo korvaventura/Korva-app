@@ -12,7 +12,7 @@ const PANTALLAS = ['HomeScreen.js', 'PerfilScreen.js', 'CatalogoScreen.js', 'Det
 
 // Usos legítimos de deporte (actividades), por archivo.
 const PERMITIDOS = {
-  'DetalleRetoScreen.js': [/const textos = \{ ride: 'Ciclismo', run: 'Running', swim: 'Natación', walk: 'Caminata' \};/],
+  'DetalleRetoScreen.js': [/^const iconoDeporte = .*$/m], // Iconos de actividades, no de la versión.
   'PerfilScreen.js': [/if \(tipo === 'run'\) return '🏃';/, /if \(tipo === 'ride'\) return '🚴';/], // deporteEmoji(act.sport_type)
 };
 
@@ -48,8 +48,13 @@ test('el cambio de versión manda `version` (y modalidad legacy) al backend', ()
   assert.match(catalogo, /version, modalidad: modalidadLegacy\(version\)/);
 });
 
-test('los deportes de ACTIVIDADES siguen igual (sport_type, Registro manual)', () => {
-  assert.match(leer('HomeScreen.js'), /a\.sport_type === 'run' \? '🏃' : a\.sport_type === 'ride' \? '🚴'/);
-  assert.match(leer('PerfilScreen.js'), /deporteEmoji\(act\.sport_type\)/);
-  assert.match(leer('DetalleRetoScreen.js'), /act\.sport_type === 'ride' \? '🚴' : '🏃'/);
+test('los deportes de ACTIVIDADES se presentan desde sport_type, separados de la versión', () => {
+  assert.match(leer('HomeScreen.js'), /nombreDeporteActividad\(actividadReciente\.sport_type\)/);
+  assert.match(leer('PerfilScreen.js'), /iconoDeporteActividad\(act\.sport_type\)/);
+  // La línea de tiempo de la historia vive en un componente compartido.
+  const historia = require('fs').readFileSync(require('path').join(__dirname, '..', 'components', 'HistorialActividades.js'), 'utf8');
+  assert.match(historia, /deporteHistoria\(act\.sport_type\)/);
+  assert.match(historia, /nombreDeporteActividad\(tipo\)/);
+  assert.match(historia, /iconoDeporte\(actividad\.sport_type\)/);
+  assert.match(leer('DetalleRetoScreen.js'), /<HistorialActividades/);
 });

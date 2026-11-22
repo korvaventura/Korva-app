@@ -1,9 +1,21 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
-import { useState, useEffect } from 'react';
+import { Image, StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { versionDeInscripcion, etiquetaDeInscripcion } from '../utils/versionDesafio';
 import RutaGpsActividad from '../components/RutaGpsActividad';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors, radius, spacing } from '../theme/korvaTheme';
+import { nombreDeporteActividad, nombreFuenteActividad } from '../utils/actividadPresentacion';
+import KorvaCompletedShare from '../components/KorvaCompletedShare';
+import KorvaProgressShare from '../components/KorvaProgressShare';
+import MapaRecorrido from './MapaRecorrido';
+import HistorialActividades from '../components/HistorialActividades';
+const { fetchConTiempo } = require('../services/fetchConTiempo');
+const { formatoKm, urlsFondo } = require('../services/compartirCore');
+
+const iconoDeporte = (tipo) => ({ ride: 'bicycle-outline', run: 'fitness-outline', swim: 'water-outline', walk: 'walk-outline' }[tipo] || 'pulse-outline');
+const deporteHistoria = (tipo) => tipo === 'manual' ? 'Actividad' : nombreDeporteActividad(tipo);
 
 const aplicarMascaraFecha = (texto) => {
   const numeros = texto.replace(/[^0-9]/g, '');
@@ -28,27 +40,53 @@ const getHitoActividad = (actividad, index, totalKmAcumulado, distanciaTotal) =>
   const pct = (totalKmAcumulado / distanciaTotal) * 100;
   const acumuladoAnterior = totalKmAcumulado - (Number(actividad.distance_km) || 0);
   const cruzaMeta = acumuladoAnterior < distanciaTotal && totalKmAcumulado >= distanciaTotal;
-  const emojis = { ride: '🚴', run: '🏃', swim: '🏊', walk: '🚶' };
-  const textos = { ride: 'Ciclismo', run: 'Running', swim: 'Natación', walk: 'Caminata' };
-  const actividadNormal = { emoji: emojis[actividad.sport_type] || '⚡', texto: textos[actividad.sport_type] || (actividad.sport_type || 'Actividad') };
-  if (index === 0) return { emoji: '🌱', texto: 'Primer paso' };
-  if (cruzaMeta) return { emoji: '🏅', texto: '¡Completado!' };
+  const actividadNormal = { icono: iconoDeporte(actividad.sport_type), texto: deporteHistoria(actividad.sport_type) };
+  if (index === 0) return { icono: 'flag-outline', texto: 'Primer paso' };
+  if (cruzaMeta) return { icono: 'checkmark-circle-outline', texto: 'Desafío completado' };
   if (pct >= 100) return actividadNormal;
-  if (pct >= 75) return { emoji: '🔥', texto: 'En la recta final' };
-  if (pct >= 50) return { emoji: '⚡', texto: 'Mitad del camino' };
-  if (pct >= 25) return { emoji: '💪', texto: 'Arrancando fuerte' };
+  if (pct >= 75) return { icono: 'trending-up-outline', texto: 'En la recta final' };
+  if (pct >= 50) return { icono: 'navigate-outline', texto: 'Mitad del camino' };
+  if (pct >= 25) return { icono: 'trending-up-outline', texto: 'Arrancando fuerte' };
   return actividadNormal;
 };
 
 export default function DetalleRetoScreen({ route, navigation }) {
-  const { item, userId } = route.params;
+  const { item, userId, nombrePersona, abrirRuta = false } = route.params;
+  const scrollRef = useRef(null);
+  const scrollYRef = useRef(0);
+  const mostrarHistoria = useCallback((historia) => {
+    if (!historia) return;
+    const scroll = scrollRef.current;
+    const nativo = scroll?.getNativeScrollRef?.() || scroll;
+    nativo?.setNativeProps?.({ scrollEnabled: true });
+    setMapaInteractuando(false);
+    // Coordenadas de ventana + offset real: funciona en catálogo y desafío,
+    // sin alturas estimadas ni timers que compitan con el gesto del mapa.
+    nativo?.measureInWindow?.((x, top) => {
+      historia.measureInWindow?.((hx, y) => {
+        scroll?.scrollTo({ y: Math.max(0, scrollYRef.current + y - top - 16), animated: true });
+      });
+    });
+  }, []);
+  const [mapaInteractuando, setMapaInteractuando] = useState(false);
+  const gestionarInteraccionMapa = useCallback((activa) => {
+    // El mapa embebido comparte página con este scroll. Actualiza también el
+    // host nativo en el grant: no espera al siguiente render de React.
+    const scroll = scrollRef.current?.getNativeScrollRef?.() || scrollRef.current;
+    scroll?.setNativeProps?.({ scrollEnabled: !activa });
+    setMapaInteractuando(activa);
+  }, []);
+  const rutaY = useRef(0);
   const [actividades, setActividades] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [errorActividades, setErrorActividades] = useState(false);
   const [metaFecha, setMetaFecha] = useState(item?.meta_fecha || '');
   const [editandoFecha, setEditandoFecha] = useState(false);
   const [inputFecha, setInputFecha] = useState('');
   const [guardandoMeta, setGuardandoMeta] = useState(false);
   const [desgloseProgreso, setDesgloseProgreso] = useState(null);
+  const [compartirCompletado, setCompartirCompletado] = useState(false);
+  const [compartirProgreso, setCompartirProgreso] = useState(false);
 
 
 
@@ -61,6 +99,8 @@ export default function DetalleRetoScreen({ route, navigation }) {
   const estaCompletado = pct >= 100;
   // Versión Estándar/Extendida (solo distancia; cualquier deporte suma 1:1).
   const itemNormalizado = { ...item, challenge: nombreReto, km_completados: kmCompletados, distancia_total: distanciaTotal, porcentaje: pct };
+  // La foto para compartir se baja mientras mirás la historia: al tocar Compartir ya está.
+  useEffect(() => { urlsFondo(nombreReto).forEach((u) => Image.prefetch(u).catch(() => {})); }, [nombreReto]);
   const version = versionDeInscripcion(itemNormalizado);
   const versionLabel = etiquetaDeInscripcion(itemNormalizado);
 
@@ -69,6 +109,14 @@ export default function DetalleRetoScreen({ route, navigation }) {
     cargarMeta();
     cargarDesgloseProgreso();
   }, []);
+
+  useEffect(() => {
+    if (!abrirRuta) return;
+    const timer = setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, rutaY.current - 12), animated: true });
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [abrirRuta]);
 
   const cargarDesgloseProgreso = async () => {
     try {
@@ -88,6 +136,8 @@ export default function DetalleRetoScreen({ route, navigation }) {
   };
 
   const cargarActividades = async () => {
+    setCargando(true);
+    setErrorActividades(false);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -95,15 +145,17 @@ export default function DetalleRetoScreen({ route, navigation }) {
         setActividades([]);
         return;
       }
-      const res = await fetch(`${BACKEND_URL}/progreso-desglose/${item.challenge_id}/actividades`, {
+      const url = `${BACKEND_URL}/progreso-desglose/${item.challenge_id}/actividades`;
+      const res = await fetchConTiempo(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('No se pudo cargar la historia del desafío');
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || 'No se pudo cargar la historia del desafío');
       setActividades(Array.isArray(data?.actividades) ? data.actividades : []);
     } catch (error) {
-      console.error('Error cargando historia del desafío:', error);
-      setActividades([]);
+      // Aviso en la pantalla con Reintentar (no "Sin actividades", que confunde).
+      console.warn('Historia del desafío sin cargar:', error?.message);
+      setErrorActividades(true);
     } finally {
       setCargando(false);
     }
@@ -186,41 +238,45 @@ export default function DetalleRetoScreen({ route, navigation }) {
   const stats = calcularStats();
 
   const kmRestantes = parseFloat(distanciaTotal) - parseFloat(kmCompletados);
-  let acumulado = 0;
-  const actividadesConHito = [...actividades].reverse().map((act, i) => {
-    acumulado += act.distance_km;
-    const hito = getHitoActividad(act, i, acumulado, parseFloat(distanciaTotal));
-    return { ...act, hito, acumulado };
-  });
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <ScrollView ref={scrollRef} onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }} scrollEventThrottle={16} scrollEnabled={!mapaInteractuando} canCancelContentTouches={true}
+      onTouchStart={() => gestionarInteraccionMapa(false)}
+      onTouchEnd={() => gestionarInteraccionMapa(false)}
+      onTouchCancel={() => gestionarInteraccionMapa(false)}
+      onScrollBeginDrag={() => gestionarInteraccionMapa(false)} style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
 
-      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Volver">
         <View style={styles.backBtnRow}>
-          <Ionicons name="arrow-back" size={16} color="#1E6FD9" />
+          <Ionicons name="arrow-back" size={20} color={colors.actionBlue} />
           <Text style={styles.backBtnText}>Volver</Text>
         </View>
       </TouchableOpacity>
 
+      <Text style={styles.eyebrow}>HISTORIA DEL DESAFÍO</Text>
       <Text style={styles.titulo}>{nombreReto}</Text>
-      <Text style={styles.subtitulo}>Desafío virtual · Versión {versionLabel} · {distanciaTotal}km</Text>
-      <Text style={styles.subtituloVersion}>Caminando, corriendo o en bici: todos los km suman igual.</Text>
+      <Text style={styles.subtitulo}>Versión {versionLabel} · {distanciaTotal} km</Text>
+      <View style={{ height: spacing.xl }} />
 
       <View style={styles.progresoCard}>
         <View style={styles.progresoHeader}>
-          <Text style={styles.progresoKm}>{parseFloat(kmCompletados).toFixed(1)} km</Text>
-          <Text style={styles.progresoPct}>{pct.toFixed(0)}%</Text>
+          <Text style={styles.progresoKm}>{formatoKm(kmCompletados)} km</Text>
+          <View style={styles.progresoPill}>
+            {estaCompletado && <Ionicons name="checkmark" size={16} color={colors.brandOrangeSoft} />}
+            <Text style={styles.progresoPct}>{pct.toFixed(0)}%</Text>
+          </View>
         </View>
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: `${pct}%` }, estaCompletado && styles.progressFillCompletado]} />
         </View>
         <Text style={styles.progresoSub}>de {distanciaTotal} km totales</Text>
-        {desgloseProgreso && (
+        {/* Solo si hay algo más que actividades (progreso anterior o movimiento diario). */}
+        {desgloseProgreso && (Number(desgloseProgreso.km_base || 0) > 0 || Number(desgloseProgreso.km_movimiento_diario || 0) > 0) && (
           <View style={styles.desgloseProgreso}>
             <Text style={styles.desgloseTitulo}>Cómo se forma tu progreso</Text>
             <View style={styles.desgloseFila}>
               <Text style={styles.desgloseLabel}>Actividades registradas</Text>
-              <Text style={styles.desgloseValor}>{Number(desgloseProgreso.km_actividades || 0).toFixed(2)} km</Text>
+              <Text style={styles.desgloseValor}>{formatoKm(desgloseProgreso.km_actividades || 0)} km</Text>
             </View>
             {Number(desgloseProgreso.km_base || 0) > 0 && (
               <View style={styles.desgloseFila}>
@@ -239,11 +295,67 @@ export default function DetalleRetoScreen({ route, navigation }) {
         {item.started_at && (
           <Text style={styles.progresoFecha}>Comenzaste el {formatearFecha(item.started_at)}</Text>
         )}
+        {!abrirRuta && (
+          <View style={styles.accionesRapidas}>
+            <TouchableOpacity style={styles.accionRapida} accessibilityRole="button"
+              onPress={() => navigation.push('DetalleReto', { item, userId, nombrePersona, abrirRuta: true })}>
+              <Ionicons name="map-outline" size={17} color={colors.actionBlue} />
+              <Text style={styles.accionRapidaTexto}>Ver mapa</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.accionRapida} accessibilityRole="button"
+              onPress={() => (estaCompletado ? setCompartirCompletado(true) : setCompartirProgreso(true))}>
+              <Ionicons name="share-outline" size={17} color={colors.actionBlue} />
+              <Text style={styles.accionRapidaTexto}>Compartir</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
+
+      {/* Lo más usado primero: las salidas, con su botón para compartir. */}
+      {!abrirRuta && (
+        <HistorialActividades actividades={actividades} cargando={cargando} error={errorActividades} onReintentar={cargarActividades} distanciaTotal={distanciaTotal}
+          reto={itemNormalizado} navigation={navigation} />
+      )}
+
+      {abrirRuta && (
+      <View onLayout={(e) => { rutaY.current = e.nativeEvent.layout.y; }} style={styles.rutaSection}>
+        <View style={styles.sectionTitleRow}>
+          <Ionicons name="map-outline" size={19} color={colors.actionBlue} />
+          <Text style={styles.rutaTitulo}>Tu ruta</Text>
+        </View>
+        <Text style={styles.rutaSubtitulo}>{estaCompletado ? 'Recorré nuevamente los checkpoints de tu conquista.' : 'Explorá los checkpoints de tu aventura.'}</Text>
+        {abrirRuta ? (
+          <MapaRecorrido
+            kmCompletados={kmCompletados}
+            distanciaTotal={distanciaTotal}
+            porcentaje={pct}
+            challengeId={item.challenge_id}
+            challengeTitle={nombreReto}
+            actividades={actividades}
+            onInteraccionMapa={gestionarInteraccionMapa}
+            onHistoriaAbierta={mostrarHistoria}
+            fullscreen
+          />
+        ) : (
+          <TouchableOpacity
+            style={styles.abrirRutaBtn}
+            accessibilityRole="button"
+            onPress={() => navigation.push('DetalleReto', { item, userId, nombrePersona, abrirRuta: true })}
+          >
+            <Ionicons name="map-outline" size={18} color={colors.actionBlue} />
+            <Text style={styles.abrirRutaBtnText}>Abrir mapa del recorrido</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.actionBlue} />
+          </TouchableOpacity>
+        )}
+      </View>
+      )}
 
       {estaCompletado && stats && (
         <View style={styles.statsCompletadoCard}>
-          <Text style={styles.statsCompletadoTitulo}>🏅 Reto completado</Text>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="medal-outline" size={20} color={colors.brandOrangeSoft} />
+            <Text style={styles.statsCompletadoTitulo}>Desafío completado</Text>
+          </View>
           <Text style={styles.statsCompletadoFrase}>
             Completaste {nombreReto} en {stats.diasTotales} días
           </Text>
@@ -268,7 +380,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
           {stats.mejorDia && (
             <View style={styles.mejorDiaBox}>
               <Text style={styles.mejorDiaTexto}>
-                🔥 Mejor día: {formatearFecha(stats.mejorDia[0])} con {stats.mejorDia[1].toFixed(1)}km
+                Mejor día: {formatearFecha(stats.mejorDia[0])} · {stats.mejorDia[1].toFixed(1)} km
               </Text>
             </View>
           )}
@@ -279,8 +391,11 @@ export default function DetalleRetoScreen({ route, navigation }) {
       {!estaCompletado && (
         <View style={styles.metaCard}>
           <View style={styles.metaHeader}>
-            <Text style={styles.metaTitulo}>🎯 Tu meta personal</Text>
-            <TouchableOpacity onPress={() => {
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="calendar-outline" size={18} color={colors.textSoft} />
+              <Text style={styles.metaTitulo}>Tu meta personal</Text>
+            </View>
+            <TouchableOpacity style={styles.metaEditarTouch} accessibilityRole="button" onPress={() => {
               setInputFecha(metaFecha ? new Date(metaFecha).toLocaleDateString('es-AR') : '');
               setEditandoFecha(v => !v);
             }}>
@@ -296,7 +411,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
                   value={inputFecha}
                   onChangeText={v => setInputFecha(aplicarMascaraFecha(v))}
                   placeholder="DD/MM/AAAA"
-                  placeholderTextColor="#6F8EAD"
+                  placeholderTextColor={colors.textMuted}
                   keyboardType="numeric"
                   maxLength={10}
                 />
@@ -308,7 +423,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
             </>
           ) : metaFecha ? (
             <>
-              <Text style={styles.metaFecha}>📅 Objetivo: {formatearFecha(metaFecha)}</Text>
+              <Text style={styles.metaFecha}>Objetivo: {formatearFecha(metaFecha)}</Text>
               <Text style={styles.metaDias}>
                 {diasEntre(new Date(), new Date(metaFecha))} días · {Math.max(0, kmRestantes).toFixed(1)} km por recorrer
               </Text>
@@ -323,123 +438,95 @@ export default function DetalleRetoScreen({ route, navigation }) {
         </View>
       )}
 
-      <View style={styles.historialSection}>
-        <Text style={styles.historialTitulo}>📋 Actividades registradas</Text>
-        {cargando ? (
-          <ActivityIndicator color="#1E6FD9" />
-        ) : actividadesConHito.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyEmoji}>🏁</Text>
-            <Text style={styles.emptyText}>Sin actividades todavía</Text>
-            <Text style={styles.emptySubtext}>Registrá tu primer km — correr, caminar, bici o nadar, todo suma.</Text>
-          </View>
-        ) : (
-          <View style={styles.timeline}>
-            {actividadesConHito.map((act, index) => (
-              <View key={index} style={styles.timelineItem}>
-                <View style={styles.timelineLeft}>
-                  <View style={[styles.timelineDot, index === 0 && styles.timelineDotActivo]}>
-                    <Text style={styles.timelineDotEmoji}>{act.hito.emoji}</Text>
-                  </View>
-                  {index < actividadesConHito.length - 1 && <View style={styles.timelineLine} />}
-                </View>
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineHito}>{act.hito.texto}</Text>
-                  <Text style={styles.timelineFecha}>{formatearFecha(act.recorded_at)}</Text>
-                  <View style={styles.timelineActRow}>
-                    <Text style={styles.timelineEmoji}>{act.sport_type === 'ride' ? '🚴' : '🏃'}</Text>
-                    <Text style={styles.timelineKm}>{parseFloat(act.distance_km).toFixed(1)} km</Text>
-                    <Text style={styles.timelineTipo}>{act.sport_type || 'Actividad'} · {act.source === 'manual' ? 'manual' : act.source === 'korva_gps' ? 'Korva GPS' : act.source === 'strava' ? 'Strava' : (act.source || 'Actividad')}</Text>
-                  </View>
-                  <Text style={styles.timelineAcumulado}>Acumulado en actividades: {act.acumulado.toFixed(1)}km</Text>
-                  {act.source === 'korva_gps' && act.id && <RutaGpsActividad activityId={act.id} />}
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-
     </ScrollView>
+    <KorvaCompletedShare nombrePersona={nombrePersona} reto={compartirCompletado ? itemNormalizado : null} onClose={() => setCompartirCompletado(false)} />
+    {compartirProgreso && <KorvaProgressShare reto={{ titulo: nombreReto, km: kmCompletados, total: distanciaTotal, challenge_id: item.challenge_id }} onClose={() => setCompartirProgreso(false)} />}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#0D1B2A' },
-  container: { padding: 24, paddingTop: 60, paddingBottom: 40 },
-  backBtn: { marginBottom: 16 },
-  backBtnText: { color: '#1E6FD9', fontSize: 15, fontWeight: 'bold' },
-  titulo: { fontSize: 26, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  subtitulo: { fontSize: 14, color: '#A8CFFF', marginBottom: 4 },
-  subtituloVersion: { fontSize: 12, color: '#4a6a8a', marginBottom: 20 },
-  progresoCard: { backgroundColor: '#1E3A5F', borderRadius: 20, padding: 20, marginBottom: 16 },
-  progresoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 },
-  progresoKm: { fontSize: 32, fontWeight: 'bold', color: '#FFFFFF' },
-  progresoPct: { fontSize: 24, fontWeight: 'bold', color: '#FC4C02' },
-  progressBar: { height: 8, backgroundColor: '#0D1B2A', borderRadius: 4, marginBottom: 8 },
-  progressFill: { height: 8, backgroundColor: '#1E6FD9', borderRadius: 4 },
-  progressFillCompletado: { backgroundColor: '#FC4C02' },
-  progresoSub: { fontSize: 13, color: '#A8CFFF' },
-  desgloseProgreso: {
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#D7DCE2',
-    gap: 6,
-  },
-  desgloseTitulo: { fontSize: 12, fontWeight: '600', color: '#D6E7FA', marginBottom: 2 },
-  desgloseFila: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  desgloseLabel: { fontSize: 12, color: '#B8CDE5' },
-  desgloseValor: { fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
-  progresoFecha: { fontSize: 12, color: '#4a6a8a', marginTop: 6 },
-  statsCompletadoCard: { backgroundColor: '#1a2a1a', borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#FC4C02' },
-  statsCompletadoTitulo: { fontSize: 18, fontWeight: 'bold', color: '#FC4C02', marginBottom: 8 },
-  statsCompletadoFrase: { fontSize: 14, color: '#FFFFFF', marginBottom: 16, fontStyle: 'italic' },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
-  statItem: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, alignItems: 'center', minWidth: '45%', flex: 1 },
-  statNumero: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  statLabel: { fontSize: 11, color: '#A8CFFF', textAlign: 'center' },
-  mejorDiaBox: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12 },
-  mejorDiaTexto: { fontSize: 13, color: '#FC4C02', textAlign: 'center', fontWeight: 'bold' },
-  ritmoCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 18, marginBottom: 16 },
-  ritmoTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
-  ritmoKm: { fontSize: 22, fontWeight: 'bold', color: '#1E6FD9', marginBottom: 4 },
-  ritmoPrediccion: { fontSize: 13, color: '#A8CFFF', marginBottom: 4 },
-  ritmoRestante: { fontSize: 12, color: '#A8CFFF' },
-  metaCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 18, marginBottom: 16 },
-  metaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  metaTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF' },
-  metaEditarBtn: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 13 },
-  metaInputRow: { flexDirection: 'row', gap: 10 },
-  metaInput: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, color: '#FFFFFF', fontSize: 14, borderWidth: 1, borderColor: '#2a4a6a' },
-  metaGuardarBtn: { backgroundColor: '#FC4C02', borderRadius: 10, padding: 12, alignItems: 'center', justifyContent: 'center' },
-  metaGuardarBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
-  metaFecha: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  metaDias: { fontSize: 13, color: '#FC4C02', fontWeight: 'bold', marginBottom: 4 },
-  metaRitmo: { fontSize: 12, color: '#A8CFFF', marginBottom: 6 },
-  metaAclaracion: { fontSize: 11, lineHeight: 16, color: '#8EABC8' },
-  metaVacio: { fontSize: 13, color: '#A8CFFF', fontStyle: 'italic' },
-  historialSection: { marginTop: 8 },
-  historialTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 16 },
-  emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 24, alignItems: 'center' },
-  emptyEmoji: { fontSize: 32, marginBottom: 8 },
-  emptyText: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  emptySubtext: { fontSize: 12, color: '#A8CFFF', textAlign: 'center' },
+  rutaSection: { marginBottom: spacing.xl },
+  accionesRapidas: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
+  accionRapida: { flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 12, backgroundColor: colors.backgroundDeep, borderWidth: 1, borderColor: colors.borderSoft },
+  accionRapidaTexto: { color: colors.actionBlue, fontSize: 14, fontWeight: '800' },
+  rutaTitulo: { fontSize: 16, fontWeight: '800', color: colors.text },
+  abrirRutaBtn: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 48, paddingHorizontal: 14, borderRadius: 12, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderSoft },
+  abrirRutaBtnText: { flex: 1, color: colors.actionBlue, fontSize: 14, fontWeight: '800' },
+  rutaSubtitulo: { fontSize: 12, lineHeight: 18, color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.md },
+  completedShareBtn: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderSoft, borderRadius: radius.pill, marginBottom: spacing.lg, paddingHorizontal: spacing.md },
+  completedShareText: { fontSize: 13, fontWeight: '800', color: colors.brandOrangeSoft },
+  safeArea: { flex: 1, backgroundColor: colors.background },
+  scroll: { flex: 1, backgroundColor: colors.background },
+  container: { paddingHorizontal: spacing.xxl, paddingTop: spacing.sm, paddingBottom: spacing.xxxl },
+  backBtn: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center', paddingRight: spacing.lg, marginBottom: spacing.md },
+  backBtnRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  backBtnText: { color: colors.actionBlue, fontSize: 14, fontWeight: '700' },
+  eyebrow: { color: colors.brandOrangeSoft, fontSize: 9, fontWeight: '900', letterSpacing: 2, marginBottom: spacing.sm },
+  titulo: { fontSize: 26, fontWeight: '900', color: colors.text, marginBottom: spacing.sm },
+  subtitulo: { fontSize: 13, color: colors.textSoft, marginBottom: spacing.xs },
+  subtituloVersion: { fontSize: 12, lineHeight: 18, color: colors.textMuted, marginBottom: spacing.xxl },
+  progresoCard: { backgroundColor: colors.surfaceSoft, borderRadius: radius.xl, padding: spacing.xl, marginBottom: spacing.lg, borderWidth: 1, borderColor: colors.borderSoft },
+  progresoHeader: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg },
+  progresoKm: { fontSize: 38, fontWeight: '900', letterSpacing: -1, color: colors.text },
+  progresoPill: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: colors.backgroundDeep, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  progresoPct: { fontSize: 16, fontWeight: '900', color: colors.brandOrangeSoft },
+  progressBar: { height: 4, backgroundColor: colors.borderSoft, borderRadius: radius.pill, marginBottom: spacing.sm, overflow: 'hidden' },
+  progressFill: { height: 4, backgroundColor: colors.brandOrange, borderRadius: radius.pill },
+  progressFillCompletado: { backgroundColor: colors.brandOrangeSoft },
+  progresoSub: { fontSize: 12, color: colors.textMuted },
+  desgloseProgreso: { marginTop: spacing.lg, paddingTop: spacing.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, gap: spacing.sm },
+  desgloseTitulo: { fontSize: 12, fontWeight: '700', color: colors.textSoft, marginBottom: spacing.xs },
+  desgloseFila: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md },
+  desgloseLabel: { flex: 1, fontSize: 12, color: colors.textMuted },
+  desgloseValor: { fontSize: 12, fontWeight: '700', color: colors.text },
+  progresoFecha: { fontSize: 11, lineHeight: 16, color: colors.textMuted, marginTop: spacing.md },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
+  statsCompletadoCard: { backgroundColor: colors.surfaceSoft, borderRadius: radius.xl, padding: spacing.xl, marginBottom: spacing.lg, borderWidth: 1, borderColor: colors.borderSoft },
+  statsCompletadoTitulo: { fontSize: 16, fontWeight: '800', color: colors.brandOrangeSoft, flexShrink: 1 },
+  statsCompletadoFrase: { fontSize: 13, lineHeight: 19, color: colors.textSoft, marginTop: spacing.sm, marginBottom: spacing.lg },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
+  statItem: { backgroundColor: colors.backgroundDeep, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', minWidth: '45%', flex: 1 },
+  statNumero: { fontSize: 22, fontWeight: '800', color: colors.text, marginBottom: spacing.xs },
+  statLabel: { fontSize: 11, color: colors.textMuted, textAlign: 'center' },
+  mejorDiaBox: { paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderSoft },
+  mejorDiaTexto: { fontSize: 12, lineHeight: 18, color: colors.textSoft },
+  metaCard: { padding: spacing.lg, borderRadius: radius.lg, marginBottom: spacing.lg, borderWidth: 1, borderColor: colors.borderSoft },
+  metaHeader: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
+  metaTitulo: { fontSize: 14, fontWeight: '800', color: colors.text },
+  metaEditarTouch: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.xs },
+  metaEditarBtn: { color: colors.actionBlue, fontWeight: '700', fontSize: 12 },
+  metaInputRow: { flexDirection: 'row', gap: spacing.sm },
+  metaInput: { flex: 1, minWidth: 0, backgroundColor: colors.surfaceSoft, borderRadius: radius.md, padding: spacing.md, color: colors.text, fontSize: 14, borderWidth: 1, borderColor: colors.border },
+  metaGuardarBtn: { minHeight: 44, backgroundColor: colors.brandOrange, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', justifyContent: 'center' },
+  metaGuardarBtnText: { color: colors.text, fontWeight: '800', fontSize: 13 },
+  metaFecha: { fontSize: 14, lineHeight: 20, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
+  metaDias: { fontSize: 12, lineHeight: 18, color: colors.brandOrangeSoft, fontWeight: '700', marginBottom: spacing.xs },
+  metaRitmo: { fontSize: 12, lineHeight: 18, color: colors.textSoft, marginBottom: spacing.sm },
+  metaAclaracion: { fontSize: 11, lineHeight: 17, color: colors.textMuted, marginTop: spacing.xs },
+  metaVacio: { fontSize: 12, lineHeight: 18, color: colors.textMuted },
+  historialSection: { marginTop: spacing.md },
+  historialHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, marginBottom: spacing.lg },
+  historialTitulo: { flex: 1, fontSize: 17, fontWeight: '800', color: colors.text },
+  historialCantidad: { color: colors.textMuted, fontSize: 12, fontWeight: '700', backgroundColor: colors.surfaceSoft, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.pill },
+  emptyCard: { backgroundColor: colors.surfaceSoft, borderRadius: radius.lg, padding: spacing.xxl, alignItems: 'center' },
+  emptyIcon: { marginBottom: spacing.md },
+  emptyText: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
+  emptySubtext: { fontSize: 12, lineHeight: 18, color: colors.textMuted, textAlign: 'center' },
   timeline: { gap: 0 },
-  timelineItem: { flexDirection: 'row', gap: 12 },
-  timelineLeft: { alignItems: 'center', width: 40 },
-  timelineDot: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1E3A5F', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#2a4a6a' },
-  timelineDotActivo: { borderColor: '#FC4C02' },
-  timelineDotEmoji: { fontSize: 18 },
-  timelineLine: { width: 2, flex: 1, backgroundColor: '#2a4a6a', marginVertical: 4 },
-  timelineContent: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, marginBottom: 12 },
-  timelineHito: { fontSize: 13, fontWeight: 'bold', color: '#FC4C02', marginBottom: 2 },
-  timelineFecha: { fontSize: 11, color: '#A8CFFF', marginBottom: 8 },
-  timelineActRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  timelineEmoji: { fontSize: 16 },
-  timelineKm: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' },
-  timelineTipo: { fontSize: 11, color: '#A8CFFF' },
-  timelineAcumulado: { fontSize: 11, color: '#A8CFFF', marginTop: 4 },
-  backBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  ritmoSesiones: { fontSize: 12, color: '#A8CFFF', marginBottom: 4 },
+  timelineItem: { flexDirection: 'row', gap: spacing.md },
+  timelineLeft: { alignItems: 'center', width: 32 },
+  timelineDot: { width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.backgroundDeep, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.borderSoft },
+  timelineDotActivo: { borderColor: colors.brandOrangeSoft },
+  timelineLine: { width: 1, flex: 1, backgroundColor: colors.borderSoft, marginVertical: spacing.xs },
+  timelineContent: { flex: 1, backgroundColor: colors.surfaceSoft, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md },
+  timelineHito: { fontSize: 13, fontWeight: '800', color: colors.text, marginBottom: spacing.xs },
+  timelineFecha: { fontSize: 11, lineHeight: 16, color: colors.textMuted, marginBottom: spacing.md },
+  timelineActRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs },
+  timelineKm: { fontSize: 24, fontWeight: '900', color: colors.text, letterSpacing: -0.5 },
+  timelineTipo: { fontSize: 11, lineHeight: 16, color: colors.textSoft },
+  timelineCompartir: { alignSelf: 'flex-start', paddingVertical: 8, marginTop: 4 },
+  timelineCompartirText: { color: colors.actionBlue, fontSize: 14, fontWeight: '800' },
+  timelineCompartirUltima: { color: colors.brandOrange },
+  timelineAcumulado: { fontSize: 11, lineHeight: 16, color: colors.textMuted, marginTop: spacing.md },
 });

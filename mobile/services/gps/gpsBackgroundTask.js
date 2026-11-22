@@ -1,13 +1,15 @@
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { procesarUbicacionesGpsLocal } from './gpsPersistence';
+import { sincronizarActividadGps } from './gpsLiveActivity';
 
 export const GPS_BACKGROUND_TASK = 'korva-gps-background-v1';
 
 if (!TaskManager.isTaskDefined(GPS_BACKGROUND_TASK)) {
   TaskManager.defineTask(GPS_BACKGROUND_TASK, async ({ data, error }) => {
     if (error || !data?.locations?.length) return;
-    await procesarUbicacionesGpsLocal(data.locations);
+    const sesion = await procesarUbicacionesGpsLocal(data.locations);
+    sincronizarActividadGps(sesion);
   });
 }
 
@@ -17,6 +19,13 @@ export const iniciarGpsBackground = async () => {
   await Location.startLocationUpdatesAsync(GPS_BACKGROUND_TASK, {
     accuracy: Location.Accuracy.High,
     distanceInterval: 3,
+    timeInterval: 2000,
+    deferredUpdatesInterval: 0,
+    foregroundService: {
+      notificationTitle: 'Korva GPS · Actividad en curso',
+      notificationBody: 'Midiendo tu recorrido en segundo plano',
+      killServiceOnDestroy: false,
+    },
     activityType: Location.ActivityType.Fitness,
     pausesUpdatesAutomatically: false,
     showsBackgroundLocationIndicator: true,

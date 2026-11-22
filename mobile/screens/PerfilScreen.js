@@ -1,4 +1,14 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Modal, Dimensions } from 'react-native';
+import ConexionesSection from '../components/ConexionesSection';
+import TerminosScreen from './TerminosScreen';
+import KorvaProgressShare from '../components/KorvaProgressShare';
+import { ordenarAventurasPerfil } from '../services/aventurasPerfilCore';
+import { RutaLibreCardVista } from '../components/RutaLibreCard';
+import useRutaLibre from '../services/useRutaLibre';
+import KorvaGroups from '../components/KorvaGroups';
+import { nombreDeporteActividad, nombreFuenteActividad, iconoDeporteActividad } from '../utils/actividadPresentacion';
+import KorvaCompletedShare from '../components/KorvaCompletedShare';
+const { formatoKm } = require('../services/compartirCore');
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator, Modal, Dimensions, DeviceEventEmitter } from 'react-native';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
@@ -7,6 +17,10 @@ import * as ImagePicker from 'expo-image-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../supabase';
 import { versionDeInscripcion, versionesDelDesafio, distanciaDeVersion, distanciaDeInscripcion, etiquetaVersion, modalidadLegacy } from '../utils/versionDesafio';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors, radius, spacing } from '../theme/korvaTheme';
+import { useTourScroll, useTourTarget } from '../components/tour/Tour';
 
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -24,20 +38,27 @@ const diasEntre = (fecha1, fecha2) => {
 };
 
 export default function PerfilScreen() {
+  const [verLegal, setVerLegal] = useState(false);
   const navigation = useNavigation();
   const [usuario, setUsuario] = useState(null);
   const [modalEnvioReto, setModalEnvioReto] = useState(null);
+  const [detallesReto, setDetallesReto] = useState({});
+  const [progresoCompartir, setProgresoCompartir] = useState(null);
+  const [retoCompartir, setRetoCompartir] = useState(null);
   const [stats, setStats] = useState(null);
+  const [alturasRetos, setAlturasRetos] = useState({});
   const [userId, setUserId] = useState(null);
+  const { estado: rutaLibre, actualizar: actualizarRutaLibre } = useRutaLibre();
+  const participacionLibre = rutaLibre.datos?.userId === userId ? rutaLibre.datos.participacion : null;
+  const tieneRutaLibre = !!participacionLibre && !participacionLibre.abandonado;
   const scrollRef = useRef(null);
+  // Recorrido guiado: actividades (borrar duplicados) y dirección de envío.
+  const alDesplazarTour = useTourScroll('Perfil', scrollRef);
+  const refTourActividades = useTourTarget('actividades');
+  const refTourDireccion = useTourTarget('direccion');
+  const refTourStrava = useTourTarget('strava');
   const direccionY = useRef(0);
-  const [misGrupos, setMisGrupos] = useState([]);
-  const [modalGruposVisible, setModalGruposVisible] = useState(false);
-  const [modalCrearGrupo, setModalCrearGrupo] = useState(false);
-  const [modalUnirseGrupo, setModalUnirseGrupo] = useState(false);
-  const [nombreGrupo, setNombreGrupo] = useState('');
-  const [codigoGrupo, setCodigoGrupo] = useState('');
-  const [cargandoGrupo, setCargandoGrupo] = useState(false);
+  const actividadesY = useRef(0);
   const [editandoNombre, setEditandoNombre] = useState(false);
   const [nombreEditado, setNombreEditado] = useState('');
   const [nivel, setNivel] = useState(null);
@@ -48,6 +69,7 @@ export default function PerfilScreen() {
   const [editandoDireccion, setEditandoDireccion] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [inscripcionesActivas, setInscripcionesActivas] = useState([]);
+  const aventurasPerfil = ordenarAventurasPerfil(inscripcionesActivas, participacionLibre);
   const [retoIndex, setRetoIndex] = useState(0);
   const [cambiandoModalidad, setCambiandoModalidad] = useState(false);
   const [metaFecha, setMetaFecha] = useState({});
@@ -74,10 +96,7 @@ export default function PerfilScreen() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.id) {
         setUserId(session.user.id);
-        fetch(`${BACKEND_URL}/grupos/mis-grupos/${session.user.id}`)
-          .then(r => r.json())
-          .then(data => setMisGrupos(Array.isArray(data) ? data : []))
-          .catch(() => {});
+
       }
     });
   }, []);
@@ -101,6 +120,10 @@ export default function PerfilScreen() {
           if (session?.user?.id) setUserId(session.user.id);
         });
       }
+      const movimiento = DeviceEventEmitter.addListener('korva:movimiento-actualizado', (e) => {
+        if (userId && e?.userId === userId) { cargarPerfil(); cargarInscripcionesActivas(); }
+      });
+      return () => movimiento.remove();
     }, [userId])
   );
 
@@ -180,7 +203,7 @@ export default function PerfilScreen() {
     try {
       const { data, error } = await supabase
         .from('user_challenges')
-        .select('id, version, modalidad, challenge_id, meta_fecha, km_completed, status, pausado, completed_at, challenges(title, modalidades, total_distance_km)')
+        .select('id, numero_bib, version, modalidad, challenge_id, meta_fecha, km_completed, status, pausado, completed_at, challenges(title, modalidades, total_distance_km)')
         .eq('user_id', userId)
         .in('status', ['active', 'completed', 'shipped', 'cargado']);
       if (!error && data) {
@@ -568,10 +591,11 @@ export default function PerfilScreen() {
     return new Date(fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
-  const deporteEmoji = (tipo) => {
-    if (tipo === 'run') return '🏃';
-    if (tipo === 'ride') return '🚴';
-    return '🏅';
+  const toggleHistorial = () => {
+    setMostrarTodasActividades(!mostrarTodasActividades);
+    if (mostrarTodasActividades) {
+      scrollRef.current?.scrollTo({ y: Math.max(0, actividadesY.current - 12), animated: true });
+    }
   };
 
   const actividadesVisibles = mostrarTodasActividades ? actividades : actividades.slice(0, 1);
@@ -580,7 +604,7 @@ export default function PerfilScreen() {
   const inicial = usuario?.name?.charAt(0)?.toUpperCase() || 'K';
 
   return (
-    <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.container}>
+    <SafeAreaView style={styles.scroll} edges={['top']}><ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.container} onScroll={alDesplazarTour} scrollEventThrottle={64}>
 
       {/* Modal Próximamente Strava */}
       {/* Modal Strava Info */}
@@ -613,18 +637,18 @@ export default function PerfilScreen() {
                 </View>
               </View>
               {/* Aviso importante antes de conectar */}
-              <View style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: '#FC4C02' }}>
-                <Text style={{ color: '#FC4C02', fontWeight: 'bold', fontSize: 12, marginBottom: 8 }}>⚠️ ANTES DE CONECTAR, LEÉ ESTO:</Text>
-                <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 6 }}>• Si ya cargaste actividades manualmente, Strava puede volver a sumarlas si también las tenés ahí. Revisá tu historial y borrá las duplicadas desde la app.</Text>
-                <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 6 }}>• Todas tus actividades de Strava se importan automáticamente — incluyendo las de ciclismo, natación y caminata. Todo suma.</Text>
-                <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20 }}>• Para borrar una actividad, andá al Perfil y deslizá sobre ella en el historial.</Text>
+              <View style={{ backgroundColor: colors.background, borderRadius: 12, padding: 14, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: colors.brandOrange }}>
+                <Text style={{ color: colors.brandOrange, fontWeight: 'bold', fontSize: 12, marginBottom: 8 }}>⚠️ ANTES DE CONECTAR, LEÉ ESTO:</Text>
+                <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20, marginBottom: 6 }}>• Si ya cargaste actividades manualmente, Strava puede volver a sumarlas si también las tenés ahí. Revisá tu historial y borrá las duplicadas desde la app.</Text>
+                <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20, marginBottom: 6 }}>• Todas tus actividades de Strava se importan automáticamente — incluyendo las de ciclismo, natación y caminata. Todo suma.</Text>
+                <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20 }}>• Para borrar una actividad, andá al Perfil y deslizá sobre ella en el historial.</Text>
               </View>
 
               <TouchableOpacity style={styles.modalBtn} onPress={conectarStravaConfirmado}>
                 <Text style={styles.modalBtnText}>Conectar Strava 🔗</Text>
               </TouchableOpacity>
               <TouchableOpacity style={{ alignItems: 'center', paddingVertical: 12 }} onPress={() => setModalStravaInfoVisible(false)}>
-                <Text style={{ color: '#4a6a8a', fontSize: 14 }}>Cerrar</Text>
+                <Text style={{ color: colors.textMuted, fontSize: 14 }}>Cerrar</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -707,7 +731,7 @@ export default function PerfilScreen() {
                 if (modalCambioModalidad?.nuevaVersion !== 'estandar' && estandarKm && estandarKm !== modalCambioModalidad?.nuevaData?.distancia_km) {
                   return (
                     <Text style={styles.confirmInfoTexto}>
-                      🏅 Tu medalla física dirá <Text style={{ fontWeight: 'bold', color: '#FFFFFF' }}>{estandarKm}K</Text> — el diseño es el mismo para las dos versiones del desafío.
+                      🏅 Tu medalla física dirá <Text style={{ fontWeight: 'bold', color: colors.text }}>{estandarKm}K</Text> — el diseño es el mismo para las dos versiones del desafío.
                     </Text>
                   );
                 }
@@ -718,15 +742,16 @@ export default function PerfilScreen() {
               <Text style={styles.modalBtnText}>Confirmar cambio</Text>
             </TouchableOpacity>
             <TouchableOpacity style={{ alignItems: 'center', paddingVertical: 12 }} onPress={() => setModalCambioModalidad(null)}>
-              <Text style={{ color: '#4a6a8a', fontSize: 14 }}>Cancelar</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 14 }}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* Hero */}
+      {/* Perfil */}
       <View style={styles.heroBg}>
-        <TouchableOpacity style={styles.avatarWrapper} onPress={subirFoto}>
+        <View style={styles.heroRow}>
+        <TouchableOpacity style={styles.avatarWrapper} onPress={subirFoto} accessibilityRole="button" accessibilityLabel="Cambiar foto de perfil">
           {usuario?.avatar_url ? (
             <Image source={{ uri: usuario.avatar_url }} style={styles.avatar} />
           ) : (
@@ -735,13 +760,25 @@ export default function PerfilScreen() {
             </View>
           )}
           <View style={styles.avatarCamara}>
-            <Text style={{ fontSize: 14 }}>📷</Text>
+            <Ionicons name="camera-outline" size={14} color={colors.text} />
           </View>
         </TouchableOpacity>
-        {editandoNombre ? (
-          <View style={{ marginTop: 4, alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.heroEyebrow}>PERFIL KORVA</Text>
+            <Text style={styles.nombre}>{usuario?.name || 'Cargando...'}</Text>
+            <Text style={styles.heroSub}>Cada paso cuenta</Text>
+            <TouchableOpacity style={styles.editarPerfil} accessibilityRole="button"
+              onPress={() => { setNombreEditado(usuario?.name || ''); setEditandoNombre(true); }}>
+              <Ionicons name="create-outline" size={15} color={colors.actionBlue} />
+              <Text style={styles.editarPerfilText}>Editar perfil</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        {editandoNombre && (
+          <View style={{ marginTop: 20, alignItems: 'stretch' }}>
+            <Text style={styles.email}>{usuario?.email}</Text>
             <TextInput
-              style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 'bold', borderBottomWidth: 1, borderColor: '#FC4C02', minWidth: 200, textAlign: 'center', paddingVertical: 4 }}
+              style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', borderBottomWidth: 1, borderColor: colors.brandOrange, textAlign: 'left', paddingVertical: 4 }}
               value={nombreEditado}
               onChangeText={setNombreEditado}
               autoFocus
@@ -750,7 +787,7 @@ export default function PerfilScreen() {
             />
             <View style={{ flexDirection: 'row', marginTop: 10 }}>
               <TouchableOpacity
-                style={{ backgroundColor: '#FC4C02', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8, marginRight: 8 }}
+                style={{ backgroundColor: colors.brandOrange, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8, marginRight: 8 }}
                 onPress={async () => {
                   const nombre = nombreEditado.trim();
                   if (!nombre || nombre.length < 2) {
@@ -766,26 +803,16 @@ export default function PerfilScreen() {
                   setEditandoNombre(false);
                 }}
               >
-                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 }}>Guardar</Text>
+                <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 13 }}>Guardar</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={{ borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: '#2a3a4a' }}
                 onPress={() => setEditandoNombre(false)}
               >
-                <Text style={{ color: '#4a6a8a', fontSize: 13 }}>Cancelar</Text>
+                <Text style={{ color: colors.textMuted, fontSize: 13 }}>Cancelar</Text>
               </TouchableOpacity>
             </View>
           </View>
-        ) : (
-          <TouchableOpacity onPress={() => { setNombreEditado(usuario?.name || ''); setEditandoNombre(true); }}>
-            <Text style={styles.nombre}>{usuario?.name || 'Cargando...'} <Text style={{ color: '#4a6a8a', fontSize: 13 }}>✏️</Text></Text>
-          </TouchableOpacity>
-        )}
-        <Text style={styles.email}>{usuario?.email}</Text>
-        {stats?.total_km > 0 && (
-          <Text style={{ color: '#4a6a8a', fontSize: 12, marginTop: 6 }}>
-            🌍 {stats.total_km} km recorridos con Korva
-          </Text>
         )}
       </View>
 
@@ -797,8 +824,8 @@ export default function PerfilScreen() {
         >
           <Text style={{ fontSize: 20, marginRight: 10 }}>📦</Text>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>Cargá tu dirección de envío</Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 12 }}>Necesaria para enviarte tu medalla cuando termines</Text>
+            <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 14 }}>Cargá tu dirección de envío</Text>
+            <Text style={{ color: colors.textSoft, fontSize: 12 }}>Necesaria para gestionar tus envíos de medallas</Text>
           </View>
           <Text style={{ color: '#7C3AED', fontSize: 16 }}>→</Text>
         </TouchableOpacity>
@@ -806,24 +833,91 @@ export default function PerfilScreen() {
 
       {/* Stats — solo los 3 más importantes */}
       <View style={styles.statsRow}>
-        <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.total_km || 0}</Text><Text style={styles.statLabel}>km totales</Text></View>
-        <View style={styles.statCard}><Text style={styles.statNumero}>{stats?.medallas || 0}</Text><Text style={styles.statLabel}>🏅 Medallas</Text></View>
-        <View style={styles.statCard}><Text style={styles.statNumero}>🔥 {stats?.racha_actual || 0}</Text><Text style={styles.statLabel}>Racha sem.</Text></View>
+        <View style={styles.statCard}><Ionicons name="navigate-outline" size={16} color={colors.brandOrangeSoft} style={{ marginBottom: 6 }} /><Text style={styles.statNumero}>{stats?.total_km || 0}</Text><Text style={styles.statLabel}>km totales</Text></View>
+        <View style={styles.statCard}><Ionicons name="medal-outline" size={16} color={colors.brandOrangeSoft} style={{ marginBottom: 6 }} /><Text style={styles.statNumero}>{stats?.medallas || 0}</Text><Text style={styles.statLabel}>Medallas</Text></View>
+        <View style={styles.statCard}><Ionicons name="flame-outline" size={16} color={colors.brandOrangeSoft} style={{ marginBottom: 6 }} /><Text style={styles.statNumero}>{stats?.racha_actual || 0}</Text><Text style={styles.statLabel}>Semanas en racha</Text></View>
       </View>
 
+      <TouchableOpacity
+        style={styles.korvaMundiPerfil}
+        onPress={() => navigation.navigate('KorvaMundi')}
+        activeOpacity={0.82}
+        accessibilityRole="button"
+        accessibilityLabel="Abrir KorvaMundi"
+      >
+        <View style={styles.korvaMundiPerfilIcon}>
+          <Ionicons name="globe-outline" size={18} color={colors.textSoft} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.korvaMundiPerfilTitle}>KorvaMundi</Text>
+          <Text style={styles.korvaMundiPerfilMeta}>
+            {(() => {
+              const terminales = new Set(['completed', 'shipped', 'cargado']);
+              const conquistas = inscripcionesActivas.filter((i) => terminales.has(i.status)).length;
+              const enCurso = inscripcionesActivas.filter((i) => i.status === 'active' && !i.pausado).length;
+              if (conquistas === 0 && enCurso === 0) return 'Tu mundo está esperando';
+              if (conquistas === 0) return `${enCurso} aventura${enCurso === 1 ? '' : 's'} en curso`;
+              if (enCurso === 0) return `${conquistas} conquista${conquistas === 1 ? '' : 's'} · Tu mundo`;
+              return `${conquistas} conquista${conquistas === 1 ? '' : 's'} · ${enCurso} aventura${enCurso === 1 ? '' : 's'} en curso`;
+            })()}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={colors.textDim} />
+      </TouchableOpacity>
 
 
       {/* Retos activos */}
-      {inscripcionesActivas.length > 0 && (
+      {(inscripcionesActivas.length > 0 || tieneRutaLibre) && (
         <View style={{ width: '100%', marginBottom: 20 }}>
-          <Text style={[styles.seccionTitulo, { paddingHorizontal: 24 }]}>🏅 Mis retos activos</Text>
+          <Text style={[styles.seccionTitulo, { paddingHorizontal: 24 }]}>Mis desafíos</Text>
           <ScrollView
             horizontal
+            style={alturasRetos[retoIndex] ? { height: alturasRetos[retoIndex] } : undefined}
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             onMomentumScrollEnd={e => setRetoIndex(Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH))}
           >
-            {inscripcionesActivas.map((inscripcion, idx) => {
+            {aventurasPerfil.map((inscripcion, idx) => {
+              if (inscripcion.libre) return (
+                <View key="islandia-libre" style={{ width: SCREEN_WIDTH, paddingHorizontal: 24, alignSelf: 'flex-start' }}
+                  onLayout={e => { const h = Math.ceil(e.nativeEvent.layout.height); setAlturasRetos(prev => prev[idx] === h ? prev : { ...prev, [idx]: h }); }}>
+                  {(() => {
+                    // Islandia con la misma tarjeta que los demás desafíos; verde = ruta libre.
+                    const pl = rutaLibre?.datos?.participacion;
+                    if (!pl) return <RutaLibreCardVista navigation={navigation} estado={rutaLibre} destacado accion="Ver ruta" onActualizar={() => actualizarRutaLibre({ conservarDatos: true })} />;
+                    const pctL = Math.min(100, Number(pl.porcentaje) || 0);
+                    return (
+                      <View style={[styles.retoCard, { borderColor: '#32665C' }]}>
+                        <Text style={[styles.retoEyebrow, { color: '#78DEC5' }]}>{pl.estado === 'pausada' ? 'RUTA LIBRE · PAUSADA' : pl.estado === 'completada' ? 'RUTA LIBRE · COMPLETADA' : 'RUTA LIBRE · SIN MEDALLA'}</Text>
+                        <View style={styles.retoTitleRow}>
+                          <Text style={styles.retoCardTitulo}>Islandia · Ring Road</Text>
+                          <View style={styles.retoPctPill}><Text style={[styles.retoProgressPct, { color: '#78DEC5' }]}>{Math.floor(pctL)}%</Text></View>
+                        </View>
+                        <View style={styles.retoMetricRow}>
+                          <Text style={styles.retoMetric}>{formatoKm(pl.km)}</Text>
+                          <Text style={styles.retoMetricUnit}>km</Text>
+                        </View>
+                        <Text style={styles.retoKm}>de 1.400 km</Text>
+                        <View style={styles.retoProgressBar}><View style={[styles.retoProgressFill, { width: `${pctL}%`, backgroundColor: '#78DEC5' }]} /></View>
+                        <TouchableOpacity style={styles.retoRutaBtn} accessibilityRole="button" onPress={() => navigation.navigate('RutaLibre', { abrirRuta: true })}>
+                          <Ionicons name="map-outline" size={16} color={colors.actionBlue} />
+                          <Text style={styles.retoRutaBtnText}>Ver ruta</Text>
+                          <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.retoRutaBtn} accessibilityRole="button"
+                          onPress={() => setProgresoCompartir({ titulo: 'Islandia · Ring Road', km: pl.km, total: 1400, challenge_id: '3b211caf-ee16-54c8-a93c-343a5eb2d57e' })}>
+                          <Ionicons name="share-outline" size={16} color={colors.actionBlue} /><Text style={styles.retoRutaBtnText}>Compartir progreso</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.retoRutaBtn} accessibilityRole="button" onPress={() => navigation.navigate('RutaLibre')}>
+                          <Ionicons name="book-outline" size={16} color={colors.actionBlue} />
+                          <Text style={styles.retoRutaBtnText}>Historia del desafío</Text>
+                          <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })()}
+                </View>
+              );
               const cId = inscripcion.challenge_id;
               const versionActual = versionDeInscripcion(inscripcion);
               const versiones = versionesDelDesafio(inscripcion.challenges).filter(v => v.distancia_km !== null);
@@ -832,20 +926,68 @@ export default function PerfilScreen() {
               const kmCompletados = inscripcion.km_completed || 0;
               const pct = distanciaTotal > 0 ? Math.min((kmCompletados / distanciaTotal) * 100, 100) : 0;
               const mFecha = metaFecha[cId];
+              const detallesAbiertos = !!detallesReto[cId];
               // El plan escala solo por la distancia de la versión (no asume deporte).
 
               return (
-                <View key={cId} style={{ width: SCREEN_WIDTH, paddingHorizontal: 24 }}>
+                <View key={cId} style={{ width: SCREEN_WIDTH, paddingHorizontal: 24, alignSelf: 'flex-start' }}
+                  onLayout={e => { const h = Math.ceil(e.nativeEvent.layout.height); setAlturasRetos(prev => prev[idx] === h ? prev : { ...prev, [idx]: h }); }}>
                   <View style={styles.retoCard}>
-                    <Text style={styles.retoCardTitulo}>{inscripcion.challenges?.title}</Text>
-                    <View style={styles.retoProgressWrapper}>
-                      <View style={styles.retoProgressBar}>
-                        <View style={[styles.retoProgressFill, { width: `${pct}%` }]} />
-                      </View>
-                      <Text style={styles.retoProgressPct}>{pct.toFixed(0)}%</Text>
+                    <Text style={styles.retoEyebrow}>{inscripcion.status === 'active' ? (inscripcion.pausado ? 'DESAFÍO PAUSADO' : 'TU AVENTURA') : 'DESAFÍO COMPLETADO'}</Text>
+                    <View style={styles.retoTitleRow}>
+                      <Text style={styles.retoCardTitulo}>{inscripcion.challenges?.title}</Text>
+                      <View style={styles.retoPctPill}><Text style={styles.retoProgressPct}>{pct.toFixed(0)}%</Text></View>
                     </View>
-                    <Text style={styles.retoKm}>{kmCompletados.toFixed(1)} km de {distanciaTotal} km</Text>
-                    <Text style={styles.modalidadLabel}>Versión · caminando, corriendo o en bici, todo suma</Text>
+                    <View style={styles.retoMetricRow}>
+                      <Text style={styles.retoMetric}>{formatoKm(kmCompletados)}</Text>
+                      <Text style={styles.retoMetricUnit}>km</Text>
+                    </View>
+                    <Text style={styles.retoKm}>de {distanciaTotal} km</Text>
+                    <View style={styles.retoProgressBar}>
+                      <View style={[styles.retoProgressFill, { width: `${pct}%` }]} />
+                    </View>
+                    <View style={styles.retoResumen}>
+                      <Text style={styles.retoVersionResumen}>A tu ritmo</Text>
+                      {mFecha && (
+                        <View style={styles.retoMetaResumen}>
+                          <Ionicons name="calendar-outline" size={13} color={colors.textMuted} />
+                          <Text style={styles.retoMetaResumenText}>Meta: {new Date(mFecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <TouchableOpacity
+                      style={styles.retoRutaBtn}
+                      onPress={() => navigation.navigate('DetalleReto', {
+                        item: {
+                          ...inscripcion,
+                          challenge: inscripcion.challenges?.title,
+                          km_completados: kmCompletados,
+                          distancia_total: distanciaTotal,
+                          porcentaje: pct,
+                        },
+                        userId,
+                        nombrePersona: usuario?.nombre || usuario?.name || '',
+                        abrirRuta: true,
+                      })}
+                      accessibilityRole="button"
+                    >
+                      <Ionicons name="map-outline" size={16} color={colors.actionBlue} />
+                      <Text style={styles.retoRutaBtnText}>Ver ruta</Text>
+                      <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.retoRutaBtn} accessibilityRole="button"
+                      onPress={() => setProgresoCompartir({ titulo: inscripcion.challenges?.title, km: kmCompletados, total: distanciaTotal, challenge_id: inscripcion.challenge_id })}>
+                      <Ionicons name="share-outline" size={16} color={colors.actionBlue} /><Text style={styles.retoRutaBtnText}>Compartir progreso</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.retoDetailsToggle}
+                      onPress={() => setDetallesReto(prev => ({ ...prev, [cId]: !prev[cId] }))}
+                      accessibilityRole="button" accessibilityState={{ expanded: detallesAbiertos }}>
+                      <Text style={styles.retoDetailsLabel}>Opciones y documentos</Text>
+                      <Ionicons name={detallesAbiertos ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textMuted} />
+                    </TouchableOpacity>
+                    {detallesAbiertos && (
+                      <View style={styles.retoSettings}>
+                    <Text style={styles.modalidadLabel}>DISTANCIA DEL DESAFÍO</Text>
                     <View style={styles.modalidadBtns}>
                       {versiones.map((v) => (
                         <TouchableOpacity
@@ -862,7 +1004,7 @@ export default function PerfilScreen() {
                     </View>
                     <View style={styles.metaSeparador} />
                     <View style={styles.metaHeader}>
-                      <Text style={styles.metaTitulo}>🎯 Meta personal</Text>
+                      <Text style={styles.metaTitulo}>Meta personal</Text>
                       <TouchableOpacity onPress={() => {
                         setInputMeta(prev => ({ ...prev, [cId]: mFecha ? new Date(mFecha).toLocaleDateString('es-AR') : '' }));
                         setEditandoMeta(prev => ({ ...prev, [cId]: !prev[cId] }));
@@ -890,7 +1032,7 @@ export default function PerfilScreen() {
                       </>
                     ) : mFecha ? (
                       <View style={styles.metaInfo}>
-                        <Text style={styles.metaFechaText}>📅 Objetivo: {formatearFecha(mFecha)}</Text>
+                        <Text style={styles.metaFechaText}>Objetivo: {formatearFecha(mFecha)}</Text>
                         <Text style={styles.metaDias}>{diasEntre(new Date(), new Date(mFecha))} días restantes</Text>
                         <Text style={styles.metaRitmo}>
                           Referencia matemática: ~{(Math.max(0, distanciaTotal - kmCompletados) / diasEntre(new Date(), new Date(mFecha))).toFixed(1)} km/día
@@ -900,10 +1042,11 @@ export default function PerfilScreen() {
                     ) : (
                       <Text style={styles.metaVacio}>Fecha objetivo opcional para organizar tu progreso. No afecta el envío de tu medalla.</Text>
                     )}
-                    <View style={styles.metaSeparador} />
-                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                      </View>
+                    )}
+                    <View style={styles.retoActions}>
                       <TouchableOpacity
-                        style={{ flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: '#2A5A8A', alignItems: 'center', justifyContent: 'center' }}
+                        style={styles.challengeAction}
                         onPress={() => navigation.navigate('DetalleReto', {
                           item: {
                             ...inscripcion,
@@ -914,43 +1057,54 @@ export default function PerfilScreen() {
                             meta_fecha: mFecha || inscripcion.meta_fecha || '',
                           },
                           userId,
+                          nombrePersona: usuario?.name,
                         })}
                       >
-                        <Text style={{ color: '#A8CFFF', fontWeight: 'bold', fontSize: 12 }}>📖 Historia</Text>
+                        <Text style={{ color: colors.textSoft, fontWeight: 'bold', fontSize: 12 }}><Ionicons name="book-outline" size={14} color={colors.textSoft} /> Historia</Text>
                       </TouchableOpacity>
-                      {['completed', 'cargado', 'shipped'].includes(inscripcion.status) && (
-                        <TouchableOpacity
-                          style={{ flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: '#2A5A8A', alignItems: 'center', justifyContent: 'center' }}
-                          onPress={() => setModalEnvioReto(inscripcion)}
-                        >
-                          <Text style={{ color: '#A8CFFF', fontWeight: 'bold', fontSize: 12 }}>🎁 Medalla y envío</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                    <View style={styles.bibRow}>
                       {inscripcion.status === 'active' && (
                         <TouchableOpacity
-                          style={[styles.bibBtn, { backgroundColor: inscripcion.pausado ? '#1a4a1a' : '#0D1B2A', borderColor: inscripcion.pausado ? '#22C55E' : '#FC4C02' }]}
+                          style={styles.challengeAction}
                           onPress={() => togglePausar(inscripcion.challenge_id, inscripcion.pausado)}
                         >
-                          <Text style={styles.bibBtnText}>{inscripcion.pausado ? '▶️ Reanudar' : '⏸ Pausar'}</Text>
+                          <View style={styles.retoActionRow}>
+                            <Ionicons name={inscripcion.pausado ? 'play-outline' : 'pause-outline'} size={14} color={inscripcion.pausado ? colors.brandOrangeSoft : colors.textMuted} />
+                            <Text style={styles.secondaryActionText}>{inscripcion.pausado ? 'Reanudar' : 'Pausar'}</Text>
+                          </View>
                         </TouchableOpacity>
                       )}
+                      {['completed', 'cargado', 'shipped'].includes(inscripcion.status) && (
+                        <TouchableOpacity
+                          style={styles.challengeAction}
+                          onPress={() => setModalEnvioReto(inscripcion)}
+                        >
+                          <Text style={{ color: colors.textSoft, fontWeight: 'bold', fontSize: 12 }}><Ionicons name="medal-outline" size={14} color={colors.brandOrangeSoft} /> Medalla y envío</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    {detallesAbiertos && <View style={styles.bibRow}>
                       <TouchableOpacity style={styles.bibBtn} onPress={() => descargarBib('dorsal', inscripcion.challenge_id)} disabled={!!cargandoBib}>
-                        {cargandoBib === 'dorsal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.bibBtnText}>📄 Mi dorsal</Text>}
+                        {cargandoBib === 'dorsal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.bibBtnText}><Ionicons name="document-text-outline" size={14} color={colors.textSoft} /> Mi dorsal</Text>}
                       </TouchableOpacity>
                       <TouchableOpacity style={[styles.bibBtn, styles.bibBtnSecundario]} onPress={() => descargarBib('postal', inscripcion.challenge_id)} disabled={!!cargandoBib}>
-                        {cargandoBib === 'postal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={[styles.bibBtnText, { color: '#A8CFFF' }]}>🖼️ Mi postal</Text>}
+                        {cargandoBib === 'postal' ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={[styles.bibBtnText, { color: colors.textSoft }]}><Ionicons name="image-outline" size={14} color={colors.textSoft} /> Mi postal</Text>}
                       </TouchableOpacity>
-                    </View>
+                    </View>}
+                    {['completed', 'cargado', 'shipped'].includes(inscripcion.status) && (
+                      <TouchableOpacity style={styles.completedShareBtn} accessibilityRole="button"
+                        onPress={() => setRetoCompartir({ ...inscripcion, distancia_total: distanciaTotal })}>
+                        <Ionicons name="share-outline" size={16} color={colors.brandOrangeSoft} />
+                        <Text style={styles.completedShareText}>Compartir desafío completado</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               );
             })}
           </ScrollView>
-          {inscripcionesActivas.length > 1 && (
+          {aventurasPerfil.length > 1 && (
             <View style={styles.dotsRow}>
-              {inscripcionesActivas.map((_, i) => (
+              {Array.from({ length: aventurasPerfil.length }, (_, i) => (
                 <View key={i} style={[styles.dot, i === retoIndex && styles.dotActivo]} />
               ))}
             </View>
@@ -962,12 +1116,12 @@ export default function PerfilScreen() {
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalEnvioReto(null)}>
           <View style={[styles.modalCard, { padding: 24 }]}>
             <Text style={{ fontSize: 30, marginBottom: 10, textAlign: 'center' }}>🎁</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 }}>Sobre tu medalla</Text>
+            <Text style={{ color: colors.text, fontSize: 17, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 }}>Sobre tu medalla</Text>
             <Text style={{ color: '#6F91B5', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>{modalEnvioReto?.challenge || modalEnvioReto?.challenge_title || ''}</Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+            <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
               Nuestro equipo está preparando y gestionando tu pedido. Cuando el envío tenga información de seguimiento disponible, la recibirás por correo electrónico.
             </Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
+            <Text style={{ color: colors.textSoft, fontSize: 13, lineHeight: 20, marginBottom: 12 }}>
               Si compraste varias medallas en una misma compra, pueden prepararse y enviarse juntas. En ese caso recibirás un único enlace de seguimiento para el pedido, no un correo por cada medalla.
             </Text>
             <Text style={{ color: '#7F96AD', fontSize: 12, lineHeight: 18, marginBottom: 18 }}>
@@ -977,7 +1131,7 @@ export default function PerfilScreen() {
               style={{ borderWidth: 1, borderColor: '#2A5A8A', borderRadius: 12, padding: 12, alignItems: 'center', marginBottom: 12 }}
               onPress={() => Linking.openURL('https://korva.run/pages/envios')}
             >
-              <Text style={{ color: '#67A9FF', fontWeight: 'bold', fontSize: 13 }}>Ver información completa sobre envíos →</Text>
+              <Text style={{ color: colors.actionBlue, fontWeight: 'bold', fontSize: 13 }}>Ver información completa sobre envíos →</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setModalEnvioReto(null)}>
               <Text style={{ color: '#6F8298', textAlign: 'center', fontSize: 13 }}>Cerrar</Text>
@@ -986,10 +1140,72 @@ export default function PerfilScreen() {
         </TouchableOpacity>
       </Modal>
 
+      {/* Actividades */}
+      <View style={styles.seccion} ref={refTourActividades} collapsable={false} onLayout={(e) => { actividadesY.current = e.nativeEvent.layout.y; }}>
+        <View style={styles.activitiesHeading}>
+          <Text style={[styles.seccionTitulo, { marginBottom: 0, flex: 1 }]}>Tus actividades</Text>
+          <TouchableOpacity style={styles.activitiesLink} onPress={() => navigation.navigate('MisActividades')}
+            accessibilityRole="button" accessibilityLabel="Ver todas mis actividades">
+            <Text style={styles.activitiesLinkText}>Ver todas</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.actionBlue} />
+          </TouchableOpacity>
+        </View>
+        {mostrarTodasActividades && (
+          <TouchableOpacity style={styles.collapseTop} onPress={toggleHistorial}>
+            <Ionicons name="chevron-up" size={16} color={colors.textSoft} />
+            <Text style={styles.verTodasText}>Ocultar historial</Text>
+          </TouchableOpacity>
+        )}
+        <Text style={styles.activitiesHint}>Tocá una actividad para ver el detalle, o ↗ para compartirla.</Text>
+        {actividades.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyEmoji}>🏁</Text>
+            <Text style={styles.emptyText}>Sin actividades todavia</Text>
+            <Text style={styles.emptySubtext}>Registrá tus km desde la pestaña "Registrar"</Text>
+          </View>
+        ) : (
+          <>
+            {actividadesVisibles.map((act, i) => (
+              <TouchableOpacity
+                key={i}
+                style={styles.actividadRow}
+                activeOpacity={0.82}
+                onPress={() => navigation.navigate('DetalleActividad', { actividad: act, userId })}
+              >
+                <View style={styles.actividadIcon}><Ionicons name={iconoDeporteActividad(act.sport_type)} size={22} color={colors.brandOrangeSoft} /></View>
+                <View style={styles.actividadInfo}>
+                  <Text style={styles.actividadFecha}>{formatearFechaCorta(act.recorded_at)}</Text>
+                  <Text style={styles.actividadTipo}>
+                    {nombreDeporteActividad(act.sport_type)}
+                    {' · ' + nombreFuenteActividad(act.source)}
+                  </Text>
+                </View>
+                <Text style={styles.actividadKm}>{formatoKm(act.distance_km)} km</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('DetalleActividad', { actividad: act, userId, abrirCompartir: true })}
+                  style={styles.eliminarBtn} accessibilityRole="button" accessibilityLabel="Compartir actividad">
+                  <Ionicons name="share-outline" size={18} color={colors.brandOrangeSoft} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => eliminarActividad(act.id)} style={styles.eliminarBtn}
+                  accessibilityRole="button" accessibilityLabel="Eliminar actividad">
+                  <Ionicons name="trash-outline" size={17} color={colors.textMuted} />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            ))}
+            {actividades.length > 1 && (
+              <TouchableOpacity style={styles.verTodasBtn} onPress={toggleHistorial}>
+                <Text style={styles.verTodasText}>
+                  {mostrarTodasActividades ? '▲ Ocultar historial' : `▼ Ver historial completo (${actividades.length - 1} más)`}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+      </View>
+
       {/* Nivel */}
       {nivel && (
         <View style={styles.seccion}>
-          <Text style={styles.seccionTitulo}>⚡ Tu nivel</Text>
+          <Text style={styles.seccionTitulo}><Ionicons name="flash-outline" size={18} color={colors.brandOrange} /> Tu nivel</Text>
           <View style={styles.nivelCard}>
             <Text style={styles.nivelEmoji}>{nivel.emoji}</Text>
             <View style={styles.nivelInfo}>
@@ -1006,7 +1222,7 @@ export default function PerfilScreen() {
       {/* Logros */}
       {(insignias.length > 0 || Object.keys(insigniasProgreso).length > 0) && (
         <View style={styles.seccion}>
-          <Text style={styles.seccionTitulo}>🏆 Logros {insignias.length > 0 ? `(${insignias.length})` : ''}</Text>
+          <Text style={styles.seccionTitulo}><Ionicons name="trophy-outline" size={18} color={colors.brandOrange} /> Logros {insignias.length > 0 ? `(${insignias.length})` : ''}</Text>
           
           {/* Carrusel horizontal de logros ganados */}
           {insignias.length > 0 && (
@@ -1027,261 +1243,29 @@ export default function PerfilScreen() {
             if (proximos.length === 0) return null;
             const proximo = proximos[0];
             return (
-              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#0D1B2A', borderRadius: 10, padding: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: 10, padding: 10 }}>
                 <Text style={{ fontSize: 18, marginRight: 8 }}>🎯</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#A8CFFF', fontSize: 12, fontWeight: 'bold' }}>{proximo.nombre}</Text>
-                  <Text style={{ color: '#4a6a8a', fontSize: 11 }}>Faltan {proximo.falta} {proximo.unidad}</Text>
+                  <Text style={{ color: colors.textSoft, fontSize: 12, fontWeight: 'bold' }}>{proximo.nombre}</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 11 }}>Faltan {proximo.falta} {proximo.unidad}</Text>
                 </View>
-                <Text style={{ color: '#FC4C02' }}>🔒</Text>
+                <Text style={{ color: colors.brandOrange }}>🔒</Text>
               </View>
             );
           })()}
         </View>
       )}
 
-      {/* Actividades */}
       <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>📋 Actividades recientes</Text>
-        {actividades.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyEmoji}>🏁</Text>
-            <Text style={styles.emptyText}>Sin actividades todavia</Text>
-            <Text style={styles.emptySubtext}>Registrá tus km desde la pestaña "Registrar"</Text>
-          </View>
-        ) : (
-          <>
-            {actividadesVisibles.map((act, i) => (
-              <View key={i} style={styles.actividadRow}>
-                <Text style={styles.actividadEmoji}>{deporteEmoji(act.sport_type)}</Text>
-                <View style={styles.actividadInfo}>
-                  <Text style={styles.actividadFecha}>{formatearFechaCorta(act.recorded_at)}</Text>
-                  <Text style={styles.actividadTipo}>
-                    {act.sport_type || 'Actividad'}
-                    {act.source === 'manual' ? ' · manual' : act.source === 'korva_gps' ? ' · Korva GPS' : act.source === 'strava' ? ' · Strava' : ` · ${act.source || 'Actividad'}`}
-                  </Text>
-                </View>
-                <Text style={styles.actividadKm}>{parseFloat(act.distance_km).toFixed(1)} km</Text>
-                <TouchableOpacity onPress={() => eliminarActividad(act.id)} style={styles.eliminarBtn}>
-                  <Text style={styles.eliminarBtnText}>✕</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-            {actividades.length > 1 && (
-              <TouchableOpacity style={styles.verTodasBtn} onPress={() => setMostrarTodasActividades(!mostrarTodasActividades)}>
-                <Text style={styles.verTodasText}>
-                  {mostrarTodasActividades ? '▲ Ocultar historial' : `▼ Ver historial completo (${actividades.length - 1} más)`}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </>
-        )}
+        <KorvaGroups navigation={navigation} />
       </View>
-
-      {/* Grupos */}
-      <View style={styles.seccion}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-          <Text style={[styles.seccionTitulo, { flex: 1 }]}>👥 Mis grupos</Text>
-          <TouchableOpacity onPress={() => setModalGruposVisible(true)}>
-            <Text style={{ color: '#FC4C02', fontSize: 13, fontWeight: 'bold' }}>+ Gestionar</Text>
-          </TouchableOpacity>
-        </View>
-        {misGrupos.length === 0 ? (
-          <TouchableOpacity
-            style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#1E3A5F', borderStyle: 'dashed' }}
-            onPress={() => setModalGruposVisible(true)}
-          >
-            <Text style={{ color: '#4a6a8a', fontSize: 13 }}>Creá o unite a un grupo de running 🏃</Text>
-          </TouchableOpacity>
-        ) : (
-          misGrupos.map((g, i) => (
-            <View key={i} style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#1E3A5F' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>{g.nombre}</Text>
-                  <Text style={{ color: '#4a6a8a', fontSize: 12, marginTop: 2 }}>Código: <Text style={{ color: '#FC4C02', fontWeight: 'bold', letterSpacing: 2 }}>{g.codigo}</Text></Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => Linking.openURL(`https://wa.me/?text=Unite a mi grupo en Korva Aventuras con el código: *${g.codigo}* 🏅 Descargá la app en korva.run`)}
-                  style={{ backgroundColor: '#25D366', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginLeft: 8 }}
-                >
-                  <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' }}>💬 Compartir</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity
-                style={{ marginTop: 10, alignItems: 'center' }}
-                onPress={() => Alert.alert(
-                  'Salir del grupo',
-                  `¿Estás seguro que querés salir de "${g.nombre}"?`,
-                  [
-                    { text: 'Cancelar', style: 'cancel' },
-                    { text: 'Salir', style: 'destructive', onPress: async () => {
-                      try {
-                        await fetch(`${BACKEND_URL}/grupos/salir`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ user_id: userId, group_id: g.id }),
-                        });
-                        setMisGrupos(prev => prev.filter(gr => gr.id !== g.id));
-                      } catch (e) {
-                        Alert.alert('Error', 'No se pudo salir del grupo.');
-                      }
-                    }}
-                  ]
-                )}
-              >
-                <Text style={{ color: '#4a6a8a', fontSize: 11 }}>Salir del grupo</Text>
-              </TouchableOpacity>
-            </View>
-          ))
-        )}
-      </View>
-
-      {/* Modal gestionar grupos */}
-      <Modal visible={modalGruposVisible} transparent animationType="slide" onRequestClose={() => setModalGruposVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitulo}>👥 Grupos</Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, textAlign: 'center', marginBottom: 16, lineHeight: 20 }}>
-              Creá un grupo con amigos o compañeros y vean su progreso juntos en el Ranking 🏆
-            </Text>
-            <View style={{ backgroundColor: '#0D1B2A', borderRadius: 12, padding: 14, marginBottom: 20 }}>
-              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>1️⃣ Creás el grupo y le ponés un nombre</Text>
-              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>2️⃣ Te genera un código único de 6 letras</Text>
-              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>3️⃣ Lo compartís con tus amigos por WhatsApp</Text>
-              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>4️⃣ Ellos ingresan el código en su Perfil</Text>
-              <Text style={{ color: '#A8CFFF', fontSize: 13, lineHeight: 22 }}>5️⃣ Se ven entre todos en el Ranking - Mi grupo</Text>
-              <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: 10 }}>Podés estar en hasta 3 grupos · Máximo 50 miembros por grupo</Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.modalBtn, { marginBottom: 12 }]}
-              onPress={() => { setModalGruposVisible(false); setModalCrearGrupo(true); }}
-            >
-              <Text style={styles.modalBtnText}>➕ Crear nuevo grupo</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalBtn, { backgroundColor: '#1E3A5F', borderWidth: 1, borderColor: '#1E6FD9', marginBottom: 16 }]}
-              onPress={() => { setModalGruposVisible(false); setModalUnirseGrupo(true); }}
-            >
-              <Text style={[styles.modalBtnText, { color: '#1E6FD9' }]}>🔗 Unirme con código</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setModalGruposVisible(false)}>
-              <Text style={{ color: '#4a6a8a', textAlign: 'center', fontSize: 13 }}>Cerrar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal crear grupo */}
-      <Modal visible={modalCrearGrupo} transparent animationType="slide" onRequestClose={() => setModalCrearGrupo(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitulo}>➕ Crear grupo</Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, marginBottom: 12 }}>¿Cómo se llama tu grupo?</Text>
-            <TextInput
-              style={[styles.input, { marginBottom: 16 }]}
-              value={nombreGrupo}
-              onChangeText={setNombreGrupo}
-              placeholder="Ej: Runners del Parque, Equipo Korva..."
-              placeholderTextColor="#4a6a8a"
-            />
-            <TouchableOpacity
-              style={styles.modalBtn}
-              disabled={cargandoGrupo}
-              onPress={async () => {
-                if (!nombreGrupo.trim()) return Alert.alert('Falta el nombre', 'Escribí un nombre para tu grupo.');
-                setCargandoGrupo(true);
-                try {
-                  const res = await fetch(`${BACKEND_URL}/grupos/crear`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, nombre: nombreGrupo.trim() }),
-                  });
-                  const data = await res.json();
-                  if (data.grupo) {
-                    setMisGrupos(prev => [...prev, data.grupo]);
-                    setModalCrearGrupo(false);
-                    setNombreGrupo('');
-                    Alert.alert('¡Grupo creado!', `Tu código es: ${data.grupo.codigo}
-
-Compartilo con tu grupo para que se unan.`);
-                  }
-                } catch (e) {
-                  Alert.alert('Error', 'No se pudo crear el grupo.');
-                } finally {
-                  setCargandoGrupo(false);
-                }
-              }}
-            >
-              <Text style={styles.modalBtnText}>{cargandoGrupo ? 'Creando...' : 'Crear grupo'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={{ marginTop: 12 }} onPress={() => setModalCrearGrupo(false)}>
-              <Text style={{ color: '#4a6a8a', textAlign: 'center', fontSize: 13 }}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal unirse a grupo */}
-      <Modal visible={modalUnirseGrupo} transparent animationType="slide" onRequestClose={() => setModalUnirseGrupo(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitulo}>🔗 Unirme a un grupo</Text>
-            <Text style={{ color: '#A8CFFF', fontSize: 13, marginBottom: 12 }}>Ingresá el código que te compartieron:</Text>
-            <TextInput
-              style={[styles.input, { marginBottom: 16, letterSpacing: 4, textAlign: 'center', fontSize: 18, fontWeight: 'bold' }]}
-              value={codigoGrupo}
-              onChangeText={v => setCodigoGrupo(v.toUpperCase())}
-              placeholder="KORVA7"
-              placeholderTextColor="#4a6a8a"
-              autoCapitalize="characters"
-              maxLength={6}
-            />
-            <TouchableOpacity
-              style={styles.modalBtn}
-              disabled={cargandoGrupo}
-              onPress={async () => {
-                if (!codigoGrupo.trim()) return Alert.alert('Falta el código', 'Ingresá el código del grupo.');
-                setCargandoGrupo(true);
-                try {
-                  const res = await fetch(`${BACKEND_URL}/grupos/unirse`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, codigo: codigoGrupo.trim() }),
-                  });
-                  const data = await res.json();
-                  if (data.error) return Alert.alert('Error', data.error);
-                  if (data.grupo) {
-                    setMisGrupos(prev => {
-                      const yaEsta = prev.find(g => g.id === data.grupo.id);
-                      return yaEsta ? prev : [...prev, data.grupo];
-                    });
-                    setModalUnirseGrupo(false);
-                    setCodigoGrupo('');
-                    Alert.alert('¡Te uniste!', `Ahora sos parte de "${data.grupo.nombre}"`);
-                  }
-                } catch (e) {
-                  Alert.alert('Error', 'No se pudo unir al grupo.');
-                } finally {
-                  setCargandoGrupo(false);
-                }
-              }}
-            >
-              <Text style={styles.modalBtnText}>{cargandoGrupo ? 'Buscando...' : 'Unirme'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={{ marginTop: 12 }} onPress={() => setModalUnirseGrupo(false)}>
-              <Text style={{ color: '#4a6a8a', textAlign: 'center', fontSize: 13 }}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* Dirección */}
-      <View style={styles.seccion} onLayout={e => { direccionY.current = e.nativeEvent.layout.y; }}>
-        <Text style={{ color: '#4a6a8a', fontSize: 11, textAlign: 'center', marginBottom: 12 }}>
+      <View style={styles.seccion} ref={refTourDireccion} collapsable={false} onLayout={e => { direccionY.current = e.nativeEvent.layout.y; }}>
+        <Text style={{ color: colors.textMuted, fontSize: 11, textAlign: 'center', marginBottom: 12 }}>
           🔒 Tu información es privada y solo se usa para procesar el envío de tu medalla. No se comparte con terceros.
         </Text>
-        <Text style={styles.seccionTitulo}>📦 Direccion de envio</Text>
+        <Text style={styles.seccionTitulo}><Ionicons name="cube-outline" size={18} color={colors.textSoft} /> Dirección de envío</Text>
         {editandoDireccion ? (
           <View style={styles.formCard}>
             <Text style={styles.formLabel}>Nombre completo para el envío *</Text>
@@ -1331,11 +1315,11 @@ Compartilo con tu grupo para que se unan.`);
             <TextInput style={styles.input} value={formDireccion.pais} onChangeText={v => setFormDireccion(p => ({ ...p, pais: v }))} placeholder="Argentina" placeholderTextColor="#4a6a8a" />
             <Text style={styles.formLabel}>Teléfono * (con código de país)</Text>
             <TextInput style={styles.input} value={formDireccion.telefono} onChangeText={v => setFormDireccion(p => ({ ...p, telefono: v }))} placeholder="+54 11 1234 5678" placeholderTextColor="#4a6a8a" keyboardType="phone-pad" />
-            <Text style={{ color: '#4a6a8a', fontSize: 11, marginTop: -8, marginBottom: 8 }}>Lo necesitamos para coordinar el envío con el correo</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 11, marginTop: -8, marginBottom: 8 }}>Lo necesitamos para coordinar el envío con el correo</Text>
 
             {(formDireccion.pais?.toLowerCase().includes('argentina') || formDireccion.pais?.toLowerCase().includes('arg')) && (
               <>
-                <Text style={styles.formLabel}>CUIL * <Text style={{ color: '#4a6a8a', fontWeight: 'normal' }}>(requerido para Argentina)</Text></Text>
+                <Text style={styles.formLabel}>CUIL * <Text style={{ color: colors.textMuted, fontWeight: 'normal' }}>(requerido para Argentina)</Text></Text>
                 <TextInput
                   style={styles.input}
                   value={formDireccion.documento}
@@ -1348,7 +1332,7 @@ Compartilo con tu grupo para que se unan.`);
               </>
             )}
 
-            <Text style={styles.formLabel}>Indicaciones adicionales <Text style={{ color: '#4a6a8a', fontWeight: 'normal' }}>(opcional)</Text></Text>
+            <Text style={styles.formLabel}>Indicaciones adicionales <Text style={{ color: colors.textMuted, fontWeight: 'normal' }}>(opcional)</Text></Text>
             <TextInput
               style={[styles.input, { height: 70, textAlignVertical: 'top' }]}
               value={formDireccion.indicaciones}
@@ -1370,206 +1354,226 @@ Compartilo con tu grupo para que se unan.`);
         ) : direccion ? (
           <View style={styles.direccionCard}>
             <Text style={styles.direccionNombre}>{direccion.nombre}</Text>
-            <Text style={styles.direccionLinea}>🏠 {direccion.direccion}</Text>
+            <Text style={styles.direccionLinea}>{direccion.direccion}</Text>
             {/* FIX: referencia mostrada en la vista de dirección */}
-            {direccion.referencia ? <Text style={styles.direccionLinea}>🚪 {direccion.referencia}</Text> : null}
-            <Text style={styles.direccionLinea}>🏙️ {direccion.ciudad}, {direccion.codigo_postal}</Text>
-            <Text style={styles.direccionLinea}>🌍 {direccion.pais}</Text>
-            {direccion.telefono && <Text style={styles.direccionTel}>📞 {direccion.telefono}</Text>}
+            {direccion.referencia ? <Text style={styles.direccionLinea}>{direccion.referencia}</Text> : null}
+            <Text style={styles.direccionLinea}>{direccion.ciudad}, {direccion.codigo_postal}</Text>
+            <Text style={styles.direccionLinea}>{direccion.pais}</Text>
+            {direccion.telefono && <Text style={styles.direccionTel}>{direccion.telefono}</Text>}
             <TouchableOpacity style={styles.editarBtn} onPress={abrirEdicion}>
-              <Text style={styles.editarBtnText}>Editar direccion</Text>
+              <Text style={styles.editarBtnText}>Editar dirección</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>📍</Text>
-            <Text style={styles.emptyText}>Sin direccion guardada</Text>
+            <Text style={styles.emptyText}>Sin dirección guardada</Text>
             <Text style={styles.emptySubtext}>Se pedira al completar tu primer reto</Text>
             <TouchableOpacity style={[styles.editarBtn, { marginTop: 16 }]} onPress={abrirEdicion}>
-              <Text style={styles.editarBtnText}>Agregar direccion</Text>
+              <Text style={styles.editarBtnText}>Agregar dirección</Text>
             </TouchableOpacity>
           </View>
         )}
       </View>
 
-      {/* Strava */}
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>🔗 Strava</Text>
-        {stravaConectado ? (
-          <>
-            <View style={styles.stravaConectadoCard}>
-              <View style={styles.stravaConectadoInfo}>
-                <Text style={styles.stravaConectadoText}>✅ Strava conectado</Text>
-                <Text style={styles.stravaConectadoDesc}>Tus actividades se sincronizan automáticamente</Text>
-              </View>
-              <View style={{ gap: 8, alignItems: 'flex-end' }}>
-                <TouchableOpacity onPress={conectarStravaReal}>
-                  <Text style={styles.stravaReconectarText}>Reconectar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={desconectarStrava}>
-                  <Text style={{ color: '#FF5555', fontSize: 12 }}>Desconectar</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.stravaInstructivoBtn} onPress={() => setModalStravaVisible(true)}>
-              <Text style={styles.stravaInstructivoBtnText}>📖 ¿Cómo funciona la sincronización?</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <TouchableOpacity style={styles.stravaButton} onPress={conectarStrava}>
-            <Text style={styles.stravaButtonText}>🔗 Conectar con Strava</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* Conexiones: Strava y Garmin (Garmin solo si el servidor la habilita) */}
+      <ConexionesSection
+        tourRef={refTourStrava}
+        stravaConectado={stravaConectado}
+        onConectarStrava={conectarStrava}
+        onReconectarStrava={conectarStravaReal}
+        onDesconectarStrava={desconectarStrava}
+        onComoFuncionaStrava={() => setModalStravaVisible(true)}
+      />
 
+      <TouchableOpacity style={styles.cerrarButton} accessibilityRole="button" onPress={() => setVerLegal(true)}><Text style={styles.cerrarButtonText}>Términos y privacidad</Text></TouchableOpacity>
+      <Modal visible={verLegal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setVerLegal(false)}><TerminosScreen onVolver={() => setVerLegal(false)} /></Modal>
       <TouchableOpacity style={styles.cerrarButton} onPress={cerrarSesion}>
-        <Text style={styles.cerrarButtonText}>Cerrar sesion</Text>
+        <Text style={styles.cerrarButtonText}>Cerrar sesión</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.eliminarCuentaBtn} onPress={eliminarCuenta}>
         <Text style={styles.eliminarCuentaBtnText}>Eliminar cuenta</Text>
       </TouchableOpacity>
 
-    </ScrollView>
+      {progresoCompartir && <KorvaProgressShare reto={progresoCompartir} onClose={() => setProgresoCompartir(null)} />}
+      <KorvaCompletedShare nombrePersona={usuario?.name} reto={retoCompartir} onClose={() => setRetoCompartir(null)} />
+    </ScrollView></SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#0D1B2A' },
-  container: { paddingBottom: 40, alignItems: 'center' },
-  heroBg: { width: '100%', backgroundColor: '#1E3A5F', alignItems: 'center', paddingTop: 60, paddingBottom: 28, marginBottom: 24 },
-  avatarWrapper: { marginBottom: 12, position: 'relative' },
-  avatar: { width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: '#1E6FD9' },
-  avatarPlaceholder: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#1E6FD9', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FC4C02' },
-  avatarLetra: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF' },
-  avatarCamara: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#FC4C02', borderRadius: 12, padding: 4, borderWidth: 2, borderColor: '#0D1B2A' },
+  completedShareBtn: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderSoft },
+  completedShareText: { fontSize: 12, fontWeight: '800', color: colors.brandOrangeSoft },
+  actividadIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundDeep },
+  scroll: { flex: 1, backgroundColor: colors.background },
+  container: { paddingBottom: 60, alignItems: 'center' },
+  heroBg: { width: '100%', paddingHorizontal: 24, paddingTop: 18, paddingBottom: 12, marginBottom: spacing.sm },
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 18 },
+  heroEyebrow: { color: colors.brandOrangeSoft, fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginBottom: 5 },
+  heroSub: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  editarPerfil: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', paddingVertical: 10 },
+  editarPerfilText: { color: colors.actionBlue, fontSize: 12, fontWeight: '700' },
+  avatarWrapper: { marginBottom: 0, position: 'relative' },
+  avatar: { width: 72, height: 72, borderRadius: 36, borderWidth: 2, borderColor: colors.brandOrangeSoft },
+  avatarPlaceholder: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.borderStrong },
+  avatarLetra: { fontSize: 28, fontWeight: 'bold', color: colors.text },
+  avatarCamara: { position: 'absolute', bottom: -2, right: -2, backgroundColor: colors.surfaceRaised, borderRadius: 16, padding: 6, borderWidth: 2, borderColor: colors.background },
   bibRow: { flexDirection: 'row', gap: 8 },
-  bibBtn: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: '#FC4C02' },
-  bibBtnSecundario: { borderColor: '#1E6FD9' },
-  bibBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 },
+  bibBtn: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  bibBtnSecundario: {},
+  bibBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 12 },
 
-  nombre: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  email: { fontSize: 13, color: '#A8CFFF' },
-  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 24, width: '100%', paddingHorizontal: 24 },
-  statCard: { flex: 1, backgroundColor: '#1E3A5F', borderRadius: 14, padding: 14, alignItems: 'center' },
-  statNumero: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  statLabel: { fontSize: 10, color: '#A8CFFF', textAlign: 'center', letterSpacing: 0.5 },
+  nombre: { fontSize: 22, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  email: { fontSize: 13, color: colors.textSoft },
+  korvaMundiPerfil: { width: '100%', marginTop: -12, marginBottom: spacing.xxl, paddingHorizontal: spacing.xxl, minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  korvaMundiPerfilIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.borderSoft, alignItems: 'center', justifyContent: 'center' },
+  korvaMundiPerfilTitle: { color: colors.textSoft, fontSize: 12, fontWeight: '800', letterSpacing: 0.2 },
+  korvaMundiPerfilMeta: { color: colors.textDim, fontSize: 10, marginTop: 2 },
+  statsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.xxl, width: '100%', paddingHorizontal: spacing.xxl },
+  statCard: { flex: 1, backgroundColor: colors.surfaceSoft, borderRadius: radius.md, paddingVertical: 14, paddingHorizontal: 8, alignItems: 'center', borderWidth: 1, borderColor: colors.borderSoft },
+  statNumero: { fontSize: 22, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  statLabel: { fontSize: 10, color: colors.textSoft, textAlign: 'center', letterSpacing: 0.5 },
+  collapseTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, marginTop: 4, marginBottom: 6, borderWidth: 1, borderColor: colors.borderSoft, borderRadius: 12 },
+  activitiesHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  activitiesLink: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 4 },
+  activitiesLinkText: { color: colors.actionBlue, fontSize: 12, fontWeight: '700' },
+  activitiesHint: { color: colors.textMuted, fontSize: 11, marginTop: 2, marginBottom: 12 },
   seccion: { width: '100%', paddingHorizontal: 24, marginBottom: 20 },
-  seccionTitulo: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 12 },
-  retoCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20 },
-  retoCardTitulo: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 14 },
+  seccionTitulo: { fontSize: 17, fontWeight: '900', color: colors.text, marginBottom: spacing.md },
+  retoCard: { backgroundColor: colors.surfaceSoft, borderRadius: radius.lg, padding: spacing.xl, borderWidth: 1, borderColor: colors.borderSoft },
+  retoCardTitulo: { flex: 1, fontSize: 20, fontWeight: '900', color: colors.text },
+  retoEyebrow: { color: colors.brandOrangeSoft, fontSize: 9, fontWeight: '900', letterSpacing: 1.8, marginBottom: spacing.sm },
+  retoTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  retoPctPill: { backgroundColor: colors.backgroundDeep, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 6 },
+  retoMetricRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: spacing.lg },
+  retoMetric: { color: colors.text, fontSize: 46, lineHeight: 50, fontWeight: '900', letterSpacing: -2 },
+  retoMetricUnit: { color: colors.textSoft, fontSize: 14, fontWeight: '800', marginLeft: 5, marginBottom: 6 },
+  retoResumen: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 },
+  retoVersionResumen: { color: colors.textSoft, fontSize: 11, fontWeight: '600' },
+  retoMetaResumen: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  retoMetaResumenText: { color: colors.textMuted, fontSize: 11 },
+  retoRutaBtn: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.backgroundDeep, borderWidth: 1, borderColor: colors.borderSoft },
+  retoRutaBtnText: { flex: 1, color: colors.textSoft, fontSize: 12, fontWeight: '800' },
+  retoDetailsToggle: { minHeight: 44, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  retoDetailsLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
+  retoSettings: { backgroundColor: colors.backgroundDeep, borderRadius: 14, padding: 12, marginBottom: 8 },
+  retoActions: { flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderColor: colors.borderSoft, paddingTop: 4 },
+  secondaryActionText: { color: colors.textMuted, fontSize: 12, fontWeight: '600' },
+  retoActionRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  challengeAction: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   retoProgressWrapper: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
-  retoProgressBar: { flex: 1, height: 8, backgroundColor: '#0D1B2A', borderRadius: 4 },
-  retoProgressFill: { height: 8, backgroundColor: '#FC4C02', borderRadius: 4 },
-  retoProgressPct: { fontSize: 14, fontWeight: 'bold', color: '#FC4C02', minWidth: 36 },
-  retoKm: { fontSize: 12, color: '#A8CFFF', marginBottom: 16 },
+  retoProgressBar: { width: '100%', height: 3, backgroundColor: colors.borderSoft, borderRadius: 3, marginBottom: spacing.lg, overflow: 'hidden' },
+  retoProgressFill: { height: 3, backgroundColor: colors.brandOrange, borderRadius: 3 },
+  retoProgressPct: { fontSize: 11, fontWeight: '900', color: colors.brandOrange },
+  retoKm: { fontSize: 12, color: colors.textMuted, marginTop: -4, marginBottom: spacing.md },
   dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2a4a6a' },
-  dotActivo: { width: 18, backgroundColor: '#FC4C02' },
-  modalidadLabel: { fontSize: 12, color: '#A8CFFF', marginBottom: 10 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.border },
+  dotActivo: { width: 18, backgroundColor: colors.brandOrange },
+  modalidadLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 1.5, color: colors.textSoft, marginBottom: spacing.sm },
   modalidadBtns: { flexDirection: 'row', gap: 10 },
-  modalidadBtn: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
-  modalidadBtnActivo: { borderColor: '#FC4C02' },
-  modalidadBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 13 },
-  modalidadBtnTextActivo: { color: '#FFFFFF' },
-  metaSeparador: { height: 1, backgroundColor: '#2a4a6a', marginVertical: 16 },
+  modalidadBtn: { flex: 1, backgroundColor: colors.surfaceSoft, borderRadius: radius.pill, paddingVertical: 9, paddingHorizontal: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.borderSoft },
+  modalidadBtnActivo: { borderColor: colors.brandOrange, backgroundColor: colors.surfaceRaised },
+  modalidadBtnText: { color: colors.textMuted, fontWeight: 'bold', fontSize: 13 },
+  modalidadBtnTextActivo: { color: colors.text },
+  metaSeparador: { height: 1, backgroundColor: colors.borderSoft, marginVertical: spacing.lg },
   metaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  metaTitulo: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' },
-  metaEditarBtn: { color: '#1E6FD9', fontWeight: 'bold', fontSize: 13 },
+  metaTitulo: { fontSize: 13, fontWeight: 'bold', color: colors.text },
+  metaEditarBtn: { color: colors.actionBlue, fontWeight: '700', fontSize: 12, paddingVertical: 10 },
   metaInputRow: { flexDirection: 'row', gap: 10 },
-  metaInput: { flex: 1, backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12, color: '#FFFFFF', fontSize: 14, borderWidth: 1, borderColor: '#2a4a6a' },
-  metaGuardarBtn: { backgroundColor: '#FC4C02', borderRadius: 10, padding: 12, alignItems: 'center', justifyContent: 'center' },
-  metaGuardarBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
-  metaInfo: { backgroundColor: '#0D1B2A', borderRadius: 10, padding: 12 },
-  metaFechaText: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  metaDias: { fontSize: 13, color: '#FC4C02', fontWeight: 'bold', marginBottom: 4 },
-  metaRitmo: { fontSize: 12, color: '#A8CFFF' },
-  metaVacio: { fontSize: 13, color: '#4a6a8a', fontStyle: 'italic' },
-  nivelCard: { backgroundColor: '#1E3A5F', borderRadius: 14, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 16 },
+  metaInput: { flex: 1, backgroundColor: colors.background, borderRadius: 10, padding: 12, color: colors.text, fontSize: 14, borderWidth: 1, borderColor: colors.border },
+  metaGuardarBtn: { backgroundColor: colors.brandOrange, borderRadius: 10, padding: 12, alignItems: 'center', justifyContent: 'center' },
+  metaGuardarBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 14 },
+  metaInfo: { backgroundColor: colors.surfaceSoft, borderRadius: radius.md, padding: spacing.md },
+  metaFechaText: { fontSize: 14, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  metaDias: { fontSize: 13, color: colors.brandOrange, fontWeight: 'bold', marginBottom: 4 },
+  metaRitmo: { fontSize: 12, color: colors.textSoft },
+  metaVacio: { fontSize: 11, lineHeight: 17, color: colors.textMuted, marginTop: 6 },
+  nivelCard: { backgroundColor: colors.surfaceSoft, borderRadius: 14, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 16 },
   nivelEmoji: { fontSize: 36 },
   nivelInfo: { flex: 1 },
-  nivelNombre: { fontSize: 18, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  nivelSiguiente: { fontSize: 12, color: '#A8CFFF' },
+  nivelNombre: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  nivelSiguiente: { fontSize: 12, color: colors.textSoft },
   logroCategoria: { marginBottom: 18 },
-  logroCatTitulo: { fontSize: 10, fontWeight: 'bold', color: '#4a6a8a', letterSpacing: 1.5, marginBottom: 10 },
-  logroCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 12, alignItems: 'center', minWidth: 72, marginRight: 8 },
+  logroCatTitulo: { fontSize: 10, fontWeight: 'bold', color: colors.textMuted, letterSpacing: 1.5, marginBottom: 10 },
+  logroCard: { backgroundColor: colors.surfaceSoft, borderRadius: 12, padding: 12, alignItems: 'center', minWidth: 72, marginRight: 8 },
   logroEmoji: { fontSize: 22, marginBottom: 4 },
-  logroNombre: { fontSize: 9, color: '#A8CFFF', textAlign: 'center' },
-  logroBloqueado: { backgroundColor: '#0D1B2A', borderRadius: 12, padding: 12, alignItems: 'center', minWidth: 72, marginRight: 8, borderWidth: 1, borderColor: '#2a4a6a', borderStyle: 'dashed' },
+  logroNombre: { fontSize: 9, color: colors.textSoft, textAlign: 'center' },
+  logroBloqueado: { backgroundColor: colors.background, borderRadius: 12, padding: 12, alignItems: 'center', minWidth: 72, marginRight: 8, borderWidth: 1, borderColor: colors.border, borderStyle: 'dashed' },
   logroBloqueadoEmoji: { fontSize: 22, marginBottom: 4, opacity: 0.4 },
-  logroBloqueadoNombre: { fontSize: 9, color: '#2a4a6a', textAlign: 'center' },
-  logroProximo: { fontSize: 10, color: '#4a6a8a', marginTop: 8, fontStyle: 'italic' },
-  actividadRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, marginBottom: 8, gap: 12 },
+  logroBloqueadoNombre: { fontSize: 9, color: colors.border, textAlign: 'center' },
+  logroProximo: { fontSize: 10, color: colors.textMuted, marginTop: 8, fontStyle: 'italic' },
+  actividadRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSoft, borderRadius: 12, padding: 14, marginBottom: 8, gap: 12 },
   actividadEmoji: { fontSize: 22 },
   actividadInfo: { flex: 1 },
-  actividadFecha: { fontSize: 13, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 2 },
-  actividadTipo: { fontSize: 11, color: '#A8CFFF' },
-  actividadKm: { fontSize: 16, fontWeight: 'bold', color: '#1E6FD9' },
-  eliminarBtn: { padding: 6, backgroundColor: '#2a1a1a', borderRadius: 8 },
-  eliminarBtnText: { color: '#FC4C02', fontWeight: 'bold', fontSize: 12 },
-  verTodasBtn: { paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: '#2a4a6a', borderRadius: 12 },
-  verTodasText: { color: '#A8CFFF', fontSize: 13, fontWeight: 'bold' },
-  emptyCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 24, alignItems: 'center' },
+  actividadFecha: { fontSize: 13, fontWeight: 'bold', color: colors.text, marginBottom: 2 },
+  actividadTipo: { fontSize: 11, color: colors.textSoft },
+  actividadKm: { fontSize: 16, fontWeight: 'bold', color: colors.text },
+  eliminarBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundDeep, borderRadius: 12 },
+  eliminarBtnText: { color: colors.brandOrange, fontWeight: 'bold', fontSize: 12 },
+  verTodasBtn: { paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 12 },
+  verTodasText: { color: colors.textSoft, fontSize: 13, fontWeight: 'bold' },
+  emptyCard: { backgroundColor: colors.surfaceStrong, borderRadius: 16, padding: 24, alignItems: 'center' },
   emptyEmoji: { fontSize: 32, marginBottom: 8 },
-  emptyText: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 4 },
-  emptySubtext: { fontSize: 12, color: '#A8CFFF', textAlign: 'center' },
-  direccionCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20 },
-  direccionNombre: { fontSize: 16, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 10 },
-  direccionLinea: { fontSize: 13, color: '#A8CFFF', marginBottom: 5 },
-  direccionTel: { fontSize: 13, color: '#1E6FD9', marginTop: 4, marginBottom: 4 },
-  editarBtn: { marginTop: 14, borderWidth: 1, borderColor: '#1E6FD9', borderRadius: 10, padding: 10, alignItems: 'center' },
-  editarBtnText: { color: '#1E6FD9', fontSize: 13, fontWeight: 'bold' },
-  formCard: { backgroundColor: '#1E3A5F', borderRadius: 16, padding: 20 },
-  formLabel: { fontSize: 12, color: '#A8CFFF', marginBottom: 6, marginTop: 12 },
-  opcionalTexto: { fontSize: 11, color: '#4a6a8a', fontWeight: 'normal' },
-  sugerenciasBox: { backgroundColor: '#0D1B2A', borderRadius: 10, borderWidth: 1, borderColor: '#2a4a6a', marginBottom: 12, overflow: 'hidden' },
-  sugerenciaItem: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1E3A5F' },
-  sugerenciaTexto: { color: '#FFFFFF', fontSize: 13 },
+  emptyText: { fontSize: 15, fontWeight: 'bold', color: colors.text, marginBottom: 4 },
+  emptySubtext: { fontSize: 12, color: colors.textSoft, textAlign: 'center' },
+  direccionCard: { backgroundColor: colors.surfaceSoft, borderRadius: 16, padding: 20 },
+  direccionNombre: { fontSize: 16, fontWeight: 'bold', color: colors.text, marginBottom: 10 },
+  direccionLinea: { fontSize: 13, color: colors.textSoft, marginBottom: 5 },
+  direccionTel: { fontSize: 13, color: colors.actionBlueStrong, marginTop: 4, marginBottom: 4 },
+  editarBtn: { marginTop: 14, borderWidth: 1, borderColor: colors.actionBlueStrong, borderRadius: 10, padding: 10, alignItems: 'center' },
+  editarBtnText: { color: colors.actionBlueStrong, fontSize: 13, fontWeight: 'bold' },
+  formCard: { backgroundColor: colors.surfaceStrong, borderRadius: 16, padding: 20 },
+  formLabel: { fontSize: 12, color: colors.textSoft, marginBottom: 6, marginTop: 12 },
+  opcionalTexto: { fontSize: 11, color: colors.textMuted, fontWeight: 'normal' },
+  sugerenciasBox: { backgroundColor: colors.background, borderRadius: 10, borderWidth: 1, borderColor: colors.border, marginBottom: 12, overflow: 'hidden' },
+  sugerenciaItem: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.surfaceStrong },
+  sugerenciaTexto: { color: colors.text, fontSize: 13 },
   direccionConfirmadaBox: { backgroundColor: '#0a2a1a', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 12 },
-  direccionConfirmadaTexto: { color: '#4CAF50', fontSize: 12, fontWeight: 'bold' },
-  input: { backgroundColor: '#0D1B2A', borderRadius: 10, borderWidth: 1, borderColor: '#2a3a4a', color: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 12, fontSize: 14 },
+  direccionConfirmadaTexto: { color: colors.success, fontSize: 12, fontWeight: 'bold' },
+  input: { backgroundColor: colors.background, borderRadius: 10, borderWidth: 1, borderColor: '#2a3a4a', color: colors.text, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14 },
   formBotones: { flexDirection: 'row', gap: 10, marginTop: 20 },
   cancelarBtn: { flex: 1, borderWidth: 1, borderColor: '#2a3a4a', borderRadius: 10, padding: 12, alignItems: 'center' },
-  cancelarBtnText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 14 },
-  guardarBtn: { flex: 1, backgroundColor: '#1E6FD9', borderRadius: 10, padding: 12, alignItems: 'center' },
-  guardarBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
-  stravaProximoCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#2a4a6a' },
-  stravaProximoTitulo: { fontSize: 14, fontWeight: 'bold', color: '#4a6a8a', marginBottom: 6 },
-  stravaProximoDesc: { fontSize: 12, color: '#4a6a8a', lineHeight: 18 },
+  cancelarBtnText: { color: colors.textMuted, fontWeight: 'bold', fontSize: 14 },
+  guardarBtn: { flex: 1, backgroundColor: colors.actionBlueStrong, borderRadius: 10, padding: 12, alignItems: 'center' },
+  guardarBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 14 },
+  stravaProximoCard: { backgroundColor: colors.surfaceStrong, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border },
+  stravaProximoTitulo: { fontSize: 14, fontWeight: 'bold', color: colors.textMuted, marginBottom: 6 },
+  stravaProximoDesc: { fontSize: 12, color: colors.textMuted, lineHeight: 18 },
   stravaButton: { backgroundColor: '#FC4C02', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center', marginBottom: 12 },
-  stravaButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
-  stravaConectadoCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1E3A5F', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 8, borderWidth: 1, borderColor: '#2a6a2a' },
+  stravaButtonText: { color: colors.text, fontWeight: 'bold', fontSize: 15 },
+  stravaConectadoCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.surfaceSoft, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 8, borderWidth: 1, borderColor: '#2a6a2a' },
   stravaConectadoInfo: { flex: 1 },
-  stravaConectadoText: { color: '#4CAF50', fontWeight: 'bold', fontSize: 14, marginBottom: 2 },
-  stravaConectadoDesc: { fontSize: 11, color: '#A8CFFF' },
-  stravaReconectarText: { color: '#4a6a8a', fontSize: 13 },
-  stravaInstructivoBtn: { borderWidth: 1, borderColor: '#2a4a6a', borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
-  stravaInstructivoBtnText: { color: '#A8CFFF', fontSize: 13 },
-  eliminarCuentaBtn: { marginTop: 8, marginHorizontal: 24, paddingVertical: 14, alignItems: 'center', borderRadius: 14, borderWidth: 1, borderColor: '#FF3B30', marginBottom: 8 },
+  stravaConectadoText: { color: colors.success, fontWeight: 'bold', fontSize: 14, marginBottom: 2 },
+  stravaConectadoDesc: { fontSize: 11, color: colors.textSoft },
+  stravaReconectarText: { color: colors.textMuted, fontSize: 13 },
+  stravaInstructivoBtn: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
+  stravaInstructivoBtnText: { color: colors.textSoft, fontSize: 13 },
+  eliminarCuentaBtn: { alignSelf: 'stretch', marginTop: 8, marginHorizontal: 24, paddingVertical: 14, alignItems: 'center', borderRadius: 14, borderWidth: 1, borderColor: '#FF3B30', marginBottom: 8 },
   eliminarCuentaBtnText: { color: '#FF3B30', fontSize: 14, fontWeight: '600' },
-  cerrarButton: { borderWidth: 1, borderColor: '#2a3a4a', paddingVertical: 14, borderRadius: 12, width: '100%', alignItems: 'center', paddingHorizontal: 24, marginHorizontal: 24 },
-  cerrarButtonText: { color: '#4a6a8a', fontWeight: 'bold', fontSize: 15 },
-  perfilDeporteCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#1E6FD9' },
-  perfilDeporteTexto: { fontSize: 15, fontWeight: 'bold', color: '#FFFFFF' },
+  cerrarButton: { borderWidth: 1, borderColor: '#2a3a4a', paddingVertical: 14, borderRadius: 12, alignSelf: 'stretch', alignItems: 'center', paddingHorizontal: 24, marginHorizontal: 24 },
+  cerrarButtonText: { color: colors.textMuted, fontWeight: 'bold', fontSize: 15 },
+  perfilDeporteCard: { backgroundColor: colors.surfaceStrong, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: colors.actionBlueStrong },
+  perfilDeporteTexto: { fontSize: 15, fontWeight: 'bold', color: colors.text },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  modalCard: { backgroundColor: '#1E3A5F', borderRadius: 24, padding: 28, width: '100%', borderWidth: 1, borderColor: '#FC4C02' },
+  modalCard: { backgroundColor: colors.surfaceStrong, borderRadius: 24, padding: 28, width: '100%', borderWidth: 1, borderColor: colors.brandOrange },
   modalEmoji: { fontSize: 48, textAlign: 'center', marginBottom: 12 },
-  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: '#FFFFFF', textAlign: 'center', marginBottom: 6 },
-  modalSubtitulo: { fontSize: 13, color: '#A8CFFF', textAlign: 'center', marginBottom: 24 },
+  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: 6 },
+  modalSubtitulo: { fontSize: 13, color: colors.textSoft, textAlign: 'center', marginBottom: 24 },
   modalPaso: { flexDirection: 'row', gap: 14, marginBottom: 18, alignItems: 'flex-start' },
   modalPasoEmoji: { fontSize: 24, width: 32 },
   modalPasoInfo: { flex: 1 },
-  modalPasoTitulo: { fontSize: 14, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 3 },
-  modalPasoDesc: { fontSize: 12, color: '#A8CFFF', lineHeight: 18 },
-  modalBtn: { backgroundColor: '#FC4C02', paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginTop: 8 },
-  modalBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
-  confirmInfoBox: { backgroundColor: '#0D1B2A', borderRadius: 14, padding: 16, marginBottom: 16, gap: 12 },
-  confirmInfoTexto: { fontSize: 13, color: '#A8CFFF', lineHeight: 20 },
+  modalPasoTitulo: { fontSize: 14, fontWeight: 'bold', color: colors.text, marginBottom: 3 },
+  modalPasoDesc: { fontSize: 12, color: colors.textSoft, lineHeight: 18 },
+  modalBtn: { backgroundColor: colors.brandOrange, paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginTop: 8 },
+  modalBtnText: { color: colors.text, fontWeight: 'bold', fontSize: 15 },
+  confirmInfoBox: { backgroundColor: colors.background, borderRadius: 14, padding: 16, marginBottom: 16, gap: 12 },
+  confirmInfoTexto: { fontSize: 13, color: colors.textSoft, lineHeight: 20 },
   insigniaCategoria: { marginBottom: 16 },
-  insigniaCatTitulo: { fontSize: 12, fontWeight: 'bold', color: '#A8CFFF', letterSpacing: 1, marginBottom: 10 },
-  insigniaProximo: { fontSize: 11, color: '#4a6a8a', marginTop: 8, fontStyle: 'italic' },
+  insigniaCatTitulo: { fontSize: 12, fontWeight: 'bold', color: colors.textSoft, letterSpacing: 1, marginBottom: 10 },
+  insigniaProximo: { fontSize: 11, color: colors.textMuted, marginTop: 8, fontStyle: 'italic' },
   insigniasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  insigniaCard: { backgroundColor: '#1E3A5F', borderRadius: 12, padding: 14, alignItems: 'center', minWidth: 80, marginRight: 8 },
+  insigniaCard: { backgroundColor: colors.surfaceStrong, borderRadius: 12, padding: 14, alignItems: 'center', minWidth: 80, marginRight: 8 },
   insigniaEmoji: { fontSize: 28, marginBottom: 6 },
-  insigniaNombre: { fontSize: 11, color: '#A8CFFF', textAlign: 'center' },
+  insigniaNombre: { fontSize: 11, color: colors.textSoft, textAlign: 'center' },
 });

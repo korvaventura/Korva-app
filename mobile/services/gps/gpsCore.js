@@ -119,7 +119,9 @@ const agregarPuntoGps = (sesion, entrada, config = GPS_CONFIG) => {
   }
 
   const dtMs = punto.timestamp - sesion.ultimoPunto.timestamp;
-  if (dtMs <= 0 || dtMs > config.maxGapMs) {
+  // Un intervalo largo no es un salto por sí mismo: validar la velocidad
+  // implícita más abajo permite recuperar distancia tras pausas del sistema.
+  if (dtMs <= 0) {
     return {
       ...sesion,
       ultimoPunto: punto,

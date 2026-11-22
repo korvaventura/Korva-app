@@ -1,5 +1,7 @@
+﻿import './performance-polyfill';
 import './services/gps/gpsBackgroundTask';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import { TourProvider } from './components/tour/Tour';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useState, useEffect } from 'react';
@@ -8,24 +10,32 @@ import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { supabase } from './supabase';
+import { escucharAvisosCompartir } from './services/avisoCompartir';
 import HomeScreen from './screens/HomeScreen';
 import CatalogoScreen from './screens/CatalogoScreen';
 import PerfilScreen from './screens/PerfilScreen';
 import RegistroManualScreen from './screens/RegistroManualScreen';
 import AdminScreen from './screens/AdminScreen';
+import CaminoSantiagoPruebaScreen from './screens/CaminoSantiagoPruebaScreen';
+import ViaAppiaPruebaScreen from './screens/ViaAppiaPruebaScreen';
 import LoginScreen from './screens/LoginScreen';
 import RankingScreen from './screens/RankingScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import TerminosScreen from './screens/TerminosScreen';
+import { LEGAL_VERSION, legalKey, onboardingKey } from './content/legal';
 import ResetPasswordScreen from './screens/ResetPasswordScreen';
 import DetalleRetoScreen from './screens/DetalleRetoScreen';
 import SaludDiagnosticoScreen from './screens/SaludDiagnosticoScreen';
 import GpsTrackerScreen from './screens/GpsTrackerScreen';
 import MisActividadesScreen from './screens/MisActividadesScreen';
 import DetalleActividadScreen from './screens/DetalleActividadScreen';
+import KorvaMundiScreen from './screens/KorvaMundiScreen';
+import RutaLibreScreen from './screens/RutaLibreScreen';
 import useHealthAutoSync from './services/health/useHealthAutoSync';
+import { Ionicons } from '@expo/vector-icons';
+import { colors } from './theme/korvaTheme';
 
-// ACÁ AGRUPAMOS TODO LO DE REACT NATIVE EN UNA SOLA LÍNEA Y AGREGAMOS 'View':
+// AC? AGRUPAMOS TODO LO DE REACT NATIVE EN UNA SOLA L?NEA Y AGREGAMOS 'View':
 import { View, Text, TextInput, Platform, ActivityIndicator } from 'react-native';
 
 // Deshabilitar font scaling globalmente
@@ -35,6 +45,8 @@ TextInput.defaultProps = TextInput.defaultProps || {};
 TextInput.defaultProps.allowFontScaling = false;
 
 const Tab = createBottomTabNavigator();
+// Ref de navegación para que el recorrido guiado pueda cambiar de pestaña.
+const navigationRef = createNavigationContainerRef();
 const Stack = createNativeStackNavigator();
 
 const ADMINS = [
@@ -51,13 +63,14 @@ Notifications.setNotificationHandler({
   }),
 });
 
-const registrarPushToken = async (userId) => {
+const registrarPushToken = async (userId, pedirPermiso = false) => {
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
+    // Startup only registers an already-authorized token; no permission wall.
+    // Native notification permission remains an independent device choice.
+    if (pedirPermiso && existingStatus !== 'granted') {
+      finalStatus = (await Notifications.requestPermissionsAsync()).status;
     }
     if (finalStatus !== 'granted') return;
 
@@ -73,13 +86,14 @@ const registrarPushToken = async (userId) => {
   }
 };
 
-const chequearPantallas = async (setMostrarTerminos, setMostrarOnboarding) => {
-  const terminosAceptados = await AsyncStorage.getItem('terminos_aceptados');
-  if (!terminosAceptados) {
-    setMostrarTerminos(true);
-  } else {
-    const onboardingVisto = await AsyncStorage.getItem('onboarding_visto');
-    if (!onboardingVisto) setMostrarOnboarding(true);
+const chequearPantallas = async (userId, setMostrarTerminos, setMostrarOnboarding) => {
+  try {
+    const version = await AsyncStorage.getItem(legalKey(userId));
+    const onboarding = await AsyncStorage.getItem(onboardingKey(userId));
+    setMostrarTerminos(version !== LEGAL_VERSION);
+    setMostrarOnboarding(version === LEGAL_VERSION && !onboarding);
+  } catch {
+    setMostrarTerminos(true); setMostrarOnboarding(false);
   }
 };
 
@@ -89,20 +103,21 @@ function HomeTabs({ esAdmin }) {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#0D1B2A',
-          borderTopColor: '#1E3A5F',
+          backgroundColor: colors.background,
+          borderTopColor: colors.surfaceStrong,
         },
-        tabBarActiveTintColor: '#1E6FD9',
-        tabBarInactiveTintColor: '#A8CFFF',
+        tabBarActiveTintColor: colors.brandOrange,
+        tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
       }}
     >
-      <Tab.Screen name="Mis Retos" component={HomeScreen} options={{ tabBarIcon: () => <Text>🏃</Text> }} />
-      <Tab.Screen name="Catalogo" component={CatalogoScreen} options={{ tabBarIcon: () => <Text>🏅</Text> }} />
-      <Tab.Screen name="Ranking" component={RankingScreen} options={{ tabBarIcon: () => <Text>🏆</Text> }} />
-      <Tab.Screen name="Registrar" component={RegistroManualScreen} options={{ tabBarLabel: 'Registrar km', tabBarIcon: () => <Text>➕</Text> }} />
-      <Tab.Screen name="Perfil" component={PerfilScreen} options={{ tabBarIcon: () => <Text>👤</Text> }} />
+      <Tab.Screen name="Mis Retos" component={HomeScreen} options={{ tabBarLabel: 'Inicio', tabBarIcon: ({ color, size }) => <Ionicons name="compass-outline" color={color} size={size} /> }} />
+      <Tab.Screen name="Registrar" component={RegistroManualScreen} options={{ tabBarLabel: 'Registrar', tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" color={color} size={size} /> }} />
+      <Tab.Screen name="Catalogo" component={CatalogoScreen} options={{ tabBarLabel: 'Catálogo', tabBarIcon: ({ color, size }) => <Ionicons name="medal-outline" color={color} size={size} /> }} />
+      <Tab.Screen name="Ranking" component={RankingScreen} options={{ tabBarLabel: 'Comunidad', tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" color={color} size={size} /> }} />
+      <Tab.Screen name="Perfil" component={PerfilScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" color={color} size={size} /> }} />
       {esAdmin && (
-        <Tab.Screen name="Admin" component={AdminScreen} options={{ tabBarIcon: () => <Text>⚙️</Text> }} />
+        <Tab.Screen name="Admin" component={AdminScreen} options={{ tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" color={color} size={size} /> }} />
       )}
     </Tab.Navigator>
   );
@@ -115,9 +130,11 @@ export default function App() {
   const [mostrarOnboarding, setMostrarOnboarding] = useState(false);
   const [mostrarReset, setMostrarReset] = useState(false);
 
-  // Sync automático de Apple Health: solo iOS y, por ahora, solo admins (con opt-in en el diagnóstico).
+  // Salud: sincronización por cuenta solo después de conexión opcional.
   // Va antes de cualquier return para no cambiar el orden de los hooks.
-  useHealthAutoSync(usuario && ADMINS.includes(usuario.email?.toLowerCase()) ? usuario.id : null);
+  useHealthAutoSync(!cargando && !mostrarTerminos ? usuario?.id || null : null);
+
+  useEffect(() => escucharAvisosCompartir(navigationRef), []);
 
   useEffect(() => {
     const handleDeepLink = async (url) => {
@@ -129,7 +146,7 @@ export default function App() {
           const token = parsed.searchParams.get('token') || parsed.searchParams.get('token_hash');
           const type = parsed.searchParams.get('type') || 'recovery';
           if (token) {
-            // Verificar el token con Supabase para establecer la sesión
+            // Verificar el token con Supabase para establecer la sesi?n
             await supabase.auth.verifyOtp({ token_hash: token, type });
           }
         } catch (e) {
@@ -144,45 +161,48 @@ export default function App() {
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUsuario(session?.user ?? null);
-      setCargando(false);
       if (session?.user) {
-        await chequearPantallas(setMostrarTerminos, setMostrarOnboarding);
+        await chequearPantallas(session.user.id, setMostrarTerminos, setMostrarOnboarding);
         await registrarPushToken(session.user.id);
       }
+      setCargando(false);
     });
 
-    supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       const user = session?.user ?? null;
       setUsuario(user);
       if (event === 'PASSWORD_RECOVERY') {
         setMostrarReset(true);
       } else if (user) {
-        await chequearPantallas(setMostrarTerminos, setMostrarOnboarding);
+        setCargando(true);
+        await chequearPantallas(user.id, setMostrarTerminos, setMostrarOnboarding);
         await registrarPushToken(user.id);
+        setCargando(false);
+      } else {
+        setMostrarTerminos(false); setMostrarOnboarding(false);
       }
     });
 
-    return () => subscription.remove();
+    return () => { subscription.remove(); authListener.subscription.unsubscribe(); };
   }, []);
 
   const aceptarTerminos = async () => {
-    await AsyncStorage.setItem('terminos_aceptados', 'true');
+    await AsyncStorage.setItem(legalKey(usuario.id), LEGAL_VERSION);
     setMostrarTerminos(false);
-    const onboardingVisto = await AsyncStorage.getItem('onboarding_visto');
+    const onboardingVisto = await AsyncStorage.getItem(onboardingKey(usuario.id));
     if (!onboardingVisto) setMostrarOnboarding(true);
   };
 
   const terminarOnboarding = async () => {
-    await AsyncStorage.setItem('onboarding_visto', 'true');
+    await AsyncStorage.setItem(onboardingKey(usuario.id), 'true');
     setMostrarOnboarding(false);
   };
 
   if (cargando) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#0D1B2A', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: 64, marginBottom: 16 }}>🏅</Text>
-        <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#FFFFFF', letterSpacing: 6, marginBottom: 8 }}>KORVA</Text>
-        <Text style={{ fontSize: 14, color: '#A8CFFF', marginBottom: 32 }}>Desafíos virtuales. Medallas reales.</Text>
+      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontSize: 36, fontWeight: 'bold', color: colors.text, letterSpacing: 6, marginBottom: 8 }}>KORVA</Text>
+        <Text style={{ fontSize: 14, color: colors.textSoft, marginBottom: 32 }}>Cada paso cuenta.</Text>
         <ActivityIndicator color="#FC4C02" size="large" />
       </View>
     );
@@ -201,13 +221,14 @@ export default function App() {
   }
 
   if (mostrarOnboarding) {
-    return <OnboardingScreen onTerminar={terminarOnboarding} />;
+    return <OnboardingScreen onTerminar={terminarOnboarding} onActivarAvisos={() => registrarPushToken(usuario.id, true)} />;
   }
 
   const esAdmin = ADMINS.includes(usuario.email?.toLowerCase());
 
   return (
-    <NavigationContainer>
+    <TourProvider navigationRef={navigationRef}>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="HomeTabs">
           {() => <HomeTabs esAdmin={esAdmin} />}
@@ -216,10 +237,15 @@ export default function App() {
         <Stack.Screen name="GpsTracker" component={GpsTrackerScreen} />
         <Stack.Screen name="MisActividades" component={MisActividadesScreen} />
         <Stack.Screen name="DetalleActividad" component={DetalleActividadScreen} />
-        {esAdmin && (
-          <Stack.Screen name="SaludDiagnostico" component={SaludDiagnosticoScreen} />
-        )}
+        <Stack.Screen name="KorvaMundi">
+          {(props) => <KorvaMundiScreen {...props} esAdmin={esAdmin} />}
+        </Stack.Screen>
+        <Stack.Screen name="RutaLibre" component={RutaLibreScreen} />
+        {esAdmin && __DEV__ && <Stack.Screen name="CaminoSantiagoPrueba" component={CaminoSantiagoPruebaScreen} options={{ title: 'Camino · prueba local' }} />}
+        {esAdmin && __DEV__ && <Stack.Screen name="ViaAppiaPrueba" component={ViaAppiaPruebaScreen} options={{ title: 'Vía Appia · prueba local' }} />}
+        {esAdmin && __DEV__ && <Stack.Screen name="SaludDiagnostico" component={SaludDiagnosticoScreen} />}
       </Stack.Navigator>
     </NavigationContainer>
+    </TourProvider>
   );
 }

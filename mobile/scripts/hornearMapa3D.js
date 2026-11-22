@@ -1,0 +1,31 @@
+// Genera el terreno horneado de los dioramas 3D (alturas, colores, sombras, ruta).
+// Uso: node scripts/hornearMapa3D.js monteFuji (o sanAndres, caminoSantiago, viaAppia; finDelMundo explícitamente)
+// Volver a correrlo cada vez que cambie terrenoCore.js o una escena en services/mapa3d/escenas.
+
+const fs = require('fs');
+const path = require('path');
+const { construirDatosDiorama } = require('../services/mapa3d/terrenoCore');
+const { serializarDiorama } = require('../services/mapa3d/horneadoCore');
+
+// Escenas con datos que sólo se usan al hornear (no viajan en la app).
+const PREPARAR = {
+  caminoSantiago: (escena) => require('./mapa3d/caminoSantiago.relieveReal').conRelieveReal(escena),
+  viaAppia: (escena) => require('./mapa3d/viaAppia.relieveReal').conRelieveReal(escena),
+};
+
+const DISPONIBLES = ['finDelMundo', 'monteFuji', 'sanAndres', 'dubrovnik', 'caminoSantiago', 'viaAppia'];
+const ESCENAS = process.argv.slice(2);
+if (!ESCENAS.length || ESCENAS.some((nombre) => !DISPONIBLES.includes(nombre))) {
+  throw new Error('Indicá una escena: node scripts/hornearMapa3D.js monteFuji (finDelMundo, sanAndres, dubrovnik, caminoSantiago o viaAppia)');
+}
+
+for (const nombre of ESCENAS) {
+  const base = require(`../services/mapa3d/escenas/${nombre}`);
+  const escena = PREPARAR[nombre] ? PREPARAR[nombre](base) : base;
+  const t0 = Date.now();
+  const datos = serializarDiorama(construirDatosDiorama(escena));
+  const destino = path.join(__dirname, '..', 'services', 'mapa3d', 'escenas', `${nombre}.horneado.js`);
+  const cuerpo = `// GENERADO por scripts/hornearMapa3D.js — no editar a mano.\n/* eslint-disable */\nmodule.exports = ${JSON.stringify(datos)};\n`;
+  fs.writeFileSync(destino, cuerpo);
+  console.log(`${nombre}: ${datos.nx}x${datos.nz} en ${Date.now() - t0} ms -> ${(cuerpo.length / 1024).toFixed(0)} KB`);
+}

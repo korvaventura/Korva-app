@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import gpsCore from '../services/gps/gpsCore';
@@ -11,7 +11,14 @@ import {
   recuperarSesionGpsLocal,
 } from '../services/gps/gpsPersistence';
 import { iniciarGpsBackground, detenerGpsBackground } from '../services/gps/gpsBackgroundTask';
+import { sincronizarActividadGps } from '../services/gps/gpsLiveActivity';
 import { confirmarActividadGps } from '../services/gps/gpsApi';
+import { colors, radius } from '../theme/korvaTheme';
+import GpsAventura from '../components/GpsAventura';
+import { useTourAccion, useTourTarget } from '../components/tour/Tour';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../supabase';
+import { STRAVA_APP, claveAvisoStrava, debeAvisarStrava, TEXTO_AVISO_STRAVA, tiendaStrava } from '../services/gps/avisoStravaCore';
 
 const {
   crearSesionGps,
@@ -34,6 +41,7 @@ const formatearTiempo = (segundos) => {
 
 export default function GpsTrackerScreen({ navigation }) {
   const sesionRef = useRef(null);
+  const arrancandoGpsRef = useRef(false);
   const timerRef = useRef(null);
   const [sesion, setSesion] = useState(null);
   const [estadoGps, setEstadoGps] = useState('listo');
@@ -41,6 +49,16 @@ export default function GpsTrackerScreen({ navigation }) {
   const [ahoraMs, setAhoraMs] = useState(Date.now());
   const [deporte, setDeporte] = useState('run');
   const [confirmando, setConfirmando] = useState(false);
+  // Dos pantallas: 0 = sólo datos, 1 = mapa del desafío con los datos en chico.
+  const { width: anchoVentana } = useWindowDimensions();
+  const anchoPagina = anchoVentana - 44;
+  const [pagina, setPagina] = useState(0);
+  const [mapaTocado, setMapaTocado] = useState(false);
+  const paginasRef = useRef(null);
+  // Recorrido guiado: resalta las pantallas Datos/Mapa y pasa sola a Mapa.
+  const refTourGpsMapa = useTourTarget('gps-mapa');
+  useTourAccion('gps-mapa', () => irAPagina(1));
+  const irAPagina = (n) => { setMapaTocado(false); setPagina(n); paginasRef.current?.scrollTo({ x: n * anchoPagina, animated: true }); };
 
   const publicar = (s, { persistir = true } = {}) => {
     sesionRef.current = s;
@@ -75,7 +93,7 @@ export default function GpsTrackerScreen({ navigation }) {
   useEffect(() => {
     const id = setInterval(async () => {
       const actual = await leerSesionGpsLocal();
-      if (!actual) return;
+      if (!actual || arrancandoGpsRef.current) return;
       sesionRef.current = actual;
       setSesion(actual);
       if (actual.estado === 'grabando' && actual.ultimoPunto) {
@@ -97,11 +115,52 @@ export default function GpsTrackerScreen({ navigation }) {
   }, [sesion?.estado]);
 
   const escucharUbicacion = async () => {
-    setEstadoGps('buscando');
+    if (Platform.OS === 'android' && AppState.currentState !== 'active') {
+      throw Object.assign(new Error('Volvé a Korva y tocá el botón de nuevo.'), { code: 'KORVA_GPS_APP_INACTIVA' });
+    }
     await iniciarGpsBackground();
+    setEstadoGps('buscando');
+  };
+
+  // Strava conectado: avisar (una vez, o hasta que lo silencie) que no grabe la misma salida dos veces.
+  const [strava, setStrava] = useState({ conectado: false, silenciado: true, userId: null });
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const uid = session?.user?.id;
+        if (!uid) return;
+        const { data } = await supabase.from('users').select('strava_token').eq('id', uid).single();
+        const silenciado = (await AsyncStorage.getItem(claveAvisoStrava(uid))) === '1';
+        if (vivo) setStrava({ conectado: !!data?.strava_token, silenciado, userId: uid });
+      } catch {
+        // Sin dato de Strava el GPS funciona igual, sólo sin el aviso.
+      }
+    })();
+    return () => { vivo = false; };
+  }, []);
+
+  const iniciarConAviso = () => {
+    if (!debeAvisarStrava({ stravaConectado: strava.conectado, silenciado: strava.silenciado })) { iniciar(); return; }
+    Alert.alert('Ya tenés Strava conectado', TEXTO_AVISO_STRAVA, [
+      { text: 'Abrir Strava', style: 'cancel', onPress: async () => {
+        navigation?.goBack?.();
+        try { await Linking.openURL(STRAVA_APP); } catch { Linking.openURL(tiendaStrava(Platform.OS)).catch(() => {}); }
+      } },
+      { text: 'Grabar con Korva GPS', onPress: () => iniciar() },
+      { text: 'Grabar y no volver a avisar', onPress: () => {
+        setStrava((s) => ({ ...s, silenciado: true }));
+        if (strava.userId) AsyncStorage.setItem(claveAvisoStrava(strava.userId), '1').catch(() => {});
+        iniciar();
+      } },
+    ]);
   };
 
   const iniciar = async () => {
+    if (arrancandoGpsRef.current || sesionRef.current) return;
+    arrancandoGpsRef.current = true;
+    let intentoGuardado = false;
     try {
       const servicios = await Location.hasServicesEnabledAsync();
       if (!servicios) {
@@ -120,16 +179,25 @@ export default function GpsTrackerScreen({ navigation }) {
       }
       const nueva = crearSesionGps({ deporte, ahoraMs: Date.now() });
       await guardarSesionGpsLocal(nueva);
+      intentoGuardado = true;
+      await escucharUbicacion();
       publicar(nueva, { persistir: false });
+      sincronizarActividadGps(nueva, { transition: true });
       setAhoraMs(Date.now());
       setPrecision(null);
-      await escucharUbicacion();
     } catch (e) {
-      await detenerWatcher();
+      if (intentoGuardado) {
+        await detenerWatcher().catch(error => console.warn('GPS: error al detener', error));
+        await borrarSesionGpsLocal().catch(error => console.warn('GPS: error al limpiar el intento', error));
+      }
       setEstadoGps('error');
-      Alert.alert('GPS no disponible', 'No pudimos iniciar el GPS. Intentá nuevamente.');
+      console.warn('KORVA_GPS_START_DIAGNOSTICO', e?.code, e?.message);
+      Alert.alert('GPS no disponible', e?.message || 'No pudimos iniciar el GPS. Intentá nuevamente.');
+    } finally {
+      arrancandoGpsRef.current = false;
     }
   };
+
 
   const pausar = async () => {
     await detenerWatcher();
@@ -137,30 +205,46 @@ export default function GpsTrackerScreen({ navigation }) {
     const pausada = pausarSesionGps(ultima, Date.now());
     await guardarSesionGpsLocal(pausada);
     publicar(pausada, { persistir: false });
+    sincronizarActividadGps(pausada, { transition: true });
     setEstadoGps('pausado');
   };
 
   const reanudar = async () => {
-    const ultima = (await leerSesionGpsLocal()) || sesionRef.current;
-    const reanudada = reanudarSesionGps(ultima, Date.now());
-    await guardarSesionGpsLocal(reanudada);
-    publicar(reanudada, { persistir: false });
-    setAhoraMs(Date.now());
+    if (arrancandoGpsRef.current) return;
+    arrancandoGpsRef.current = true;
+    let pausada;
+    let intentoGuardado = false;
     try {
+      pausada = (await leerSesionGpsLocal()) || sesionRef.current;
+      if (pausada?.estado !== 'pausada') return;
+      const reanudada = reanudarSesionGps(pausada, Date.now());
+      await guardarSesionGpsLocal(reanudada);
+      intentoGuardado = true;
       await escucharUbicacion();
+      publicar(reanudada, { persistir: false });
+      sincronizarActividadGps(reanudada, { transition: true });
+      setAhoraMs(Date.now());
     } catch (e) {
-      publicar(pausarSesionGps(sesionRef.current, Date.now()));
-      setEstadoGps('error');
-      Alert.alert('GPS no disponible', 'No pudimos reanudar la ubicación.');
+      if (intentoGuardado) {
+        await detenerWatcher().catch(error => console.warn('GPS: error al detener', error));
+        await guardarSesionGpsLocal(pausada).catch(error => console.warn('GPS: error al recuperar la pausa', error));
+      }
+      setEstadoGps('pausado');
+      console.warn('KORVA_GPS_RESUME_DIAGNOSTICO', e?.code, e?.message);
+      Alert.alert('GPS no disponible', e?.message || 'No pudimos reanudar la ubicación.');
+    } finally {
+      arrancandoGpsRef.current = false;
     }
   };
 
   const finalizar = async () => {
+    if (arrancandoGpsRef.current) return;
     await detenerWatcher();
     const ultima = (await leerSesionGpsLocal()) || sesionRef.current;
     const fin = finalizarSesionGps(ultima, Date.now());
     await guardarSesionGpsLocal(fin);
     publicar(fin, { persistir: false });
+    sincronizarActividadGps(fin, { transition: true });
     setEstadoGps('finalizado');
   };
 
@@ -191,13 +275,22 @@ export default function GpsTrackerScreen({ navigation }) {
       publicar(null, { persistir: false });
       setEstadoGps('listo');
       setPrecision(null);
-      Alert.alert(
-        data.idempotente ? 'Actividad ya guardada' : 'Actividad registrada',
-        data.idempotente
-          ? 'Korva ya tenía registrada esta actividad. No se duplicaron kilómetros.'
-          : 'Tu actividad se guardó correctamente y el progreso fue actualizado.'
-      );
-      navigation.goBack();
+      const actividadGuardada = data.actividad || null;
+      if (actividadGuardada?.id) {
+        navigation.replace('DetalleActividad', {
+          actividad: actividadGuardada,
+          recienGuardada: true,
+          rutaGpsDisponible: data.ruta_guardada === true,
+        });
+      } else {
+        Alert.alert(
+          data.idempotente ? 'Actividad ya guardada' : 'Actividad registrada',
+          data.idempotente
+            ? 'Korva ya tenía registrada esta actividad. No se duplicaron kilómetros.'
+            : 'Tu actividad se guardó correctamente y el progreso fue actualizado.'
+        );
+        navigation.goBack();
+      }
     } catch (e) {
       Alert.alert(
         'Actividad pendiente',
@@ -223,12 +316,23 @@ export default function GpsTrackerScreen({ navigation }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
-          <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Korva GPS</Text>
         <View style={styles.back} />
       </View>
 
+      <View style={styles.paginas} ref={refTourGpsMapa} collapsable={false}>
+      <ScrollView
+        ref={paginasRef}
+        style={styles.paginas}
+        horizontal
+        pagingEnabled
+        scrollEnabled={!mapaTocado}
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(e) => { setMapaTocado(false); setPagina(Math.round(e.nativeEvent.contentOffset.x / Math.max(1, anchoPagina))); }}
+      >
+      <ScrollView style={{ width: anchoPagina }} showsVerticalScrollIndicator={false}>
       {!sesion && (
         <View style={styles.sportRow}>
           {[
@@ -240,7 +344,7 @@ export default function GpsTrackerScreen({ navigation }) {
               style={[styles.sportOption, deporte === value && styles.sportOptionActive]}
               onPress={() => setDeporte(value)}
             >
-              <Ionicons name={icon} size={18} color={deporte === value ? '#FFFFFF' : '#A8CFFF'} />
+              <Ionicons name={icon} size={18} color={deporte === value ? colors.text : colors.textSoft} />
               <Text style={[styles.sportText, deporte === value && styles.sportTextActive]}>{label}</Text>
             </TouchableOpacity>
           ))}
@@ -273,18 +377,45 @@ export default function GpsTrackerScreen({ navigation }) {
       </View>
 
       <View style={styles.note}>
-        <Ionicons name="shield-checkmark-outline" size={20} color="#A8CFFF" />
+        <Ionicons name="shield-checkmark-outline" size={20} color={colors.textSoft} />
         <Text style={styles.noteText}>
           {sesion
             ? 'El GPS sigue registrando si bloqueás la pantalla o usás otra app.'
             : 'Al finalizar vas a revisar y confirmar la actividad. Recién al confirmarla suma a tus desafíos activos.'}
         </Text>
       </View>
+      {strava.conectado && !sesion && (
+        <Text style={styles.stravaLinea}>Strava conectado · grabá cada salida con una sola app</Text>
+      )}
+      </ScrollView>
+
+      <View style={{ width: anchoPagina }}>
+        {pagina === 1 && (
+          <GpsAventura
+            kmSesion={resumenBase.distancia_km}
+            distanciaTxt={resumenBase.distancia_km.toFixed(2)}
+            tiempoTxt={formatearTiempo(segundosVista)}
+            ritmoTxt={deporte === 'ride' ? (velocidadKmh > 0 ? velocidadKmh.toFixed(1) : '--') : ritmoTexto.replace(' /km', '')}
+            ritmoLabel={deporte === 'ride' ? 'KM/H' : 'RITMO /KM'}
+            onInteraccionMapa={setMapaTocado}
+          />
+        )}
+      </View>
+      </ScrollView>
+      </View>
+
+      <View style={styles.puntos}>
+        {['Datos', 'Mapa'].map((nombre, i) => (
+          <TouchableOpacity key={nombre} onPress={() => irAPagina(i)} style={[styles.puntoBoton, pagina === i && styles.puntoBotonActivo]} accessibilityRole="button">
+            <Text style={[styles.puntoTxt, pagina === i && styles.puntoTxtActivo]}>{nombre}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       <View style={styles.controls}>
         {!sesion && (
-          <TouchableOpacity style={styles.primary} onPress={iniciar}>
-            <Ionicons name="play" size={22} color="#FFFFFF" />
+          <TouchableOpacity style={styles.primary} onPress={iniciarConAviso}>
+            <Ionicons name="play" size={22} color={colors.text} />
             <Text style={styles.primaryText}>Iniciar actividad</Text>
           </TouchableOpacity>
         )}
@@ -292,11 +423,11 @@ export default function GpsTrackerScreen({ navigation }) {
         {sesion?.estado === 'grabando' && (
           <View style={styles.controlRow}>
             <TouchableOpacity style={styles.secondary} onPress={pausar}>
-              <Ionicons name="pause" size={24} color="#FFFFFF" />
+              <Ionicons name="pause" size={24} color={colors.text} />
               <Text style={styles.secondaryText}>Pausar</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.finish} onPress={finalizar}>
-              <Ionicons name="stop" size={24} color="#FFFFFF" />
+              <Ionicons name="stop" size={24} color={colors.text} />
               <Text style={styles.secondaryText}>Finalizar</Text>
             </TouchableOpacity>
           </View>
@@ -305,11 +436,11 @@ export default function GpsTrackerScreen({ navigation }) {
         {sesion?.estado === 'pausada' && (
           <View style={styles.controlRow}>
             <TouchableOpacity style={styles.primarySmall} onPress={reanudar}>
-              <Ionicons name="play" size={24} color="#FFFFFF" />
+              <Ionicons name="play" size={24} color={colors.text} />
               <Text style={styles.secondaryText}>Reanudar</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.finish} onPress={finalizar}>
-              <Ionicons name="stop" size={24} color="#FFFFFF" />
+              <Ionicons name="stop" size={24} color={colors.text} />
               <Text style={styles.secondaryText}>Finalizar</Text>
             </TouchableOpacity>
           </View>
@@ -355,7 +486,7 @@ export default function GpsTrackerScreen({ navigation }) {
                 disabled={confirmando}
                 onPress={confirmar}
               >
-                <Ionicons name="checkmark" size={22} color="#FFFFFF" />
+                <Ionicons name="checkmark" size={22} color={colors.text} />
                 <Text style={styles.secondaryText}>{confirmando ? 'Guardando…' : 'Confirmar'}</Text>
               </TouchableOpacity>
             </View>
@@ -367,44 +498,51 @@ export default function GpsTrackerScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#07131F', paddingHorizontal: 22, paddingTop: 54 },
+  container: { flex: 1, backgroundColor: colors.backgroundDeep, paddingHorizontal: 22, paddingTop: 54 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
+  headerTitle: { color: colors.text, fontSize: 17, fontWeight: '700' },
   sportRow: { flexDirection: 'row', gap: 8, marginTop: 24 },
-  sportOption: { flex: 1, height: 46, borderRadius: 14, backgroundColor: '#0D1B2A', flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
-  sportOptionActive: { backgroundColor: '#1E6FD9' },
-  sportText: { color: '#A8CFFF', fontSize: 12, fontWeight: '700' },
-  sportTextActive: { color: '#FFFFFF' },
+  sportOption: { flex: 1, height: 46, borderRadius: radius.md, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.borderSoft, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
+  sportOptionActive: { backgroundColor: colors.surfaceRaised, borderColor: colors.brandOrange },
+  sportText: { color: colors.textSoft, fontSize: 12, fontWeight: '700' },
+  sportTextActive: { color: colors.text },
   statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 30 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#617184', marginRight: 8 },
-  dotActivo: { backgroundColor: '#4CAF50' },
-  statusText: { color: '#A8CFFF', fontSize: 13 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.textMuted, marginRight: 8 },
+  dotActivo: { backgroundColor: colors.success },
+  statusText: { color: colors.textSoft, fontSize: 13 },
   hero: { alignItems: 'center', marginTop: 56 },
-  label: { color: '#617184', fontSize: 11, fontWeight: '700', letterSpacing: 2.5 },
-  distance: { color: '#FFFFFF', fontSize: 84, lineHeight: 92, fontWeight: '700', letterSpacing: -4, marginTop: 8 },
-  unit: { color: '#A8CFFF', fontSize: 18, marginTop: -4 },
-  statsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 54, backgroundColor: '#0D1B2A', borderRadius: 18, paddingVertical: 22 },
+  label: { color: colors.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 2.5 },
+  distance: { color: colors.text, fontSize: 84, lineHeight: 92, fontWeight: '700', letterSpacing: -4, marginTop: 8 },
+  unit: { color: colors.textSoft, fontSize: 18, marginTop: -4 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 54, backgroundColor: colors.background, borderRadius: 18, paddingVertical: 22 },
   stat: { flex: 1, alignItems: 'center' },
-  statValue: { color: '#FFFFFF', fontSize: 24, fontWeight: '700' },
-  statLabel: { color: '#617184', fontSize: 10, fontWeight: '700', letterSpacing: 1.5, marginTop: 7 },
-  divider: { width: 1, height: 38, backgroundColor: '#1E3A5F' },
-  note: { flexDirection: 'row', gap: 10, backgroundColor: '#0D1B2A', borderRadius: 14, padding: 15, marginTop: 18, alignItems: 'center' },
-  noteText: { color: '#A8CFFF', fontSize: 12, lineHeight: 17, flex: 1 },
-  summaryCard: { backgroundColor: '#0D1B2A', borderRadius: 18, padding: 18, marginBottom: 12 },
-  summaryTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
-  summarySport: { color: '#A8CFFF', fontSize: 13, marginTop: 3, marginBottom: 16 },
+  statValue: { color: colors.text, fontSize: 24, fontWeight: '700' },
+  statLabel: { color: colors.textMuted, fontSize: 10, fontWeight: '700', letterSpacing: 1.5, marginTop: 7 },
+  divider: { width: 1, height: 38, backgroundColor: colors.surfaceStrong },
+  note: { flexDirection: 'row', gap: 10, backgroundColor: colors.background, borderRadius: 14, padding: 15, marginTop: 18, alignItems: 'center' },
+  noteText: { color: colors.textSoft, fontSize: 12, lineHeight: 17, flex: 1 },
+  summaryCard: { backgroundColor: colors.background, borderRadius: 18, padding: 18, marginBottom: 12 },
+  summaryTitle: { color: colors.text, fontSize: 18, fontWeight: '700' },
+  summarySport: { color: colors.textSoft, fontSize: 13, marginTop: 3, marginBottom: 16 },
   summaryRow: { flexDirection: 'row', marginTop: 10 },
   summaryItem: { flex: 1 },
-  summaryValue: { color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
-  summaryLabel: { color: '#617184', fontSize: 9, fontWeight: '700', letterSpacing: 1, marginTop: 4 },
-  controls: { marginTop: 'auto', paddingBottom: 38 },
-  primary: { height: 58, borderRadius: 18, backgroundColor: '#1E6FD9', flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center' },
-  primaryText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  summaryValue: { color: colors.text, fontSize: 17, fontWeight: '700' },
+  summaryLabel: { color: colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 1, marginTop: 4 },
+  controls: { paddingBottom: 38, paddingTop: 10 },
+  stravaLinea: { color: colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: 10 },
+  paginas: { flex: 1 },
+  puntos: { flexDirection: 'row', justifyContent: 'center', gap: 8, paddingTop: 8 },
+  puntoBoton: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.background },
+  puntoBotonActivo: { backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.brandOrange },
+  puntoTxt: { color: colors.textMuted, fontSize: 11, fontWeight: '700' },
+  puntoTxtActivo: { color: colors.text },
+  primary: { height: 58, borderRadius: 18, backgroundColor: colors.brandOrange, flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center' },
+  primaryText: { color: colors.text, fontSize: 16, fontWeight: '700' },
   controlRow: { flexDirection: 'row', gap: 12 },
-  secondary: { flex: 1, height: 58, borderRadius: 18, backgroundColor: '#1E3A5F', flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
-  primarySmall: { flex: 1, height: 58, borderRadius: 18, backgroundColor: '#1E6FD9', flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
+  secondary: { flex: 1, height: 58, borderRadius: 18, backgroundColor: colors.surfaceStrong, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
+  primarySmall: { flex: 1, height: 58, borderRadius: 18, backgroundColor: colors.brandOrange, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
   finish: { flex: 1, height: 58, borderRadius: 18, backgroundColor: '#B23A3A', flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' },
-  secondaryText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  secondaryText: { color: colors.text, fontSize: 14, fontWeight: '700' },
   disabled: { opacity: 0.55 },
 });

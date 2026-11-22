@@ -6,31 +6,31 @@ const SLIDES = [
   {
     emoji: '🏃‍♂️',
     titulo: '¡Bienvenido a Korva!',
-    desc: 'Completá km a tu ritmo desde cualquier lugar del mundo. Caminando, corriendo, en bici o como quieras — todo suma igual.',
+    desc: 'Completá km a tu ritmo desde cualquier lugar del mundo. Caminando, corriendo, en bici o como quieras — las actividades elegibles suman a tus desafíos activos.',
     color: '#FC4C02',
   },
   {
     emoji: '📏',
     titulo: 'Elegí tu distancia',
-    desc: 'Al inscribirte elegís la distancia del desafío. La distancia más corta es la estándar — la más larga es para ciclistas o quienes quieren un reto mayor. La medalla es la misma para ambas.',
+    desc: 'La versión Estándar es la distancia base y la Extendida ofrece una meta mayor. Podés cambiar entre las versiones disponibles desde Perfil. La medalla física es la misma.',
     color: '#F59E0B',
   },
   {
     emoji: '➕',
     titulo: 'Cargá tus km',
-    desc: 'Tocá el botón "+" para registrar actividades manualmente o conectá Strava. Podés cargar correr, caminar, bici, natación — lo que sea.',
+    desc: 'Abrí Registrar y elegí GPS para una salida con el teléfono o Manual para cargar una actividad ya hecha. Strava es opcional. En Tu movimiento podés conectar Salud y confirmar aparte qué desafíos reciben tu distancia diaria. Los pasos no se convierten a kilómetros.',
     color: '#1E6FD9',
   },
   {
     emoji: '🗑️',
     titulo: 'Borrá actividades',
-    desc: 'Si cargaste algo por error, deslizá la actividad en el historial para borrarla. Queda excluida y no vuelve a aparecer.',
+    desc: 'En Perfil, abrí Tus actividades y usá la papelera si cargaste algo por error. Tocá una actividad para abrir el detalle y compartirla.',
     color: '#0D9488',
   },
   {
     emoji: '📦',
     titulo: 'Cargá tu dirección',
-    desc: 'Cuando completes el desafío, te enviamos tu medalla. Cargá tu dirección en el Perfil → "Dirección de envío" antes de terminar.',
+    desc: 'Revisá tu Dirección de envío en Perfil. El avance del desafío y el envío físico se gestionan por separado; recibirás el seguimiento por correo cuando esté disponible.',
     color: '#7C3AED',
   },
 ];

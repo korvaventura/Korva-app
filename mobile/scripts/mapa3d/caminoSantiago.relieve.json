@@ -1,0 +1,35 @@
+{
+ "fuente": {
+  "relieve": "MDT500 © Instituto Geográfico Nacional (IGN), CC BY 4.0 scne.es — WCS servicios.idee.es/wcs-inspire/mdt, Elevacion4258_500",
+  "costaYFronteras": "Natural Earth 1:10m (dominio público): tierra firme y límite de España",
+  "embalse": "Encoro de Belesar © IGN, Hidrografía INSPIRE (servicios.idee.es/wfs-inspire/hidrografia), CC BY 4.0 scne.es"
+ },
+ "centro": {
+  "lat": 42.7,
+  "lon": -4.9
+ },
+ "minX": -383.0,
+ "minZ": -138.0,
+ "pasoKm": 1.0,
+ "nx": 718,
+ "nz": 261,
+ "codigosAgua": {
+  "0": "tierra",
+  "1": "mar (nivel 0 m)",
+  "2": "Encoro de Belesar"
+ },
+ "nivelesAguaM": {
+  "1": 0,
+  "2": 336
+ },
+ "fondoMarM": -60,
+ "ensancheBelesarKm": 0.5,
+ "celdas": {
+  "ign": 131323,
+  "rellenoArtistico": 11604,
+  "mar": 44471,
+  "belesar": 101,
+  "belesarSinEnsanche": 14
+ },
+ "orden": "alturas Int16 (nz*nx, fila = z) seguidas de agua Uint8 (nz*nx)"
+}

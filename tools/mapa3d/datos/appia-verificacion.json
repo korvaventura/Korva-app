@@ -1,0 +1,376 @@
+{
+ "fuente": {
+  "traza": "Itiner-e static version 2024 v1.3 (de Soto, Pažout, Brughmans, Vahlstrup), doi:10.5281/zenodo.17122148, CC BY 4.0",
+  "archivo": "via-appia-itinere.geojson",
+  "sha256": "68b984c12b9fdf5224731a589012275b636511f2d2b58ae518e9301d8bad7d8a",
+  "filtro": "Itinerary contiene \"Via Appia\" y bbox lon 11.8-18.7, lat 39.8-42.3",
+  "proyeccionOrigen": "EPSG:3395 (World Mercator) -> WGS84"
+ },
+ "tramos": [
+  {
+   "nombre": "Tarracinae-Rome",
+   "certeza": "Certain",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia, Via Latina",
+   "puntos": 6
+  },
+  {
+   "nombre": "Tarracinae-Rome",
+   "certeza": "Certain",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 48
+  },
+  {
+   "nombre": "Tarracinae-Rome",
+   "certeza": "Certain",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 17
+  },
+  {
+   "nombre": "Tarracinae-Rome",
+   "certeza": "Certain",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 32
+  },
+  {
+   "nombre": "Tarracinae-Rome",
+   "certeza": "Certain",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 102
+  },
+  {
+   "nombre": "Fundi-Tarracinae",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 82
+  },
+  {
+   "nombre": "Minturnae-Fundi",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 78
+  },
+  {
+   "nombre": "Minturnae-Fundi",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 14
+  },
+  {
+   "nombre": "Minturnae-Fundi",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 24
+  },
+  {
+   "nombre": "Capua-Minturnae",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 17
+  },
+  {
+   "nombre": "Capua-Minturnae",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 46
+  },
+  {
+   "nombre": "Capua-Minturnae",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 34
+  },
+  {
+   "nombre": "Capua-Minturnae",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 17
+  },
+  {
+   "nombre": "Capua-Caudium",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 39
+  },
+  {
+   "nombre": "Capua-Caudium",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 103
+  },
+  {
+   "nombre": "Caudium-Beneventum",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 119
+  },
+  {
+   "nombre": "Caudium-Beneventum",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 2
+  },
+  {
+   "nombre": "Beneventum-Aeclanum",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 138
+  },
+  {
+   "nombre": "Aeclanum-Aquilonia",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 37
+  },
+  {
+   "nombre": "Aeclanum-Aquilonia",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 184
+  },
+  {
+   "nombre": "Aeclanum-Aquilonia",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 107
+  },
+  {
+   "nombre": "Venusia-Aquilonia",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 19
+  },
+  {
+   "nombre": "Venusia-Aquilonia",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 259
+  },
+  {
+   "nombre": "Venusia-Aquilonia",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 12
+  },
+  {
+   "nombre": "Venusia-Aquilonia",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 15
+  },
+  {
+   "nombre": "Venusia-Tarentum",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 170
+  },
+  {
+   "nombre": "Venusia-Tarentum",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 106
+  },
+  {
+   "nombre": "Venusia-Tarentum",
+   "certeza": "Conjectured",
+   "itinerario": "Itinerarium Antonini, Via Appia",
+   "puntos": 143
+  },
+  {
+   "nombre": "Venusia-Tarentum",
+   "certeza": "Conjectured",
+   "itinerario": "Itinerarium Antonini, Via Appia",
+   "puntos": 164
+  },
+  {
+   "nombre": "Venusia-Tarentum",
+   "certeza": "Conjectured",
+   "itinerario": "Itinerarium Antonini, Via Appia",
+   "puntos": 18
+  },
+  {
+   "nombre": "Venusia-Tarentum",
+   "certeza": "Conjectured",
+   "itinerario": "Itinerarium Antonini, Via Appia",
+   "puntos": 41
+  },
+  {
+   "nombre": "Venusia-Tarentum",
+   "certeza": "Conjectured",
+   "itinerario": "Itinerarium Antonini, Via Appia",
+   "puntos": 20
+  },
+  {
+   "nombre": "Uria-Tarentum",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 44
+  },
+  {
+   "nombre": "Uria-Tarentum",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 38
+  },
+  {
+   "nombre": "Uria-Tarentum",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 5
+  },
+  {
+   "nombre": "Brundisium-Uria",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 58
+  },
+  {
+   "nombre": "Brundisium-Uria",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 6
+  },
+  {
+   "nombre": "Brundisium-Uria",
+   "certeza": "Conjectured",
+   "itinerario": "Tabula Peutingeriana, Itinerarium Antonini, Via Appia",
+   "puntos": 5
+  }
+ ],
+ "saltoMaximoEntreTramosM": 4.3,
+ "largoKmOriginal": 575.48,
+ "largoKmSimplificado": 573.64,
+ "puntosOriginales": 2342,
+ "puntos": 867,
+ "toleranciaSimplificacionKm": 0.03,
+ "hitos": [
+  {
+   "id": "roma",
+   "kmVirtual": 0,
+   "kmReal": 0.0,
+   "desvioKm": 0.303
+  },
+  {
+   "id": "cecilia_metella",
+   "kmVirtual": 7,
+   "kmReal": 4.52,
+   "desvioKm": 0.082,
+   "razonTramo": 1.549
+  },
+  {
+   "id": "albano",
+   "kmVirtual": 25,
+   "kmReal": 22.3,
+   "desvioKm": 0.225,
+   "razonTramo": 1.012
+  },
+  {
+   "id": "terracina",
+   "kmVirtual": 105,
+   "kmReal": 92.83,
+   "desvioKm": 0.246,
+   "razonTramo": 1.134
+  },
+  {
+   "id": "formia",
+   "kmVirtual": 150,
+   "kmReal": 132.07,
+   "desvioKm": 0.05,
+   "razonTramo": 1.147
+  },
+  {
+   "id": "capua",
+   "kmVirtual": 205,
+   "kmReal": 197.0,
+   "desvioKm": 0.284,
+   "razonTramo": 0.847
+  },
+  {
+   "id": "benevento",
+   "kmVirtual": 265,
+   "kmReal": 251.25,
+   "desvioKm": 0.212,
+   "razonTramo": 1.106
+  },
+  {
+   "id": "aeclanum",
+   "kmVirtual": 300,
+   "kmReal": 274.48,
+   "desvioKm": 1.061,
+   "razonTramo": 1.506
+  },
+  {
+   "id": "venosa",
+   "kmVirtual": 395,
+   "kmReal": 363.53,
+   "desvioKm": 0.16,
+   "razonTramo": 1.067
+  },
+  {
+   "id": "gravina",
+   "kmVirtual": 455,
+   "kmReal": 422.01,
+   "desvioKm": 0.231,
+   "razonTramo": 1.026
+  },
+  {
+   "id": "taranto",
+   "kmVirtual": 530,
+   "kmReal": 505.08,
+   "desvioKm": 0.207,
+   "razonTramo": 0.903
+  },
+  {
+   "id": "oria",
+   "kmVirtual": 580,
+   "kmReal": 542.22,
+   "desvioKm": 0.089,
+   "razonTramo": 1.346
+  },
+  {
+   "id": "brindisi",
+   "kmVirtual": 611,
+   "kmReal": 573.56,
+   "desvioKm": 0.08,
+   "razonTramo": 0.989
+  }
+ ],
+ "regiones": [
+  {
+   "region": "Lazio",
+   "desdeKmReal": 0.0
+  },
+  {
+   "region": "Campania",
+   "desdeKmReal": 145.82
+  },
+  {
+   "region": "Apulia",
+   "desdeKmReal": 325.94
+  },
+  {
+   "region": "Basilicata",
+   "desdeKmReal": 334.24
+  },
+  {
+   "region": "Apulia",
+   "desdeKmReal": 404.68
+  },
+  {
+   "region": "Basilicata",
+   "desdeKmReal": 441.18
+  },
+  {
+   "region": "Apulia",
+   "desdeKmReal": 442.19
+  },
+  {
+   "region": "Basilicata",
+   "desdeKmReal": 445.97
+  },
+  {
+   "region": "Apulia",
+   "desdeKmReal": 451.46
+  }
+ ],
+ "puntosRutaSobreAgua": 0
+}

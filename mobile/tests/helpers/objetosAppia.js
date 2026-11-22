@@ -1,0 +1,10 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const { createRequire } = require('node:module');
+const THREE = require('three');
+const { base64ABytes } = require('../../services/mapa3d/horneadoCore');
+const file = path.join(__dirname, '../../components/mapa3d/objetosAppia.js');
+const cargar = createRequire(file);
+const source = fs.readFileSync(file, 'utf8').replace(/^import .*;\r?$/gm, '').replace(/export /g, '');
+module.exports = new Function('THREE', 'base64ABytes', 'require', source + ';return crearObjetosAppia;')(
+  THREE, base64ABytes, nombre => nombre.endsWith('.jpg') ? path.resolve(path.dirname(file), nombre) : cargar(nombre));

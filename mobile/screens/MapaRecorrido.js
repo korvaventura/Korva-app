@@ -1,6 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, Animated, Dimensions } from 'react-native';
 import Svg, { Path, Circle, Rect, Text as SvgText, Defs, LinearGradient, Stop, Mask, Ellipse, Polygon, G } from 'react-native-svg';
+import MapaConGlobo from '../components/MapaConGlobo';
+import { escenaParaConfig } from '../services/mapa3d/escenas';
+const { formatoKm } = require('../services/compartirCore');
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const MAPA_WIDTH_VIRTUAL = 800;
@@ -259,16 +262,42 @@ const CONFIGS = {
   },
 };
 
+const islandiaHistoria = require('../services/desafios/islandia');
+CONFIGS.islandia = {
+  titulo: 'Islandia · Ring Road', distanciaFisica: 1400, clima: 'mixto',
+  segmentos: islandiaHistoria.checkpoints.map((cp) => ({ km: cp.kmFisico, x: 40 + cp.kmFisico / 1400 * 720, y: 130 })),
+  checkpoints: islandiaHistoria.checkpoints.map((cp) => ({ ...cp, x: 40 + cp.kmFisico / 1400 * 720, y: 130 })),
+  decoraciones: () => null,
+};
+const caminoSantiagoMapa = require('../services/desafios/caminoSantiagoMapa');
+CONFIGS.camino_santiago = caminoSantiagoMapa.config;
+const viaAppiaMapa = require('../services/desafios/viaAppiaMapa');
+CONFIGS.via_appia = viaAppiaMapa.config;
 const getConfig = (challengeId, challengeTitle) => {
+  if (challengeId === viaAppiaMapa.CHALLENGE_ID) return CONFIGS.via_appia;
+  if (challengeId === caminoSantiagoMapa.CHALLENGE_ID) return CONFIGS.camino_santiago;
+  if (challengeId === '3b211caf-ee16-54c8-a93c-343a5eb2d57e') return CONFIGS.islandia;
   if (challengeId === '64442b1d-12b8-4a58-a951-50ea10cb2131') return CONFIGS.dubrovnik;
   if (challengeId === '85a362a5-eee7-456d-9027-358d44446004') return CONFIGS.san_andres;
   if (challengeId === '881936a8-2282-4b7d-a94d-24a7c796d789') return CONFIGS.monte_fuji;
   const titulo = normalizar(challengeTitle);
+  if (titulo.includes('via appia') || titulo.includes('via apia')) return CONFIGS.via_appia;
+  if (titulo.includes('camino de santiago')) return CONFIGS.camino_santiago;
+  if (titulo.includes('islandia') || titulo.includes('iceland')) return CONFIGS.islandia;
   if (titulo.includes('dubrovnik')) return CONFIGS.dubrovnik;
   if (titulo.includes('andres') || titulo.includes('san andr')) return CONFIGS.san_andres;
   if (titulo.includes('fuji') || titulo.includes('monte fuji')) return CONFIGS.monte_fuji;
   return CONFIGS.default;
 };
+
+// Escena 3D y checkpoints de un desafío (la misma que muestra su mapa).
+// La usa el modo aventura del GPS para dibujar el desafío en vivo.
+export function mapa3DDeDesafio(challengeId, challengeTitle) {
+  const config = getConfig(challengeId, challengeTitle);
+  const clave = Object.keys(CONFIGS).find((k) => CONFIGS[k] === config);
+  const mapa = escenaParaConfig(clave);
+  return mapa ? { ...mapa, checkpoints: config.checkpoints, distanciaFisica: config.distanciaFisica } : null;
+}
 
 const getPuntoEnRuta = (segmentos, kmFisicos, distanciaFisica) => {
   if (kmFisicos <= 0) return segmentos[0];
@@ -445,26 +474,65 @@ function ScrollHintAnimado() {
 }
 
 // ─── HISTORIA INLINE ─────────────────────────────────────────────
-function HistoriaInline({ cp, factor, distanciaTotal, estaDesbloqueado, esInicio, esFin, onCerrar }) {
+function HistoriaInline({ cp, factor, distanciaTotal, estaDesbloqueado, esInicio, esFin, onCerrar, compacto = false }) {
   if (!cp) return null;
+  if (compacto) {
+    const kmPunto = ((cp.kmFisico || 0) * factor).toFixed(0);
+    const estado = !estaDesbloqueado ? 'POR DESCUBRIR' : esInicio ? 'PUNTO DE PARTIDA' : esFin ? 'DESTINO CONQUISTADO' : 'LUGAR CONQUISTADO';
+    return (
+      <View style={styles.journeyHistoria}>
+        <View style={styles.journeyHistoriaCabecera}>
+          <View style={styles.historiaTituloWrap}>
+            <Text style={styles.journeyHistoriaEstado}>{estado}</Text>
+            <Text style={styles.journeyHistoriaNombre}>{cp.nombre}</Text>
+            <Text style={styles.journeyHistoriaKm}>KM {kmPunto} · RECORRIDO DE {distanciaTotal} KM</Text>
+          </View>
+          <TouchableOpacity onPress={onCerrar} accessibilityRole="button" accessibilityLabel="Cerrar historia" style={styles.journeyHistoriaCerrar}>
+            <Text style={styles.journeyHistoriaCerrarTexto}>✕</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.journeyHistoriaSeparador} />
+        {estaDesbloqueado ? (
+          <>
+            {(esInicio || esFin) && <Text style={styles.journeyHistoriaIntroduccion}>{esInicio ? 'Tu recorrido empieza acá.' : 'Llegaste al final de esta aventura.'}</Text>}
+            <Text style={styles.journeyHistoriaCuerpo}>{cp.desc}</Text>
+            {!!cp.datoRaro && (
+              <View style={styles.journeyHistoriaDetalle}>
+                <Text style={styles.journeyHistoriaDetalleTitulo}>UNA HISTORIA DEL LUGAR</Text>
+                <Text style={styles.journeyHistoriaCuerpo}>{String(cp.datoRaro).replace(/^[^A-Za-zÀ-ÿ0-9]+/, '')}</Text>
+              </View>
+            )}
+          </>
+        ) : (
+          <>
+            <Text style={styles.journeyHistoriaCuerpo}>{cp.pista}</Text>
+            <View style={styles.journeyHistoriaDetalle}>
+              <Text style={styles.journeyHistoriaDetalleTitulo}>TU PRÓXIMA CONQUISTA</Text>
+              <Text style={styles.journeyHistoriaCuerpo}>La historia completa se revela al llegar al km {kmPunto}.</Text>
+            </View>
+          </>
+        )}
+      </View>
+    );
+  }
   return (
-    <View style={styles.historiaContainer}>
+    <View style={[styles.historiaContainer, compacto && styles.historiaContainerCompacto]}>
       <View style={styles.historiaHeader}>
         <Text style={styles.historiaEmoji}>{estaDesbloqueado ? cp.emoji : '🔒'}</Text>
         <View style={styles.historiaTituloWrap}>
           <Text style={styles.historiaNombre}>{cp.nombre}</Text>
           <Text style={styles.historiaKm}>{((cp.kmFisico || 0) * factor).toFixed(0)} km de {distanciaTotal} km</Text>
         </View>
-        <TouchableOpacity onPress={onCerrar} style={styles.historiaCerrarBtn} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
+        <TouchableOpacity onPress={onCerrar} style={styles.historiaCerrarBtn} accessibilityLabel="Cerrar historia" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.historiaCerrarText}>✕</Text>
         </TouchableOpacity>
       </View>
       {estaDesbloqueado ? (
-        <ScrollView style={styles.historiaScroll} showsVerticalScrollIndicator={false}>
+        <View>
           {(esInicio || esFin) && (
             <View style={styles.mensajeEspecialBox}>
               <Text style={styles.mensajeEspecial}>
-                {esInicio ? '🚀 ¡Bienvenido al desafío! Cada paso te acerca a tu medalla.' : '🏅 ¡Lo lograste! Tu medalla está en camino.'}
+                {esInicio ? '🚀 ¡Bienvenido al desafío! Cada paso te acerca a tu medalla.' : '🏅 ¡Conquista completada! Llegaste al final de este recorrido.'}
               </Text>
             </View>
           )}
@@ -474,7 +542,7 @@ function HistoriaInline({ cp, factor, distanciaTotal, estaDesbloqueado, esInicio
               <Text style={styles.datoRaroTexto}>{cp.datoRaro}</Text>
             </View>
           )}
-        </ScrollView>
+        </View>
       ) : (
         <>
           <View style={styles.pistaBox}>
@@ -548,13 +616,18 @@ function MapaSVG({ config, kmFisicos, pinPos, rutaBasePath, pathCompletado, puls
   );
 }
 
-export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, onScrollBegin, onScrollEnd, fullscreen = false, integrado = false }) {
+export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, actividades = [], onScrollBegin, onScrollEnd, fullscreen = false, integrado = false, enTarjeta = false, accionDerecha = null, ocultarTitulo = false, alturaMapa = 455, onHistoriaAbierta, onInteraccionMapa, pantallaFija = false }) {
   const [cpSeleccionado, setCpSeleccionado] = useState(null);
   const [modalMapaVisible, setModalMapaVisible] = useState(false);
+  const [altoModal, setAltoModal] = useState(Dimensions.get('window').height - 140);
   const scrollViewRef = useRef(null);
+  const historiaRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(0)).current;
 
+  const altoMapaModal = Math.max(455, altoModal - 88);
   const config = getConfig(challengeId, challengeTitle);
+  // Desafío que el globo Korva marca como "estás acá" al alejarse del mapa.
+  const destinoGlobo = useMemo(() => ({ id: challengeId, title: challengeTitle }), [challengeId, challengeTitle]);
   const { titulo, distanciaFisica, clima, segmentos, checkpoints, decoraciones } = config;
 
   const factor = (distanciaTotal || distanciaFisica) / distanciaFisica;
@@ -564,11 +637,17 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
   const pathCompletado = getCompletedPathString(segmentos, kmFisicos);
 
   useEffect(() => {
-    Animated.loop(Animated.sequence([
-      Animated.timing(pulseAnim, { toValue: 1, duration: 1500, useNativeDriver: false }),
-      Animated.timing(pulseAnim, { toValue: 0, duration: 0, useNativeDriver: false }),
-    ])).start();
-  }, []);
+    if (fullscreen || modalMapaVisible) {
+      pulseAnim.setValue(0);
+      return undefined;
+    }
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulseAnim, { toValue: 1, duration: 1500, isInteraction: false, useNativeDriver: false }),
+      Animated.timing(pulseAnim, { toValue: 0, duration: 0, isInteraction: false, useNativeDriver: false }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [fullscreen, modalMapaVisible, pulseAnim]);
 
   useEffect(() => { setCpSeleccionado(null); }, [challengeId]);
 
@@ -602,18 +681,73 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
     return null;
   };
 
+  useEffect(() => {
+    if (!cpSeleccionado || pantallaFija) return;
+    const frame = requestAnimationFrame(() => onHistoriaAbierta?.(historiaRef.current));
+    return () => cancelAnimationFrame(frame);
+  }, [cpSeleccionado, onHistoriaAbierta, pantallaFija]);
+
   const handleCheckpointPress = (cp) => {
-    setCpSeleccionado(prev => prev?.id === cp.id ? null : cp);
+    onInteraccionMapa?.(false);
+    // Volver a tocar el mismo punto lo mantiene abierto y lo trae a la vista.
+    // Solo el botón de cerrar descarta la ficha.
+    setCpSeleccionado(cp);
+    if (!cp) return;
+    if (cpSeleccionado?.id === cp.id && !pantallaFija) {
+      requestAnimationFrame(() => onHistoriaAbierta?.(historiaRef.current));
+    }
   };
 
   // ── MODO PREVIEW LIVIANO ─────────────────────────────────────
   if (!fullscreen) {
+    const modal3D = escenaParaConfig(Object.keys(CONFIGS).find((k) => CONFIGS[k] === config));
+    const ContenedorMapa = modal3D ? View : ScrollView;
+    const propsContenedor = modal3D ? {} : { showsVerticalScrollIndicator: false, contentContainerStyle: { padding: 12, paddingBottom: 32 } };
     const kmActual = Math.max(0, Number(kmCompletados) || 0);
     const total = Math.max(1, Number(distanciaTotal) || distanciaFisica);
     const pct = Math.max(0, Math.min(100, (kmActual / total) * 100));
+    const ultimo = [...checkpoints].reverse().find(cp => cp.kmFisico * factor <= kmActual);
     const proximo = checkpoints.find((cp) => (cp.kmFisico * factor) > kmActual);
     const proximoKm = proximo ? proximo.kmFisico * factor : total;
     const faltan = Math.max(0, proximoKm - kmActual);
+
+    // Dentro de la tarjeta "Tu aventura" de Inicio: una línea con el próximo punto
+    // y el pie con Ver mapa (a la izquierda) y lo que pase la tarjeta (a la derecha).
+    const modalMapa = modalMapaVisible && (
+      <Modal visible transparent={false} animationType="slide" onRequestClose={() => setModalMapaVisible(false)}>
+        <View style={styles.fullscreenContainer}>
+          <View style={styles.fullscreenHeader}>
+            <Text style={styles.fullscreenTitulo}>{titulo}</Text>
+            <TouchableOpacity style={styles.cerrarBtn} onPress={() => setModalMapaVisible(false)}>
+              <Text style={styles.cerrarBtnText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <ContenedorMapa style={{ flex: 1 }} {...propsContenedor} onLayout={(e) => setAltoModal(e.nativeEvent.layout.height)}>
+            <MapaRecorrido fullscreen ocultarTitulo pantallaFija={!!modal3D} alturaMapa={altoMapaModal}
+              kmCompletados={kmCompletados} distanciaTotal={distanciaTotal} porcentaje={porcentaje}
+              challengeId={challengeId} challengeTitle={challengeTitle} actividades={actividades} />
+          </ContenedorMapa>
+        </View>
+      </Modal>
+    );
+    if (enTarjeta) {
+      return (
+        <View>
+          <TouchableOpacity onPress={() => setModalMapaVisible(true)} activeOpacity={0.75} style={styles.tarjetaProximo}>
+            <Text style={styles.tarjetaProximoTexto} numberOfLines={1}>
+              {proximo ? `${proximo.emoji} Próximo: ${proximo.nombre} · faltan ${formatoKm(faltan)} km` : '🏁 Llegaste a la meta'}
+            </Text>
+          </TouchableOpacity>
+          <View style={styles.tarjetaPie}>
+            <TouchableOpacity onPress={() => setModalMapaVisible(true)} hitSlop={10} accessibilityRole="button">
+              <Text style={styles.tarjetaVerMapa}>Ver mapa</Text>
+            </TouchableOpacity>
+            {accionDerecha}
+          </View>
+          {modalMapa}
+        </View>
+      );
+    }
 
     return (
       <View style={integrado ? styles.containerIntegrado : styles.container}>
@@ -631,6 +765,7 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
           )}
           {integrado ? (
             <View style={styles.previewNavCompacta}>
+              {!!ultimo && <Text style={styles.previewUbicacion} numberOfLines={1}>{proximo ? `Último punto · ${ultimo.nombre}` : `Llegaste a ${ultimo.nombre}`}</Text>}
               <View style={styles.previewNavFila}>
                 <Text style={styles.previewNavKm}>{kmActual.toFixed(1)} km</Text>
                 <View style={styles.previewNavDireccion}>
@@ -684,35 +819,20 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
                   <Text style={styles.cerrarBtnText}>✕</Text>
                 </TouchableOpacity>
               </View>
-              <View style={styles.mapaFijoWrapper}>
-                <ScrollView ref={scrollViewRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ width: MAPA_WIDTH_VIRTUAL }} style={{ flex: 1 }}>
-                  <MapaSVG config={config} kmFisicos={kmFisicos} pinPos={pinPos} rutaBasePath={rutaBasePath} pathCompletado={pathCompletado} pulseAnim={pulseAnim} onCheckpointPress={handleCheckpointPress} />
-                </ScrollView>
-                {mostrarClima()}
-              </View>
-              <ScrollHintAnimado />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
-                {checkpoints.map((cp) => {
-                  const bloqueado = !desbloqueado(cp);
-                  const seleccionado = cpSeleccionado?.id === cp.id;
-                  return (
-                    <TouchableOpacity key={cp.id} style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo, seleccionado && styles.leyendaItemSeleccionado]} onPress={() => handleCheckpointPress(cp)}>
-                      <Text style={styles.leyendaEmoji}>{bloqueado ? '🔒' : cp.emoji}</Text>
-                      <View style={styles.leyendaTextos}>
-                        <Text style={[styles.leyendaNombre, !bloqueado && styles.leyendaNombreActivo]}>{cp.nombre}</Text>
-                        <Text style={styles.leyendaKm}>{(cp.kmFisico * factor).toFixed(0)} km</Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-              {cpSeleccionado ? (
-                <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} />
-              ) : (
-                <View style={styles.historiaPlaceholder}>
-                  <Text style={styles.historiaPlaceholderText}>Tocá un punto del mapa o un checkpoint para leer su historia</Text>
-                </View>
-              )}
+              <ContenedorMapa style={{ flex: 1 }} {...propsContenedor} onLayout={(e) => setAltoModal(e.nativeEvent.layout.height)}>
+                <MapaRecorrido
+                  fullscreen
+                  ocultarTitulo
+                  pantallaFija={!!modal3D}
+                  alturaMapa={altoMapaModal}
+                  kmCompletados={kmCompletados}
+                  distanciaTotal={distanciaTotal}
+                  porcentaje={porcentaje}
+                  challengeId={challengeId}
+                  challengeTitle={challengeTitle}
+                  actividades={actividades}
+                />
+              </ContenedorMapa>
             </View>
           </Modal>
         )}
@@ -721,9 +841,44 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
   }
 
   // ── MODO FULLSCREEN ──────────────────────────────────────────
+  const claveConfig = Object.keys(CONFIGS).find((k) => CONFIGS[k] === config);
+  const mapa3D = escenaParaConfig(claveConfig);
+  const progreso3D = Math.max(0, Math.min(1, kmFisicos / Math.max(1, distanciaFisica)));
+  const totalUsuario = Number(distanciaTotal) || distanciaFisica;
+  const completado3D = Number(porcentaje) >= 100 || (Number(kmCompletados) || 0) >= totalUsuario;
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.titulo}>{titulo}</Text>
+    <View style={[styles.container, pantallaFija && styles.pantallaMapa]}>
+      {!ocultarTitulo && <Text style={styles.titulo}>{titulo}</Text>}
+      {mapa3D ? (
+        <View style={styles.mapa3DWrapper}>
+          <MapaConGlobo
+            key={mapa3D.escena.id}
+            destinoActual={destinoGlobo}
+            altura={alturaMapa}
+            escena={mapa3D.escena}
+            horneado={mapa3D.horneado}
+            checkpoints={checkpoints}
+            progreso={progreso3D}
+            completado={completado3D}
+            kmUsuario={Number(kmCompletados) || 0}
+            kmTotalUsuario={totalUsuario}
+            actividades={actividades}
+            seleccionadoId={cpSeleccionado?.id}
+            onSelect={handleCheckpointPress}
+            onInteraccionMapa={onInteraccionMapa}
+          />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorCheckpoints}>
+            {checkpoints.map((cp) => (
+              <TouchableOpacity key={cp.id} onPress={() => handleCheckpointPress(cp)} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel={`Checkpoint ${cp.nombre}`}
+                style={[styles.selectorCheckpoint, cpSeleccionado?.id === cp.id && styles.selectorCheckpointActivo]}>
+                <Text numberOfLines={1} style={styles.selectorCheckpointNombre}>{cp.nombre}</Text>
+                <Text style={styles.selectorCheckpointKm}>{String(Math.round(cp.kmFisico * factor * 10) / 10).replace('.', ',')} km{desbloqueado(cp) ? ' · ✓' : ' · 🔒'}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      ) : (
       <View style={styles.mapaFijoWrapper}>
         <ScrollView ref={scrollViewRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ width: MAPA_WIDTH_VIRTUAL }}
           onScrollBeginDrag={() => onScrollBegin && onScrollBegin()}
@@ -731,41 +886,66 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
           onMomentumScrollEnd={() => onScrollEnd && onScrollEnd()}>
           <MapaSVG config={config} kmFisicos={kmFisicos} pinPos={pinPos} rutaBasePath={rutaBasePath} pathCompletado={pathCompletado} pulseAnim={pulseAnim} onCheckpointPress={handleCheckpointPress} />
         </ScrollView>
-        {mostrarClima()}
+        {!fullscreen && mostrarClima()}
       </View>
-      <ScrollHintAnimado />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
-        {checkpoints.map((cp) => {
-          const bloqueado = !desbloqueado(cp);
-          const seleccionado = cpSeleccionado?.id === cp.id;
-          return (
-            <TouchableOpacity key={cp.id} style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo, seleccionado && styles.leyendaItemSeleccionado]} onPress={() => handleCheckpointPress(cp)}>
-              <Text style={styles.leyendaEmoji}>{bloqueado ? '🔒' : cp.emoji}</Text>
-              <View style={styles.leyendaTextos}>
-                <Text style={[styles.leyendaNombre, !bloqueado && styles.leyendaNombreActivo]}>{cp.nombre}</Text>
-                <Text style={styles.leyendaKm}>{(cp.kmFisico * factor).toFixed(0)} km</Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      )}
+      {!mapa3D && <ScrollHintAnimado />}
+      {!mapa3D && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.leyendaScroll}>
+          {checkpoints.map((cp) => {
+            const bloqueado = !desbloqueado(cp);
+            const seleccionado = cpSeleccionado?.id === cp.id;
+            return (
+              <TouchableOpacity key={cp.id} style={[styles.leyendaItem, !bloqueado && styles.leyendaItemActivo, seleccionado && styles.leyendaItemSeleccionado]} onPress={() => handleCheckpointPress(cp)}>
+                <Text style={styles.leyendaEmoji}>{bloqueado ? '🔒' : cp.emoji}</Text>
+                <View style={styles.leyendaTextos}>
+                  <Text style={[styles.leyendaNombre, !bloqueado && styles.leyendaNombreActivo]}>{cp.nombre}</Text>
+                  <Text style={styles.leyendaKm}>{(cp.kmFisico * factor).toFixed(0)} km</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
       {cpSeleccionado ? (
-        <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} />
-      ) : (
+        pantallaFija && mapa3D ? (
+          <View style={styles.historiaFlotante}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 12 }}>
+              <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} compacto />
+            </ScrollView>
+          </View>
+        ) : (
+          <View ref={historiaRef} collapsable={false}>
+            <HistoriaInline cp={cpSeleccionado} factor={factor} distanciaTotal={distanciaTotal} estaDesbloqueado={estaDesbloqueado} esInicio={esInicio} esFin={esFin} onCerrar={() => setCpSeleccionado(null)} compacto={!!mapa3D} />
+          </View>
+        )
+      ) : !mapa3D ? (
         <View style={styles.historiaPlaceholder}>
           <Text style={styles.historiaPlaceholderText}>Tocá un punto del mapa o un checkpoint para leer su historia</Text>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  selectorCheckpoints: { paddingVertical: 10, gap: 8 },
+  selectorCheckpoint: { maxWidth: 200, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: '#142A3B', borderWidth: 1, borderColor: '#29445B' },
+  selectorCheckpointActivo: { borderColor: '#F36B0A', backgroundColor: '#25303A' },
+  selectorCheckpointNombre: { color: '#F1F5F9', fontSize: 12, fontWeight: '600' },
+  selectorCheckpointKm: { color: '#94A3B8', fontSize: 10, marginTop: 3 },
   container: { marginBottom: 16 },
+  pantallaMapa: { flex: 1, marginBottom: 0, paddingTop: 12 },
+  historiaFlotante: { position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '48%', zIndex: 30, elevation: 12, borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: '#0F172A' },
   titulo: { fontSize: 16, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 12 },
   containerIntegrado: { marginTop: 14 },
   previewIntegrada: { borderTopWidth: 1, borderTopColor: '#35577A', paddingTop: 13 },
     previewNavCompacta: { paddingTop: 4 },
+  previewUbicacion: { color: '#94A3B8', fontSize: 10, marginBottom: 7 },
+  tarjetaProximo: { marginTop: 8 },
+  tarjetaProximoTexto: { color: '#CBD5E1', fontSize: 12, fontWeight: '700' },
+  tarjetaPie: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#2A3F57', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  tarjetaVerMapa: { color: '#67A9FF', fontSize: 11, fontWeight: '800' },
   previewNavFila: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46 },
   previewNavKm: { color: '#F8FAFC', fontSize: 14, fontWeight: '900' },
   previewNavDireccion: { flex: 1, height: 22, flexDirection: 'row', alignItems: 'center' },
@@ -819,6 +999,7 @@ const styles = StyleSheet.create({
   cerrarBtn: { backgroundColor: '#1E293B', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   cerrarBtnText: { color: '#94A3B8', fontWeight: 'bold', fontSize: 16 },
   mapaFijoWrapper: { height: 260, position: 'relative', overflow: 'hidden', borderBottomWidth: 1, borderBottomColor: '#1E293B' },
+  mapa3DWrapper: { marginHorizontal: 16, position: 'relative' },
   leyendaScroll: { maxHeight: 72, paddingHorizontal: 16, marginBottom: 4 },
   leyendaItem: { flexDirection: 'row', backgroundColor: '#1E293B', borderRadius: 12, padding: 10, marginRight: 8, alignItems: 'center', borderWidth: 1, borderColor: '#334155', minWidth: 120, maxWidth: 160, height: 56 },
   leyendaItemActivo: { borderColor: '#3a5a7a', backgroundColor: '#0F172A' },
@@ -828,7 +1009,20 @@ const styles = StyleSheet.create({
   leyendaNombre: { fontSize: 11, color: '#64748B', fontWeight: 'bold' },
   leyendaNombreActivo: { color: '#F8FAFC' },
   leyendaKm: { fontSize: 10, color: '#94A3B8', marginTop: 2 },
-  historiaContainer: { backgroundColor: '#1E293B', borderRadius: 16, marginHorizontal: 16, marginTop: 4, marginBottom: 8, padding: 16, borderWidth: 1, borderColor: '#334155', maxHeight: 280 },
+  journeyHistoria: { marginTop: 14, marginBottom: 12, padding: 20, borderRadius: 18, backgroundColor: '#0E2132', borderWidth: 1, borderColor: 'rgba(168,207,255,0.18)' },
+  journeyHistoriaCabecera: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  journeyHistoriaEstado: { color: '#FFB078', fontSize: 9, fontWeight: '800', letterSpacing: 1.6, marginBottom: 7 },
+  journeyHistoriaNombre: { color: '#F8FAFC', fontSize: 20, fontWeight: '700', lineHeight: 26, marginBottom: 7 },
+  journeyHistoriaKm: { color: '#8DA4B8', fontSize: 10, fontWeight: '600', letterSpacing: 0.6, lineHeight: 16 },
+  journeyHistoriaCerrar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(168,207,255,0.07)' },
+  journeyHistoriaCerrarTexto: { color: '#A8BFD0', fontSize: 17, fontWeight: '400' },
+  journeyHistoriaSeparador: { height: 1, backgroundColor: 'rgba(168,207,255,0.14)', marginVertical: 18 },
+  journeyHistoriaIntroduccion: { color: '#FFB078', fontSize: 14, fontWeight: '600', marginBottom: 12, lineHeight: 22 },
+  journeyHistoriaCuerpo: { color: '#CFDDE7', fontSize: 15, fontWeight: '400', lineHeight: 24 },
+  journeyHistoriaDetalle: { marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(168,207,255,0.14)' },
+  journeyHistoriaDetalleTitulo: { color: '#8DA4B8', fontSize: 9, fontWeight: '800', letterSpacing: 1.2, marginBottom: 9 },
+  historiaContainer: { backgroundColor: '#1E293B', borderRadius: 16, marginHorizontal: 16, marginTop: 4, marginBottom: 8, padding: 16, borderWidth: 1, borderColor: '#334155' },
+  historiaContainerCompacto: { marginHorizontal: 0, marginTop: 12, padding: 14, borderColor: '#29496B', backgroundColor: '#13283D' },
   historiaHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   historiaEmoji: { fontSize: 28, marginRight: 12 },
   historiaTituloWrap: { flex: 1 },
