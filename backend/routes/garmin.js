@@ -1,7 +1,7 @@
 const express = require('express');
 const requireUser = require('../middleware/requireUser');
 const { crearGarminRepositorio } = require('../lib/garminRepositorio');
-const { REDIRECT_URI, TTL_SECONDS, hash, configuracionGarmin, permitidoGarmin, cifrar, descifrar,
+const { REDIRECT_URI, TTL_SECONDS, hash, configuracionGarmin, permitidoGarmin, actividadesGarminActivas, cifrar, descifrar,
   nuevoIntento, urlAutorizacion, intercambiarCodigo } = require('../lib/garminOAuth');
 
 const validRandom = (value) => typeof value === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value);
@@ -37,13 +37,24 @@ function crearGarminRoutes({ supabase, repo = crearGarminRepositorio(supabase), 
   const disponible = (id) => !!configuracionGarmin(env) && permitidoGarmin(id, env);
   const fallar = (res) => res.status(503).json({ error: 'No pudimos conectar con Garmin. Intentá nuevamente.' });
 
+  // Disconnect stays available when public beta/OAuth intake is closed.
+  router.delete('/connection', auth, async (req, res) => {
+    try {
+      return res.json(await require('../lib/garminLifecycle').crearGarminLifecycle({ repo, env, fetchImpl }).desconectar(req.userId));
+    } catch (error) {
+      if (error.message === 'garmin_busy') return res.status(409).json({ error: 'Hay una operación de Garmin en curso. Intentá nuevamente.' });
+      if (error.message === 'garmin_reconnect_required') return res.status(409).json({ error: 'Revocá el acceso desde Garmin Connect para completar la desconexión.' });
+      return fallar(res);
+    }
+  });
+
   router.get('/status', auth, async (req, res) => {
-    if (!disponible(req.userId)) return res.json({ available: false, connected: false });
+    // Existing users can still see and disconnect their account with intake disabled.
     try {
       const row = await repo.estado(req.userId);
-      return res.json({ available: true, connected: !!row,
+      return res.json({ available: disponible(req.userId), connected: !!row,
         connected_at: row?.connected_at || null, permissions: row?.permissions || [],
-        activities_enabled: false });
+        activities_enabled: !!row && disponible(req.userId) && row.permissions?.includes('ACTIVITY_EXPORT') && actividadesGarminActivas(env) });
     } catch { return fallar(res); }
   });
 

@@ -460,7 +460,7 @@ test('marca nueva siempre distinta de la leída (aunque el generador repita el v
   assert.equal(distintaDe('2026-09-12T12:00:00.000123Z', '2026-09-12T12:00:00.000123+00:00'), '2026-09-12T12:00:00.000124Z');
   assert.equal(distintaDe('2026-09-12T12:00:00.999999Z', '2026-09-12 12:00:00.999999+00'), '2026-09-12T12:00:01.000000Z');
   assert.equal(aMicros('2026-09-12T14:00:00.5+02:00'), aMicros('2026-09-12T12:00:00.500000Z'));
-  assert.equal(distintaDe('2026-09-12T12:00:00.000123Z', '2026-09-12T12:00:00.000124+00:00'), '2026-09-12T12:00:00.000123Z');
+  assert.equal(distintaDe('2026-09-12T12:00:00.000123Z', '2026-09-12T12:00:00.000124+00:00'), '2026-09-12T12:00:00.000125Z');
   const s = montar({ ucs: [{ ...UC1(), recalculo_pendiente_desde: '2026-09-12T12:00:00.000001Z' }] });
   const m = await tomarMarca({ repo: s.repo, id: 'uc1', marcaLeida: '2026-09-12T12:00:00.000001Z', ahoraMs: AHORA, generarMarca: () => '2026-09-12T12:00:00.000001Z' });
   assert.equal(m.propia, false);

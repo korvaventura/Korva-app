@@ -18,7 +18,7 @@
 // no soy dueño. En los dos casos la marca sobrevive hasta un recálculo completo. Solapamientos,
 // reinicios y caídas en cualquier punto terminan en "marca presente → la recuperación converge".
 //
-// La marca nueva SIEMPRE es distinta de la leída: así una renovación cambia el valor aunque los
+// La marca nueva SIEMPRE es posterior a la leída: así una renovación cambia el valor aunque los
 // microsegundos aleatorios coincidan, y el borrado de quien la puso antes falla.
 //
 // Límite conocido (documentado): la recuperación solo toma marcas de más de 2 minutos, y el writer
@@ -57,15 +57,18 @@ const aMicros = (texto) => {
 const deMicros = (us) => `${new Date(Math.floor(us / 1000)).toISOString().slice(0, -1)}${String(us % 1000).padStart(3, '0')}Z`;
 
 /**
- * Devuelve `marca` si representa un instante distinto de `leida`; si es el mismo instante
- * (aunque esté escrito distinto: "Z" vs "+00:00"), la corre 1 microsegundo.
+ * Devuelve `marca` si representa un instante distinto de `leida`; si no supera el instante leído
+ * (aunque esté escrito distinto: "Z" vs "+00:00"), la coloca 1 microsegundo después de la leída.
  */
 const distintaDe = (marca, leida) => {
   if (leida === null || leida === undefined) return marca;
   const a = aMicros(marca);
   const b = aMicros(leida);
   if (a === null || b === null) return marca === leida ? deMicros(Date.now() * 1000) : marca;
-  return a === b ? deMicros(a + 1) : marca;
+  // A → B → A is unsafe: a delayed owner of A could clear another writer's mark.
+  // Every renewal must advance beyond the mark it replaced, even if a supplied
+  // request clock moved backwards or the random microsecond suffix repeats.
+  return a <= b ? deMicros(b + 1) : marca;
 };
 
 const INTENTOS_MARCAR = 4;

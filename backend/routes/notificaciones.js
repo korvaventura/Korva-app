@@ -1,9 +1,9 @@
-const enviarPushNotification = async (pushToken, title, body) => {
+const enviarPushNotification = async (pushToken, title, body, data = null) => {
   try {
     await fetch('https://exp.host/--/api/v2/push/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to: pushToken, title, body, sound: 'default' }),
+      body: JSON.stringify({ to: pushToken, title, body, sound: 'default', ...(data ? { data } : {}) }),
     });
   } catch (error) {
     console.error('Error enviando push notification:', error);
@@ -38,7 +38,9 @@ const CHECKPOINTS = {
  * Evalúa el progreso y manda UNA sola notificación por actividad.
  * Prioridad: completado > checkpoint nuevo > hito % > confirmación km
  */
-const enviarNotificacionProgreso = async (supabase, userId, challengeId, challengeTitle, kmAntesFloat, kmDespuesFloat, distanciaTotal) => {
+// compartir (opcional): { external_id } de una salida de Strava. Tocar el aviso abre la
+// pantalla para compartir esa salida en la app (no se manda un aviso aparte).
+const enviarNotificacionProgreso = async (supabase, userId, challengeId, challengeTitle, kmAntesFloat, kmDespuesFloat, distanciaTotal, compartir = null) => {
   try {
     const { data: usuario } = await supabase
       .from('users')
@@ -53,6 +55,9 @@ const enviarNotificacionProgreso = async (supabase, userId, challengeId, challen
     const pctAntes = (kmAntesFloat / distanciaTotal) * 100;
     const pctDespues = Math.min((kmDespuesFloat / distanciaTotal) * 100, 100);
     const kmRegistrados = (kmDespuesFloat - kmAntesFloat).toFixed(1);
+    const data = compartir?.external_id
+      ? { tipo: 'compartir_actividad', external_id: String(compartir.external_id), challenge_id: challengeId }
+      : null;
 
     // 1. RETO COMPLETADO
     if (pctAntes < 100 && pctDespues >= 100) {
@@ -84,7 +89,8 @@ const enviarNotificacionProgreso = async (supabase, userId, challengeId, challen
     if (checkpointNuevo) {
       await enviarPushNotification(token,
         `${checkpointNuevo.emoji} ¡${checkpointNuevo.nombre} desbloqueado!`,
-        `Llevas ${kmDespuesFloat.toFixed(1)}km en ${challengeTitle}. ¡Seguí así${nombre ? `, ${nombre}` : ''}!`
+        `Llevas ${kmDespuesFloat.toFixed(1)}km en ${challengeTitle}. ¡Seguí así${nombre ? `, ${nombre}` : ''}!`,
+        data
       );
       return;
     }
@@ -98,7 +104,7 @@ const enviarNotificacionProgreso = async (supabase, userId, challengeId, challen
 
     for (const hito of hitos) {
       if (pctAntes < hito.pct && pctDespues >= hito.pct) {
-        await enviarPushNotification(token, hito.title, hito.body);
+        await enviarPushNotification(token, hito.title, hito.body, data);
         return;
       }
     }
@@ -107,7 +113,10 @@ const enviarNotificacionProgreso = async (supabase, userId, challengeId, challen
     if (parseFloat(kmRegistrados) > 0) {
       await enviarPushNotification(token,
         `✅ +${kmRegistrados} km registrados`,
-        `${pctDespues.toFixed(0)}% de ${challengeTitle} completado. ¡Muy bien${nombre ? `, ${nombre}` : ''}!`
+        data
+          ? `${pctDespues.toFixed(0)}% de ${challengeTitle}. Tocá para compartir tu salida.`
+          : `${pctDespues.toFixed(0)}% de ${challengeTitle} completado. ¡Muy bien${nombre ? `, ${nombre}` : ''}!`,
+        data
       );
     }
 
