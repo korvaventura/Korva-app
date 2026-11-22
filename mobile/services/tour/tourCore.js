@@ -23,8 +23,10 @@ const PASOS = [
     texto: 'Si una salida se cargó dos veces, borrala acá con la papelera.' },
   { id: 'direccion', pantalla: 'Perfil', titulo: 'Dirección de envío',
     texto: 'Cuando completes un desafío, estos datos le llegan a nuestro equipo para enviarte la medalla. No son públicos: los demás participantes no los ven.' },
-  { id: 'tab-Catalogo', tab: 'Catalogo', titulo: 'Catálogo',
-    texto: 'Elegí tu próxima aventura. Islandia es una ruta libre, sin costo.' },
+  { id: 'catalogo', objetivo: 'catalogo-desafio', pantalla: 'Catalogo', titulo: 'Catálogo',
+    texto: 'Acá están todos los desafíos. Tocá "Explorar ruta" para ver el recorrido completo antes de elegir. Islandia es una ruta libre, sin costo.' },
+  { id: 'catalogo-tienda', objetivo: 'catalogo-tienda', pantalla: 'Catalogo', titulo: 'Comprá tu desafío',
+    texto: '"Ver en la tienda" te lleva a nuestra tienda online: ahí comprás el desafío con su medalla física y ves el precio final y el envío.' },
   { id: 'fin', titulo: '¡Listo!', texto: 'Ya sabés moverte por Korva. Podés volver a ver este recorrido desde el botón "?" del Inicio.' },
 ];
 

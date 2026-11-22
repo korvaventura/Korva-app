@@ -9,7 +9,7 @@ const pantalla = { width: 390, height: 844 };
 
 test('los pasos cubren lo importante de Korva y terminan con un cierre', () => {
   const ids = T.PASOS.map((p) => p.id);
-  assert.deepEqual(ids, ['desafio', 'mundi', 'comoSumas', 'conectar', 'registrar-gps', 'gps-mapa', 'registrar-manual', 'actividades', 'direccion', 'tab-Catalogo', 'fin']);
+  assert.deepEqual(ids, ['desafio', 'mundi', 'comoSumas', 'conectar', 'registrar-gps', 'gps-mapa', 'registrar-manual', 'actividades', 'direccion', 'catalogo', 'catalogo-tienda', 'fin']);
   assert.equal(T.PASOS.find((p) => p.id === 'gps-mapa').stack, 'GpsTracker');
   assert.equal(T.PASOS.find((p) => p.id === 'registrar-manual').objetivo, 'registrar');
   assert.equal(T.PASOS.find((p) => p.id === 'mundi').stack, 'KorvaMundi');

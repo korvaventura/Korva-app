@@ -11,12 +11,17 @@ import { precioReferencia } from '../utils/precioCatalogo';
 import { colors } from '../theme/korvaTheme';
 import IslandiaInvitacion from '../components/IslandiaInvitacion';
 import useRutaLibre from '../services/useRutaLibre';
+import { useTourScroll, useTourTarget } from '../components/tour/Tour';
 const BACKEND_URL = 'https://korva-app-production.up.railway.app';
 
 export default function CatalogoScreen() {
   // Islandia, la ruta gratuita, fija arriba del catálogo para quien no la empezó.
   const { estado: rutaLibre } = useRutaLibre();
   const navigation = useNavigation();
+  const scrollRef = useRef(null);
+  const alDesplazarTour = useTourScroll('Catalogo', scrollRef);
+  const refTourDesafio = useTourTarget('catalogo-desafio');
+  const refTourTienda = useTourTarget('catalogo-tienda');
   const [challenges, setChallenges] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(false);
@@ -103,7 +108,7 @@ export default function CatalogoScreen() {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.container} onScroll={alDesplazarTour} scrollEventThrottle={64}>
         <Text style={styles.eyebrow}>TU PRÓXIMA AVENTURA</Text>
         <Text style={styles.title}>Catálogo</Text>
         <Text style={styles.subtitle}>Elegí una ruta. Completala a tu ritmo.</Text>
@@ -116,11 +121,11 @@ export default function CatalogoScreen() {
         </View>
         {cargando ? <ActivityIndicator color={colors.actionBlue} style={{ marginVertical: 32 }} /> : error ? (
           <View style={styles.empty}><Text style={styles.noteText}>No pudimos cargar el catálogo.</Text><TouchableOpacity style={styles.detailButton} onPress={cargarChallenges}><Text style={styles.detailText}>Reintentar</Text></TouchableOpacity></View>
-        ) : challenges.length === 0 ? <Text style={styles.noteText}>No hay desafíos disponibles por el momento.</Text> : challenges.map((item) => {
+        ) : challenges.length === 0 ? <Text style={styles.noteText}>No hay desafíos disponibles por el momento.</Text> : challenges.map((item, i) => {
           const inscripcion = misDesafios.find((uc) => uc.challenge_id === item.id);
           const precio = precioReferencia(item);
           return (
-            <View key={item.id} style={styles.card}>
+            <View key={item.id} style={styles.card} ref={i === 0 ? refTourDesafio : undefined} collapsable={false}>
               <TouchableOpacity onPress={() => abrirDetalle(item)} accessibilityRole="button" accessibilityLabel={`Explorar ${item.title}`}>
                 <View style={styles.imageWrapper}>
                   {item.medal_image_url ? <Image source={{ uri: item.medal_image_url }} style={styles.image} resizeMode="contain" /> : <View style={styles.imagePlaceholder}><Ionicons name="medal-outline" size={52} color={colors.textMuted} /></View>}
@@ -135,7 +140,7 @@ export default function CatalogoScreen() {
                 <View style={styles.priceRow}><Text style={styles.price}>{precio ? `Referencia · ${precio}` : 'Consultar precio en la tienda'}</Text><Ionicons name="bag-outline" size={16} color={colors.textMuted} /></View>
                 <View style={styles.buttons}>
                   <TouchableOpacity style={styles.detailButton} onPress={() => abrirDetalle(item)}><Text style={styles.detailText}>Explorar ruta</Text></TouchableOpacity>
-                  <TouchableOpacity style={styles.storeButton} onPress={() => prepararTienda(item)}><Text style={styles.storeText}>Ver en la tienda</Text><Ionicons name="open-outline" size={15} color={colors.text} /></TouchableOpacity>
+                  <TouchableOpacity style={styles.storeButton} onPress={() => prepararTienda(item)} ref={i === 0 ? refTourTienda : undefined} collapsable={false}><Text style={styles.storeText}>Ver en la tienda</Text><Ionicons name="open-outline" size={15} color={colors.text} /></TouchableOpacity>
                 </View>
               </View>
             </View>

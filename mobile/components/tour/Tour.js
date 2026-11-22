@@ -1,5 +1,5 @@
 import { Component, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { initialWindowMetrics } from 'react-native-safe-area-context';
 import { colors } from '../../theme/korvaTheme';
 import { PASOS, desplazamientoNecesario, huecoOverlay, posicionGlobo, rectTab, rectCambio, textoPaso } from '../../services/tour/tourCore';
@@ -179,7 +179,7 @@ function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, acc
     let vivo = true;
     const id = setInterval(async () => {
       const r = await medir(objetivos.current.get(clave2));
-      if (!vivo || !r || !rectCambio(rect, r)) return;
+      if (!vivo || !r || !rectCambio(rect, r, 4)) return;
       // Si la pantalla se acomodó (cargaron datos) y el elemento se fue de lugar,
       // lo volvemos a dejar arriba en vez de seguirlo hasta el fondo.
       const movido = actual.pantalla ? await llevarArriba(actual.pantalla, clave2, r) : null;
@@ -190,25 +190,52 @@ function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, acc
     return () => { vivo = false; clearInterval(id); };
   }, [listo, rect, paso]);
 
+  // Transición suave entre pasos: el recuadro y el globo se desvanecen mientras
+  // la pantalla se prepara detrás del velo, y aparecen cuando está todo quieto.
+  const aparicion = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(aparicion, { toValue: listo ? 1 : 0, duration: listo ? 240 : 140, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [listo]);
+  // El recuadro se desliza al nuevo lugar en vez de saltar.
+  const marcoAnim = useRef(null);
+  if (!marcoAnim.current) marcoAnim.current = { x: new Animated.Value(0), y: new Animated.Value(0), w: new Animated.Value(0), h: new Animated.Value(0), listoAntes: false };
+  useEffect(() => {
+    const m = marcoAnim.current;
+    if (!rect) { m.listoAntes = false; return; }
+    const destino = { x: rect.x, y: rect.y, w: rect.width, h: rect.height };
+    // Recién aparece (venía tapado): se ubica directo. Ya visible: se desliza.
+    const recien = !m.listoAntes;
+    m.listoAntes = listo;
+    if (!listo || recien) { Object.keys(destino).forEach((k) => m[k].setValue(destino[k])); return; }
+    Animated.parallel(Object.keys(destino).map((k) => Animated.timing(m[k], { toValue: destino[k], duration: 180, easing: Easing.out(Easing.cubic), useNativeDriver: false }))).start();
+  }, [rect, listo]);
+
   // Nunca cambiar estado durante el dibujado (eso era lo que rompía el tutorial viejo).
   useEffect(() => { if (!actual) terminar(); }, [actual, terminar]);
   if (!actual) return null;
-  const huecos = huecoOverlay(listo ? rect : null, pantalla);
+  const huecos = huecoOverlay(rect, pantalla);
   const globo = posicionGlobo(listo ? rect : null, pantalla);
   const ultimo = paso === PASOS.length - 1;
   const textos = textoPaso(actual, datos.current);
   const total = PASOS.length - 1;
+  const conHueco = !!rect && actual.id !== 'fin';
+  const m = marcoAnim.current;
+  const subir = aparicion.interpolate({ inputRange: [0, 1], outputRange: [8, 0] });
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {huecos.map((h, i) => (
-        <View key={i} style={[styles.velo, { left: h.x, top: h.y, width: h.w, height: h.h }]} />
-      ))}
-      {listo && !!rect && (
-        <View pointerEvents="none" style={[styles.marco, { left: rect.x - 8, top: rect.y - 8, width: rect.width + 16, height: rect.height + 16 }]} />
+      {/* Velo completo mientras se prepara el paso; con hueco cuando está listo. Se cruzan suave. */}
+      <Animated.View pointerEvents={conHueco && listo ? 'none' : 'auto'} style={[StyleSheet.absoluteFill, styles.veloLleno, { opacity: conHueco ? aparicion.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) : 1 }]} />
+      {conHueco && (
+        <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { opacity: aparicion }]}>
+          {huecos.map((h, i) => (
+            <View key={i} style={[styles.velo, { left: h.x, top: h.y, width: h.w, height: h.h }]} />
+          ))}
+          <Animated.View pointerEvents="none" style={[styles.marco, { left: Animated.subtract(m.x, 8), top: Animated.subtract(m.y, 8), width: Animated.add(m.w, 16), height: Animated.add(m.h, 16) }]} />
+        </Animated.View>
       )}
       {listo && (
-        <View style={[styles.globo, globo]}>
+        <Animated.View style={[styles.globo, globo, { opacity: aparicion, transform: [{ translateY: subir }] }]}>
           {!ultimo && <Text style={styles.contador}>{paso + 1} DE {total}</Text>}
           <Text style={styles.titulo}>{textos.titulo}</Text>
           <Text style={styles.texto}>{textos.texto}</Text>
@@ -227,7 +254,7 @@ function Overlay({ paso, setPaso, rect, setRect, listo, setListo, objetivos, acc
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </Animated.View>
       )}
     </View>
   );
@@ -273,6 +300,7 @@ export function useTour() {
 
 const styles = StyleSheet.create({
   velo: { position: 'absolute', backgroundColor: 'rgba(2,8,15,0.78)' },
+  veloLleno: { backgroundColor: 'rgba(2,8,15,0.78)' },
   marco: { position: 'absolute', borderRadius: 18, borderWidth: 2, borderColor: colors.brandOrange },
   globo: { position: 'absolute', left: 20, right: 20, backgroundColor: colors.surface, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: colors.borderSoft },
   contador: { color: colors.brandOrange, fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
