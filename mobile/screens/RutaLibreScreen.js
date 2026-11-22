@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import MapaRecorrido from './MapaRecorrido';
 import KorvaProgressShare from '../components/KorvaProgressShare';
 import HistorialActividades from '../components/HistorialActividades';
+const { fetchConTiempo } = require('../services/fetchConTiempo');
 import useRutaLibre from '../services/useRutaLibre';
 import { consultarRutaLibre } from '../services/rutasLibresApi';
 import { supabase } from '../supabase';
@@ -28,6 +29,8 @@ export default function RutaLibreScreen({ navigation, route }) {
   const [error, setError] = useState('');
   const [actividades, setActividades] = useState([]);
   const [cargandoAct, setCargandoAct] = useState(true);
+  const [errorAct, setErrorAct] = useState(false);
+  const [intentoAct, setIntentoAct] = useState(0);
   const [mapaActivo, setMapaActivo] = useState(false);
   const [verCapitulos, setVerCapitulos] = useState(false);
   const scroll = useRef(null), scrollY = useRef(0), pendiente = useRef(false), vivo = useRef(false);
@@ -52,21 +55,23 @@ export default function RutaLibreScreen({ navigation, route }) {
     if (!activa || !p?.started_at) { setCargandoAct(false); setActividades([]); return; }
     let vigente = true;
     (async () => {
+      setErrorAct(false);
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) return;
-        const res = await fetch(`${BACKEND_URL}/actividades`, { headers: { Authorization: `Bearer ${session.access_token}` } });
-        const lista = res.ok ? await res.json() : [];
+        const res = await fetchConTiempo(`${BACKEND_URL}/actividades`, { headers: { Authorization: `Bearer ${session.access_token}` } });
+        if (!res.ok) throw new Error('No pudimos cargar tus actividades.');
+        const lista = await res.json();
         const desde = new Date(p.started_at);
         if (vigente) setActividades((Array.isArray(lista) ? lista : []).filter((a) => a && !a.excluida && new Date(a.recorded_at) >= desde));
       } catch {
-        if (vigente) setActividades([]);
+        if (vigente) setErrorAct(true);
       } finally {
         if (vigente) setCargandoAct(false);
       }
     })();
     return () => { vigente = false; };
-  }, [activa, p?.started_at, p?.km]);
+  }, [activa, p?.started_at, p?.km, intentoAct]);
 
   const actuar = async (accion) => {
     if (pendiente.current || !estado.datos) return;
@@ -157,7 +162,7 @@ export default function RutaLibreScreen({ navigation, route }) {
 
         {/* Lo más usado primero: las salidas, con su botón para compartir. */}
         {!abrirRuta && activa && (
-          <HistorialActividades actividades={actividades} cargando={cargandoAct} distanciaTotal={1400} reto={reto} navigation={navigation} />
+          <HistorialActividades actividades={actividades} cargando={cargandoAct} error={errorAct} onReintentar={() => { setCargandoAct(true); setIntentoAct((n) => n + 1); }} distanciaTotal={1400} reto={reto} navigation={navigation} />
         )}
 
         {(abrirRuta || !activa) && (

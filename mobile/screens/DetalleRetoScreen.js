@@ -11,6 +11,7 @@ import KorvaCompletedShare from '../components/KorvaCompletedShare';
 import KorvaProgressShare from '../components/KorvaProgressShare';
 import MapaRecorrido from './MapaRecorrido';
 import HistorialActividades from '../components/HistorialActividades';
+const { fetchConTiempo } = require('../services/fetchConTiempo');
 const { formatoKm, urlsFondo } = require('../services/compartirCore');
 
 const iconoDeporte = (tipo) => ({ ride: 'bicycle-outline', run: 'fitness-outline', swim: 'water-outline', walk: 'walk-outline' }[tipo] || 'pulse-outline');
@@ -78,6 +79,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
   const rutaY = useRef(0);
   const [actividades, setActividades] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [errorActividades, setErrorActividades] = useState(false);
   const [metaFecha, setMetaFecha] = useState(item?.meta_fecha || '');
   const [editandoFecha, setEditandoFecha] = useState(false);
   const [inputFecha, setInputFecha] = useState('');
@@ -134,6 +136,8 @@ export default function DetalleRetoScreen({ route, navigation }) {
   };
 
   const cargarActividades = async () => {
+    setCargando(true);
+    setErrorActividades(false);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -142,15 +146,16 @@ export default function DetalleRetoScreen({ route, navigation }) {
         return;
       }
       const url = `${BACKEND_URL}/progreso-desglose/${item.challenge_id}/actividades`;
-      const res = await fetch(url, {
+      const res = await fetchConTiempo(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error || 'No se pudo cargar la historia del desafío');
       setActividades(Array.isArray(data?.actividades) ? data.actividades : []);
     } catch (error) {
-      console.error('Error cargando historia del desafío:', error);
-      setActividades([]);
+      // Aviso en la pantalla con Reintentar (no "Sin actividades", que confunde).
+      console.warn('Historia del desafío sin cargar:', error?.message);
+      setErrorActividades(true);
     } finally {
       setCargando(false);
     }
@@ -308,7 +313,7 @@ export default function DetalleRetoScreen({ route, navigation }) {
 
       {/* Lo más usado primero: las salidas, con su botón para compartir. */}
       {!abrirRuta && (
-        <HistorialActividades actividades={actividades} cargando={cargando} distanciaTotal={distanciaTotal}
+        <HistorialActividades actividades={actividades} cargando={cargando} error={errorActividades} onReintentar={cargarActividades} distanciaTotal={distanciaTotal}
           reto={itemNormalizado} navigation={navigation} />
       )}
 

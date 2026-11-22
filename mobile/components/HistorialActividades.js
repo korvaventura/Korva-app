@@ -27,7 +27,7 @@ const hitoActividad = (actividad, index, acumulado, total) => {
 // última salida, cada una con su botón para compartir. Igual en todos los desafíos.
 // actividades: en cualquier orden; se muestran de la más reciente a la más vieja.
 // reto: { challenge_id, challenge, km_completados, distancia_total } para abrir compartir en ese desafío.
-export default function HistorialActividades({ actividades = [], cargando = false, distanciaTotal = 0, reto = null, navigation }) {
+export default function HistorialActividades({ actividades = [], cargando = false, error = false, onReintentar, distanciaTotal = 0, reto = null, navigation }) {
   let acumulado = 0;
   // El acumulado se calcula de la primera a la última; se muestran de la más
   // reciente a la más vieja, así la última salida queda arriba, lista para compartir.
@@ -39,10 +39,21 @@ export default function HistorialActividades({ actividades = [], cargando = fals
     <View style={s.seccion}>
       <View style={s.cabecera}>
         <Text style={s.titulo}>Actividades registradas</Text>
-        {!cargando && <Text style={s.cantidad}>{lista.length}</Text>}
+        {!cargando && !error && <Text style={s.cantidad}>{lista.length}</Text>}
       </View>
       {cargando ? (
         <ActivityIndicator color={colors.brandOrange} />
+      ) : error ? (
+        <View style={s.vacio}>
+          <Ionicons name="cloud-offline-outline" size={28} color={colors.textMuted} style={{ marginBottom: spacing.md }} />
+          <Text style={s.vacioTitulo}>No pudimos cargar tus actividades</Text>
+          <Text style={s.vacioTexto}>Tus km están a salvo. Probá de nuevo en un momento.</Text>
+          {!!onReintentar && (
+            <TouchableOpacity onPress={onReintentar} hitSlop={10} style={{ marginTop: spacing.md }} accessibilityRole="button">
+              <Text style={s.reintentar}>Reintentar</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       ) : lista.length === 0 ? (
         <View style={s.vacio}>
           <Ionicons name="flag-outline" size={28} color={colors.brandOrangeSoft} style={{ marginBottom: spacing.md }} />
@@ -88,6 +99,7 @@ const s = StyleSheet.create({
   cantidad: { color: colors.textMuted, fontSize: 12, fontWeight: '700', backgroundColor: colors.surfaceSoft, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.pill },
   vacio: { backgroundColor: colors.surfaceSoft, borderRadius: radius.lg, padding: spacing.xxl, alignItems: 'center' },
   vacioTitulo: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
+  reintentar: { color: colors.actionBlue, fontSize: 13, fontWeight: '800' },
   vacioTexto: { fontSize: 12, lineHeight: 18, color: colors.textMuted, textAlign: 'center' },
   item: { flexDirection: 'row', gap: spacing.md },
   izq: { alignItems: 'center', width: 32 },
