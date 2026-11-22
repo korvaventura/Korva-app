@@ -43,6 +43,7 @@
     },
     "plugins": [
       "@bacons/apple-targets",
+      "./plugins/withPantallaVerticalOpcional",
       "expo-web-browser",
       "expo-secure-store",
       [
