@@ -1064,13 +1064,15 @@ function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, meta
             {item.participacion.estado === 'pausada' ? 'Ruta libre · pausada' : item.participacion.estado === 'completada' ? 'Ruta libre · completada' : 'Ruta libre · sin medalla'}
           </Text>
         </View>
-        <TouchableOpacity style={styles.heroHistoria} onPress={() => navigation.navigate('RutaLibre')} activeOpacity={0.72}>
-          <Text style={styles.heroHistoriaText}>Historia del desafío</Text>
-          <Ionicons name="arrow-forward" size={13} color={colors.actionBlue} />
-        </TouchableOpacity>
+        <MapaRecorrido challengeId="3b211caf-ee16-54c8-a93c-343a5eb2d57e" challengeTitle="Islandia · Ring Road"
+          kmCompletados={item.participacion.km} distanciaTotal={1400} porcentaje={item.participacion.porcentaje} enTarjeta
+          accionDerecha={(
+            <TouchableOpacity style={styles.heroHistoriaLink} onPress={() => navigation.navigate('RutaLibre')} activeOpacity={0.72} hitSlop={10}>
+              <Text style={styles.heroHistoriaText}>Historia del desafío</Text>
+              <Ionicons name="arrow-forward" size={13} color={colors.actionBlue} />
+            </TouchableOpacity>
+          )} />
       </View>
-      <MapaRecorrido challengeId="3b211caf-ee16-54c8-a93c-343a5eb2d57e" challengeTitle="Islandia · Ring Road"
-        kmCompletados={item.participacion.km} distanciaTotal={1400} porcentaje={item.participacion.porcentaje} integrado />
     </View>
   );
   const challengeId = item.challenge_id;
@@ -1119,25 +1121,22 @@ function RetoCard({ item, index, nombre, nombrePersona, userId, navigation, meta
               : <Text style={styles.heroFooterMuted}>Completalo a tu ritmo</Text>}
             {estaCompletado && <Text style={styles.shareCompletadoBadge}>🏅 Completado</Text>}
           </View>
-          <TouchableOpacity
-            style={styles.heroHistoria}
-            onPress={() => navigation.navigate('DetalleReto', { item, userId, nombrePersona })}
-            activeOpacity={0.72}
-          >
-            <Text style={styles.heroHistoriaText}>Historia del desafío</Text>
-            <Ionicons name="arrow-forward" size={13} color={colors.actionBlue} />
-          </TouchableOpacity>
+          <MapaRecorrido
+            kmCompletados={item.km_completados}
+            distanciaTotal={item.distancia_total}
+            porcentaje={pct}
+            challengeId={item.challenge_id}
+            challengeTitle={item.challenge}
+            enTarjeta
+            accionDerecha={(
+              <TouchableOpacity style={styles.heroHistoriaLink} onPress={() => navigation.navigate('DetalleReto', { item, userId, nombrePersona })} activeOpacity={0.72} hitSlop={10}>
+                <Text style={styles.heroHistoriaText}>Historia del desafío</Text>
+                <Ionicons name="arrow-forward" size={13} color={colors.actionBlue} />
+              </TouchableOpacity>
+            )}
+          />
         </View>
 
-
-      <MapaRecorrido
-          kmCompletados={item.km_completados}
-          distanciaTotal={item.distancia_total}
-          porcentaje={pct}
-          challengeId={item.challenge_id}
-          challengeTitle={item.challenge}
-          integrado
-        />
 
       {mostrarCardMeta && (
         <View style={styles.metaCard}>
@@ -1328,6 +1327,7 @@ const styles = StyleSheet.create({
   gpsHeroHint: { color: colors.textDim, fontSize: 9, lineHeight: 13 },
   heroHistoria: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.borderSoft, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   heroHistoriaText: { color: colors.actionBlue, fontSize: 11, fontWeight: '800' },
+  heroHistoriaLink: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   scrollCue: { alignSelf: 'center', alignItems: 'center', minHeight: 44, paddingHorizontal: 24, paddingVertical: 10, marginBottom: 12 },
   scrollCueText: { color: colors.textMuted, fontSize: 10, marginBottom: 2 },
   shareFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.background, paddingTop: 12 },

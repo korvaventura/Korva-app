@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, Animated, 
 import Svg, { Path, Circle, Rect, Text as SvgText, Defs, LinearGradient, Stop, Mask, Ellipse, Polygon, G } from 'react-native-svg';
 import MapaConGlobo from '../components/MapaConGlobo';
 import { escenaParaConfig } from '../services/mapa3d/escenas';
+const { formatoKm } = require('../services/compartirCore');
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const MAPA_WIDTH_VIRTUAL = 800;
@@ -615,7 +616,7 @@ function MapaSVG({ config, kmFisicos, pinPos, rutaBasePath, pathCompletado, puls
   );
 }
 
-export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, actividades = [], onScrollBegin, onScrollEnd, fullscreen = false, integrado = false, ocultarTitulo = false, alturaMapa = 455, onHistoriaAbierta, onInteraccionMapa, pantallaFija = false }) {
+export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaje, challengeId, challengeTitle, actividades = [], onScrollBegin, onScrollEnd, fullscreen = false, integrado = false, enTarjeta = false, accionDerecha = null, ocultarTitulo = false, alturaMapa = 455, onHistoriaAbierta, onInteraccionMapa, pantallaFija = false }) {
   const [cpSeleccionado, setCpSeleccionado] = useState(null);
   const [modalMapaVisible, setModalMapaVisible] = useState(false);
   const [altoModal, setAltoModal] = useState(Dimensions.get('window').height - 140);
@@ -709,6 +710,44 @@ export default function MapaRecorrido({ kmCompletados, distanciaTotal, porcentaj
     const proximo = checkpoints.find((cp) => (cp.kmFisico * factor) > kmActual);
     const proximoKm = proximo ? proximo.kmFisico * factor : total;
     const faltan = Math.max(0, proximoKm - kmActual);
+
+    // Dentro de la tarjeta "Tu aventura" de Inicio: una línea con el próximo punto
+    // y el pie con Ver mapa (a la izquierda) y lo que pase la tarjeta (a la derecha).
+    const modalMapa = modalMapaVisible && (
+      <Modal visible transparent={false} animationType="slide" onRequestClose={() => setModalMapaVisible(false)}>
+        <View style={styles.fullscreenContainer}>
+          <View style={styles.fullscreenHeader}>
+            <Text style={styles.fullscreenTitulo}>{titulo}</Text>
+            <TouchableOpacity style={styles.cerrarBtn} onPress={() => setModalMapaVisible(false)}>
+              <Text style={styles.cerrarBtnText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <ContenedorMapa style={{ flex: 1 }} {...propsContenedor} onLayout={(e) => setAltoModal(e.nativeEvent.layout.height)}>
+            <MapaRecorrido fullscreen ocultarTitulo pantallaFija={!!modal3D} alturaMapa={altoMapaModal}
+              kmCompletados={kmCompletados} distanciaTotal={distanciaTotal} porcentaje={porcentaje}
+              challengeId={challengeId} challengeTitle={challengeTitle} actividades={actividades} />
+          </ContenedorMapa>
+        </View>
+      </Modal>
+    );
+    if (enTarjeta) {
+      return (
+        <View>
+          <TouchableOpacity onPress={() => setModalMapaVisible(true)} activeOpacity={0.75} style={styles.tarjetaProximo}>
+            <Text style={styles.tarjetaProximoTexto} numberOfLines={1}>
+              {proximo ? `${proximo.emoji} Próximo: ${proximo.nombre} · faltan ${formatoKm(faltan)} km` : '🏁 Llegaste a la meta'}
+            </Text>
+          </TouchableOpacity>
+          <View style={styles.tarjetaPie}>
+            <TouchableOpacity onPress={() => setModalMapaVisible(true)} hitSlop={10} accessibilityRole="button">
+              <Text style={styles.tarjetaVerMapa}>Ver mapa</Text>
+            </TouchableOpacity>
+            {accionDerecha}
+          </View>
+          {modalMapa}
+        </View>
+      );
+    }
 
     return (
       <View style={integrado ? styles.containerIntegrado : styles.container}>
@@ -903,6 +942,10 @@ const styles = StyleSheet.create({
   previewIntegrada: { borderTopWidth: 1, borderTopColor: '#35577A', paddingTop: 13 },
     previewNavCompacta: { paddingTop: 4 },
   previewUbicacion: { color: '#94A3B8', fontSize: 10, marginBottom: 7 },
+  tarjetaProximo: { marginTop: 8 },
+  tarjetaProximoTexto: { color: '#CBD5E1', fontSize: 12, fontWeight: '700' },
+  tarjetaPie: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#2A3F57', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  tarjetaVerMapa: { color: '#67A9FF', fontSize: 11, fontWeight: '800' },
   previewNavFila: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46 },
   previewNavKm: { color: '#F8FAFC', fontSize: 14, fontWeight: '900' },
   previewNavDireccion: { flex: 1, height: 22, flexDirection: 'row', alignItems: 'center' },

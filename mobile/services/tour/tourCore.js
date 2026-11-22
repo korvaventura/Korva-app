@@ -3,7 +3,7 @@
 // pantalla: pestaña donde está el elemento. tab: resaltar el botón de la barra.
 const PASOS = [
   { id: 'desafio', pantalla: 'Mis Retos', titulo: 'Tu desafío',
-    texto: 'Acá ves cuántos km llevás, tu próximo hito y "Explorar ruta" para abrir el mapa de tu recorrido.' },
+    texto: 'Acá ves cuántos km llevás, cuánto te falta para el próximo punto y "Ver mapa" para abrir tu recorrido.' },
   { id: 'mundi', stack: 'KorvaMundi', titulo: 'Korva Mundi',
     texto: 'Todos los desafíos en un mismo planeta. Girá el globo con el dedo y tocá un punto para ver ese desafío. Desde cualquier mapa podés alejarte hasta acá.' },
   { id: 'comoSumas', pantalla: 'Mis Retos', titulo: 'Tres formas de sumar km',
