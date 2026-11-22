@@ -12,7 +12,12 @@ assert json.loads(rpc('korva_garmin_capture_push',f"'{encoded}',ARRAY[]::uuid[]"
 assert json.loads(rpc('korva_garmin_capture_push',f"'{encoded}',NULL"))['inserted']==1
 e=sql('SELECT id FROM public.garmin_push_events LIMIT 1;')
 assert json.loads(rpc('korva_garmin_import_event',f"'{e}',ARRAY[]::uuid[]"))['result']=='omitido'
-assert json.loads(rpc('korva_garmin_import_event',f"'{e}',NULL"))['result']=='importado'
+# A concurrent manual writer's mark must be renewed, never left available for
+# its stale cleanup. Garmin does not own or clear a mark it found already set.
+sql(f"UPDATE public.user_challenges SET recalculo_pendiente_desde='2027-01-01T00:00:00Z' WHERE user_id='{user}';")
+imported=json.loads(rpc('korva_garmin_import_event',f"'{e}',NULL"))
+assert imported['result']=='importado' and imported['marcas']==[]
+assert sql(f"SELECT bool_and(recalculo_pendiente_desde>'2027-01-01T00:00:00Z'::timestamptz) FROM public.user_challenges WHERE user_id='{user}';")=='t'
 assert sql("SELECT count(*) FROM public.activities WHERE source='garmin';")=='1'
 def consent(kind,perms=None,time='2026-11-21T23:00:00Z'):
  rows=[{'garmin_user_id':'public-account','permissions':perms or [],'changed_at':time}]
