@@ -73,7 +73,7 @@ test('Garmin start requires authentication, configured keys and the test account
   await server(async ({ request }) => {
     assert.equal((await request('auth', { method: 'POST' })).status, 401);
     assert.equal((await request('auth', { method: 'POST', headers: { Authorization: 'Bearer other' } })).status, 404);
-    assert.deepEqual(JSON.parse((await request('status', { headers: { Authorization: 'Bearer other' } })).text), { available: false, connected: false });
+    assert.deepEqual(JSON.parse((await request('status', { headers: { Authorization: 'Bearer other' } })).text), { available: false, connected: false, connected_at: null, permissions: [], activities_enabled: false });
   });
   for (const config of [{ GARMIN_OAUTH_ENABLED: '0' }, { GARMIN_TOKEN_ENCRYPTION_KEY: '' }]) {
     await server(async ({ begin, repo }) => { assert.equal((await begin()).start.status, 404); assert.equal(repo.attempts.size, 0); }, { env: config });
@@ -265,4 +265,29 @@ test('real Garmin wrapped permissions connect only with valid ACTIVITY_EXPORT co
         : calls === 2 ? { userId: 'garmin' } : payload };
     } });
   }
+});
+
+test('activities_enabled solo con el importador encendido', () => {
+  const { actividadesGarminActivas } = require('../lib/garminOAuth');
+  assert.equal(actividadesGarminActivas({}), false);
+  assert.equal(actividadesGarminActivas({ GARMIN_ACTIVITIES_ENABLED: '1', GARMIN_OAUTH_ENABLED: '1' }), false);
+  assert.equal(actividadesGarminActivas({ GARMIN_ACTIVITIES_ENABLED: '1', GARMIN_PUSH_CAPTURE_ENABLED: '1', GARMIN_OAUTH_ENABLED: '1' }), true);
+});
+
+test('public beta auth/status allow another logged-in account but never anonymous access', async () => {
+ await server(async ({begin,request,repo})=>{
+  const flow=await begin('another-account');assert.equal(flow.start.status,200);
+  assert.equal((await request('status')).status,401);
+  repo.connections.set('another-account',{connected_at:'now',permissions:['ACTIVITY_EXPORT']});
+  const status=JSON.parse((await request('status',{headers:{Authorization:'Bearer another-account'}})).text);
+  assert.equal(status.available,true);assert.equal(status.connected,true);assert.equal(status.activities_enabled,true);
+ },{env:{GARMIN_PUBLIC_BETA_ENABLED:'1',GARMIN_ACTIVITIES_ENABLED:'1',GARMIN_PUSH_CAPTURE_ENABLED:'1'}});
+});
+test('disconnect remains authenticated and available when intake is closed',async()=>{
+ const repo=states();repo.bloquearConexion=async()=>null;
+ await server(async({request})=>{
+  assert.equal((await request('connection',{method:'DELETE'})).status,401);
+  const result=await request('connection?userId=someone-else',{method:'DELETE',headers:{Authorization:'Bearer owner'}});
+  assert.equal(result.status,200);assert.deepEqual(JSON.parse(result.text),{connected:false});
+ },{repo,env:{GARMIN_OAUTH_ENABLED:'0',GARMIN_PUBLIC_BETA_ENABLED:'0'}});
 });
