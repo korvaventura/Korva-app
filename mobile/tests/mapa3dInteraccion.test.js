@@ -128,13 +128,15 @@ test('frame GL: aplica cámara y atmósfera antes de publicar los checkpoints',(
   const start=source.indexOf('  useFrame(() => {');
   const frame=source.slice(start,source.indexOf('  });',start)+5);
   let renderFrame;const events=[];const camera={zoom:1};const controlRef={current:{zoom:.7}};
-  const context=vm.createContext({useFrame:f=>renderFrame=f,camera,controlRef,escena:{id:'san_andres'},size:{width:360,height:600},mundo:{},
+  const demoRef={current:null};
+  const context=vm.createContext({useFrame:f=>renderFrame=f,camera,controlRef,demoRef,escena:{id:'san_andres'},size:{width:360,height:600},mundo:{},
     configurarCamara:(cam,scene,aspect,control)=>{cam.zoom=control.zoom;events.push('camara');},
     actualizarAtmosfera:()=>events.push('atmosfera'),
     onCamaraAplicada:()=>{assert.equal(camera.zoom,controlRef.current.zoom);events.push('puntos');}});
   vm.runInContext(frame,context);
   assert.equal(camera.zoom,1);renderFrame();assert.deepEqual(events,['camara','atmosfera','puntos']);
   controlRef.current={zoom:1.4};renderFrame();assert.equal(camera.zoom,1.4);
+  demoRef.current={activo:true};events.length=0;renderFrame();assert.deepEqual(events,[]);
 });
 
 test('Camino: el cierre espera el zoom completo y termina encuadrando la catedral',()=>{

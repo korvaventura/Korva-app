@@ -5,6 +5,7 @@ import { TourProvider } from './components/tour/Tour';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useState, useEffect } from 'react';
+import { AdminContext } from './context/AdminContext';
 
 import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -227,6 +228,7 @@ export default function App() {
   const esAdmin = ADMINS.includes(usuario.email?.toLowerCase());
 
   return (
+    <AdminContext.Provider value={esAdmin}>
     <TourProvider navigationRef={navigationRef}>
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -247,5 +249,6 @@ export default function App() {
       </Stack.Navigator>
     </NavigationContainer>
     </TourProvider>
+    </AdminContext.Provider>
   );
 }
