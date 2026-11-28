@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Animated, AppState, Easing, Modal, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { Animated, AppState, Easing, Modal, PanResponder, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop, Line } from 'react-native-svg';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import * as THREE from 'three';
@@ -888,6 +888,15 @@ export default function MapaRecorrido3D({
     aplicarCamara();
   }, [kmProgresoReal, aplicarCamara]);
 
+  const gestoSalirDemo = useMemo(() => PanResponder.create({
+    // Horizontal swipe only: taps and the title's long press remain available.
+    onMoveShouldSetPanResponder: (_, g) => g.dx > 12 && g.dx > Math.abs(g.dy) * 1.4,
+    onPanResponderRelease: (_, g) => {
+      if (g.dx >= 80 || (g.dx >= 35 && g.vx >= .65)) salirDemo();
+    },
+    onPanResponderTerminationRequest: () => true,
+  }), [salirDemo]);
+
   const iniciarDemo = () => {
     if (!esAdmin || !mundo || (mundo.modeloMeshy && estadoModelo !== 'listo') || demoActivo) return;
     if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
@@ -961,7 +970,7 @@ export default function MapaRecorrido3D({
     <View
       ref={wrapRef}
       collapsable={false}
-      {...(demoActivo ? {} : touchHandlers)}
+      {...(demoActivo ? gestoSalirDemo.panHandlers : touchHandlers)}
       style={[styles.wrap, { height: limpio ? altoPantalla : Math.max(altura, 455) }, limpio && styles.demoPantalla]}
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
@@ -1143,7 +1152,7 @@ export default function MapaRecorrido3D({
           <Text style={styles.demoTexto}>Pantalla limpia</Text>
           <Switch accessibilityLabel="Pantalla limpia para grabar" value={pantallaLimpia} onValueChange={setPantallaLimpia} />
         </View>
-        <Text style={styles.demoAyuda}>Solo visual. Al llegar, la cámara gira durante 2 s y queda quieta. En pantalla limpia, mantené presionado el nombre para salir.</Text>
+        <Text style={styles.demoAyuda}>Solo visual. Al llegar, la cámara gira durante 2 s y queda quieta. Deslizá hacia la derecha para salir; también podés mantener presionado el nombre.</Text>
         <View style={styles.demoFila}>
           <TouchableOpacity onPress={() => setPanelDemo(false)} style={styles.demoAccion} accessibilityRole="button"><Text style={styles.demoTexto}>Cancelar</Text></TouchableOpacity>
           <TouchableOpacity disabled={!mundo || (mundo.modeloMeshy && estadoModelo !== 'listo')} onPress={iniciarDemo} style={[styles.demoAccion, styles.demoIniciar]} accessibilityRole="button"><Text style={styles.demoTexto}>{!mundo || (mundo.modeloMeshy && estadoModelo !== 'listo') ? 'Cargando mapa…' : 'Iniciar demo'}</Text></TouchableOpacity>

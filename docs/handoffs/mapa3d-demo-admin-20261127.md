@@ -10,7 +10,7 @@ Rama: `feat/mapa3d-demo-admin-20261127`.
 - Ruta construida una sola vez por sesión: el shader revela su longitud progresivamente. Marcador, checkpoints y cámara se actualizan en el frame de Three, sin reconstruir geometría por frame.
 - Vista amplia inicial, descenso y seguimiento amortiguado según la tangente de la ruta. En la meta realiza un giro/acercamiento durante 2 segundos y queda quieto, conservando el 100 % visual hasta salir.
 - Checkpoints con cambio de color y pulso breve al alcanzarlos. En modo limpio se conservan sus puntos, sin etiquetas ni botones.
-- Pantalla limpia abre un modal de pantalla completa con mapa y nombre del desafío; oculta la interfaz externa y la barra de estado. Mantener presionado el nombre durante 900 ms permite salir. En Android también se puede usar Atrás.
+- Pantalla limpia abre un modal de pantalla completa con mapa y nombre del desafío; oculta la interfaz externa y la barra de estado. Para salir, deslizar hacia la derecha (80 puntos, o un gesto rápido de al menos 35). También se puede mantener presionado el nombre durante 900 ms o usar Atrás en Android. No agrega un botón visible.
 - Sin pantalla limpia muestra el avance, el cierre existente y el botón Salir de demo.
 - La demo se pausa si la aplicación pasa a segundo plano. Al salir restaura el último progreso recibido y la cámara anterior. Si se pierde el permiso de admin también sale.
 - No hay llamadas de red, guardados, eventos de selección de checkpoints ni modificaciones de los cálculos reales. Strava, Garmin, Health y backend no cambian.
@@ -49,7 +49,7 @@ No fue necesario cambiar escenas, `MapaRecorrido.js`, `MapaConGlobo.js`, Supabas
 2. Iniciar sesión con una cuenta admin existente y abrir Ver mapa de un desafío. Esperar a que termine la carga de texturas.
 3. Tocar 🎬, dejar 12 segundos y Pantalla limpia. Preparar la grabación de pantalla del teléfono y tocar Iniciar demo.
 4. Comprobar inicio amplio, línea continua, marcador, encendido de checkpoints y llegada con giro. A los 14 segundos la imagen debe quedar quieta.
-5. Mantener presionado el nombre del desafío para salir; comprobar que los kilómetros reales siguen iguales. Repetir con duración distinta y sin pantalla limpia.
+5. Deslizar hacia la derecha para salir, tanto durante el recorrido como al quedar congelado; comprobar que los kilómetros reales siguen iguales. También probar mantener presionado el nombre. Repetir con duración distinta y sin pantalla limpia.
 6. Repetir en Fin del Mundo, Monte Fuji, San Andrés y Dubrovnik; comprobar también un desafío sin kilómetros y uno completado.
 7. Enviar la app a segundo plano durante una demo: al regresar debe continuar sin saltar a la meta.
 8. Entrar con una cuenta común: 🎬 no debe aparecer; Ver mi viaje, checkpoints y gestos deben seguir como antes.
