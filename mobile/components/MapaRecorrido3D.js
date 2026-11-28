@@ -1,13 +1,10 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Animated, AppState, Easing, Modal, PanResponder, StatusBar, StyleSheet, Switch, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop, Line } from 'react-native-svg';
 import { Canvas, useFrame, useThree } from '@react-three/fiber/native';
 import * as THREE from 'three';
 import { cargarTexturasMeshy } from './mapa3d/modeloMeshy';
 import { controlMonumento } from './mapa3d/camaraMonumento';
-import DemoRecorrido from './mapa3d/DemoRecorrido';
-import { useEsAdmin } from '../context/AdminContext';
-import { duracionDemo } from '../services/mapa3d/demoCore';
 import { mostrarMonumentos } from '../services/mapa3d/visibilidadMonumentosCore';
 import { configurarRutaContinua } from './mapa3d/rutaContinua';
 import { colors } from '../theme/korvaTheme';
@@ -57,7 +54,7 @@ function obtenerMundo(escena, horneado) {
   return cacheEscenas.get(escena.id);
 }
 
-function Montaje({ mundo, escena, controlRef, r3fRef, onModeloEstado, onCamaraAplicada, monumentoActivo, demoRef }) {
+function Montaje({ mundo, escena, controlRef, r3fRef, onModeloEstado, onCamaraAplicada, monumentoActivo }) {
   const { camera, size, scene, invalidate } = useThree();
   useLayoutEffect(() => {
     mostrarMonumentos(mundo.monumentos, monumentoActivo);
@@ -91,7 +88,6 @@ function Montaje({ mundo, escena, controlRef, r3fRef, onModeloEstado, onCamaraAp
   // Apply the gesture and publish overlays inside the GL frame that draws
   // the terrain. JS requestAnimationFrame can run while native GL is behind.
   useFrame(() => {
-    if (demoRef.current?.activo) return;
     if (escena.id !== 'san_andres') return;
     configurarCamara(camera, escena, size.width / Math.max(1, size.height), controlRef.current, mundo);
     actualizarAtmosfera(mundo, escena, camera);
@@ -106,7 +102,7 @@ function Montaje({ mundo, escena, controlRef, r3fRef, onModeloEstado, onCamaraAp
   );
 }
 
-function Ruta({ mundo, escena, progresoRef, detalle = false, demoActivo = false }) {
+function Ruta({ mundo, escena, progresoRef, detalle = false }) {
   const { datos, conv } = mundo;
   const total = escena.distanciaKm;
   const grosor = (escena.grosorRuta ?? 1) * (detalle ? .06 : 1);
@@ -114,33 +110,31 @@ function Ruta({ mundo, escena, progresoRef, detalle = false, demoActivo = false 
   const geosRef = useRef({});
   const ultimoRef = useRef({ km: null, tiempo: -Infinity });
   const invalidate = useThree(state => state.invalidate);
-  useEffect(() => { ultimoRef.current.km = null; invalidate(); }, [grosor, demoActivo, invalidate]);
+  useEffect(() => { ultimoRef.current.km = null; invalidate(); }, [grosor, invalidate]);
   const vacia = useMemo(() => new THREE.BufferGeometry(), []);
   const mats = useMemo(() => ({
     pendiente: materialesRuta.pendiente(),
     hecho: materialesRuta.hecho(escena.colorRuta || (escena.id === 'dubrovnik' ? '#44F2DC' : colors.brandOrange)),
     brillo: materialesRuta.brillo(escena.colorRuta || (escena.id === 'dubrovnik' ? '#44F2DC' : colors.brandOrange)),
-  }), [demoActivo]);
+  }), []);
   const avanceContinuo = useMemo(() => ({ value: 0 }), []);
-  if (escena.rutaContinua || demoActivo) {
+  if (escena.rutaContinua) {
     configurarRutaContinua(mats.pendiente, avanceContinuo, false);
     configurarRutaContinua(mats.hecho, avanceContinuo, true);
   }
   const estaticos = useMemo(() => {
-    if(!demoActivo && !datos.visualModeloMeshy && !escena.territorio?.rutaEstatica)return null;
-    // Demo uses one arc-length polyline, matching the marker without rebuilding tubes.
-    const datosRuta = demoActivo ? { ...datos, visualModeloMeshy: true } : datos;
-    const pendiente=geometriaTramo(datosRuta,conv,0,total,.013*grosor);
-    const hecho=geometriaTramo(datosRuta,conv,0,total,.019*grosor);
+    if(!datos.visualModeloMeshy && !escena.territorio?.rutaEstatica)return null;
+    const pendiente=geometriaTramo(datos,conv,0,total,.013*grosor);
+    const hecho=geometriaTramo(datos,conv,0,total,.019*grosor);
     return {pendiente,hecho,brillo:null,fraccion:crearFraccionRuta(datos.ruta,conv),cortar:crearCorteRuta(datos.ruta,conv,hecho.parameters.tubularSegments)};
-  },[datos,conv,total,grosor,demoActivo]);
+  },[datos,conv,total,grosor]);
   useFrame(({ clock }) => {
     const { km, animando } = progresoRef.current;
     const ultimo = ultimoRef.current;
     if (km === ultimo.km) return;
     if(estaticos) {
       const corte=estaticos.cortar(km),count=estaticos.hecho.index.count;
-      if (escena.rutaContinua || demoActivo) {
+      if (escena.rutaContinua) {
         avanceContinuo.value=estaticos.fraccion(km);
       } else {
         estaticos.hecho.setDrawRange(0,corte);
@@ -186,14 +180,13 @@ function Ruta({ mundo, escena, progresoRef, detalle = false, demoActivo = false 
 }
 
 // El overlay nativo puede cambiar sin reconfigurar el contexto GL ni su árbol.
-const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3fRef, progresoRef, alCrear, onModeloEstado, onCamaraAplicada, inspeccion, monumentoActivo, demoRef, demoActivo, demoTerminado, onDemoAvance }) {
+const EscenaCanvas = memo(function EscenaCanvas({ mundo, escena, controlRef, r3fRef, progresoRef, alCrear, onModeloEstado, onCamaraAplicada, inspeccion, monumentoActivo }) {
   const camaraInicial = useMemo(() => ({ fov: escena.camara.fov, near: 0.05, far: 200, position: [0, 6, -10] }), [escena]);
   const opcionesGL = useMemo(() => ({ alpha: true, antialias: true }), []);
   return (
-    <Canvas style={styles.canvas} frameloop={demoActivo && !demoTerminado ? 'always' : 'demand'} dpr={demoActivo ? Math.min(1.5, escena.territorio?.dpr ?? 1.5) : (escena.territorio?.dpr ?? (mundo.modeloMeshy ? 1.5 : 2))} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
-      {demoActivo && <DemoRecorrido mundo={mundo} escena={escena} demoRef={demoRef} progresoRef={progresoRef} controlRef={controlRef} onAvance={onDemoAvance} />}
-      <Montaje mundo={mundo} monumentoActivo={monumentoActivo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} onModeloEstado={onModeloEstado} onCamaraAplicada={onCamaraAplicada} demoRef={demoRef} />
-      <Ruta mundo={mundo} escena={escena} progresoRef={progresoRef} detalle={!!inspeccion} demoActivo={demoActivo} />
+    <Canvas style={styles.canvas} frameloop="demand" dpr={escena.territorio?.dpr ?? (mundo.modeloMeshy ? 1.5 : 2)} gl={opcionesGL} camera={camaraInicial} onCreated={alCrear}>
+      <Montaje mundo={mundo} monumentoActivo={monumentoActivo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} onModeloEstado={onModeloEstado} onCamaraAplicada={onCamaraAplicada} />
+      <Ruta mundo={mundo} escena={escena} progresoRef={progresoRef} detalle={!!inspeccion} />
     </Canvas>
   );
 });
@@ -269,17 +262,6 @@ export default function MapaRecorrido3D({
   // Modo aventura del GPS: la cámara sigue al marcador desde atrás.
   seguirMarcador = false,
 }) {
-  const esAdmin = useEsAdmin();
-  const { height: altoPantalla } = useWindowDimensions();
-  const [panelDemo, setPanelDemo] = useState(false);
-  const [segundosDemo, setSegundosDemo] = useState('12');
-  const [pantallaLimpia, setPantallaLimpia] = useState(true);
-  const [sesionDemo, setSesionDemo] = useState(false);
-  const [demoTerminado, setDemoTerminado] = useState(false);
-  const [demoEnMeta, setDemoEnMeta] = useState(false);
-  const demoRef = useRef(null);
-  const demoActivo = esAdmin && sesionDemo;
-  const limpio = demoActivo && pantallaLimpia;
   const [detalleActivo, setDetalleActivo] = useState(false);
   const [llegadaFinal, setLlegadaFinal] = useState(false);
   const [listo, setListo] = useState(cacheEscenas.has(escena.id));
@@ -330,12 +312,10 @@ export default function MapaRecorrido3D({
   },[liberarGesto,onSelect]);
 
   const aplicarCamara = useCallback(() => {
-    if (demoRef.current?.activo) return;
     // Cámara, atmósfera y pines se actualizan juntos una vez por frame.
     if (revisionPendienteRef.current != null) return;
     revisionPendienteRef.current = requestAnimationFrame(() => {
       revisionPendienteRef.current = null;
-      if (demoRef.current?.activo) return;
       const estado = r3fRef.current;
       if (!estado) return;
       const ahora=Date.now();
@@ -522,8 +502,8 @@ export default function MapaRecorrido3D({
   const kmProgreso = kmPlayback == null ? kmProgresoReal : kmPlayback;
   // A completed challenge replays from zero: during that animation checkpoints
   // must unlock progressively instead of remaining all conquered from the start.
-  const completadoEnJourney = completado && kmPlayback == null && !demoActivo;
-  if (!reproduciendo && !demoActivo) progresoRef.current = { km: kmProgreso, animando: false };
+  const completadoEnJourney = completado && kmPlayback == null;
+  if (!reproduciendo) progresoRef.current = { km: kmProgreso, animando: false };
   useEffect(() => {
     // También refresca una carga de actividad, sin esperar al siguiente gesto.
     r3fRef.current?.invalidate();
@@ -547,7 +527,6 @@ export default function MapaRecorrido3D({
   }, [mundo, escena, tam?.w, tam?.h]);
 
   useEffect(() => {
-    if (demoActivo) return;
     if (!mundo || !escena.territorio || (!focoMonumento && !vistaGeneral)) return;
     const cambioFoco = ultimoFocoRef.current !== focoMonumento;
     ultimoFocoRef.current = focoMonumento;
@@ -572,14 +551,13 @@ export default function MapaRecorrido3D({
       controlRef.current = controlInspeccion(ancla, focoMonumento.km ?? ancla.km);
     }
     aplicarCamara();
-  }, [mundo, focoMonumento, escena, aplicarCamara, vistaGeneral, controlInspeccion, demoActivo]);
+  }, [mundo, focoMonumento, escena, aplicarCamara, vistaGeneral, controlInspeccion]);
 
   const replayPorHitos = !!escena.territorio?.replayPorHitos;
   const rotulos = rotulosReplay(journey);
 
   // Proyección de pines y etiquetas con la misma cámara que usa el Canvas.
   const overlay = useMemo(() => {
-    if (demoActivo) return null;
     if (!mundo || !tam) return null;
     const { datos, conv } = mundo;
     // Project from the camera already applied to the Canvas, never from a
@@ -674,7 +652,7 @@ export default function MapaRecorrido3D({
       return true;
     });
     return { pines: pinesVisibles, aguas: aguasVisibles, actual, anguloNorte, etiquetas, zonasHud };
-  }, [mundo, tam, journey, escena, kmProgreso, seleccionadoId, revisionCamara, reproduciendo, actividades.length, replayPorHitos, demoActivo]);
+  }, [mundo, tam, journey, escena, kmProgreso, seleccionadoId, revisionCamara, reproduciendo, actividades.length, replayPorHitos]);
 
   overlayRef.current = overlay;
 
@@ -802,7 +780,7 @@ export default function MapaRecorrido3D({
   const persecucionAnimRef = useRef(null);
   const ultimaPersecucionRef = useRef(null);
   useEffect(() => {
-    if (demoActivo || !seguirMarcador || !mundo) return undefined;
+    if (!seguirMarcador || !mundo) return undefined;
     const acomodar = () => {
       if (Date.now() < camaraManualHastaRef.current || arrastrandoRef.current) { ultimaPersecucionRef.current = null; return; }
       const km = kmActualRef.current;
@@ -829,7 +807,7 @@ export default function MapaRecorrido3D({
     acomodar();
     const id = setInterval(acomodar, 1200);
     return () => { clearInterval(id); if (persecucionAnimRef.current) cancelAnimationFrame(persecucionAnimRef.current); };
-  }, [seguirMarcador, mundo, escena, aplicarCamara, demoActivo]);
+  }, [seguirMarcador, mundo, escena, aplicarCamara]);
 
   const enfocarPosicion = () => {
     if (!mundo) return;
@@ -870,75 +848,6 @@ export default function MapaRecorrido3D({
   };
   recentrarRef.current = recenter;
 
-  const salirDemo = useCallback(() => {
-    const anterior = demoRef.current;
-    if (!anterior) return;
-    anterior.activo = false;
-    demoRef.current = null;
-    setSesionDemo(false);
-    setDemoTerminado(false);
-    setDemoEnMeta(false);
-    setKmPlayback(null);
-    setReproduciendo(false);
-    setDetalleActivo(anterior.detalle);
-    setLlegadaFinal(anterior.llegada);
-    controlRef.current = anterior.control;
-    progresoRef.current = { km: kmProgresoReal, animando: false };
-    ultimaPublicacionRef.current = 0;
-    aplicarCamara();
-  }, [kmProgresoReal, aplicarCamara]);
-
-  const gestoSalirDemo = useMemo(() => PanResponder.create({
-    // Horizontal swipe only: taps and the title's long press remain available.
-    onMoveShouldSetPanResponder: (_, g) => g.dx > 12 && g.dx > Math.abs(g.dy) * 1.4,
-    onPanResponderRelease: (_, g) => {
-      if (g.dx >= 80 || (g.dx >= 35 && g.vx >= .65)) salirDemo();
-    },
-    onPanResponderTerminationRequest: () => true,
-  }), [salirDemo]);
-
-  const iniciarDemo = () => {
-    if (!esAdmin || !mundo || (mundo.modeloMeshy && estadoModelo !== 'listo') || demoActivo) return;
-    if (playbackRef.current) cancelAnimationFrame(playbackRef.current);
-    playbackRef.current = null;
-    if (revisionPendienteRef.current != null) cancelAnimationFrame(revisionPendienteRef.current);
-    revisionPendienteRef.current = null;
-    liberarGesto();
-    cierreOpacity.stopAnimation();
-    setCierreVisible(false);
-    const control = { ...controlRef.current, objetivo: [...controlRef.current.objetivo] };
-    const general = vistaGeneral || { ...controlInicialReplay(escena.camara.objetivo), zoom: escena.camara.zoomGeneral ?? 1, objetivo: escena.camara.objetivoGeneral || escena.camara.objetivo };
-    demoRef.current = { activo: true, tiempo: 0, terminado: false, duracion: duracionDemo(segundosDemo), checkpoints, general, control, detalle: detalleActivo, llegada: llegadaFinal, pausado: AppState.currentState !== 'active' };
-    controlRef.current = { ...general, objetivo: [...general.objetivo] };
-    progresoRef.current = { km: 0, animando: true };
-    setKmPlayback(0);
-    setReproduciendo(false);
-    setDetalleActivo(false);
-    setLlegadaFinal(false);
-    setDemoTerminado(false);
-    setDemoEnMeta(false);
-    setPanelDemo(false);
-    setSesionDemo(true);
-  };
-
-  const onDemoAvance = useCallback(estado => {
-    if (!demoRef.current?.activo) return;
-    setKmPlayback(estado.km);
-    setDemoEnMeta(estado.enMeta);
-    if (estado.terminado) setDemoTerminado(true);
-  }, []);
-
-  useEffect(() => {
-    if (!esAdmin) { setPanelDemo(false); salirDemo(); }
-  }, [esAdmin, salirDemo]);
-
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', estado => {
-      if (demoRef.current) demoRef.current.pausado = estado !== 'active';
-    });
-    return () => { sub.remove(); if (demoRef.current) demoRef.current.activo = false; };
-  }, []);
-
   const totalTxt = Number(kmTotalUsuario) || escena.distanciaKm;
   const kmTxt = kmPlayback == null ? Math.min(Number(kmUsuario) || 0, totalTxt) : (kmPlayback / escena.distanciaKm) * totalTxt;
   const inspeccion = llegadaFinal || (detalleActivo && !!escena.territorio && focoMonumento && !focoMonumento.general && !reproduciendo);
@@ -966,12 +875,12 @@ export default function MapaRecorrido3D({
       .slice(-3);
   }, [actividadesJourney, reproduciendo, kmPlayback]);
 
-  const contenido = (
+  return (
     <View
       ref={wrapRef}
       collapsable={false}
-      {...(demoActivo ? gestoSalirDemo.panHandlers : touchHandlers)}
-      style={[styles.wrap, { height: limpio ? altoPantalla : Math.max(altura, 455) }, limpio && styles.demoPantalla]}
+      {...touchHandlers}
+      style={[styles.wrap, { height: Math.max(altura, 455) }]}
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
         if (!tam || Math.abs(tam.w - width) > 0.5 || Math.abs(tam.h - height) > 0.5) setTam({ w: width, h: height });
@@ -980,12 +889,11 @@ export default function MapaRecorrido3D({
       <Fondo />
       {mundo && (
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: aparicion }]}>
-          <EscenaCanvas mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} progresoRef={progresoRef} inspeccion={!!inspeccion} monumentoActivo={inspeccion ? (llegadaFinal ? escena.territorio.llegada : buscarAncla(escena.territorio, focoMonumento)?.hito) : null} alCrear={alCrear} onModeloEstado={setEstadoModelo} onCamaraAplicada={onCamaraAplicada} demoRef={demoRef} demoActivo={demoActivo} demoTerminado={demoTerminado} onDemoAvance={onDemoAvance} />
+          <EscenaCanvas mundo={mundo} escena={escena} controlRef={controlRef} r3fRef={r3fRef} progresoRef={progresoRef} inspeccion={!!inspeccion} monumentoActivo={inspeccion ? (llegadaFinal ? escena.territorio.llegada : buscarAncla(escena.territorio, focoMonumento)?.hito) : null} alCrear={alCrear} onModeloEstado={setEstadoModelo} onCamaraAplicada={onCamaraAplicada} />
         </Animated.View>
       )}
 
 
-      {!demoActivo && <>
       {!mundo && <Text style={styles.cargando}>Modelando el relieve…</Text>}
       {mundo?.modeloMeshy && estadoModelo !== 'listo' && (
         <Text pointerEvents="none" style={styles.estadoModelo}>
@@ -1119,70 +1027,13 @@ export default function MapaRecorrido3D({
       )}
       <Text pointerEvents="none" style={styles.pista}>1 dedo gira e inclina · 2 dedos zoom y mover</Text>
       <View pointerEvents="none" style={styles.borde} />
-      </>}
-
-      {demoActivo && <>
-        <TouchableOpacity activeOpacity={1} onLongPress={salirDemo} delayLongPress={900} accessibilityRole="button" accessibilityLabel="Mantener presionado para salir de la demo" style={styles.demoTitulo}>
-          <Text style={styles.hudTitulo}>{escena.presentacion?.titulo || 'Tu recorrido'}</Text>
-        </TouchableOpacity>
-        {!limpio && <View style={styles.demoEstado}>
-          <Text style={styles.demoTexto}>{demoTerminado ? 'Demo finalizada · imagen fija' : demoEnMeta ? 'Llegada' : `Demo · ${Math.round(100 * (kmPlayback || 0) / escena.distanciaKm)} %`}</Text>
-          <TouchableOpacity onPress={salirDemo} accessibilityRole="button" style={styles.demoAccion}>
-            <Text style={styles.demoTexto}>Salir de demo</Text>
-          </TouchableOpacity>
-        </View>}
-        {!limpio && demoEnMeta && <View pointerEvents="none" style={styles.cierreLogro}>
-          <Text style={styles.cierreEyebrow}>{escena.territorio?.textoCierre || 'RECORRIDO COMPLETADO'}</Text>
-          <Text style={styles.cierreKm}>{textoKm(totalTxt)} KM</Text>
-          <View style={styles.cierreLinea} />
-          <Text style={styles.cierreTitulo}>{escena.presentacion?.titulo || 'Tu conquista'}</Text>
-        </View>}
-      </>}
-
-      {esAdmin && !demoActivo && <TouchableOpacity onPress={() => setPanelDemo(v => !v)} accessibilityRole="button" accessibilityLabel="Modo demo para grabar recorrido" style={styles.demoBoton}>
-        <Text style={styles.demoTexto}>🎬</Text>
-      </TouchableOpacity>}
-      {esAdmin && panelDemo && !demoActivo && <View style={styles.demoPanel}>
-        <Text style={styles.demoPanelTitulo}>Demo del recorrido</Text>
-        <View style={styles.demoFila}>
-          <Text style={styles.demoTexto}>Duración (segundos)</Text>
-          <TextInput accessibilityLabel="Duración de la demo en segundos" keyboardType="number-pad" maxLength={3} value={segundosDemo} onChangeText={setSegundosDemo} onBlur={() => setSegundosDemo(String(duracionDemo(segundosDemo)))} style={styles.demoInput} />
-        </View>
-        <View style={styles.demoFila}>
-          <Text style={styles.demoTexto}>Pantalla limpia</Text>
-          <Switch accessibilityLabel="Pantalla limpia para grabar" value={pantallaLimpia} onValueChange={setPantallaLimpia} />
-        </View>
-        <Text style={styles.demoAyuda}>Solo visual. Al llegar, la cámara gira durante 2 s y queda quieta. Deslizá hacia la derecha para salir; también podés mantener presionado el nombre.</Text>
-        <View style={styles.demoFila}>
-          <TouchableOpacity onPress={() => setPanelDemo(false)} style={styles.demoAccion} accessibilityRole="button"><Text style={styles.demoTexto}>Cancelar</Text></TouchableOpacity>
-          <TouchableOpacity disabled={!mundo || (mundo.modeloMeshy && estadoModelo !== 'listo')} onPress={iniciarDemo} style={[styles.demoAccion, styles.demoIniciar]} accessibilityRole="button"><Text style={styles.demoTexto}>{!mundo || (mundo.modeloMeshy && estadoModelo !== 'listo') ? 'Cargando mapa…' : 'Iniciar demo'}</Text></TouchableOpacity>
-        </View>
-      </View>}
     </View>
   );
-  return limpio ? (
-    <Modal visible animationType="none" presentationStyle="fullScreen" statusBarTranslucent navigationBarTranslucent onRequestClose={salirDemo}>
-      <StatusBar hidden />
-      {contenido}
-    </Modal>
-  ) : contenido;
 }
 
 const sombraTexto = { textShadowColor: 'rgba(0,0,0,0.85)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 };
 
 const styles = StyleSheet.create({
-  demoPantalla: { flex: 1, borderRadius: 0 },
-  demoTitulo: { position: 'absolute', top: 44, left: 20, right: 20, paddingVertical: 12 },
-  demoBoton: { position: 'absolute', right: 14, top: 58, padding: 10, borderRadius: 20, backgroundColor: '#102333DD' },
-  demoPanel: { position: 'absolute', left: 14, right: 14, bottom: 20, padding: 16, gap: 10, borderRadius: 16, backgroundColor: '#102333', borderWidth: 1, borderColor: '#456075' },
-  demoPanelTitulo: { color: '#FFFFFF', fontSize: 17, fontWeight: '700' },
-  demoTexto: { color: '#FFFFFF', fontSize: 13 },
-  demoAyuda: { color: '#B5C8D7', fontSize: 12, lineHeight: 18 },
-  demoFila: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  demoInput: { color: '#FFFFFF', borderColor: '#456075', borderWidth: 1, borderRadius: 8, padding: 8, minWidth: 60, textAlign: 'center' },
-  demoAccion: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, backgroundColor: '#29445A' },
-  demoIniciar: { backgroundColor: '#BA4B00' },
-  demoEstado: { position: 'absolute', left: 20, right: 20, bottom: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   wrap: { width: '100%', overflow: 'hidden', borderRadius: 18, backgroundColor: colors.backgroundDeep },
   canvas: { flex: 1 },
   borde: { ...StyleSheet.absoluteFillObject, borderWidth: 1, borderColor: colors.borderSoft, borderRadius: 18 },
